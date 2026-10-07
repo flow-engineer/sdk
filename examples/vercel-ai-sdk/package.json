@@ -1,0 +1,12 @@
+{
+  "name": "flow-messaging-example-vercel-ai-sdk",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "tsx --env-file=.env agent.ts" },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.87",
+    "@flow-engineer/messaging": "file:../../typescript",
+    "ai": "^7.0.131"
+  },
+  "devDependencies": { "tsx": "^4.23.15", "typescript": "~5.9.3" }
+}

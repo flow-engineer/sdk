@@ -1,0 +1,11 @@
+{
+  "name": "flow-messaging-example-claude-agent-sdk",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "tsx --env-file=.env agent.ts" },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.293",
+    "@flow-engineer/messaging": "file:../../typescript"
+  },
+  "devDependencies": { "tsx": "^4.23.15", "typescript": "~5.9.3" }
+}

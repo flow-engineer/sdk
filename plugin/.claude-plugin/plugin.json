@@ -1,0 +1,10 @@
+{
+  "name": "flow-messaging",
+  "version": "0.1.0",
+  "description": "Let your AI agent talk with people on WhatsApp, Telegram and iMessage through Flow Messaging: a skill for the @flow-engineer/messaging SDK and the Flow Messaging MCP server.",
+  "author": { "name": "Flow Engineer", "url": "https://flow.engineer" },
+  "homepage": "https://docs.flow.engineer",
+  "repository": "https://github.com/flow-engineer/sdk",
+  "license": "Apache-2.0",
+  "keywords": ["whatsapp", "telegram", "imessage", "messaging", "agents", "mcp"]
+}

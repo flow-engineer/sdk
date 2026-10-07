@@ -1,0 +1,7 @@
+{
+  "name": "flow-messaging-example-echo",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node --env-file=.env agent.mjs" },
+  "dependencies": { "@flow-engineer/messaging": "file:../../typescript" }
+}

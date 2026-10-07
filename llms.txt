@@ -1,0 +1,38 @@
+# Flow Messaging
+
+> One API for AI agents to talk with people on WhatsApp, Telegram and iMessage. Flow hosts the senders (Telegram bots, WhatsApp numbers, iMessage lines), delivers inbound messages as typed events (webhooks, a WebSocket stream, or polling) and sends typed content through one gate that applies each channel's rules. HTTP API at https://api.flow.engineer; TypeScript SDK `@flow-engineer/messaging`; MCP server at https://api.flow.engineer/mcp.
+
+Quickstart (TypeScript, Node 18+/Bun/Deno/edge):
+
+```ts
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+const flow = new FlowMessaging(); // FLOW_MESSAGING_KEY
+for await (const event of flow.events.stream({ types: ["message.received"] })) {
+  await event.conversation.reply(llmStream(contentText(event.data.message.content)));
+}
+```
+
+- Keys: `fk_test_...` (shared sandbox only; a person joins by sending the app's join code, e.g. `join brave-otter`, to a sandbox sender) and `fk_live_...`. `npx @flow-engineer/messaging init --key fk_test_...` writes `.env`, installs agent files and prints the join code.
+- `event.conversation.reply(x)` accepts a string, content, a list of content, or a stream from OpenAI, Anthropic, Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, LangChain, Mastra or any AsyncIterable<string>; it keeps typing on and sends chat bubbles split at paragraph and sentence ends.
+- Webhooks: `Flow-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.{t}.{raw body}">`, 5-minute window; SDK: `await flow.webhooks.constructEvent(rawBody, signature, secret)` or `flow.webhooks.handler({ secret, onEvent })`. Answer `200 {"reply": <content>}` to reply at once.
+- Rules: reply into a conversation (no channel choice per message); contacts may have no phone number; WhatsApp needs a template after 24 h (`outside_window`); content a channel cannot show needs `fallback: "auto"` (`unsupported_content`); errors are a closed list of `error.type`; every POST takes `Idempotency-Key`; `Flow-Version: 2026-11-01`.
+
+## Docs
+
+- [TypeScript SDK README](https://github.com/flow-engineer/sdk/blob/main/typescript/README.md): client, events, webhooks, reply and bubbles, errors, CLI, agent files
+- [OpenAPI spec](https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml): every endpoint, content type, event type and error type
+- [Claude Code skill](https://github.com/flow-engineer/sdk/blob/main/plugin/skills/flow-messaging/SKILL.md): the short guide coding agents load
+- [API and content reference](https://github.com/flow-engineer/sdk/blob/main/plugin/skills/flow-messaging/reference/api.md)
+- [Frameworks](https://github.com/flow-engineer/sdk/blob/main/plugin/skills/flow-messaging/reference/frameworks.md): OpenAI, Anthropic, Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, Mastra, LangChain, Eve
+- [CLI and MCP](https://github.com/flow-engineer/sdk/blob/main/plugin/skills/flow-messaging/reference/cli-mcp.md)
+- [Documentation site](https://docs.flow.engineer)
+
+## Examples
+
+- [Echo agent, 20 lines](https://github.com/flow-engineer/sdk/tree/main/examples/echo)
+- [Vercel AI SDK](https://github.com/flow-engineer/sdk/tree/main/examples/vercel-ai-sdk)
+- [OpenAI Agents SDK](https://github.com/flow-engineer/sdk/tree/main/examples/openai-agents)
+- [Claude Agent SDK](https://github.com/flow-engineer/sdk/tree/main/examples/claude-agent-sdk)
+- [Mastra](https://github.com/flow-engineer/sdk/tree/main/examples/mastra)
+- [LangChain.js](https://github.com/flow-engineer/sdk/tree/main/examples/langchain)
+- [Eve](https://github.com/flow-engineer/sdk/tree/main/examples/eve)
