@@ -2533,7 +2533,7 @@ components:
             format: email
     EffectContent:
       type: object
-      description: Text sent with an iMessage effect, sent only. Other channels need `fallback` (`auto` sends the plain text). Which effects LoopMessage supports is not confirmed yet.
+      description: Text sent with an iMessage effect, sent only. Other channels need `fallback` (`auto` sends the plain text). Which effects are available may vary.
       required: [type, text, effect]
       properties:
         type:
