@@ -1,0 +1,11 @@
+# Lint rules for the spec: `npx @redocly/cli@2 lint` (run from the repo root).
+apis:
+  messaging:
+    root: openapi/openapi.yaml
+extends:
+  - recommended-strict
+rules:
+  operation-description: error
+  tag-description: error
+  info-contact: error
+  no-unused-components: error
