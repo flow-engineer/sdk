@@ -776,6 +776,15 @@ paths:
         fetched from the channel once and served this way; event payloads link to
         this endpoint.
       responses:
+        "200":
+          description: |
+            The file's bytes, served directly. Until Flow's file storage is live, inbound
+            media is fetched from the channel when you ask for it and served this way.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         "302":
           description: A redirect to the file's bytes. The `Location` URL expires after 5 minutes.
           headers:
@@ -836,6 +845,11 @@ paths:
         receive `sender.status_changed` when it is ready. WhatsApp numbers also need
         your business verified through Meta's Embedded Signup, linked from the
         dashboard. Live keys only.
+
+        A Telegram bot is connected at once: give the token BotFather issued as
+        `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
+        webhook at Flow, and answers with the sender `active`. The token is never
+        returned.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1838,6 +1852,12 @@ components:
           type: string
           description: WhatsApp and iMessage. ISO 3166-1 alpha-2 country for the number, for example `IN`.
           pattern: "^[A-Z]{2}$"
+        telegram_bot_token:
+          type: string
+          writeOnly: true
+          maxLength: 128
+          pattern: "^[0-9]{1,20}:[A-Za-z0-9_-]{20,100}$"
+          description: Telegram only, and required there. The bot token from BotFather. Stored encrypted; never returned.
     SenderList:
       type: object
       description: A page of senders.
