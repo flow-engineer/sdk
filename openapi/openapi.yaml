@@ -109,7 +109,9 @@ info:
     hour, with a warm-up curve for new lines) and per plan. When abuse signals trip
     (the same text to many new contacts, many starts with no reply, blocks, a drop
     in WhatsApp quality) the sender is throttled and you receive
-    `sender.status_changed`.
+    `sender.status_changed`: until the sender's `throttled_until`, starts fail with
+    `429 sender_throttled`, while replies into existing conversations still go. The
+    sender recovers by itself, with another `sender.status_changed`.
 
     ## Content a channel cannot show
 
@@ -360,7 +362,13 @@ paths:
       description: |
         Replaces the text of one of your outbound messages (on Telegram, also the
         caption of a media message). Telegram supports edits; WhatsApp does not
-        (`422 unsupported_content`); iMessage support is not confirmed yet.
+        (`422 unsupported_content`); iMessage support is not confirmed yet, so it is
+        refused the same way for now.
+
+        The edit passes the send gate and goes out in order with the conversation's
+        other messages. The answer shows the message with its new content; the stored
+        message takes it once the channel accepted the edit. If the channel refuses
+        it, you receive `message.failed` for an `edit` message naming this one.
       requestBody:
         required: true
         content:
@@ -392,9 +400,11 @@ paths:
       summary: Unsend a message
       description: |
         Removes one of your outbound messages from the contact's chat, where the
-        channel allows it (Telegram: yes; WhatsApp: no, `422 unsupported_content`;
-        iMessage: not confirmed yet). The message stays in your history with status
-        `unsent`.
+        channel allows it (Telegram: yes, within 48 hours; WhatsApp: no,
+        `422 unsupported_content`; iMessage: not confirmed yet, refused the same way
+        for now). The unsend passes the send gate and goes out in order with the
+        conversation's other messages; the message stays in your history and takes
+        status `unsent` once the channel removed it. Repeating the call is safe.
       responses:
         "200":
           description: The message was unsent.
@@ -733,9 +743,14 @@ paths:
       summary: Upload a file
       description: |
         Uploads media to send later as `media` or `voice` content (by `file_id`).
-        The real type is checked from the file's first bytes, sizes are capped per
-        channel, and documents (PDF, Office, archives) are scanned for malware.
-        Files are kept for your plan's retention period (30 days by default).
+        The real type is checked from the file's first bytes: programs, web pages and
+        unknown types are refused with `422 unsupported_content`. Documents (PDF,
+        Office, archives) are scanned for malware, and a file that fails the scan is
+        refused with `422 file_blocked` and not stored; images, audio and video are
+        not scanned. Files up to 100 MB are taken; give `channel` to check the file
+        against that channel's own size limit now (otherwise it is checked when you
+        send it, with `422 unsupported_content`). Files are kept for your plan's
+        retention period (30 days by default).
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -773,13 +788,14 @@ paths:
       description: |
         Redirects to a short-lived signed URL for the file's bytes, on Flow's
         separate file domain. Inbound media (photos, documents, voice notes) is
-        fetched from the channel once and served this way; event payloads link to
-        this endpoint.
+        fetched from the channel once, before its event is delivered, and served this
+        way; event payloads link to this endpoint.
       responses:
         "200":
           description: |
-            The file's bytes, served directly. Until Flow's file storage is live, inbound
-            media is fetched from the channel when you ask for it and served this way.
+            The file's bytes, served directly. Used where file storage has no separate
+            file domain (local development) and for media received before Flow kept
+            copies, which is fetched from the channel when asked for.
           content:
             application/octet-stream:
               schema:
@@ -945,9 +961,12 @@ paths:
       tags: [Templates]
       summary: Create a template
       description: |
-        Submits a WhatsApp message template to Meta for a sender. It starts as
-        `pending`; you receive `template.status_changed` when Meta approves, rejects
-        or pauses it.
+        Submits a WhatsApp message template to Meta for one of your dedicated
+        WhatsApp senders. It starts as `pending`; you receive
+        `template.status_changed` when Meta approves, rejects or pauses it. Templates
+        are WhatsApp only: a Telegram or iMessage sender gets
+        `422 unsupported_content`, and a name and language the sender already has
+        gets `400 invalid_request`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -971,6 +990,8 @@ paths:
           $ref: "#/components/responses/PermissionDenied"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnsupportedContent"
         "429":
           $ref: "#/components/responses/RateLimited"
         default:
@@ -1496,8 +1517,9 @@ components:
             error: {type: unsupported_content, message: "iMessage cannot show buttons. Set fallback to send numbered text instead.", param: content.type}
     RateLimited:
       description: |
-        Too many requests for this key (`rate_limited`), or the sender has used its
-        budget for starting conversations (`new_contact_limit`). Wait `retry_after`
+        Too many requests for this key (`rate_limited`), the sender has used its
+        budget for starting conversations (`new_contact_limit`), or the sender is
+        throttled after abuse signals (`sender_throttled`). Wait `retry_after`
         seconds.
       headers:
         Retry-After:
@@ -1615,6 +1637,8 @@ components:
         - `outside_window`: WhatsApp's 24-hour window is closed; send a `template` (409).
         - `unsupported_content`: the channel cannot show this content and no `fallback` was set (422).
         - `new_contact_limit`: the sender has used its budget for starting conversations; see `retry_after` (429).
+        - `sender_throttled`: abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go (429).
+        - `file_blocked`: the file failed the malware scan and was not stored (422).
         - `rate_limited`: too many requests for this key; see `retry_after` (429).
         - `channel_error`: the channel refused or failed the message; `channel_code` carries its own code (502, or in `message.failed`).
         - `not_implemented`: this endpoint is not live yet during the beta (501).
@@ -1628,6 +1652,8 @@ components:
         - outside_window
         - unsupported_content
         - new_contact_limit
+        - sender_throttled
+        - file_blocked
         - rate_limited
         - channel_error
         - not_implemented
@@ -1781,6 +1807,10 @@ components:
           description: The name contacts see, where the channel shows one.
         status:
           $ref: "#/components/schemas/SenderStatus"
+        throttled_until:
+          type: string
+          format: date-time
+          description: With status `throttled`, when starts are allowed again. Recovery is automatic.
         address:
           $ref: "#/components/schemas/SenderAddress"
         limits:
@@ -2182,13 +2212,14 @@ components:
     ContentType:
       type: string
       description: The kinds of content. Each is described in its own schema, with the direction it travels in.
-      enum: [text, media, voice, buttons, button_reply, reaction, template, location, contact_card, effect, typing, read, edit, unsend]
+      enum: [text, media, voice, buttons, button_reply, reaction, template, location, contact_card, effect, typing, read, edit, unsend, file_blocked]
     Content:
       type: object
       description: |
         One piece of content, in either direction. `type` selects the shape. Inbound
-        messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `location`
-        and `contact_card`; sends use every type except `button_reply`.
+        messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `location`,
+        `contact_card` and `file_blocked`; sends use every type except `button_reply`
+        and `file_blocked`.
 
         | type | Telegram | WhatsApp | iMessage | `fallback: "auto"` |
         |---|---|---|---|---|
@@ -2219,6 +2250,7 @@ components:
         - $ref: "#/components/schemas/ReadContent"
         - $ref: "#/components/schemas/EditContent"
         - $ref: "#/components/schemas/UnsendContent"
+        - $ref: "#/components/schemas/FileBlockedContent"
       discriminator:
         propertyName: type
         mapping:
@@ -2236,6 +2268,7 @@ components:
           read: "#/components/schemas/ReadContent"
           edit: "#/components/schemas/EditContent"
           unsend: "#/components/schemas/UnsendContent"
+          file_blocked: "#/components/schemas/FileBlockedContent"
     TextContent:
       type: object
       description: Text, both ways. With `format` `markdown`, Flow renders it in each channel's own formatting; a channel without formatting needs `fallback`.
@@ -2597,6 +2630,41 @@ components:
           description: Always `unsend`.
         message_id:
           $ref: "#/components/schemas/MessageId"
+    FileBlockedContent:
+      type: object
+      description: |
+        Inbound only. The contact sent a file that Flow did not keep: it failed the
+        malware scan, its real type is one Flow does not pass on (programs, web
+        pages), it could not be scanned, or it is larger than the channel lets Flow
+        download. The file is not stored and has no `url`; what is known about it is
+        here. Images, audio and video are not scanned; documents (PDF, Office,
+        archives) are.
+      required: [type, reason]
+      properties:
+        type:
+          type: string
+          enum: [file_blocked]
+          description: Always `file_blocked`.
+        reason:
+          type: string
+          enum: [malware, type_not_allowed, scan_failed, too_large]
+          description: "Why the file was not kept: `malware` (the scan found something), `type_not_allowed`, `scan_failed` (the scanner could not check it; ask the contact to send it again), or `too_large`."
+        kind:
+          type: string
+          enum: [image, video, document, audio]
+          description: What kind of media the channel said it was.
+        filename:
+          type: string
+          description: The file's name, if it had one.
+        mime_type:
+          type: string
+          description: The real type, read from the file's first bytes, when Flow read them.
+        size_bytes:
+          type: integer
+          description: The file's size, when known.
+        caption:
+          type: string
+          description: Text the contact sent with the file.
 
     # ---------------------------------------------------------------- events
     EventType:
@@ -3131,6 +3199,8 @@ components:
           type: string
           maxLength: 255
           description: The name to show for the file; defaults to the uploaded part's file name.
+        channel:
+          $ref: "#/components/schemas/Channel"
     File:
       type: object
       description: A stored file. Send it as `media` or `voice` content by `file_id`.
