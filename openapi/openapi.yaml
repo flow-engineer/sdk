@@ -961,9 +961,9 @@ paths:
       tags: [Templates]
       summary: Create a template
       description: |
-        Submits a WhatsApp message template to Meta for one of your dedicated
+        Submits a WhatsApp message template for review for one of your dedicated
         WhatsApp senders. It starts as `pending`; you receive
-        `template.status_changed` when Meta approves, rejects or pauses it. Templates
+        `template.status_changed` when WhatsApp approves, rejects or pauses it. Templates
         are WhatsApp only: a Telegram or iMessage sender gets
         `422 unsupported_content`, and a name and language the sender already has
         gets `400 invalid_request`.
