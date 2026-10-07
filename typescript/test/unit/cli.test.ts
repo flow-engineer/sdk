@@ -80,12 +80,12 @@ describe("device sign-in (preview)", () => {
       polls++;
       if (polls === 1) return json(400, { error: "authorization_pending" });
       if (polls === 2) return json(400, { error: "slow_down" });
-      return json(200, { api_key: "fk_test_granted123", app: "app_1" });
+      return json(200, { api_key: "fk_test_example", app: "app_1" });
     });
     const waits: number[] = [];
     const shown: string[] = [];
     const out = await deviceLogin({ authUrl: "https://auth.test/device", fetch, prompt: (c) => shown.push(c.user_code), wait: async (ms) => void waits.push(ms) });
-    expect(out.apiKey).toBe("fk_test_granted123");
+    expect(out.apiKey).toBe("fk_test_example");
     expect(shown).toEqual(["ABCD-EFGH"]);
     expect(waits).toEqual([1000, 1000, 6000]);
     expect(calls[1]!.body).toMatchObject({ grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: "dc" });
