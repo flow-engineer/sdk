@@ -1,0 +1,130 @@
+---
+title: "Build a WhatsApp AI agent with the Flow Messaging API"
+sidebarTitle: "WhatsApp agent"
+description: "Give your AI agent a WhatsApp number: receive WhatsApp messages and voice notes by webhook, reply with text, buttons and media, stream LLM answers, handle the 24-hour window with templates, and go live on your own number."
+keywords: ["WhatsApp API for AI agents", "WhatsApp AI agent", "send WhatsApp message from LLM agent", "WhatsApp chatbot API", "WhatsApp Business API AI", "WhatsApp LLM integration", "connect AI agent to WhatsApp"]
+---
+
+This guide builds an AI agent that answers people on WhatsApp: it receives messages and voice notes, streams the model's answer back as chat bubbles, uses buttons, and handles WhatsApp's 24-hour window.
+
+```ts TypeScript
+// app/api/whatsapp/route.ts (Next.js). npm install @flow-engineer/messaging ai @ai-sdk/openai
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const flow = new FlowMessaging();
+
+export const POST = flow.webhooks.handler({
+  onEvent: async (event) => {
+    if (event.type !== "message.received") return;
+    const question = contentText(event.data.message.content); // text, caption or voice transcript
+    // Answer after the webhook returns: reply() keeps typing on and sends bubbles as they are ready.
+    void event.conversation.reply(
+      streamText({ model: openai("gpt-4.1-mini"), system: "You are the assistant for Asha's Bakery.", prompt: question }),
+      { idempotencyKey: event.id },
+    );
+  },
+});
+```
+
+<Note>
+On serverless platforms that stop work when the response is sent, run the reply with your platform's background helper (for example `after()` in Next.js or `waitUntil()`), or answer in the webhook response itself as shown below.
+</Note>
+
+## 1. Try it on the sandbox number
+
+1. Get a test key: `npx @flow-engineer/messaging init`.
+2. `GET /v1/senders?channel=whatsapp` lists the shared WhatsApp sandbox number with its `address.link` (a `https://wa.me/...` link) and `join_code`.
+3. Open the link on your phone and send the join code. You now have a conversation with your app.
+4. Register your webhook (or run `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/whatsapp`, see [Local development](/guides/local-development)) and send a message.
+
+## 2. Answer fast: reply in the webhook response
+
+For short answers, skip the extra API call and return the reply from the webhook handler:
+
+```ts TypeScript
+export const POST = flow.webhooks.handler({
+  onEvent: async (event) => {
+    if (event.type !== "message.received") return;
+    return await answer(contentText(event.data.message.content)); // a string, content, or a list of up to 10
+  },
+});
+```
+
+```json HTTP response body
+{ "reply": { "type": "text", "text": "Yes, we deliver to 560103. Delivery takes about 40 minutes." } }
+```
+
+Answer within 10 seconds; for anything slower, answer `200 {}` at once and send with `POST /v1/conversations/{conversation_id}/messages`.
+
+## 3. Voice notes
+
+WhatsApp users send a lot of voice notes. Each one arrives as `voice` content with the audio file (`url`, `file_id`), and with transcription on for your app, a `transcript`:
+
+```json
+{ "type": "voice", "url": "https://api.flow.engineer/v1/files/file_01JB8ZC3K5M7P9R1T3V5X7Z9B1", "duration_seconds": 4.2, "transcript": "Do you deliver to 560103?" }
+```
+
+`contentText()` returns the transcript, so the agent above handles voice notes with no extra code. To send a voice note back, send `voice` content with an audio `url` or `file_id`.
+
+## 4. Buttons and lists
+
+WhatsApp shows up to 3 reply buttons, and a list for 4 to 10:
+
+```ts TypeScript
+import { buttons } from "@flow-engineer/messaging";
+
+await event.conversation.send(buttons("How would you like to pay?", [
+  { id: "upi", label: "UPI" },
+  { id: "card", label: "Card" },
+  { id: "cod", label: "Cash on delivery" },
+]));
+```
+
+A tap arrives as `message.received` with `button_reply` content: `{ "type": "button_reply", "button_id": "upi", "label": "UPI" }`. Labels are at most 20 characters.
+
+## 5. The 24-hour window and templates
+
+WhatsApp allows free-form messages only within **24 hours of the person's last message**. After that, and to message someone first, you must send an approved **template**.
+
+- Every event carries `conversation.window_open_until`.
+- A free-form send outside the window fails with `409` [`outside_window`](/errors/outside_window).
+- Subscribe to `conversation.window_closing` to get a warning 1 hour before it closes.
+
+```ts TypeScript
+import { template } from "@flow-engineer/messaging";
+
+// Follow up two days later: only a template may go.
+await flow.conversation(conversationId).send(
+  template("tpl_01JB8ZC3K5M7P9R1T3V5X7Z9B1", "en", { body: ["Asha", "order 1042"] }),
+);
+```
+
+Templates are created on your dedicated number with `POST /v1/templates` and reviewed by WhatsApp; you receive `template.status_changed` when one is approved, rejected or paused. See [Going live](/guides/going-live#whatsapp-templates).
+
+## 6. What WhatsApp supports
+
+| Content | WhatsApp |
+|---|---|
+| Text with markdown | yes (rendered in WhatsApp's own formatting) |
+| Images, video, documents, audio | yes |
+| Voice notes | yes, both ways |
+| Buttons | up to 3, else a list (up to 10) |
+| Reactions, read receipts, typing | yes |
+| Locations, contact cards | yes |
+| Edit or unsend | no (`422 unsupported_content`) |
+
+## 7. Go live on your own number
+
+Request a dedicated WhatsApp number with a live key, verify your business, then switch your key. See [Going live](/guides/going-live).
+
+<Warning>
+WhatsApp's business policy does not allow general-purpose AI assistants. Your agent must serve your business's own customers (support, orders, bookings, updates). Agents that only reply to people who wrote first, about your business, are the safe pattern.
+</Warning>
+
+## Related
+
+- [The send gate](/concepts/send-gate): windows, new-contact limits and quality.
+- [Streaming replies](/concepts/streaming-replies) and [Content types](/concepts/content-types).
+- Frameworks: [Vercel AI SDK](/frameworks/vercel-ai-sdk), [OpenAI Agents SDK](/frameworks/openai-agents-sdk), [LangChain](/frameworks/langchain).

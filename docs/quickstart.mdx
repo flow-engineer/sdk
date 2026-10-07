@@ -1,0 +1,257 @@
+---
+title: "Quickstart: give your AI agent WhatsApp, Telegram and iMessage in 5 minutes"
+sidebarTitle: "Quickstart"
+description: "Get a test key, join the Flow sandbox from your phone, receive your first message and reply to it, in TypeScript, Python, Go or curl. Five minutes, no phone number or bot of your own needed."
+keywords: ["send WhatsApp message from LLM agent", "AI agent WhatsApp quickstart", "Telegram bot API for AI agents", "iMessage API quickstart", "AI chatbot messaging API tutorial"]
+---
+
+This page gets an agent answering messages on your phone in about 5 minutes: get a test key, join the shared sandbox, receive a message, and reply.
+
+```bash
+npx @flow-engineer/messaging init
+```
+
+That one command gets a test key, saves it to `.env` as `FLOW_MESSAGING_KEY`, sets up your coding agent (skill, `AGENTS.md`, MCP server), and prints the sandbox link and join code. The steps below do the same by hand and then build the agent.
+
+<Steps>
+  <Step title="Get a test key">
+    Create a test key (`fk_test_...`) in the [dashboard](https://api.flow.engineer/admin), or run `npx @flow-engineer/messaging init`. Test keys reach only the shared sandbox, so nothing reaches anyone who has not joined it.
+
+    ```bash
+    export FLOW_MESSAGING_KEY=fk_test_...
+    ```
+
+    Check it, and read your app's sandbox join code:
+
+    ```bash
+    curl https://api.flow.engineer/v1/app \
+      -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+    ```
+
+    The answer includes `app.sandbox_join_code`, for example `brave-otter`.
+  </Step>
+
+  <Step title="Join the sandbox from your phone">
+    List the sandbox senders your key can use:
+
+    ```bash
+    curl https://api.flow.engineer/v1/senders \
+      -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+    ```
+
+    Each shared sender has an `address.link` (for example a `https://t.me/...` link) and a `join_code`. Open the link on your phone and send the join code, for example:
+
+    ```text
+    join brave-otter
+    ```
+
+    Your app now has a conversation with you, and you receive a `conversation.started` event. The join code is how a shared sandbox sender knows which app a person belongs to, so no stranger is ever messaged. See [Senders](/concepts/senders).
+  </Step>
+
+  <Step title="Receive a message and reply">
+    Run one of these, then send any message to the sandbox sender from your phone. Each program waits for `message.received` events and answers into the same conversation.
+
+    <CodeGroup>
+    ```ts TypeScript
+    // npm install @flow-engineer/messaging
+    import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+
+    const flow = new FlowMessaging(); // reads FLOW_MESSAGING_KEY
+
+    for await (const event of flow.events.stream({ types: ["message.received"] })) {
+      const said = contentText(event.data.message.content);
+      console.log(`${event.conversation.channel}: ${said}`);
+      await event.conversation.reply(`You said: ${said}`);
+    }
+    ```
+
+    ```python Python (HTTP)
+    # The Python SDK (pip install flow-messaging) is coming soon.
+    # Until then this is the same agent over plain HTTP: pip install requests
+    import os, time, requests
+
+    API = "https://api.flow.engineer"
+    HEADERS = {
+        "Authorization": f"Bearer {os.environ['FLOW_MESSAGING_KEY']}",
+        "Flow-Version": "2026-11-01",
+    }
+
+    after = None
+    while True:
+        params = {"type": "message.received", "limit": 100}
+        if after:
+            params["after"] = after
+        page = requests.get(f"{API}/v1/events", headers=HEADERS, params=params, timeout=30).json()
+        for event in page["data"]:
+            after = event["id"]
+            content = event["data"]["message"]["content"]
+            said = content.get("text") or content.get("caption") or content.get("transcript") or ""
+            requests.post(
+                f"{API}/v1/conversations/{event['conversation']['id']}/messages",
+                headers={**HEADERS, "Idempotency-Key": event["id"]},
+                json={"content": {"type": "text", "text": f"You said: {said}"}},
+                timeout=30,
+            )
+        if not page["has_more"]:
+            time.sleep(1)
+    ```
+
+    ```go Go (HTTP)
+    // The Go SDK (github.com/flow-engineer/sdk/go) is coming soon.
+    // Until then this is the same agent over plain HTTP, standard library only.
+    package main
+
+    import (
+    	"bytes"
+    	"encoding/json"
+    	"fmt"
+    	"net/http"
+    	"net/url"
+    	"os"
+    	"time"
+    )
+
+    const api = "https://api.flow.engineer"
+
+    type event struct {
+    	ID           string `json:"id"`
+    	Conversation struct {
+    		ID string `json:"id"`
+    	} `json:"conversation"`
+    	Data struct {
+    		Message struct {
+    			Content struct {
+    				Type string `json:"type"`
+    				Text string `json:"text"`
+    			} `json:"content"`
+    		} `json:"message"`
+    	} `json:"data"`
+    }
+
+    func call(method, path string, body any, idempotencyKey string, out any) error {
+    	var buf bytes.Buffer
+    	if body != nil {
+    		if err := json.NewEncoder(&buf).Encode(body); err != nil {
+    			return err
+    		}
+    	}
+    	req, err := http.NewRequest(method, api+path, &buf)
+    	if err != nil {
+    		return err
+    	}
+    	req.Header.Set("Authorization", "Bearer "+os.Getenv("FLOW_MESSAGING_KEY"))
+    	req.Header.Set("Flow-Version", "2026-11-01")
+    	req.Header.Set("Content-Type", "application/json")
+    	if idempotencyKey != "" {
+    		req.Header.Set("Idempotency-Key", idempotencyKey)
+    	}
+    	res, err := http.DefaultClient.Do(req)
+    	if err != nil {
+    		return err
+    	}
+    	defer res.Body.Close()
+    	if res.StatusCode >= 300 {
+    		return fmt.Errorf("%s %s: %s", method, path, res.Status)
+    	}
+    	if out != nil {
+    		return json.NewDecoder(res.Body).Decode(out)
+    	}
+    	return nil
+    }
+
+    func main() {
+    	after := ""
+    	for {
+    		q := url.Values{"type": {"message.received"}, "limit": {"100"}}
+    		if after != "" {
+    			q.Set("after", after)
+    		}
+    		var page struct {
+    			Data    []event `json:"data"`
+    			HasMore bool    `json:"has_more"`
+    		}
+    		if err := call("GET", "/v1/events?"+q.Encode(), nil, "", &page); err != nil {
+    			fmt.Println(err)
+    			time.Sleep(2 * time.Second)
+    			continue
+    		}
+    		for _, ev := range page.Data {
+    			after = ev.ID
+    			reply := map[string]any{
+    				"content": map[string]any{"type": "text", "text": "You said: " + ev.Data.Message.Content.Text},
+    			}
+    			if err := call("POST", "/v1/conversations/"+ev.Conversation.ID+"/messages", reply, ev.ID, nil); err != nil {
+    				fmt.Println(err)
+    			}
+    		}
+    		if !page.HasMore {
+    			time.Sleep(time.Second)
+    		}
+    	}
+    }
+    ```
+
+    ```bash curl
+    # 1. Read the newest messages from the event log (oldest first; pass after=evt_... to page forward).
+    curl -G https://api.flow.engineer/v1/events \
+      -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+      --data-urlencode "type=message.received"
+
+    # 2. Reply into the conversation from an event (data[].conversation.id).
+    curl https://api.flow.engineer/v1/conversations/conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1/messages \
+      -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+      -H "Content-Type: application/json" \
+      -H "Idempotency-Key: $(uuidgen)" \
+      -d '{"content": {"type": "text", "text": "Hello from my agent"}}'
+    ```
+    </CodeGroup>
+
+    The send answers `202` with the queued message. Its progress arrives as `message.sent`, `message.delivered` and `message.read` events.
+  </Step>
+
+  <Step title="Answer with your model">
+    Replace the echo with your agent. In TypeScript, pass the model's stream straight to `reply()`: it keeps the typing indicator on and sends the answer as chat bubbles while the model writes.
+
+    ```ts TypeScript
+    import OpenAI from "openai";
+    import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+
+    const flow = new FlowMessaging();
+    const openai = new OpenAI();
+
+    for await (const event of flow.events.stream({ types: ["message.received"] })) {
+      await event.conversation.reply(
+        openai.chat.completions.create({
+          model: "gpt-4.1-mini",
+          stream: true,
+          messages: [{ role: "user", content: contentText(event.data.message.content) }],
+        }),
+      );
+    }
+    ```
+
+    Without the SDK, split the answer at paragraph breaks and send each part as its own message, as [Streaming replies](/concepts/streaming-replies) describes.
+  </Step>
+</Steps>
+
+## What you built
+
+- A test-mode agent that answers anyone who joined your sandbox, on whichever channel they used. The code does not change per channel.
+- It reads events from the live stream (TypeScript) or the event log (HTTP). In production most agents use [webhooks](/concepts/events-and-webhooks) instead, and can answer straight in the webhook response.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Events and webhooks" icon="webhook" href="/concepts/events-and-webhooks">
+    Signed deliveries, retries, ordering, and replying in the response.
+  </Card>
+  <Card title="Local development" icon="laptop-code" href="/guides/local-development">
+    Forward live events to a handler on your laptop with `listen`.
+  </Card>
+  <Card title="Content types" icon="shapes" href="/concepts/content-types">
+    Media, voice notes, buttons, reactions and what each channel shows.
+  </Card>
+  <Card title="Going live" icon="flag-checkered" href="/guides/going-live">
+    Dedicated numbers, WhatsApp verification and templates.
+  </Card>
+</CardGroup>

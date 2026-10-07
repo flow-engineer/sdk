@@ -1,0 +1,97 @@
+---
+title: "Build a Telegram AI agent with the Flow Messaging API"
+sidebarTitle: "Telegram agent"
+description: "Connect an AI agent to Telegram: use the sandbox bot or your own BotFather token, receive messages by webhook or stream, reply with streamed LLM answers, inline keyboards and media, and edit or unsend messages."
+keywords: ["Telegram bot API for AI agents", "Telegram AI agent", "Telegram LLM bot", "connect ChatGPT to Telegram", "Telegram bot with OpenAI", "Telegram chatbot API"]
+---
+
+This guide builds an AI agent on Telegram, first on Flow's sandbox bot and then on your own bot, with the same code.
+
+```ts TypeScript
+// npm install @flow-engineer/messaging openai
+import OpenAI from "openai";
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging();
+const openai = new OpenAI();
+
+for await (const event of flow.events.stream({ types: ["message.received"] })) {
+  await event.conversation.reply(
+    openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      stream: true,
+      messages: [{ role: "user", content: contentText(event.data.message.content) }],
+    }),
+  );
+}
+```
+
+## 1. Try it on the sandbox bot
+
+1. `npx @flow-engineer/messaging init` saves a test key and prints the sandbox bot's `https://t.me/...` link and your join code.
+2. Open the link, press **Start**, and send the join code (for example `join brave-otter`).
+3. Run the code above and send the bot a message.
+
+## 2. Use your own bot
+
+Telegram is the fastest channel to go live on: bring a bot token and it is connected at once.
+
+1. In Telegram, open **@BotFather**, send `/newbot`, and copy the token.
+2. Connect it with a **live** key:
+
+```bash curl
+curl https://api.flow.engineer/v1/senders \
+  -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"channel": "telegram", "telegram_bot_token": "<token from BotFather>"}'
+```
+
+Flow checks the token, keeps it encrypted, points the bot's webhook at Flow and answers with the sender `active`. The token is never returned. Switch `FLOW_MESSAGING_KEY` to the live key and your agent now answers on your bot.
+
+<Warning>
+A bot can have only one webhook. Connecting a bot to Flow replaces any webhook it had, so do not keep another server polling or receiving updates for the same bot.
+</Warning>
+
+## 3. Inline keyboards
+
+`buttons` content shows as an inline keyboard (1 to 10 buttons). Taps arrive as `button_reply` with the button's `id`. URL buttons open a link and send nothing back.
+
+```ts TypeScript
+import { buttons } from "@flow-engineer/messaging";
+
+await event.conversation.send(buttons("Pick a size", ["Small", "Medium", "Large"]));
+```
+
+## 4. Edit and unsend
+
+Telegram lets bots edit their messages and delete them within 48 hours:
+
+```ts TypeScript
+const [msg] = await event.conversation.reply("Checking stock...");
+await flow.messages.edit(msg.id, "In stock: 12 left.");
+await flow.messages.unsend(msg.id);
+```
+
+## 5. What Telegram supports
+
+| Content | Telegram |
+|---|---|
+| Text with markdown | yes |
+| Photos, video, documents, audio, voice notes | yes |
+| Buttons | inline keyboard, up to 10 |
+| Reactions, typing | yes |
+| Read receipts | no: bots cannot send them (skipped and reported in `delivered_as`) |
+| Edit, unsend | yes (unsend within 48 hours) |
+| Starting a conversation | only with people who started your bot (`to.telegram_user_id`) |
+
+## 6. Telegram rules worth knowing
+
+- **People must start your bot first.** Telegram does not let a bot message someone who has never pressed Start.
+- **Commands are messages.** `/start` and other commands arrive as `text` content; your agent decides what to answer.
+- **Contacts have no phone number.** A Telegram contact is identified by `address.telegram_user_id` and maybe `address.username`.
+
+## Related
+
+- [Local development](/guides/local-development)
+- [Content types](/concepts/content-types) and [Streaming replies](/concepts/streaming-replies)
+- API: [Request a dedicated sender](/api-reference/senders/request-a-dedicated-sender)

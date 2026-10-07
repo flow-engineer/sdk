@@ -1,0 +1,91 @@
+---
+title: "Streaming LLM replies as chat bubbles on WhatsApp, Telegram and iMessage"
+sidebarTitle: "Streaming replies"
+description: "Send a streamed LLM answer to WhatsApp, Telegram or iMessage as natural chat bubbles: pass an OpenAI, Anthropic, Vercel AI SDK, LangChain or Mastra stream to reply(), or follow the bubble rule over plain HTTP."
+keywords: ["stream LLM response to WhatsApp", "stream OpenAI to Telegram", "send ChatGPT reply to iMessage", "LLM chat bubbles", "typing indicator API"]
+---
+
+Messaging apps have no streaming text box, so a streamed model answer is best sent as a few natural **bubbles**, each sent as soon as it is complete, with the typing indicator on in between.
+
+```ts TypeScript
+import Anthropic from "@anthropic-ai/sdk";
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging();
+const anthropic = new Anthropic();
+
+for await (const event of flow.events.stream({ types: ["message.received"] })) {
+  const stream = anthropic.messages.stream({
+    model: "claude-sonnet-4-5",
+    max_tokens: 1024,
+    messages: [{ role: "user", content: contentText(event.data.message.content) }],
+  });
+  const sent = await event.conversation.reply(stream); // typing on, bubbles out, typing off
+  console.log(`sent ${sent.length} bubbles`);
+}
+```
+
+## What `reply()` does
+
+`conversation.reply(input)` accepts a string, a piece of content, a list of content, or a stream. With a stream it:
+
+1. Turns the typing indicator on, and keeps it on (channels clear it after about 5 seconds).
+2. Reads text out of the stream as it arrives.
+3. Cuts a bubble at each natural break (below) and sends it while the model is still writing. Bubbles go out in order.
+4. Turns typing off when the stream ends, even if it failed.
+
+It reads these streams as they are, with no adapter:
+
+| Source | Pass |
+|---|---|
+| OpenAI Chat Completions | `openai.chat.completions.create({ ..., stream: true })` |
+| OpenAI Responses | `openai.responses.create({ ..., stream: true })` |
+| Anthropic Messages | `anthropic.messages.stream(...)` or `create({ ..., stream: true })` |
+| Vercel AI SDK | the `streamText(...)` result |
+| OpenAI Agents SDK | the streamed `run(agent, input, { stream: true })` result |
+| Claude Agent SDK | the `query(...)` iterator |
+| LangChain | `model.stream(...)` or a runnable's `.stream(...)` |
+| Mastra | `agent.stream(...)` |
+| Anything else | any `AsyncIterable<string>` or `ReadableStream` |
+
+Text goes out as markdown with `fallback: "auto"`, so channels without formatting get clean plain text.
+
+```ts
+await event.conversation.reply(stream, {
+  idempotencyKey: event.id, // bubbles get event.id:0, event.id:1, ... so retrying the reply is safe
+  split: true,              // false: one message, cut only at the channel's length limit
+  onBubble: (message, i) => console.log(i, message.id),
+});
+```
+
+## The bubble rule (for any language)
+
+Without the SDK, apply this rule to the model's text and send each bubble with `POST /v1/conversations/{conversation_id}/messages`, one after another, turning typing on (`POST .../typing`) before you start and every 4 seconds until you finish.
+
+1. A bubble ends at a paragraph break (a blank line), except after a lead-in line that ends with `:` and between items of one list, unless the bubble is already past the channel's soft length.
+2. Past the soft length, a bubble ends at the next sentence end (`. `, `! `, `? ` or `…` followed by a space).
+3. Never cut inside a fenced code block, unless the bubble would pass the channel's hard limit; then cut at the last line break or space before it.
+
+| Channel | Soft length | Hard limit |
+|---|---|---|
+| Telegram | 900 characters | 4096 |
+| WhatsApp | 700 characters | 4096 |
+| iMessage | 400 characters | 4096 |
+
+Use the event's ID plus the bubble's index as each send's `Idempotency-Key` (`evt_...:0`, `evt_...:1`), so retrying a failed reply never sends a bubble twice.
+
+## Showing work while the agent thinks
+
+For tool calls, retrieval or anything slow before the first word:
+
+```ts
+const answer = await event.conversation.responding(() => agent.run(question)); // typing stays on
+await event.conversation.reply(answer);
+```
+
+Messages in one conversation go out one at a time, in the order they were accepted, so bubbles never arrive out of order even when you send them quickly.
+
+## Related
+
+- [Content types](/concepts/content-types): typing, read receipts and markdown per channel.
+- [Agent frameworks](/frameworks/vercel-ai-sdk): full examples per framework.

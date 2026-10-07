@@ -1,0 +1,37 @@
+---
+title: "Mastra agents on WhatsApp, Telegram and iMessage"
+sidebarTitle: "Mastra"
+description: "Put a Mastra agent on WhatsApp, Telegram and iMessage with Flow Messaging: pass agent.stream() to reply() and the answer is sent as chat bubbles with the typing indicator on."
+keywords: ["Mastra WhatsApp", "Mastra agent Telegram", "Mastra iMessage", "Mastra messaging integration"]
+---
+
+This page puts a [Mastra](https://mastra.ai) agent on WhatsApp, Telegram and iMessage: Flow delivers each message, and `reply()` sends the agent's stream back as chat bubbles.
+
+```ts TypeScript
+// npm install @flow-engineer/messaging @mastra/core @ai-sdk/openai
+import { Agent } from "@mastra/core/agent";
+import { openai } from "@ai-sdk/openai";
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging();
+const agent = new Agent({
+  name: "Bakery assistant",
+  instructions: "You help customers of Asha's Bakery with orders and delivery. Keep answers short.",
+  model: openai("gpt-4.1-mini"),
+});
+
+for await (const event of flow.events.stream({ types: ["message.received"] })) {
+  const stream = await agent.stream(contentText(event.data.message.content));
+  await event.conversation.reply(stream); // reads stream.textStream
+}
+```
+
+## How it fits
+
+- `reply()` reads the stream's `textStream`, keeps typing on and sends a bubble at each paragraph break.
+- Mastra memory: use the Flow `conversation.id` as the thread ID and the `conversation.contact` as the resource ID, so each person keeps their own history.
+- In a Mastra server, receive Flow webhooks on a custom route and call the same code; verify signatures with `flow.webhooks.constructEvent`. See [Events and webhooks](/concepts/events-and-webhooks).
+
+## Full example
+
+[examples/mastra](https://github.com/flow-engineer/sdk/tree/main/examples/mastra) on GitHub.

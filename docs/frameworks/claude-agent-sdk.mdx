@@ -1,0 +1,68 @@
+---
+title: "Claude Agent SDK on WhatsApp, Telegram and iMessage"
+sidebarTitle: "Claude Agent SDK"
+description: "Give a Claude Agent SDK agent WhatsApp, Telegram and iMessage with Flow Messaging: pass the query() stream to reply() in TypeScript, or send the agent's text over HTTP from Python."
+keywords: ["Claude Agent SDK WhatsApp", "Claude agent Telegram bot", "Claude iMessage agent", "Anthropic agent WhatsApp API", "connect Claude to WhatsApp"]
+---
+
+This page connects a Claude Agent SDK agent to WhatsApp, Telegram and iMessage: each message becomes a `query()`, and the agent's text is sent back as chat bubbles.
+
+<CodeGroup>
+```ts TypeScript
+// npm install @flow-engineer/messaging @anthropic-ai/claude-agent-sdk
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging();
+
+for await (const event of flow.events.stream({ types: ["message.received"] })) {
+  const run = query({
+    prompt: contentText(event.data.message.content),
+    options: {
+      systemPrompt: "You are the assistant for Asha's Bakery. Answer customers in short messages.",
+      allowedTools: [], // add the tools your agent may use
+      includePartialMessages: true, // stream text as it is written
+    },
+  });
+  await event.conversation.reply(run); // sends the agent's text, skips tool and system messages
+}
+```
+
+```python Python (HTTP)
+# pip install claude-agent-sdk requests
+# The Python SDK (flow-messaging) is coming soon; this calls the HTTP API.
+import os, requests
+from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, TextBlock
+
+API = "https://api.flow.engineer"
+HEADERS = {"Authorization": f"Bearer {os.environ['FLOW_MESSAGING_KEY']}"}
+
+async def answer(event: dict):
+    conversation = event["conversation"]["id"]
+    text = event["data"]["message"]["content"].get("text", "")
+    options = ClaudeAgentOptions(system_prompt="You are the assistant for Asha's Bakery. Answer in short messages.")
+    i = 0
+    async for message in query(prompt=text, options=options):
+        if isinstance(message, AssistantMessage):
+            for block in message.content:
+                if isinstance(block, TextBlock) and block.text.strip():
+                    requests.post(
+                        f"{API}/v1/conversations/{conversation}/messages",
+                        headers={**HEADERS, "Idempotency-Key": f"{event['id']}:{i}"},
+                        json={"content": {"type": "text", "text": block.text, "format": "markdown"}, "fallback": "auto"},
+                        timeout=30,
+                    )
+                    i += 1
+```
+</CodeGroup>
+
+## How it fits
+
+- `reply()` reads the `query()` iterator: with `includePartialMessages` it sends text as it streams, otherwise each assistant message's text. Tool calls, results and system messages are not sent to the person.
+- Each assistant turn becomes its own bubble, which reads naturally in chat ("Let me check that..." then the answer).
+- Keep one Claude session per Flow conversation (`conversation.id`) to carry context between messages.
+- Use the [Flow MCP server](/mcp) in your coding agent while you build; your production agent talks to Flow through the SDK or HTTP.
+
+## Full example
+
+[examples/claude-agent-sdk](https://github.com/flow-engineer/sdk/tree/main/examples/claude-agent-sdk) on GitHub.

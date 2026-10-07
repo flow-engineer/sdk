@@ -1,0 +1,91 @@
+---
+title: "Build an iMessage AI agent with the Flow Messaging API"
+sidebarTitle: "iMessage agent"
+description: "Give your AI agent an iMessage line: receive iMessages by webhook or stream, reply with streamed LLM answers, tapbacks and effects, use fallbacks for buttons, and stay within new-contact limits and warm-up."
+keywords: ["iMessage API for AI agents", "iMessage AI agent", "send iMessage from API", "iMessage chatbot API", "AI agent SMS iMessage", "iMessage business API for developers", "blue bubble API"]
+---
+
+This guide builds an AI agent that people text on iMessage, using the same code as on WhatsApp and Telegram, plus the iMessage-specific parts: tapbacks, effects and new-contact limits.
+
+```ts TypeScript
+// npm install @flow-engineer/messaging
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+import { askMyAgent } from "./agent"; // returns a string, or any LLM stream
+
+const flow = new FlowMessaging();
+
+for await (const event of flow.events.stream({ types: ["message.received"] })) {
+  const text = contentText(event.data.message.content);
+  await event.conversation.react(event.data.message.id, "👍"); // shows as the Like tapback
+  await event.conversation.reply(await askMyAgent(text));
+}
+```
+
+## 1. Try it on the sandbox line
+
+1. `npx @flow-engineer/messaging init` saves a test key and prints the iMessage sandbox line and your join code.
+2. From an iPhone or Mac, text the join code (for example `join brave-otter`) to the line.
+3. Run the code above and send a message.
+
+## 2. Bubbles fit iMessage
+
+People read iMessage as short lines. `reply()` uses shorter bubbles here (about 400 characters before it cuts at a sentence end) than on Telegram or WhatsApp. See [Streaming replies](/concepts/streaming-replies).
+
+## 3. Tapbacks and effects
+
+- **Reactions** become tapbacks. iMessage has a fixed set, so with `fallback: "auto"` (which `react()` sets) Flow uses the closest tapback, or skips the reaction and says so in `delivered_as`.
+- **Effects** send text with an iMessage effect:
+
+```ts TypeScript
+import { effect } from "@flow-engineer/messaging";
+
+await event.conversation.send({ content: effect("Your order is confirmed!", "confetti"), fallback: "auto" });
+```
+
+Effects are `slam`, `loud`, `gentle`, `invisible_ink`, `echo`, `spotlight`, `balloons`, `confetti`, `love`, `lasers`, `fireworks` and `celebration`. Which ones a line can send may vary, so keep `fallback: "auto"` (plain text) on.
+
+## 4. No buttons: use the fallback
+
+iMessage has no buttons. Send `buttons` content with `fallback: "auto"` and Flow sends numbered text instead. When the person answers "2", you still receive a `button_reply` with the second button's `id`, so your code is the same on every channel.
+
+```ts TypeScript
+import { buttons } from "@flow-engineer/messaging";
+
+await event.conversation.send({
+  content: buttons("Which time works?", [{ id: "t10", label: "10:00" }, { id: "t14", label: "14:00" }]),
+  fallback: "auto",
+});
+```
+
+## 5. New contacts are budgeted
+
+iMessage lines are personal-style numbers, and iMessage watches closely for unwanted messages. Flow protects your line:
+
+- **Replies are unlimited by the gate.** Someone who has written to the line before is an open conversation.
+- **Writing first spends the line's new-contact budget.** A new line is `warming_up`: it starts near 15 new contacts a day and grows toward about 50.
+- **No cold outreach.** Many first messages with no reply, or the same text to many new people, throttle the line (`sender_throttled`).
+
+See [The send gate](/concepts/send-gate).
+
+## 6. What iMessage supports
+
+| Content | iMessage |
+|---|---|
+| Text | yes (markdown becomes plain text with `fallback: "auto"`) |
+| Images, video, documents, audio | yes |
+| Tapbacks | yes, fixed set |
+| Typing, read receipts | yes |
+| Effects | being confirmed per line |
+| Buttons | no (numbered-text fallback) |
+| Voice notes, locations, contact cards, edit, unsend | not confirmed yet: refused, or sent through your fallback |
+
+Use `GET /v1/capabilities?conversation=conv_...` for the live answer for a conversation.
+
+## 7. Contacts
+
+An iMessage contact's `address.handle` is a phone number **or an email address**. Do not assume a phone number. To write first, use `to.handle` (or `to.phone`) in `POST /v1/messages`.
+
+## Related
+
+- [Going live](/guides/going-live): a dedicated iMessage line.
+- [Content types](/concepts/content-types)

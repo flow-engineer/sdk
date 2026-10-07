@@ -1,0 +1,114 @@
+---
+title: "Content types: text, media, voice notes, buttons and reactions on every channel"
+sidebarTitle: "Content types"
+description: "Every message carries one typed piece of content: text, media, voice, buttons, reactions, WhatsApp templates, locations, contact cards and iMessage effects. See what WhatsApp, Telegram and iMessage each show, and how fallbacks work."
+keywords: ["send WhatsApp buttons API", "iMessage tapback API", "Telegram inline keyboard AI agent", "WhatsApp voice note API", "send image WhatsApp API", "messaging content types"]
+---
+
+Every message carries exactly one piece of typed **content**, selected by `content.type`; the same union is used for what you receive and what you send.
+
+```ts TypeScript
+import { buttons, image, markdown } from "@flow-engineer/messaging";
+
+await conversation.send(markdown("**Order 1042** is ready for pickup."));
+await conversation.send({ content: image("https://example.com/receipt.png", { caption: "Your receipt" }) });
+await conversation.send({
+  content: buttons("When should we deliver?", [
+    { id: "today", label: "Today" },
+    { id: "tomorrow", label: "Tomorrow" },
+  ]),
+  fallback: "auto", // iMessage has no buttons: send numbered text instead
+});
+```
+
+```json HTTP body
+{
+  "content": {
+    "type": "buttons",
+    "text": "When should we deliver?",
+    "buttons": [{ "id": "today", "label": "Today" }, { "id": "tomorrow", "label": "Tomorrow" }]
+  },
+  "fallback": "auto"
+}
+```
+
+## What each channel shows
+
+| `type` | Telegram | WhatsApp | iMessage | `fallback: "auto"` sends |
+|---|---|---|---|---|
+| `text` | yes | yes | yes | markdown becomes plain text |
+| `media` | yes | yes | yes | none |
+| `voice` | yes | yes | not confirmed | an audio file |
+| `buttons` | inline keyboard | up to 3 buttons, else a list | no | numbered text; replies matched back to button IDs |
+| `reaction` | yes | yes | tapbacks (fixed set) | the closest tapback, else skipped |
+| `template` | no | yes | no | none (WhatsApp only) |
+| `location` | yes | yes | not confirmed | a maps link as text |
+| `contact_card` | yes | yes | not confirmed | text |
+| `effect` | no | no | not confirmed | plain text |
+| `typing` | yes | yes | yes | skipped |
+| `read` | no (bots) | yes | yes | skipped |
+| `edit`, `unsend` | yes | no | not confirmed | none |
+
+"Not confirmed" means Flow does not yet promise it on that channel; such a send is refused (or uses your fallback) until it is. Ask the API instead of this table: `GET /v1/capabilities?conversation=conv_...` returns, per content type, `native`, `fallback` (with what `auto` sends) or `unsupported`, plus the channel's size limits and whether the window is open.
+
+## Nothing is converted silently
+
+When a channel cannot show some content:
+
+1. **Without `fallback`**, the send fails with `422` [`unsupported_content`](/errors/unsupported_content). Nothing is sent.
+2. **With `fallback: "auto"`**, Flow sends the documented default from the table above.
+3. **With `fallback` set to a content object**, Flow sends exactly that instead.
+
+When what the person sees differs from what you sent, the message carries `delivered_as`:
+
+```json
+{ "delivered_as": { "type": "text", "reason": "iMessage cannot show buttons; sent numbered text" } }
+```
+
+A reply to numbered-text buttons ("2") still arrives as a `button_reply` with the button's `id`, so your code handles taps the same way on every channel.
+
+## Content you receive
+
+Inbound messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `location`, `contact_card` and `file_blocked`.
+
+- **Media and voice notes** always come with the file: `url` (a Flow file URL that redirects to short-lived signed bytes) and `file_id`. Fetch it with your API key, or with `flow.files.download(url)`.
+- **Voice note transcripts**: with transcription on for your app, `voice` content also has `transcript`, so your model can read what was said. The audio is always included either way.
+- **Button taps** arrive as `button_reply` with `button_id` and `label`.
+- **`file_blocked`** means the person sent a file Flow did not keep: it failed the malware scan, its type is not passed on (programs, web pages), it could not be scanned, or it was too large. The `reason` says which, and there is no `url`. Documents (PDF, Office, archives) are scanned; images, audio and video are not.
+
+In TypeScript, `contentText(content)` returns the readable text of any content: the text, a caption, a transcript or a tapped button's label.
+
+## Sending files
+
+Give media as an HTTPS `url` Flow can fetch, or upload it first and send its `file_id`:
+
+```bash curl
+curl https://api.flow.engineer/v1/files \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -F file=@brochure.pdf -F channel=whatsapp
+```
+
+Files up to 100 MB are taken; with `channel` set, the file is checked against that channel's limit at once. Files are kept for your plan's retention period (30 days by default).
+
+## Typing, read receipts, edits and reactions
+
+These are content too, so they work the same way over HTTP, the live stream and webhook replies. Over HTTP each also has its own endpoint:
+
+| Action | Endpoint | TypeScript |
+|---|---|---|
+| Typing on/off | `POST /v1/conversations/{id}/typing` | `conversation.typing("on")` |
+| Mark as read | `POST /v1/conversations/{id}/read` | `conversation.markRead()` |
+| React | send `reaction` content | `conversation.react(messageId, "👍")` |
+| Edit text | `PATCH /v1/messages/{id}` | `flow.messages.edit(id, "New text")` |
+| Unsend | `DELETE /v1/messages/{id}` | `flow.messages.unsend(id)` |
+
+Typing indicators clear themselves after a few seconds on every channel; keep turning them on while your agent works, or use `conversation.responding(fn)`, which does it for you and always turns typing off.
+
+## The escape hatch
+
+`channel_options` is passed to the channel as is, for example `{"parse_mode": "HTML"}` on Telegram. Flow does not validate it and it may break when a channel changes. Prefer typed content.
+
+## Related
+
+- [Streaming replies](/concepts/streaming-replies): turning model output into chat bubbles.
+- API: [Send a message](/api-reference/messages/send-a-message-into-a-conversation), [Get capabilities](/api-reference/capabilities/get-a-conversations-capabilities), [Upload a file](/api-reference/files/upload-a-file).

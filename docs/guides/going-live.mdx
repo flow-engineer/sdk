@@ -1,0 +1,89 @@
+---
+title: "Going live: dedicated WhatsApp numbers, iMessage lines and templates"
+sidebarTitle: "Going live"
+description: "Move your AI agent from the sandbox to production: request a dedicated WhatsApp number, iMessage line or Telegram bot, verify your business for WhatsApp, create and get templates approved, and switch to a live key."
+keywords: ["dedicated WhatsApp number for AI agent", "WhatsApp business verification API", "WhatsApp message templates API", "iMessage dedicated line", "go live WhatsApp API"]
+---
+
+Going live means sending from a **dedicated sender** of your own with a **live key**; your agent's code does not change.
+
+```bash curl
+curl https://api.flow.engineer/v1/senders \
+  -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"channel": "whatsapp", "display_name": "Asha'\''s Bakery", "country": "IN"}'
+```
+
+## Checklist
+
+<Steps>
+  <Step title="Create a live key">
+    In the [dashboard](https://api.flow.engineer/admin), create an `fk_live_...` key. Keep it on your server only.
+  </Step>
+  <Step title="Request a dedicated sender">
+    `POST /v1/senders` with the channel (see each channel below). WhatsApp numbers and iMessage lines start `pending` while Flow provisions them; you receive `sender.status_changed` when they are ready. A Telegram bot is `active` at once.
+  </Step>
+  <Step title="Register your webhook with the live key">
+    Webhook endpoints belong to one mode. `POST /v1/webhook_endpoints` again with the live key and store the new `whsec_...` secret.
+  </Step>
+  <Step title="Switch the key">
+    Set `FLOW_MESSAGING_KEY` to the live key and deploy. Watch `message.failed` and `sender.status_changed` for the first days.
+  </Step>
+</Steps>
+
+## WhatsApp: a dedicated number
+
+- **Request it:** `POST /v1/senders` with `channel: "whatsapp"`, the `display_name` people should see, and the `country` for the number (ISO code such as `IN`). Flow buys and hosts the number.
+- **Verify your business:** WhatsApp requires the business behind a number to be verified. The dashboard links you to WhatsApp's business verification and connects the number when it is done.
+- **Quality and tiers:** the sender shows WhatsApp's `quality_rating` (`green`, `yellow`, `red`) and its messaging tier in `limits.whatsapp_tier`. New numbers start on a lower tier for conversations you start; replies to people who wrote first are not limited by the tier.
+- **Fees:** WhatsApp charges per template message by category; those fees are passed through at cost. See [Pricing](/pricing).
+
+### WhatsApp templates
+
+A template is a message WhatsApp approved in advance. You need one to message someone first, or to write more than 24 hours after their last message.
+
+```bash curl
+curl https://api.flow.engineer/v1/templates \
+  -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sender": "snd_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+    "name": "order_ready",
+    "language": "en",
+    "category": "utility",
+    "components": [
+      { "type": "body", "text": "Hi {{1}}, your {{2}} is ready for pickup." }
+    ]
+  }'
+```
+
+- Names use lowercase letters, digits and underscores. A name and language pair is unique per sender.
+- `category` is `utility` (updates about something the person asked for), `marketing` or `authentication`; it sets WhatsApp's fee.
+- A new template is `pending`. You receive `template.status_changed` when WhatsApp approves, rejects (with `rejection_reason`) or pauses it.
+- Send it as `template` content with values for its placeholders:
+
+```json
+{ "content": { "type": "template", "template_id": "tpl_01JB8ZC3K5M7P9R1T3V5X7Z9B1", "language": "en", "params": { "body": ["Asha", "cake"] } } }
+```
+
+## iMessage: a dedicated line
+
+- **Request it:** `POST /v1/senders` with `channel: "imessage"`, `display_name` and `country`.
+- **Warm-up:** a new line starts `warming_up`, with a new-contact budget near 15 a day that grows toward about 50. Replies to people who wrote first are not budgeted.
+- **Best practice:** publish the line (on your site, receipts, QR codes) so people write first. Lines used for cold outreach get throttled. See [The send gate](/concepts/send-gate).
+
+## Telegram: your own bot
+
+Create a bot with **@BotFather** and send its token: `POST /v1/senders` with `channel: "telegram"` and `telegram_bot_token`. It is connected and `active` at once. See [Build a Telegram agent](/guides/telegram-agent#2-use-your-own-bot).
+
+## Before you launch
+
+- Handle `outside_window`, `new_contact_limit` and `sender_throttled` (see [Errors](/errors/outside_window)).
+- Deduplicate webhook deliveries on the event `id`, and use event IDs as idempotency keys.
+- Subscribe your webhook only to the event types you use.
+- Message content and media are kept for your plan's retention period (30 days by default); store anything you need longer yourself.
+
+## Related
+
+- [Senders](/concepts/senders) and [Test and live mode](/concepts/test-and-live-mode)
+- API: [Request a dedicated sender](/api-reference/senders/request-a-dedicated-sender), [Create a template](/api-reference/templates/create-a-template)

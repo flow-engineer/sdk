@@ -1,0 +1,59 @@
+---
+title: "Vercel AI SDK on WhatsApp, Telegram and iMessage"
+sidebarTitle: "Vercel AI SDK"
+description: "Connect a Vercel AI SDK agent to WhatsApp, Telegram and iMessage with Flow Messaging: pass the streamText result to reply() and it is sent as chat bubbles, with conversation history and tools."
+keywords: ["Vercel AI SDK WhatsApp", "AI SDK Telegram bot", "Vercel AI SDK iMessage", "streamText WhatsApp", "Next.js WhatsApp AI agent"]
+---
+
+This page connects a [Vercel AI SDK](https://ai-sdk.dev) agent to WhatsApp, Telegram and iMessage: Flow delivers each message, and `reply()` sends the `streamText` result back as chat bubbles.
+
+```ts TypeScript
+// app/api/flow/route.ts (Next.js)
+// npm install @flow-engineer/messaging ai @ai-sdk/openai
+import { after } from "next/server";
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+import { streamText, type ModelMessage } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const flow = new FlowMessaging();
+
+export const POST = flow.webhooks.handler({
+  onEvent: async (event) => {
+    if (event.type !== "message.received") return;
+
+    after(async () => {
+      // The last 20 messages of this conversation, oldest first (the new one included).
+      const page = await event.conversation.messages({ limit: 20 });
+      const messages: ModelMessage[] = page.data
+        .reverse()
+        .map((m) => ({ role: m.direction === "in" ? "user" : "assistant", content: contentText(m.content) }) as ModelMessage)
+        .filter((m) => m.content);
+
+      const result = streamText({
+        model: openai("gpt-4.1-mini"),
+        system: "You are the assistant for Asha's Bakery. Answer in short messages.",
+        messages,
+      });
+      await event.conversation.reply(result, { idempotencyKey: event.id });
+    });
+  },
+});
+```
+
+Set `FLOW_MESSAGING_KEY`, `FLOW_MESSAGING_WEBHOOK_SECRET` and `OPENAI_API_KEY`, then register `https://<your-app>/api/flow` as a webhook endpoint for `message.received`. During development use `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow`.
+
+## How it fits
+
+- `reply(result)` reads `result.textStream`, keeps the typing indicator on, and sends a bubble at each paragraph break while the model writes. See [Streaming replies](/concepts/streaming-replies).
+- Tools work as usual (`tools`, `stopWhen`); only the final text is sent to the person. To show progress during long tool calls, wrap the work in `event.conversation.responding(...)`.
+- The webhook answers at once and `after()` runs the reply, so slow models never cause a timed-out delivery.
+- One handler serves every channel; `event.conversation.channel` tells you which one if you want to adapt the tone.
+
+## Full example
+
+[examples/vercel-ai-sdk](https://github.com/flow-engineer/sdk/tree/main/examples/vercel-ai-sdk) on GitHub.
+
+## Related
+
+- [Build a WhatsApp agent](/guides/whatsapp-agent)
+- [Events and webhooks](/concepts/events-and-webhooks)
