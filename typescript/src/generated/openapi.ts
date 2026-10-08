@@ -1176,6 +1176,12 @@ export interface components {
             error?: components["schemas"]["ErrorBody"];
             /** @description The channel's own ID for the message, once the channel accepted it. */
             channel_message_id?: string;
+            /**
+             * @description For an inbound message that replies inline to an earlier message (a Telegram
+             *     reply, an iMessage thread reply): the Flow ID of the message it replies to.
+             *     Absent when it is not a reply or the earlier message is not known to Flow.
+             */
+            readonly reply_to?: components["schemas"]["MessageId"];
             /** @description Whether the message belongs to live mode. */
             livemode: boolean;
             metadata?: components["schemas"]["Metadata"];
@@ -1274,6 +1280,12 @@ export interface components {
         /** @description One piece of content to send into a conversation. */
         SendMessageRequest: {
             content: components["schemas"]["Content"];
+            /**
+             * @description Send this as a reply to an earlier message in the same conversation.
+             *     Telegram and iMessage show it as an inline reply; channels without inline
+             *     replies send it as a normal message.
+             */
+            reply_to?: components["schemas"]["MessageId"];
             fallback?: components["schemas"]["Fallback"];
             channel_options?: components["schemas"]["ChannelOptions"];
             metadata?: components["schemas"]["Metadata"];
