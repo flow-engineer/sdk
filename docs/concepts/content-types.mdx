@@ -38,18 +38,19 @@ await conversation.send({
 |---|---|---|---|---|
 | `text` | yes | yes | yes | markdown becomes plain text |
 | `media` | yes | yes | yes | none |
-| `voice` | yes | yes | not confirmed | an audio file |
+| `voice` | yes | yes | yes | an audio file |
 | `buttons` | inline keyboard | up to 3 buttons, else a list | no | numbered text; replies matched back to button IDs |
-| `reaction` | yes | yes | tapbacks (fixed set) | the closest tapback, else skipped |
+| `reaction` | yes | yes | tapbacks; other emoji as emoji reactions | the closest tapback, else skipped |
 | `template` | no | yes | no | none (WhatsApp only) |
-| `location` | yes | yes | not confirmed | a maps link as text |
-| `contact_card` | yes | yes | not confirmed | text |
-| `effect` | no | no | not confirmed | plain text |
-| `typing` | yes | yes | yes | skipped |
-| `read` | no (bots) | yes | yes | skipped |
-| `edit`, `unsend` | yes | no | yes | none |
+| `location` | yes | yes | no | a maps link as text |
+| `contact_card` | yes | yes | no | text |
+| `effect` | no | no | yes | plain text |
+| `typing` | yes | yes | yes, within 5 minutes of the contact's last message | skipped |
+| `read` | no (bots) | yes | yes, the whole conversation | skipped |
+| `edit` | yes | no | yes, within 15 minutes | none |
+| `unsend` | yes, within 48 hours | no | yes, within 2 minutes | none |
 
-"Not confirmed" means Flow does not yet promise it on that channel; such a send is refused (or uses your fallback) until it is. Ask the API instead of this table: `GET /v1/capabilities?conversation=conv_...` returns, per content type, `native`, `fallback` (with what `auto` sends) or `unsupported`, plus the channel's size limits and whether the window is open.
+Text is at most the channel's `max_text_length`: 4096 characters on Telegram and WhatsApp, 10000 on iMessage; longer text is refused with `invalid_request`. Ask the API instead of this table: `GET /v1/capabilities?conversation=conv_...` returns, per content type, `native`, `fallback` (with what `auto` sends) or `unsupported`, plus the channel's size limits and whether the window is open.
 
 ## Nothing is converted silently
 
@@ -104,9 +105,17 @@ These are content too, so they work the same way over HTTP, the live stream and 
 
 Typing indicators clear themselves after a few seconds on every channel; keep turning them on while your agent works, or use `conversation.responding(fn)`, which does it for you and always turns typing off.
 
+Typing and read receipts go to the channel at once, not behind queued messages, so they can fail with `409 outside_window` (for example iMessage typing more than 5 minutes after the contact's last message) or `502 channel_error` (the channel failed or timed out). Both are safe to ignore: never hold back a reply because of them. On iMessage, marking read marks the whole conversation, and `up_to` has no effect.
+
 ## The escape hatch
 
-`channel_options` is passed to the channel as is, for example `{"parse_mode": "HTML"}` on Telegram. Flow does not validate it and it may break when a channel changes. Prefer typed content.
+`channel_options` adds channel parameters for how a message looks and notifies, for example `{"parse_mode": "HTML"}` on Telegram. Each channel has an allowlist: keys not on it are dropped, never passed to the channel, and the typed request wins where both set the same thing. Who receives the message and what it says always come from the typed request; keys starting with `_flow_` are refused with `invalid_request`. Flow does not validate the values, and they may break when a channel changes. Prefer typed content.
+
+| Channel | Allowed keys |
+|---|---|
+| Telegram | `parse_mode`, `entities`, `caption_entities`, `link_preview_options`, `disable_web_page_preview`, `show_caption_above_media`, `disable_notification`, `protect_content`, `allow_paid_broadcast`, `message_effect_id`, `has_spoiler`, `supports_streaming`, `duration`, `width`, `height`, `performer`, `horizontal_accuracy`, `foursquare_id`, `foursquare_type`, `google_place_id`, `google_place_type`, `vcard`, `is_big` (reactions) |
+| iMessage | messages: `subject`, `effect`, `preview`, `reply_to_id`, `contact_file`; `typing` content: `typing` (1 to 60 seconds). Reactions, read receipts, edits and unsends take none. |
+| WhatsApp | none yet (not live) |
 
 ## Related
 

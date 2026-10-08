@@ -137,6 +137,13 @@ export interface paths {
          *     themselves after a few seconds, so keep turning it on while your agent works.
          *     Where a channel has no typing indicator the call succeeds and `delivered_as`
          *     says it was skipped.
+         *
+         *     The call goes to the channel at once, not behind the conversation's queued
+         *     messages, so the channel's answer is the call's answer. It fails with
+         *     `409 outside_window` when the channel allows typing only inside a window
+         *     (iMessage: within 5 minutes of the contact's last message), and with
+         *     `502 channel_error` when the channel failed or timed out. Both are safe to
+         *     ignore: typing is a courtesy, so never hold back a reply because of it.
          */
         post: operations["setTyping"];
         delete?: never;
@@ -164,7 +171,15 @@ export interface paths {
          * Mark messages as read
          * @description Shows the contact that their messages were read, up to and including
          *     `up_to` (default: the latest inbound message). Telegram bots cannot send read
-         *     receipts, so there `delivered_as` says it was skipped.
+         *     receipts, so there `delivered_as` says it was skipped. iMessage has no
+         *     per-message read receipt: the whole conversation is marked read, and `up_to`
+         *     is accepted but has no effect there.
+         *
+         *     The call goes to the channel at once, so the channel's answer is the call's
+         *     answer. It fails with `409 outside_window` when the channel's window for
+         *     the conversation is closed, and with `502 channel_error` when the channel
+         *     failed or timed out. Both are safe to ignore; never hold back a reply
+         *     because of them.
          */
         post: operations["markRead"];
         delete?: never;
@@ -299,6 +314,18 @@ export interface paths {
          *     as the HTTP send endpoints, and gets one `ack` or `error` frame back for each,
          *     matched by `ref`. When the server is about to restart it sends a `reconnect`
          *     frame; reconnect with `after` set to the last event you received.
+         *
+         *     Authenticate with the `Authorization` header where your WebSocket client can
+         *     set headers. A browser's `WebSocket` cannot, so the key may instead be
+         *     offered as a WebSocket subprotocol: offer both `flow` and
+         *     `flow.key.<api key>`, for example
+         *     `new WebSocket("wss://api.flow.engineer/v1/stream", ["flow", "flow.key." + key])`.
+         *     The server selects `flow` and never echoes the key. Offering the key
+         *     protocol without `flow` is refused with `400 invalid_request`. When an
+         *     `Authorization` header is present it takes precedence. Keys are never
+         *     accepted in the query string, since URLs end up in logs. A key used in a
+         *     browser is visible to whoever uses that page: do this only for internal
+         *     tools or with test keys (`fk_test_`).
          */
         get: operations["openStream"];
         put?: never;
@@ -583,6 +610,38 @@ export interface paths {
         patch: operations["updateWebhookEndpoint"];
         trace?: never;
     };
+    "/v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The webhook endpoint's ID. */
+                webhook_endpoint_id: components["parameters"]["WebhookEndpointId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate a webhook endpoint's signing secret
+         * @description Makes a new signing secret for the endpoint and returns it in `secret`, shown
+         *     only this once. The previous secret keeps signing for `overlap_seconds`
+         *     (default 86400, one day; `0` retires it at once): during the overlap every
+         *     delivery's `Flow-Signature` carries two `v1` values, one per secret, so you
+         *     can deploy the new secret while the old one still verifies. When the overlap
+         *     ends only the new secret signs. Rotating again during an overlap retires the
+         *     older previous secret at once: at most two secrets are ever active.
+         */
+        post: operations["rotateWebhookEndpointSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/contacts": {
         parameters: {
             query?: never;
@@ -677,9 +736,19 @@ export interface webhooks {
          *     To reply at once to a `message.received` event, answer `200` with a
          *     `WebhookReply` body; the reply goes into the event's conversation through the
          *     send gate, as if you had called `POST /v1/conversations/{conversation_id}/messages`
-         *     with the event's `id` as the idempotency key. For any other event, or to reply
-         *     later, answer `200` with `{}` or an empty body. A reply that the gate refuses
-         *     is reported as a `message.failed` event.
+         *     with the event's `id` as the idempotency key. `fallback` applies to every
+         *     piece of the reply. For any other event, or to reply later, answer `200` with
+         *     an empty body, `{}` or `{"reply": null}`: nothing is sent and it is not an
+         *     error.
+         *
+         *     An answer to a `message.received` delivery that is not a valid
+         *     `WebhookReply` (a body that is not a JSON object, a `reply` that is not
+         *     content or a list of content, an empty list, more than 10 pieces, an unknown
+         *     `fallback`) sends nothing at all, not even the valid pieces. It is recorded
+         *     on the delivery as an `invalid_request` error with the reason, which the MCP
+         *     tool `get_webhook_deliveries` shows; the delivery counts as delivered and is
+         *     not retried. A piece that the send gate refuses is reported as a
+         *     `message.failed` event.
          */
         post: operations["receiveEvent"];
         delete?: never;
@@ -777,13 +846,13 @@ export interface components {
          *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, or a new conversation from an iMessage line that may only reply. Use the key of the right mode, have the contact send your join code, or wait for the contact to message the line first.
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
          *     - `idempotency_conflict` (409): the idempotency key was used for a different request, or that request is still running. Use a new key for a new request, or retry the same request after it finishes.
-         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation.
+         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window is closed (iMessage typing works only within 5 minutes of the contact's last message); ignore it and send your reply.
          *     - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first.
          *     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
          *     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
          *     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file.
-         *     - `rate_limited` (429): too many requests for this key, or sends faster than the sender's pacing. Wait `retry_after` seconds and retry with the same idempotency key.
-         *     - `channel_error` (502, or in `message.failed`): the channel refused or failed the message; `channel_code` carries its own code. Read `message`, change what the channel objected to, and send again.
+         *     - `rate_limited` (429): either too many requests for this key (the per-key request limit, reported in the `RateLimit-*` headers) or sends faster than the sender's sending rate (pacing). Wait `Retry-After` (`retry_after`) seconds and retry with the same `Idempotency-Key`.
+         *     - `channel_error` (502, or in `message.failed`): the channel refused or failed the message, or timed out; `channel_code` carries its own code. Read `message`, change what the channel objected to, and send again. From typing and read receipts, which call the channel at once, it is safe to ignore.
          *     - `not_implemented` (501): this endpoint or channel is not live yet during the beta. Use a channel that is live (Telegram, iMessage), or check the changelog.
          *     - `api_error` (500, 503): something went wrong on Flow's side. Retry with the same idempotency key after `retry_after` seconds, and quote `request_id` if it persists.
          * @enum {string}
@@ -945,7 +1014,11 @@ export interface components {
             handle?: string;
             /**
              * Format: uri
-             * @description A link that opens a chat with the sender (`https://t.me/...`, `https://wa.me/...`).
+             * @description A link that opens a chat with the sender: `https://t.me/...` for a Telegram
+             *     bot, `https://wa.me/...` for a WhatsApp number. For an iMessage line it is
+             *     the line's opt-in link, which opens Messages with the line and a prefilled
+             *     text the person sends to start the conversation; it is set only when the
+             *     line has one configured.
              */
             link?: string;
         };
@@ -1085,6 +1158,7 @@ export interface components {
         };
         /** @description Which messages to mark as read. */
         ReadRequest: {
+            /** @description The latest inbound message to mark read (default the latest inbound message). On iMessage it has no effect, since the whole conversation is marked read. */
             up_to?: components["schemas"]["MessageId"];
         };
         /** @description One message in or out of a conversation, with its typed content and delivery status. */
@@ -1167,10 +1241,32 @@ export interface components {
          */
         FallbackAuto: "auto";
         /**
-         * @description **Unstable escape hatch.** Passed to the channel as is: for example
-         *     `{"parse_mode": "HTML"}` for Telegram, template header media for WhatsApp, an
-         *     iMessage effect ID. Flow does not validate it, and it may break when a channel
+         * @description **Unstable escape hatch.** Extra channel parameters for how a message looks
+         *     and notifies, for example `{"parse_mode": "HTML"}` on Telegram. Each channel
+         *     has an allowlist: keys not on it are dropped, never passed to the channel, and
+         *     the typed request always wins over a key that sets the same thing. Who
+         *     receives the message and what it says always come from the typed request.
+         *     Keys starting with `_flow_` are reserved and refused with `invalid_request`.
+         *     Flow does not validate the values, and they may break when a channel
          *     changes. Prefer typed content.
+         *
+         *     - **Telegram** (Bot API parameters, on every send): `parse_mode`,
+         *       `entities`, `caption_entities`, `link_preview_options`,
+         *       `disable_web_page_preview`, `show_caption_above_media`,
+         *       `disable_notification`, `protect_content`, `allow_paid_broadcast`,
+         *       `message_effect_id`, `has_spoiler`, `supports_streaming`, `duration`,
+         *       `width`, `height`, `performer`, `horizontal_accuracy`, `foursquare_id`,
+         *       `foursquare_type`, `google_place_id`, `google_place_type`, `vcard`,
+         *       `is_big` (reactions).
+         *     - **iMessage**: on messages, `subject`, `effect`, `preview`,
+         *       `reply_to_id` and `contact_file`; on `typing` content, `typing` (how long
+         *       to show it, 1 to 60 seconds). Reactions, read receipts, edits and unsends
+         *       take none.
+         *     - **WhatsApp**: none yet; the channel is not live.
+         * @example {
+         *       "parse_mode": "HTML",
+         *       "disable_notification": true
+         *     }
          */
         ChannelOptions: {
             [key: string]: unknown;
@@ -1210,16 +1306,17 @@ export interface components {
          *     |---|---|---|---|---|
          *     | text | yes | yes | yes | markdown to plain |
          *     | media | yes | yes | yes | none |
-         *     | voice | yes | yes | not confirmed | audio file |
+         *     | voice | yes | yes | yes | audio file |
          *     | buttons | inline keyboard | up to 3 buttons, else a list | no | numbered text |
-         *     | reaction | yes | yes | tapbacks (fixed set) | closest tapback, else skipped |
+         *     | reaction | yes | yes | tapbacks, other emoji as emoji reactions | closest tapback, else skipped |
          *     | template | no | yes | no | none |
-         *     | location | yes | yes | not confirmed | maps link as text |
-         *     | contact_card | yes | yes | not confirmed | text |
-         *     | effect | no | no | not confirmed | plain text |
-         *     | typing | yes | yes | yes | skipped |
-         *     | read | no (bots) | yes | yes | skipped |
-         *     | edit, unsend | yes | no | yes | none |
+         *     | location | yes | yes | no | maps link as text |
+         *     | contact_card | yes | yes | no | text |
+         *     | effect | no | no | yes | plain text |
+         *     | typing | yes | yes | yes (within 5 minutes of the contact's last message) | skipped |
+         *     | read | no (bots) | yes | yes (the whole conversation) | skipped |
+         *     | edit | yes | no | yes (within 15 minutes) | none |
+         *     | unsend | yes (within 48 hours) | no | yes (within 2 minutes) | none |
          */
         Content: components["schemas"]["TextContent"] | components["schemas"]["MediaContent"] | components["schemas"]["VoiceContent"] | components["schemas"]["ButtonsContent"] | components["schemas"]["ButtonReplyContent"] | components["schemas"]["ReactionContent"] | components["schemas"]["TemplateContent"] | components["schemas"]["LocationContent"] | components["schemas"]["ContactCardContent"] | components["schemas"]["EffectContent"] | components["schemas"]["TypingContent"] | components["schemas"]["ReadContent"] | components["schemas"]["EditContent"] | components["schemas"]["UnsendContent"] | components["schemas"]["FileBlockedContent"];
         /** @description Text, both ways. With `format` `markdown`, Flow renders it in each channel's own formatting; a channel without formatting needs `fallback`. */
@@ -1229,7 +1326,7 @@ export interface components {
              * @enum {string}
              */
             type: "text";
-            /** @description The text. */
+            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 10000 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
             text: string;
             /**
              * @description How to read `text`. Inbound text is always `plain`.
@@ -1443,7 +1540,7 @@ export interface components {
              * @enum {string}
              */
             type: "effect";
-            /** @description The text. */
+            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 10000 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
             text: string;
             /**
              * @description The effect.
@@ -1464,13 +1561,14 @@ export interface components {
              */
             state: "on" | "off";
         };
-        /** @description A read receipt, sent only (over HTTP use `POST /v1/conversations/{conversation_id}/read`). Skipped on Telegram, where bots cannot send them. */
+        /** @description A read receipt, sent only (over HTTP use `POST /v1/conversations/{conversation_id}/read`). Skipped on Telegram, where bots cannot send them. On iMessage the whole conversation is marked read. */
         ReadContent: {
             /**
              * @description Always `read`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             type: "read";
+            /** @description The latest inbound message to mark read (default the latest inbound message). No effect on iMessage. */
             up_to?: components["schemas"]["MessageId"];
         };
         /** @description Replaces the text of one of your sent messages, sent only (over HTTP use `PATCH /v1/messages/{message_id}`). Telegram and iMessage; WhatsApp refuses it with `unsupported_content`. */
@@ -1929,7 +2027,7 @@ export interface components {
         };
         /** @description Size limits on this channel. */
         ChannelLimits: {
-            /** @description The longest text one message may carry. */
+            /** @description The longest text one message may carry, in characters (4096 on Telegram and WhatsApp, 10000 on iMessage). Longer text is refused with `invalid_request`. */
             max_text_length?: number;
             /** @description The most buttons one message may carry natively. */
             max_buttons?: number;
@@ -2068,8 +2166,13 @@ export interface components {
             enabled: boolean;
             /** @description Whether the endpoint receives live-mode or test-mode events. */
             livemode: boolean;
-            /** @description The signing secret (`whsec_...`). Only in the answer to create. */
+            /** @description The signing secret (`whsec_...`). Only in the answers to create and to rotate the secret. */
             secret?: string;
+            /**
+             * Format: date-time
+             * @description While a secret rotation overlaps, when the previous secret stops signing. Absent when only one secret is active.
+             */
+            previous_secret_expires_at?: string;
             /**
              * Format: date-time
              * @description When the endpoint was created.
@@ -2108,14 +2211,52 @@ export interface components {
             /** @description Whether more items lie beyond this page in the direction you paged. */
             has_more: boolean;
         };
+        /** @description Options for rotating a webhook endpoint's signing secret. */
+        WebhookSecretRotateRequest: {
+            /**
+             * @description How long the previous secret keeps signing alongside the new one, in seconds (at most 7 days). `0` retires it at once.
+             * @default 86400
+             */
+            overlap_seconds?: number;
+        };
         /**
          * @description The optional body of your answer to a `message.received` delivery. `reply` is
          *     one piece of content or a list of up to 10, sent in order into the event's
-         *     conversation through the send gate. Leave `reply` out (or answer `{}`) to
-         *     send nothing now.
+         *     conversation through the send gate. Leave `reply` out, set it to `null`, or
+         *     answer `{}` or an empty body to send nothing now.
+         *
+         *     An answer that does not match this shape sends nothing at all (no piece of a
+         *     list goes out) and is recorded on the delivery as an `invalid_request` error
+         *     with the reason; the delivery counts as delivered and is not retried.
+         * @example {
+         *       "reply": [
+         *         {
+         *           "type": "text",
+         *           "text": "Here are the sizes we have."
+         *         },
+         *         {
+         *           "type": "buttons",
+         *           "text": "Which size?",
+         *           "buttons": [
+         *             {
+         *               "id": "size_s",
+         *               "label": "Small"
+         *             },
+         *             {
+         *               "id": "size_m",
+         *               "label": "Medium"
+         *             }
+         *           ]
+         *         }
+         *       ],
+         *       "fallback": "auto"
+         *     }
          */
         WebhookReply: {
-            reply?: components["schemas"]["Content"] | components["schemas"]["Content"][];
+            /** @description One piece of content, or a list of 1 to 10 pieces sent in order. `null` sends nothing. */
+            reply?: components["schemas"]["Content"] | components["schemas"]["Content"][] | null;
+            /** @description What to send when the channel cannot show a piece of `reply`, as on HTTP sends. It applies to every piece. */
+            fallback?: components["schemas"]["Fallback"];
         };
     };
     responses: {
@@ -2186,9 +2327,11 @@ export interface components {
             };
         };
         /**
-         * @description The request conflicts with the current state: the WhatsApp window is closed
-         *     (`outside_window`), or the idempotency key was used for a different request or
-         *     is still in use (`idempotency_conflict`).
+         * @description The request conflicts with the current state: the channel's window is closed
+         *     (`outside_window`: WhatsApp's 24 hours for free-form messages, iMessage's
+         *     5 minutes after the contact's last message for typing), or the idempotency
+         *     key was used for a different request or is still in use
+         *     (`idempotency_conflict`).
          */
         Conflict: {
             headers: {
@@ -2230,10 +2373,35 @@ export interface components {
             };
         };
         /**
-         * @description Too many requests for this key (`rate_limited`), the sender has used its
-         *     budget for starting conversations (`new_contact_limit`), or the sender is
-         *     throttled after abuse signals (`sender_throttled`). Wait `retry_after`
-         *     seconds.
+         * @description The channel refused the call, failed or timed out (`channel_error`).
+         *     `error.channel_code` carries the channel's own code where it gave one.
+         */
+        ChannelError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "type": "channel_error",
+                 *         "message": "The channel refused: the request timed out.",
+                 *         "hint": "Typing and read receipts are safe to ignore; carry on and send your reply.",
+                 *         "doc_url": "https://docs.flow.engineer/errors/channel_error",
+                 *         "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description Too many requests (`rate_limited`): either this key's request limit (see the
+         *     `RateLimit-*` headers) or the sender's sending rate (pacing) was exceeded;
+         *     retry after `Retry-After` seconds (also `error.retry_after`) with the same
+         *     `Idempotency-Key`. Or the sender has used its budget for starting
+         *     conversations (`new_contact_limit`), or the sender is throttled after abuse
+         *     signals (`sender_throttled`); wait `retry_after` seconds.
          */
         RateLimited: {
             headers: {
@@ -2552,7 +2720,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The indicator change was accepted. */
+            /** @description The channel showed or cleared the indicator, or `delivered_as` says it was skipped. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -2563,8 +2731,11 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
+            502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
         };
     };
@@ -2593,7 +2764,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The read receipt was accepted. */
+            /** @description The channel took the read receipt, or `delivered_as` says it was skipped. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -2604,8 +2775,11 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
+            502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
         };
     };
@@ -3287,6 +3461,47 @@ export interface operations {
         };
         responses: {
             /** @description The updated webhook endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookEndpoint"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    rotateWebhookEndpointSecret: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The webhook endpoint's ID. */
+                webhook_endpoint_id: components["parameters"]["WebhookEndpointId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WebhookSecretRotateRequest"];
+            };
+        };
+        responses: {
+            /** @description The secret was rotated. `secret` is the new secret, included this once; `previous_secret_expires_at` says when the old one stops signing. */
             200: {
                 headers: {
                     [name: string]: unknown;

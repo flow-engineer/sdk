@@ -16,10 +16,13 @@ Telegram, WhatsApp or iMessage did not take the message. `error.channel_code` ca
 - The contact blocked the bot, or never pressed Start on a Telegram bot.
 - Malformed markdown, or text over the channel's limit.
 - The bot token was revoked.
+- The channel failed or timed out on a typing indicator or a read receipt. These call the channel at once (`POST /v1/conversations/{id}/typing` and `/read`), so they answer `502` directly.
 
 ## How to fix it
 
 Read `error.hint`: it maps the channel's reason to the change to make. Fix that and send again; retrying unchanged only helps when the hint says the channel failed for now.
+
+From typing or a read receipt it is safe to ignore: never hold back a reply because the indicator failed.
 
 ```ts
 if (event.type === "message.failed") console.log(event.data.message.error.hint);

@@ -42,7 +42,7 @@ For Python and Go, the SDKs (`flow-messaging` on PyPI, `github.com/flow-engineer
 | Variable | Required | What it is |
 |---|---|---|
 | `FLOW_MESSAGING_KEY` | yes | The API key: `fk_test_...` while building, `fk_live_...` in production. Server side only. |
-| `FLOW_MESSAGING_WEBHOOK_SECRET` | with webhooks | The endpoint's signing secret, `whsec_...`, returned once by `POST /v1/webhook_endpoints`. |
+| `FLOW_MESSAGING_WEBHOOK_SECRET` | with webhooks | The endpoint's signing secret, `whsec_...`, returned once by `POST /v1/webhook_endpoints` (and by `POST /v1/webhook_endpoints/{id}/rotate_secret` when you rotate it). |
 | `FLOW_MESSAGING_BASE_URL` | no | Defaults to `https://api.flow.engineer`. |
 
 Never hard-code keys, never commit `.env`, and never put a key in browser or mobile code.
