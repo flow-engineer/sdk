@@ -35,7 +35,7 @@ returns the readable text of any content.
 
 Per channel: buttons are native on Telegram and WhatsApp (3 buttons, else a list) and
 need `fallback: "auto"` on iMessage (numbered text; replies still come back as
-`button_reply`). Templates are WhatsApp only. Edit and unsend: Telegram.
+`button_reply`). Templates are WhatsApp only. Edit and unsend: Telegram and iMessage.
 
 ## Events (discriminated union on `type`)
 

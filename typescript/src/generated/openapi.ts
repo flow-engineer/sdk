@@ -93,9 +93,8 @@ export interface paths {
         /**
          * Unsend a message
          * @description Removes one of your outbound messages from the contact's chat, where the
-         *     channel allows it (Telegram: yes, within 48 hours; WhatsApp: no,
-         *     `422 unsupported_content`; iMessage: not confirmed yet, refused the same way
-         *     for now). The unsend passes the send gate and goes out in order with the
+         *     channel allows it (Telegram: yes, within 48 hours; iMessage: yes, within
+         *     2 minutes of sending; WhatsApp: no, `422 unsupported_content`). The unsend passes the send gate and goes out in order with the
          *     conversation's other messages; the message stays in your history and takes
          *     status `unsent` once the channel removed it. Repeating the call is safe.
          */
@@ -105,9 +104,9 @@ export interface paths {
         /**
          * Edit a sent message
          * @description Replaces the text of one of your outbound messages (on Telegram, also the
-         *     caption of a media message). Telegram supports edits; WhatsApp does not
-         *     (`422 unsupported_content`); iMessage support is not confirmed yet, so it is
-         *     refused the same way for now.
+         *     caption of a media message). Telegram and iMessage support edits (iMessage:
+         *     within 15 minutes of sending, and not the message that started the
+         *     conversation); WhatsApp does not (`422 unsupported_content`).
          *
          *     The edit passes the send gate and goes out in order with the conversation's
          *     other messages. The answer shows the message with its new content; the stored
@@ -1220,7 +1219,7 @@ export interface components {
          *     | effect | no | no | not confirmed | plain text |
          *     | typing | yes | yes | yes | skipped |
          *     | read | no (bots) | yes | yes | skipped |
-         *     | edit, unsend | yes | no | not confirmed | none |
+         *     | edit, unsend | yes | no | yes | none |
          */
         Content: components["schemas"]["TextContent"] | components["schemas"]["MediaContent"] | components["schemas"]["VoiceContent"] | components["schemas"]["ButtonsContent"] | components["schemas"]["ButtonReplyContent"] | components["schemas"]["ReactionContent"] | components["schemas"]["TemplateContent"] | components["schemas"]["LocationContent"] | components["schemas"]["ContactCardContent"] | components["schemas"]["EffectContent"] | components["schemas"]["TypingContent"] | components["schemas"]["ReadContent"] | components["schemas"]["EditContent"] | components["schemas"]["UnsendContent"] | components["schemas"]["FileBlockedContent"];
         /** @description Text, both ways. With `format` `markdown`, Flow renders it in each channel's own formatting; a channel without formatting needs `fallback`. */
@@ -1474,7 +1473,7 @@ export interface components {
             type: "read";
             up_to?: components["schemas"]["MessageId"];
         };
-        /** @description Replaces the text of one of your sent messages, sent only (over HTTP use `PATCH /v1/messages/{message_id}`). Telegram only for now. */
+        /** @description Replaces the text of one of your sent messages, sent only (over HTTP use `PATCH /v1/messages/{message_id}`). Telegram and iMessage; WhatsApp refuses it with `unsupported_content`. */
         EditContent: {
             /**
              * @description Always `edit`. (enum property replaced by openapi-typescript)
@@ -1484,7 +1483,7 @@ export interface components {
             message_id: components["schemas"]["MessageId"];
             content: components["schemas"]["TextContent"];
         };
-        /** @description Removes one of your sent messages from the contact's chat, sent only (over HTTP use `DELETE /v1/messages/{message_id}`). Telegram only for now. */
+        /** @description Removes one of your sent messages from the contact's chat, sent only (over HTTP use `DELETE /v1/messages/{message_id}`). Telegram and iMessage; WhatsApp refuses it with `unsupported_content`. */
         UnsendContent: {
             /**
              * @description Always `unsend`. (enum property replaced by openapi-typescript)
