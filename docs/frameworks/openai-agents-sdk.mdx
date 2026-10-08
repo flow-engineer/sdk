@@ -1,0 +1,69 @@
+---
+title: "OpenAI Agents SDK on WhatsApp, Telegram and iMessage"
+sidebarTitle: "OpenAI Agents SDK"
+description: "Run an OpenAI Agents SDK agent on WhatsApp, Telegram and iMessage with Flow Messaging: stream the run into reply() in TypeScript, or send the final output over HTTP from Python."
+keywords: ["OpenAI Agents SDK WhatsApp", "OpenAI agent Telegram", "OpenAI Agents SDK iMessage", "connect OpenAI agent to WhatsApp", "ChatGPT agent WhatsApp API"]
+---
+
+This page puts an [OpenAI Agents SDK](https://openai.github.io/openai-agents-js/) agent on WhatsApp, Telegram and iMessage: each message runs the agent, and its streamed answer is sent back as chat bubbles.
+
+<CodeGroup>
+```ts TypeScript
+// npm install @flow-engineer/messaging @openai/agents
+import { Agent, run } from "@openai/agents";
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging();
+const agent = new Agent({
+  name: "Bakery assistant",
+  instructions: "You help customers of Asha's Bakery with orders and delivery. Keep answers short.",
+  model: "gpt-4.1-mini",
+});
+
+for await (const event of flow.events.stream({ types: ["message.received"] })) {
+  const result = await run(agent, contentText(event.data.message.content), { stream: true });
+  await event.conversation.reply(result); // reads result.toTextStream()
+}
+```
+
+```python Python (HTTP)
+# pip install openai-agents fastapi requests
+# The Python SDK (flow-messaging) is coming soon; this calls the HTTP API.
+import os, requests
+from fastapi import FastAPI, Request, BackgroundTasks
+from agents import Agent, Runner
+
+API = "https://api.flow.engineer"
+HEADERS = {"Authorization": f"Bearer {os.environ['FLOW_MESSAGING_KEY']}"}
+agent = Agent(name="Bakery assistant", instructions="You help customers of Asha's Bakery. Keep answers short.")
+app = FastAPI()
+
+async def answer(event: dict):
+    text = event["data"]["message"]["content"].get("text", "")
+    result = await Runner.run(agent, text)
+    requests.post(
+        f"{API}/v1/conversations/{event['conversation']['id']}/messages",
+        headers={**HEADERS, "Idempotency-Key": event["id"]},
+        json={"content": {"type": "text", "text": result.final_output, "format": "markdown"}, "fallback": "auto"},
+        timeout=30,
+    )
+
+@app.post("/flow")
+async def flow_webhook(request: Request, tasks: BackgroundTasks):
+    event = await request.json()  # verify Flow-Signature first: see Events and webhooks
+    if event["type"] == "message.received":
+        tasks.add_task(answer, event)
+    return {}
+```
+</CodeGroup>
+
+## How it fits
+
+- In TypeScript, `run(agent, input, { stream: true })` returns a streamed result; `reply()` reads its text stream and sends bubbles while the agent runs.
+- In Python, answer the webhook with `{}` at once and send the agent's `final_output` afterwards. Split long answers at paragraph breaks ([the bubble rule](/concepts/streaming-replies#the-bubble-rule-for-any-language)).
+- Give the agent the conversation's history from `GET /v1/conversations/{conversation_id}/messages`, or keep your own session keyed by `conversation.id`.
+- Verify webhook signatures as shown in [Events and webhooks](/concepts/events-and-webhooks#verify-the-signature).
+
+## Full example
+
+[examples/openai-agents](https://github.com/flow-engineer/sdk/tree/main/examples/openai-agents) on GitHub.

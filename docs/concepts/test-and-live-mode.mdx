@@ -1,0 +1,31 @@
+---
+title: "Test mode and live mode: API keys and the sandbox"
+sidebarTitle: "Test and live mode"
+description: "Flow Messaging API keys come in two modes. fk_test_ keys reach only the shared sandbox and people who joined it; fk_live_ keys reach real contacts through your dedicated senders. Data never crosses between modes."
+keywords: ["messaging API test mode", "WhatsApp API sandbox", "Telegram bot sandbox", "iMessage API sandbox", "API key test live"]
+---
+
+Every API key belongs to one app and one **mode**, and the mode decides who your agent can reach.
+
+```bash
+curl https://api.flow.engineer/v1/app -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+# "livemode": false  -> a test key
+```
+
+| | Test mode | Live mode |
+|---|---|---|
+| Key | `fk_test_...` | `fk_live_...` |
+| Senders | The shared sandbox senders | Your dedicated senders |
+| Who can be messaged | Only people who sent your app's join code | Anyone the channel's rules allow |
+| Data | Test conversations, events, files and webhook endpoints | Live ones |
+
+## Rules
+
+- **Nothing in test mode reaches a real contact** unless that person joined the sandbox through your app. Build and test freely.
+- **The modes never mix.** Every object has `livemode`. A test key cannot see live data or use a live sender (`403` [`permission`](/errors/permission)), and webhook endpoints receive only their own mode's events.
+- **A key is shown once**, when it is created, and stored only as a hash. Create and revoke keys in the [dashboard](https://api.flow.engineer/admin).
+- **Keep live keys on your server.** Never ship a key in a web page or a mobile app.
+
+## Going from test to live
+
+Your code does not change. Request a dedicated sender, switch `FLOW_MESSAGING_KEY` to a live key, and register your webhook endpoint again with the live key. See [Going live](/guides/going-live).

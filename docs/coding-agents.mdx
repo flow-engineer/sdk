@@ -1,0 +1,135 @@
+---
+title: "For AI coding agents: integrate Flow Messaging with Claude Code, Codex or Cursor"
+sidebarTitle: "For AI coding agents"
+description: "Instructions for coding agents (Claude Code, Codex, Cursor, ChatGPT) adding WhatsApp, Telegram or iMessage to an AI agent with Flow Messaging: install, environment variables, the MCP server, the skill, and the rules to follow."
+keywords: ["add WhatsApp to AI agent", "Claude Code WhatsApp", "Codex WhatsApp integration", "MCP server WhatsApp Telegram iMessage", "AI agent SMS iMessage WhatsApp SDK", "messaging MCP server"]
+---
+
+This page is written for AI coding agents: follow it step by step to give the user's AI agent WhatsApp, Telegram or iMessage with Flow Messaging.
+
+<Prompt description="Paste this into Claude Code, Codex or Cursor to have it do the integration." actions={["copy", "cursor"]}>
+Add two-way WhatsApp, Telegram and iMessage messaging to my AI agent using Flow Messaging. Follow https://docs.flow.engineer/coding-agents.md exactly: run `npx @flow-engineer/messaging init`, use the TypeScript SDK `@flow-engineer/messaging` (or the HTTP API at https://api.flow.engineer in other languages), receive `message.received` events, reply with my agent's answer through `event.conversation.reply(...)`, and verify it end to end in the sandbox with the flow-messaging MCP tools before you finish.
+</Prompt>
+
+## 1. Install and get a key
+
+Run this in the project root:
+
+```bash
+npx @flow-engineer/messaging init
+```
+
+It asks the user for a test key (`fk_test_...`, from https://api.flow.engineer/admin) unless one is set, then:
+
+- writes `FLOW_MESSAGING_KEY` to `.env` and adds `.env` to `.gitignore`;
+- installs the Claude Code skill in `.claude/skills/flow-messaging/`;
+- adds a Flow Messaging section to `AGENTS.md` (read by Codex and other agents);
+- registers the MCP server for Claude Code (`.mcp.json`) and Codex (`codex mcp add`);
+- prints the sandbox senders and the join code the user sends from their phone.
+
+Flags: `--key fk_test_...` (non-interactive), `--no-agent-files`, `--no-mcp`, `--no-codex`, `--dir <path>`.
+
+Then add the SDK to a TypeScript or JavaScript project:
+
+```bash
+npm install @flow-engineer/messaging
+```
+
+For Python and Go, the SDKs (`flow-messaging` on PyPI, `github.com/flow-engineer/sdk/go`) are coming soon: call the HTTP API directly, as each page's Python and Go examples show.
+
+## 2. Environment variables
+
+| Variable | Required | What it is |
+|---|---|---|
+| `FLOW_MESSAGING_KEY` | yes | The API key: `fk_test_...` while building, `fk_live_...` in production. Server side only. |
+| `FLOW_MESSAGING_WEBHOOK_SECRET` | with webhooks | The endpoint's signing secret, `whsec_...`, returned once by `POST /v1/webhook_endpoints`. |
+| `FLOW_MESSAGING_BASE_URL` | no | Defaults to `https://api.flow.engineer`. |
+
+Never hard-code keys, never commit `.env`, and never put a key in browser or mobile code.
+
+## 3. The MCP server
+
+Flow's MCP server lets you (the coding agent) inspect and test the integration: who the key belongs to, send a test message, wait for an event, read webhook deliveries, replay an event, and explain an error. The key's mode chooses the tools: a test key gets build-time tools, a live key gets send, reply and read tools. Full list: [MCP server](/mcp).
+
+<CodeGroup>
+```bash Claude Code
+claude mcp add --transport http flow-messaging https://api.flow.engineer/mcp \
+  --header "Authorization: Bearer $FLOW_MESSAGING_KEY"
+```
+
+```bash Codex
+codex mcp add flow-messaging -- npx -y @flow-engineer/messaging mcp
+```
+
+```json Cursor (.cursor/mcp.json)
+{
+  "mcpServers": {
+    "flow-messaging": {
+      "command": "npx",
+      "args": ["-y", "@flow-engineer/messaging", "mcp"]
+    }
+  }
+}
+```
+</CodeGroup>
+
+`npx @flow-engineer/messaging mcp` is a stdio bridge to `https://api.flow.engineer/mcp` that reads `FLOW_MESSAGING_KEY` from the environment or `.env`; use it for any client that runs MCP servers as commands.
+
+## 4. The skill
+
+- **Claude Code:** `init` installs the skill in `.claude/skills/flow-messaging/`. It tells Claude how to integrate, which errors to handle and how to test.
+- **Any agent:** a skill file is published at https://docs.flow.engineer/skill.md. Install it with `npx skills add https://docs.flow.engineer`.
+
+## 5. Integrate: what to write
+
+1. **Receive** `message.received` events. In a web app, add a webhook route with `flow.webhooks.handler({ onEvent })` (or `constructEvent` on the raw body). In a worker or script, use `for await (const event of flow.events.stream({ types: ["message.received"] }))`.
+2. **Read** what the person said with `contentText(event.data.message.content)`; it covers text, captions, voice note transcripts and button taps.
+3. **Answer** with `event.conversation.reply(x)`, where `x` is a string or the user's LLM stream (OpenAI, Anthropic, Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, LangChain, Mastra). Pass `{ idempotencyKey: event.id }`.
+4. **Register** the webhook: `POST /v1/webhook_endpoints` with the public URL and `["message.received"]`; save the returned secret as `FLOW_MESSAGING_WEBHOOK_SECRET`. Locally, use `npx @flow-engineer/messaging listen --forward-to http://localhost:<port>/<path>` instead.
+5. **Handle errors** by `error.type` (TypeScript: `err instanceof OutsideWindowError` etc.). Each error carries a `hint` and a `doc_url` such as https://docs.flow.engineer/errors/outside_window.
+
+```ts TypeScript (minimal complete integration)
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+import { runAgent } from "./agent"; // the user's existing agent: returns a string or an LLM stream
+
+const flow = new FlowMessaging();
+
+export const POST = flow.webhooks.handler({
+  onEvent: async (event) => {
+    if (event.type !== "message.received") return;
+    const input = contentText(event.data.message.content);
+    await event.conversation.reply(await runAgent(input, { conversationId: event.conversation.id }), {
+      idempotencyKey: event.id,
+    });
+  },
+});
+```
+
+## 6. Verify end to end
+
+Do not finish until this works:
+
+1. Ask the user to send the join code from `init`'s output to the sandbox sender from their phone, if they have not.
+2. Start the app (and `listen --forward-to ...` when developing locally).
+3. With the MCP server, call `send_test_message` or ask the user to send a message, then `wait_for_event` for `message.received` and for `message.sent` from your reply.
+4. If a delivery failed, read it with `get_webhook_deliveries`, fix the handler, and `replay_event`.
+
+## Rules
+
+- **Use the SDK in TypeScript/JavaScript;** do not hand-roll HTTP calls there.
+- **Reply into the conversation** (`event.conversation`, or `POST /v1/conversations/{conversation_id}/messages`). Never choose a channel per message and never assume a contact has a phone number.
+- **Verify webhook signatures** on the raw body before trusting it; deduplicate on the event `id`.
+- **Answer webhooks within 10 seconds.** Run slow agents after the response (`after()`, `waitUntil()`, a queue) or use the event stream.
+- **Do not send unsupported content blindly.** Set `fallback: "auto"` or check `GET /v1/capabilities`. `reply()` already sets it.
+- **Respect WhatsApp's 24-hour window:** on `outside_window`, send an approved `template`, do not retry the same content.
+- **Test keys only while building.** Do not switch to `fk_live_` unless the user asks.
+
+## Docs for agents
+
+| URL | What |
+|---|---|
+| https://docs.flow.engineer/llms.txt | Index of every page with a one-line description |
+| https://docs.flow.engineer/llms-full.txt | The whole documentation in one file |
+| Any page URL + `.md` | That page as Markdown (for example https://docs.flow.engineer/quickstart.md) |
+| https://raw.githubusercontent.com/flow-engineer/sdk/main/openapi/openapi.yaml | The OpenAPI 3.1 spec |
+| https://github.com/flow-engineer/sdk | SDK source and examples |

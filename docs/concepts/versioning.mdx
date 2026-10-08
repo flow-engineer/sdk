@@ -1,0 +1,23 @@
+---
+title: "API versioning with the Flow-Version header"
+sidebarTitle: "Versioning"
+description: "Flow Messaging is versioned by date. Send Flow-Version to choose a version; without it your app's pinned version is used. New error, event and content types arrive only with a new version."
+keywords: ["API versioning", "Flow-Version header"]
+---
+
+The API is versioned by date, and the `Flow-Version` header chooses which version answers a request.
+
+```bash
+curl https://api.flow.engineer/v1/conversations \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Flow-Version: 2026-11-01"
+```
+
+## Rules
+
+- **The current version is `2026-11-01`.**
+- **Without the header**, the version pinned to your app when it was created is used (`app.api_version` in `GET /v1/app`).
+- **Every answer echoes** the version that served it in `Flow-Version`, and webhook deliveries carry it too.
+- **The SDKs send the version they were built for**, so their types always match the answers.
+- **Closed lists:** error types, event types and content types change only with a new dated version. Within a version you can switch on them exhaustively.
+- **Beta:** the API is labelled beta while its shape settles. Breaking changes ship as a new dated version, never inside an existing one.

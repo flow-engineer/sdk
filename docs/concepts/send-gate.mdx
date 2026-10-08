@@ -1,0 +1,73 @@
+---
+title: "The send gate: WhatsApp 24-hour window, new-contact limits and warm-up"
+sidebarTitle: "The send gate"
+description: "Every send passes one gate that applies each channel's rules: WhatsApp's 24-hour window and templates, who may be messaged first on iMessage and Telegram, new-contact budgets, warm-up for new lines, pacing and abuse protection."
+keywords: ["WhatsApp 24 hour window API", "WhatsApp template message API", "iMessage rate limits", "WhatsApp messaging limits", "avoid WhatsApp number ban", "iMessage spam limits"]
+---
+
+Every send, whether over HTTP, the live stream or a webhook reply, passes one **send gate** that applies the channel's rules before anything leaves Flow; this page lists those rules.
+
+```ts TypeScript
+import { OutsideWindowError, template } from "@flow-engineer/messaging";
+
+try {
+  await conversation.send("Your table is ready.");
+} catch (err) {
+  if (err instanceof OutsideWindowError) {
+    // WhatsApp: more than 24 hours since they last wrote. Only a template may go.
+    await conversation.send(template("tpl_01JB8ZC3K5M7P9R1T3V5X7Z9B1", "en", { body: ["Table 12"] }));
+  } else throw err;
+}
+```
+
+## Rule 1: is the conversation open?
+
+| Channel | You may send free-form content when... | Otherwise |
+|---|---|---|
+| WhatsApp | the contact's last message is less than 24 hours old (the **window**) | only an approved `template`; anything else gets `409` [`outside_window`](/errors/outside_window) |
+| iMessage | the contact has written to this line before | a new contact is refused with `403` [`permission`](/errors/permission) unless the line can start conversations; if it can, the send spends budget (rule 2), and a contact who never messaged the line (or opted in) gets a `message.failed` event with [`outside_window`](/errors/outside_window) |
+| Telegram | the contact has started your bot | Telegram refuses the message itself |
+| Sandbox senders | the contact joined through your app with its join code | refused |
+
+On WhatsApp, `conversation.window_open_until` (on the conversation and on every event) says when the window closes. Subscribe to `conversation.window_closing` to hear about it 1 hour before.
+
+## Rule 2: starting a conversation spends budget
+
+Writing to someone first (`POST /v1/messages`) spends the sender's **new-contact budget**:
+
+- **Per sender**: a number of new contacts per day and per hour, in `sender.limits`.
+- **Warm-up**: new lines start with a small daily budget that grows day by day while the sender is `warming_up`. For example, a new iMessage line starts near 15 new contacts a day and grows toward about 50.
+- **Per plan**: a monthly allowance.
+- **WhatsApp**: also the number's messaging tier (`sender.limits.whatsapp_tier`).
+- **iMessage**: only a line that can start conversations writes first at all; a reply-only line gets `403` [`permission`](/errors/permission).
+
+When the budget is used up the send fails with `429` [`new_contact_limit`](/errors/new_contact_limit) and `retry_after` in seconds. A message to someone who already has an open conversation with that sender goes into it and spends nothing.
+
+## Rule 3: abuse protection
+
+The gate watches for signs that a sender is being used for unwanted messages:
+
+- the same text going to many new contacts;
+- a high share of new conversations that get no reply;
+- people blocking the sender;
+- a drop in WhatsApp's quality rating.
+
+When one trips, the sender is **throttled**: until `throttled_until`, starting conversations fails with `429` [`sender_throttled`](/errors/sender_throttled), while replies into existing conversations still go. You receive `sender.status_changed` with a one-sentence `reason`, and another when the sender recovers by itself.
+
+## Rule 4: pacing and order
+
+- Each sender has a steady sending pace, so bursts are smoothed out rather than refused.
+- At most one message per conversation is in flight at a time, and messages go out in the order you sent them.
+
+## Write agents that respect the gate
+
+- **Reply, don't broadcast.** Agents that answer people who wrote first never meet rules 2 and 3.
+- **Check before you send.** `GET /v1/capabilities?conversation=conv_...` returns `window.open` and what each content type would do.
+- **Retry only what clears by itself.** `new_contact_limit`, `sender_throttled` and `rate_limited` carry `retry_after`; `outside_window` will not clear until the person writes again, so send a template instead (WhatsApp) or wait for them to message the line (iMessage).
+- **Watch `sender.status_changed`.** It is the early warning before a channel acts against a number.
+
+## Related
+
+- [Senders](/concepts/senders): statuses and limits.
+- [Going live](/guides/going-live): templates and dedicated numbers.
+- [Rate limits](/concepts/rate-limits): request limits per API key, which are separate from the gate.
