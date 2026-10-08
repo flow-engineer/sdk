@@ -1,0 +1,98 @@
+// The SDK's integration harness. The integration test copies this file into a
+// checkout of the Flow Messaging service (FLOW_MESSAGING_DIR) and runs it with
+// `go test`, so it can use the service's own test environment: a throwaway
+// Postgres, the engine, the HTTP API and the Telegram simulator. It prints one
+// line, `FLOW_HARNESS {json}`, and then serves a small control API that plays
+// Telegram users and reports what the simulator received, until POST /stop (at most 60 seconds).
+package sdkharness
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/flow-engineer/messaging/internal/flowtest"
+	"github.com/flow-engineer/messaging/internal/telegramsim"
+	"github.com/flow-engineer/messaging/internal/testdb"
+)
+
+func TestMain(m *testing.M) { testdb.Main(m) }
+
+func TestSDKHarness(t *testing.T) {
+	if os.Getenv("FLOW_SDK_HARNESS") != "1" {
+		t.Skip("run by the TypeScript SDK's integration test")
+	}
+	e := flowtest.New(t, flowtest.Options{Log: os.Getenv("LOG") == "1"})
+	token, senderID := e.SandboxSender()
+	// The service runs for flowtest's 60 seconds at most; the SDK test is shorter.
+	stop := make(chan struct{})
+	mux := http.NewServeMux()
+	reply := func(w http.ResponseWriter, v any) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(v)
+	}
+	// POST /text {"user_id": 1001, "first_name": "Asha", "message_id": 2, "text": "hello"}
+	mux.HandleFunc("POST /text", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			UserID    int64  `json:"user_id"`
+			FirstName string `json:"first_name"`
+			MessageID int64  `json:"message_id"`
+			Text      string `json:"text"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		u := telegramsim.User{ID: in.UserID, FirstName: in.FirstName}
+		a, err := e.Sim.SendText(r.Context(), token, u, in.MessageID, in.Text)
+		if err != nil {
+			http.Error(w, err.Error(), 502)
+			return
+		}
+		reply(w, map[string]any{"status": a.Status, "body": string(a.Body)})
+	})
+	// GET /calls?method=sendMessage&n=3&wait=10s: waits for n calls of method, returns all of them.
+	mux.HandleFunc("GET /calls", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		var n int
+		fmt.Sscan(q.Get("n"), &n)
+		wait, err := time.ParseDuration(q.Get("wait"))
+		if err != nil {
+			wait = 10 * time.Second
+		}
+		wctx, c := context.WithTimeout(r.Context(), wait)
+		defer c()
+		calls, err := e.Sim.WaitCalls(wctx, q.Get("method"), n)
+		out := []map[string]any{}
+		for _, call := range calls {
+			out = append(out, map[string]any{"method": call.Method, "chat_id": call.ChatID(), "text": call.Text(), "params": call.Params})
+		}
+		res := map[string]any{"calls": out}
+		if err != nil {
+			res["error"] = err.Error()
+		}
+		reply(w, res)
+	})
+	mux.HandleFunc("POST /stop", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, map[string]any{"ok": true})
+		select {
+		case <-stop:
+		default:
+			close(stop)
+		}
+	})
+	control := httptest.NewServer(mux)
+	defer control.Close()
+
+	info, _ := json.Marshal(map[string]string{
+		"base_url": e.Server.URL, "test_key": e.Tenant.TestKey, "live_key": e.Tenant.LiveKey,
+		"control_url": control.URL, "join_code": e.JoinCode(), "sender_id": senderID,
+	})
+	fmt.Fprintf(os.Stdout, "FLOW_HARNESS %s\n", info)
+	<-stop
+}

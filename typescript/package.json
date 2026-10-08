@@ -1,0 +1,87 @@
+{
+  "name": "@flow-engineer/messaging",
+  "version": "0.1.0",
+  "description": "Flow Messaging SDK: let an AI agent talk with people on WhatsApp, Telegram and iMessage through one API. Typed client, live event stream, webhook verification, LLM stream to message bubbles, and a CLI with an MCP bridge.",
+  "license": "Apache-2.0",
+  "homepage": "https://docs.flow.engineer",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flow-engineer/sdk.git",
+    "directory": "typescript"
+  },
+  "bugs": "https://github.com/flow-engineer/sdk/issues",
+  "keywords": [
+    "whatsapp",
+    "telegram",
+    "imessage",
+    "messaging",
+    "ai-agent",
+    "agents",
+    "chatbot",
+    "llm",
+    "mcp",
+    "webhooks",
+    "flow-messaging"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "flow-messaging": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "agent-files",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "generate": "openapi-typescript ../openapi/openapi.yaml --default-non-nullable false -o src/generated/openapi.ts && node scripts/sync-agent-files.mjs",
+    "check-generated": "node scripts/check-generated.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "lint": "eslint .",
+    "test": "vitest run test/unit",
+    "test:integration": "vitest run test/integration",
+    "build": "node scripts/sync-agent-files.mjs && node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "ws": ">=8"
+  },
+  "peerDependenciesMeta": {
+    "ws": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.2",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "openapi-typescript": "^7.13.0",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3",
+    "ws": "^8.22.0"
+  }
+}

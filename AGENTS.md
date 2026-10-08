@@ -21,9 +21,20 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 
 ## Checks
 
+- **Run `scripts/local-checks.sh` before a PR.** It runs the spec lint and, in
+  `typescript/`: the generated-types check, typecheck (`tsc`, sources and tests),
+  ESLint, the unit tests (vitest), the build (tsup: ESM, CJS, types, the CLI), the
+  package contents, and the integration test. `EXAMPLES=1` also typechecks
+  `examples/` against their real dependencies.
 - **Lint with Redocly CLI**: `scripts/lint.sh` (runs `npx @redocly/cli@2.60.0 lint`
   with `redocly.yaml`, `recommended-strict`, so any warning fails). It must be clean
   before a PR.
+- **The integration test runs the real service locally**: it copies
+  `typescript/test/integration/harness/harness_test.go.tmpl` into a checkout of
+  flow-engineer/messaging (`FLOW_MESSAGING_DIR`, default `../flow-messaging`) and runs it
+  with `go test`, which starts a throwaway Postgres, the API and the Telegram
+  simulator; the copy is removed afterwards. Without a checkout or Go it is skipped
+  (`REQUIRE_INTEGRATION=1` makes that fail).
 - After a spec change, regenerate the service in flow-engineer/messaging
   (`make generate` there, with this repo checked out beside it as `../flow-sdk`) and
   run its `scripts/local-checks.sh`.
@@ -37,6 +48,34 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 - Any production breakage gets one GitHub issue labelled `incident` in
   flow-engineer/messaging, never a file here.
 
+## TypeScript SDK
+
+- `typescript/src/generated/openapi.ts` is made by `npm run generate` from the spec
+  (openapi-typescript); never edit it. After a spec change, regenerate and commit it.
+  `src/types.ts` gives the generated schemas friendly names; everything else is
+  hand-written: `core.ts` (requests, retries, idempotency keys, `Flow-Version`),
+  `errors.ts` (a class per `ErrorType`), `pagination.ts`, `resources.ts` (one class per
+  API resource), `stream.ts` (`events.stream`), `webhooks.ts`, `conversation.ts`
+  (`reply`, typing), `bubbles.ts` (the bubble rule and LLM stream readers),
+  `content.ts` (builders), `cli/` and `cli.ts`.
+- No runtime dependencies: `fetch`, Web Crypto and the runtime's WebSocket (`ws` is an
+  optional peer for Node 18 and 20). Keep it working in Node 18+, Bun, Deno and edge
+  runtimes; Node-only code belongs in the CLI.
+- The bubble rule is documented in `bubbles.ts`, the package README and the skill's
+  API reference; change all three together.
+- Tests wait on explicit gates (promises resolved by the event they wait for), never
+  sleeps.
+
+## Agent files
+
+- `plugin/` is their one source: the Claude Code plugin (`.claude-plugin/plugin.json`,
+  `.mcp.json`, `skills/flow-messaging/`) and `AGENTS-snippet.md` (the section `init`
+  adds to a project's `AGENTS.md`). `.claude-plugin/marketplace.json` at the root
+  lists the plugin. The build copies them into `typescript/agent-files/` for the npm
+  package. Keep them short, correct and example-led; the skill's `description` says
+  exactly when to load it.
+- `llms.txt` summarises the SDK for language models; keep it in step with the README.
+
 ## Layout
 
 - `openapi/openapi.yaml`: the spec. `redocly.yaml`: lint rules.
@@ -46,5 +85,7 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   `explain_error` (its `make generate` copies them, so a new error type needs a
   page here first). `docs/mcp.md` is the hosted MCP server's page.
 - `server.json`: the entry for the official MCP registry (not submitted yet).
-- `typescript/`, `python/`, `go/`: the SDKs, not written yet (TypeScript first, then
-  Python, then Go; design-v1, section 12).
+- `typescript/`: `@flow-engineer/messaging`, the SDK and the CLI.
+- `examples/`: runnable agents, each with a README, using the sandbox.
+- `plugin/`, `.claude-plugin/`: the agent files and the plugin marketplace.
+- `python/`, `go/`: the SDKs, not written yet (Python, then Go; design-v1, section 12).

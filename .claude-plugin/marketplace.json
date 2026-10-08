@@ -1,0 +1,12 @@
+{
+  "name": "flow-engineer",
+  "owner": { "name": "Flow Engineer", "url": "https://flow.engineer" },
+  "metadata": { "description": "Plugins from Flow Engineer." },
+  "plugins": [
+    {
+      "name": "flow-messaging",
+      "source": "./plugin",
+      "description": "WhatsApp, Telegram and iMessage for AI agents: the @flow-engineer/messaging skill and the Flow Messaging MCP server."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "flow-messaging-example-langchain",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "tsx --env-file=.env agent.ts" },
+  "dependencies": {
+    "@flow-engineer/messaging": "file:../../typescript",
+    "@langchain/core": "^1.2.17",
+    "@langchain/openai": "^1.6.2"
+  },
+  "devDependencies": { "tsx": "^4.23.15", "typescript": "~5.9.3" }
+}

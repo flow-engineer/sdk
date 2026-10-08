@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Every check, run locally before a PR (no CI jobs: minutes are paid).
+#   scripts/local-checks.sh             spec lint + TypeScript (generated types, typecheck,
+#                                       lint, unit tests, build, package contents, integration)
+#   EXAMPLES=1 scripts/local-checks.sh  also typecheck examples/ against their real dependencies
+# The integration test runs the Flow Messaging service from a checkout beside this repo
+# (FLOW_MESSAGING_DIR, default ../flow-messaging; needs Go and Postgres binaries) and is
+# skipped without one. REQUIRE_INTEGRATION=1 makes a skip fail.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+root=$(pwd)
+
+step() { printf '\n== %s\n' "$*"; }
+
+step "spec lint (Redocly)"
+scripts/lint.sh
+
+cd "$root/typescript"
+step "typescript: install"
+if [ ! -d node_modules ]; then npm ci --no-audit --no-fund; fi
+step "typescript: generated types are current"
+npm run --silent check-generated
+step "typescript: typecheck"
+npm run --silent typecheck
+step "typescript: lint"
+npm run --silent lint
+step "typescript: unit tests"
+npm test --silent
+step "typescript: build"
+npm run --silent build
+step "typescript: package contents"
+pack=$(npm pack --dry-run --json 2>/dev/null)
+for f in dist/index.js dist/index.cjs dist/index.d.ts dist/index.d.cts dist/cli.js agent-files/skills/flow-messaging/SKILL.md agent-files/AGENTS-snippet.md; do
+  echo "$pack" | grep -q "\"$f\"" || { echo "package is missing $f"; exit 1; }
+done
+node -e "require('./dist/index.cjs').FlowMessaging" && node --input-type=module -e "import('./dist/index.js').then(m => m.FlowMessaging)"
+echo "ok"
+
+step "typescript: integration (local Flow Messaging service)"
+server="${FLOW_MESSAGING_DIR:-$root/../flow-messaging}"
+if [ -f "$server/internal/flowtest/flowtest.go" ] && command -v go >/dev/null; then
+  FLOW_MESSAGING_DIR="$server" npm run --silent test:integration
+elif [ "${REQUIRE_INTEGRATION:-0}" = "1" ]; then
+  echo "no service checkout at $server (set FLOW_MESSAGING_DIR) or no Go"; exit 1
+else
+  echo "skipped: no service checkout at $server or no Go (set FLOW_MESSAGING_DIR)"
+fi
+
+if [ "${EXAMPLES:-0}" = "1" ]; then
+  step "examples: typecheck against their dependencies"
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  node -e '
+    const fs = require("fs"), path = require("path");
+    const ex = path.join(process.argv[1], "examples");
+    const deps = { typescript: "~5.9.3", "@types/node": "^22" };
+    for (const d of fs.readdirSync(ex)) {
+      const p = path.join(ex, d, "package.json");
+      if (!fs.existsSync(p)) continue;
+      Object.assign(deps, JSON.parse(fs.readFileSync(p, "utf8")).dependencies);
+      for (const f of fs.readdirSync(path.join(ex, d))) if (/^agent\.(ts|mjs)$/.test(f)) fs.copyFileSync(path.join(ex, d, f), path.join(process.argv[2], d + "-" + f));
+    }
+    deps["@flow-engineer/messaging"] = "file:" + path.join(process.argv[1], "typescript");
+    fs.writeFileSync(path.join(process.argv[2], "package.json"), JSON.stringify({ name: "examples-check", private: true, type: "module", dependencies: deps }));
+    fs.writeFileSync(path.join(process.argv[2], "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, skipLibCheck: true, noEmit: true, allowJs: true, checkJs: true, types: ["node"] }, include: ["*.ts", "*.mjs"] }));
+  ' "$root" "$tmp"
+  (cd "$tmp" && npm install --no-audit --no-fund --silent && npx tsc -p .)
+  echo "ok"
+fi
+
+printf '\nAll checks passed.\n'

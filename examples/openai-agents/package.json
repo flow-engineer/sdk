@@ -1,0 +1,12 @@
+{
+  "name": "flow-messaging-example-openai-agents",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "tsx --env-file=.env agent.ts" },
+  "dependencies": {
+    "@flow-engineer/messaging": "file:../../typescript",
+    "@openai/agents": "^0.19.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": { "tsx": "^4.23.15", "typescript": "~5.9.3" }
+}

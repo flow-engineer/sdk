@@ -1,0 +1,12 @@
+{
+  "name": "flow-messaging-example-mastra",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "tsx --env-file=.env agent.ts" },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.87",
+    "@flow-engineer/messaging": "file:../../typescript",
+    "@mastra/core": "^1.75.0"
+  },
+  "devDependencies": { "tsx": "^4.23.15", "typescript": "~5.9.3" }
+}
