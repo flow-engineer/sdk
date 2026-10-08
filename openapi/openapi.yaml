@@ -396,9 +396,9 @@ paths:
       summary: Edit a sent message
       description: |
         Replaces the text of one of your outbound messages (on Telegram, also the
-        caption of a media message). Telegram supports edits; WhatsApp does not
-        (`422 unsupported_content`); iMessage support is not confirmed yet, so it is
-        refused the same way for now.
+        caption of a media message). Telegram and iMessage support edits (iMessage:
+        within 15 minutes of sending, and not the message that started the
+        conversation); WhatsApp does not (`422 unsupported_content`).
 
         The edit passes the send gate and goes out in order with the conversation's
         other messages. The answer shows the message with its new content; the stored
@@ -435,9 +435,8 @@ paths:
       summary: Unsend a message
       description: |
         Removes one of your outbound messages from the contact's chat, where the
-        channel allows it (Telegram: yes, within 48 hours; WhatsApp: no,
-        `422 unsupported_content`; iMessage: not confirmed yet, refused the same way
-        for now). The unsend passes the send gate and goes out in order with the
+        channel allows it (Telegram: yes, within 48 hours; iMessage: yes, within
+        2 minutes of sending; WhatsApp: no, `422 unsupported_content`). The unsend passes the send gate and goes out in order with the
         conversation's other messages; the message stays in your history and takes
         status `unsent` once the channel removed it. Repeating the call is safe.
       responses:
@@ -2284,7 +2283,7 @@ components:
         | effect | no | no | not confirmed | plain text |
         | typing | yes | yes | yes | skipped |
         | read | no (bots) | yes | yes | skipped |
-        | edit, unsend | yes | no | not confirmed | none |
+        | edit, unsend | yes | no | yes | none |
       oneOf:
         - $ref: "#/components/schemas/TextContent"
         - $ref: "#/components/schemas/MediaContent"
@@ -2658,7 +2657,7 @@ components:
           $ref: "#/components/schemas/MessageId"
     EditContent:
       type: object
-      description: Replaces the text of one of your sent messages, sent only (over HTTP use `PATCH /v1/messages/{message_id}`). Telegram only for now.
+      description: Replaces the text of one of your sent messages, sent only (over HTTP use `PATCH /v1/messages/{message_id}`). Telegram and iMessage; WhatsApp refuses it with `unsupported_content`.
       required: [type, message_id, content]
       properties:
         type:
@@ -2671,7 +2670,7 @@ components:
           $ref: "#/components/schemas/TextContent"
     UnsendContent:
       type: object
-      description: Removes one of your sent messages from the contact's chat, sent only (over HTTP use `DELETE /v1/messages/{message_id}`). Telegram only for now.
+      description: Removes one of your sent messages from the contact's chat, sent only (over HTTP use `DELETE /v1/messages/{message_id}`). Telegram and iMessage; WhatsApp refuses it with `unsupported_content`.
       required: [type, message_id]
       properties:
         type:
