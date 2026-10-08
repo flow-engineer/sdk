@@ -130,8 +130,11 @@ describe("listen", () => {
     expect(readReply({})).toEqual({ list: [] });
     expect(readReply({ reply: null })).toEqual({ list: [] });
     expect(readReply({ reply: [text, text], fallback: "auto" })).toEqual({ list: [text, text], fallback: "auto" });
-    expect(readReply("hi")).toHaveProperty("error");
-    expect(readReply([text])).toHaveProperty("error");
+    expect(readReply("OK")).toEqual({ list: [] });
+    expect(readReply(undefined)).toEqual({ list: [] });
+    expect(readReply(undefined, true)).toHaveProperty("error");
+    expect(readReply([text])).toEqual({ list: [] });
+    expect(readReply({ ok: true, fallback: "numbered" })).toEqual({ list: [] });
     expect(readReply({ reply: [] })).toHaveProperty("error");
     expect(readReply({ reply: Array(11).fill(text) })).toHaveProperty("error");
     expect(readReply({ reply: [text, "hi"] })).toHaveProperty("error");

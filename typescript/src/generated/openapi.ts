@@ -633,7 +633,11 @@ export interface paths {
          *     delivery's `Flow-Signature` carries two `v1` values, one per secret, so you
          *     can deploy the new secret while the old one still verifies. When the overlap
          *     ends only the new secret signs. Rotating again during an overlap retires the
-         *     older previous secret at once: at most two secrets are ever active.
+         *     older previous secret at once: at most two secrets are ever active. So send an
+         *     `Idempotency-Key` and retry with the same key: a retry without one is a second
+         *     rotation, which retires the secret you still have deployed. The new secret is
+         *     never stored with the key, so a repeat of a rotation that went through answers
+         *     `409 idempotency_conflict` instead of showing the secret again.
          */
         post: operations["rotateWebhookEndpointSecret"];
         delete?: never;
@@ -738,13 +742,15 @@ export interface webhooks {
          *     send gate, as if you had called `POST /v1/conversations/{conversation_id}/messages`
          *     with the event's `id` as the idempotency key. `fallback` applies to every
          *     piece of the reply. For any other event, or to reply later, answer `200` with
-         *     an empty body, `{}` or `{"reply": null}`: nothing is sent and it is not an
-         *     error.
+         *     an empty body, `{}`, `{"reply": null}` or any body that is not a JSON object
+         *     with `reply` (plain text such as `OK` included): nothing is sent and it is not
+         *     an error.
          *
-         *     An answer to a `message.received` delivery that is not a valid
-         *     `WebhookReply` (a body that is not a JSON object, a `reply` that is not
-         *     content or a list of content, an empty list, more than 10 pieces, an unknown
-         *     `fallback`) sends nothing at all, not even the valid pieces. It is recorded
+         *     An answer to a `message.received` delivery that is a JSON object with a
+         *     `reply` that is not valid (a `reply` that is not content or a list of
+         *     content, an empty list, more than 10 pieces, an unknown `fallback`), or a
+         *     body that starts with `{` but is not valid JSON, sends nothing at all, not
+         *     even the valid pieces. It is recorded
          *     on the delivery as an `invalid_request` error with the reason, which the MCP
          *     tool `get_webhook_deliveries` shows; the delivery counts as delivered and is
          *     not retried. A piece that the send gate refuses is reported as a
@@ -845,7 +851,7 @@ export interface components {
          *     - `authentication` (401): the API key is missing, malformed, unknown or revoked. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key.
          *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, or a new conversation from an iMessage line that may only reply. Use the key of the right mode, have the contact send your join code, or wait for the contact to message the line first.
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
-         *     - `idempotency_conflict` (409): the idempotency key was used for a different request, or that request is still running. Use a new key for a new request, or retry the same request after it finishes.
+         *     - `idempotency_conflict` (409): the idempotency key was used for a different request, or that request is still running, or it already created a secret that is shown only once (creating a webhook endpoint, rotating its secret). Use a new key for a new request, or retry the same request after it finishes; a secret that was lost must be rotated again.
          *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window is closed (iMessage typing works only within 5 minutes of the contact's last message); ignore it and send your reply.
          *     - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first.
          *     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
@@ -1345,7 +1351,7 @@ export interface components {
              * @enum {string}
              */
             type: "text";
-            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 10000 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
+            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
             text: string;
             /**
              * @description How to read `text`. Inbound text is always `plain`.
@@ -1559,7 +1565,7 @@ export interface components {
              * @enum {string}
              */
             type: "effect";
-            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 10000 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
+            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
             text: string;
             /**
              * @description The effect.
@@ -2046,7 +2052,7 @@ export interface components {
         };
         /** @description Size limits on this channel. */
         ChannelLimits: {
-            /** @description The longest text one message may carry, in characters (4096 on Telegram and WhatsApp, 10000 on iMessage). Longer text is refused with `invalid_request`. */
+            /** @description The longest text one message may carry, in characters (4096 on Telegram and WhatsApp, 9999 on iMessage). Longer text is refused with `invalid_request`. */
             max_text_length?: number;
             /** @description The most buttons one message may carry natively. */
             max_buttons?: number;
@@ -2242,10 +2248,12 @@ export interface components {
          * @description The optional body of your answer to a `message.received` delivery. `reply` is
          *     one piece of content or a list of up to 10, sent in order into the event's
          *     conversation through the send gate. Leave `reply` out, set it to `null`, or
-         *     answer `{}` or an empty body to send nothing now.
+         *     answer `{}`, an empty body or any body that is not a JSON object (such as
+         *     `OK`) to send nothing now; that is not an error.
          *
-         *     An answer that does not match this shape sends nothing at all (no piece of a
-         *     list goes out) and is recorded on the delivery as an `invalid_request` error
+         *     A JSON object whose `reply` (or `fallback`, alongside a `reply`) does not match
+         *     this shape, or a body that starts with `{` but is not valid JSON, sends
+         *     nothing at all (no piece of a list goes out) and is recorded on the delivery as an `invalid_request` error
          *     with the reason; the delivery counts as delivered and is not retried.
          * @example {
          *       "reply": [

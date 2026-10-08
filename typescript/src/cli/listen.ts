@@ -43,14 +43,17 @@ export async function forwardEvent(
   let replies = 0;
   if (res.ok && event.type === "message.received") {
     let answer: unknown;
+    let broken = false;
     try {
       const text = await res.text();
+      broken = text.trim().startsWith("{");
       answer = text.trim() ? JSON.parse(text) : {};
+      broken = false;
     } catch {
       answer = undefined;
     }
-    const parsed = readReply(answer);
-    // As the API does: an answer that is not a valid WebhookReply sends nothing at all.
+    const parsed = readReply(answer, broken);
+    // As the API does: a JSON object with an invalid `reply` sends nothing at all.
     if ("error" in parsed) return { status: res.status, replies: 0, error: `invalid reply (invalid_request): ${parsed.error}` };
     const { list, fallback } = parsed;
     for (const [i, content] of list.entries()) {
@@ -68,11 +71,17 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 const isContent = (v: unknown): v is Content => isObject(v) && typeof v.type === "string";
 
 /** Checks a webhook answer's shape as the API does: the pieces to send, or why none are sent. */
-export function readReply(answer: unknown): { list: Content[]; fallback?: WebhookReply["fallback"] } | { error: string } {
-  if (!isObject(answer)) return { error: "the body is not a JSON object" };
+export function readReply(
+  answer: unknown,
+  brokenObject = false,
+): { list: Content[]; fallback?: WebhookReply["fallback"] } | { error: string } {
+  // A body that starts with "{" but is not valid JSON is refused.
+  if (brokenObject) return { error: "the body starts like a JSON object but is not valid JSON" };
+  // A body that is not a JSON object (plain "OK" included), or one without `reply`, sends nothing and is not an error.
+  if (!isObject(answer)) return { list: [] };
   const { reply, fallback } = answer;
-  if (fallback !== undefined && fallback !== "auto" && !isContent(fallback)) return { error: 'fallback must be "auto" or content' };
   if (reply === undefined || reply === null) return { list: [] };
+  if (fallback !== undefined && fallback !== "auto" && !isContent(fallback)) return { error: 'fallback must be "auto" or content' };
   if (Array.isArray(reply)) {
     if (reply.length === 0) return { error: "reply is an empty list" };
     if (reply.length > 10) return { error: `reply has ${reply.length} pieces; at most 10` };
