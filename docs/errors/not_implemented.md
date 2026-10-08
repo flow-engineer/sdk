@@ -13,12 +13,12 @@ Flow Messaging is in beta. Some endpoints and channels are in the spec before th
 
 ## Why it happens
 
-- Sending on WhatsApp or iMessage before those channels are live.
+- Sending on WhatsApp before it is live (Telegram and iMessage are live).
 - An endpoint that arrives in a later release.
 
 ## How to fix it
 
-Build on what is live now (Telegram, and the endpoints that answer). The changelog announces each endpoint and channel as it goes live.
+Build on what is live now (Telegram, iMessage, and the endpoints that answer). The changelog announces each endpoint and channel as it goes live.
 
 ```bash
 curl https://api.flow.engineer/v1/senders -H "Authorization: Bearer $FLOW_TEST_KEY"   # what you can send from today
