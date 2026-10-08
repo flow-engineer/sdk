@@ -47,7 +47,7 @@ await conversation.send({
 | `effect` | no | no | not confirmed | plain text |
 | `typing` | yes | yes | yes | skipped |
 | `read` | no (bots) | yes | yes | skipped |
-| `edit`, `unsend` | yes | no | not confirmed | none |
+| `edit`, `unsend` | yes | no | yes | none |
 
 "Not confirmed" means Flow does not yet promise it on that channel; such a send is refused (or uses your fallback) until it is. Ask the API instead of this table: `GET /v1/capabilities?conversation=conv_...` returns, per content type, `native`, `fallback` (with what `auto` sends) or `unsupported`, plus the channel's size limits and whether the window is open.
 

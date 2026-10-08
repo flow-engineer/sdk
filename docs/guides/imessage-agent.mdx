@@ -78,7 +78,9 @@ See [The send gate](/concepts/send-gate).
 | Typing, read receipts | yes |
 | Effects | being confirmed per line |
 | Buttons | no (numbered-text fallback) |
-| Voice notes, locations, contact cards, edit, unsend | not confirmed yet: refused, or sent through your fallback |
+| Edit | yes, within 15 minutes of sending (not the message that started the conversation) |
+| Unsend | yes, within 2 minutes of sending |
+| Voice notes, locations, contact cards | not confirmed yet: refused, or sent through your fallback |
 
 Use `GET /v1/capabilities?conversation=conv_...` for the live answer for a conversation.
 
