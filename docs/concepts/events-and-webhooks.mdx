@@ -103,6 +103,15 @@ Flow-Version: 2026-11-01
 
 `v1` is the lowercase hex HMAC-SHA256, keyed with the endpoint secret, of the string `t.{t}.{body}`: the letter `t`, a dot, the timestamp from the header, a dot, and the **raw** request body exactly as received. Compare in constant time and reject timestamps more than 5 minutes from your clock. While a secret is being rotated the header carries one `v1` per active secret; accept the request if any matches.
 
+### Rotate the signing secret
+
+`POST /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret` makes a new secret and returns it in `secret`, shown only this once. The old secret keeps signing for `overlap_seconds` (default 86400, one day; `0` retires it at once), so every delivery during the overlap carries two `v1` values and verifies with either secret while you deploy the new one. `previous_secret_expires_at` says when the old one stops. Rotating again during an overlap retires the older secret at once: at most two are ever active.
+
+```ts
+const { secret } = await flow.webhookEndpoints.rotateSecret("we_...", { overlap_seconds: 3600 });
+// Store secret as FLOW_MESSAGING_WEBHOOK_SECRET and deploy within the hour.
+```
+
 <CodeGroup>
 ```ts TypeScript (Express)
 import express from "express";
@@ -246,7 +255,15 @@ To answer a `message.received` at once, respond `200` with a reply body. Flow se
 { "reply": { "type": "text", "text": "Yes, we deliver to 560103." } }
 ```
 
-`reply` may also be a list of up to 10 pieces of content, sent in order. A reply the gate refuses arrives later as a `message.failed` event.
+`reply` may also be a list of up to 10 pieces of content, sent in order. Add `fallback` (`"auto"` or your own content) to say what to send where the channel cannot show a piece, as on HTTP sends; it applies to every piece:
+
+```json
+{ "reply": [{ "type": "text", "text": "Which size?" }, { "type": "buttons", "text": "Pick one", "buttons": [{ "id": "s", "label": "Small" }, { "id": "m", "label": "Medium" }] }], "fallback": "auto" }
+```
+
+- An empty body, `{}` or `{"reply": null}` sends nothing, and is not an error.
+- An answer that is not a valid reply (not a JSON object, a `reply` that is not content or a list of content, an empty list, more than 10 pieces, an unknown `fallback`) sends **nothing at all**, not even the valid pieces. It is recorded on the delivery as an [`invalid_request`](/errors/invalid_request) error with the reason, which the MCP tool `get_webhook_deliveries` shows. The delivery counts as delivered and is not retried.
+- A piece the send gate refuses arrives later as a `message.failed` event.
 
 **Slow agents answer `200 {}` at once** and send later with `POST /v1/conversations/{conversation_id}/messages`. Keep your handler under 10 seconds; anything that takes longer belongs after the response.
 
@@ -261,7 +278,15 @@ To answer a `message.received` at once, respond `200` with a reply body. Flow se
 
 ## The live stream
 
-`GET /v1/stream` upgrades to a WebSocket. Every frame is one JSON object: the server sends `event`, `ack`, `error` and `reconnect` frames, and you may send `send` and `start` frames with the same bodies as the HTTP send endpoints (`ref` is your idempotency key, echoed in the `ack` or `error`). Pass `after` to resume: the stream first replays everything after that event, then goes live. When the server is about to restart it sends `reconnect`; reconnect with `after` set to the last event you received. The TypeScript SDK does all of this for you in `flow.events.stream()`, and falls back to polling where a WebSocket cannot carry the key.
+`GET /v1/stream` upgrades to a WebSocket. Every frame is one JSON object: the server sends `event`, `ack`, `error` and `reconnect` frames, and you may send `send` and `start` frames with the same bodies as the HTTP send endpoints (`ref` is your idempotency key, echoed in the `ack` or `error`). Pass `after` to resume: the stream first replays everything after that event, then goes live. When the server is about to restart it sends `reconnect`; reconnect with `after` set to the last event you received. The TypeScript SDK does all of this for you in `flow.events.stream()`, and polls `GET /v1/events` where the runtime has no WebSocket.
+
+Authenticate with the `Authorization` header. A browser's `WebSocket` cannot set headers, so there you may offer the key as a subprotocol instead: offer both `flow` and `flow.key.<api key>`. The server selects `flow` and never echoes the key; offering the key protocol without `flow` is refused with `400 invalid_request`, and an `Authorization` header, when present, takes precedence. Keys are never accepted in the query string, since URLs end up in logs. The TypeScript SDK offers the subprotocol by itself where the WebSocket cannot send headers.
+
+```js
+const ws = new WebSocket("wss://api.flow.engineer/v1/stream", ["flow", "flow.key." + key]);
+```
+
+<Warning>A key used in a browser is visible to whoever uses that page. Do this only for internal tools or with test keys (`fk_test_`); keep live keys on your server.</Warning>
 
 ## Related
 

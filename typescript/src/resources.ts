@@ -29,6 +29,7 @@ import type {
   WebhookEndpoint,
   WebhookEndpointCreateRequest,
   WebhookEndpointUpdateRequest,
+  WebhookSecretRotateRequest,
 } from "./types.js";
 
 const enc = encodeURIComponent;
@@ -226,6 +227,15 @@ export class WebhookEndpoints {
 
   delete(endpointId: string, options?: RequestOptions): Promise<Deleted> {
     return this.http.request({ method: "DELETE", path: `/v1/webhook_endpoints/${enc(endpointId)}`, options });
+  }
+
+  /**
+   * Makes a new signing secret; the answer's `secret` is shown only this once. The old
+   * secret keeps signing for `overlap_seconds` (default one day, `0` retires it at
+   * once), so deliveries verify with either secret while you deploy the new one.
+   */
+  rotateSecret(endpointId: string, params: WebhookSecretRotateRequest = {}, options?: RequestOptions): Promise<WebhookEndpoint> {
+    return this.http.request({ method: "POST", path: `/v1/webhook_endpoints/${enc(endpointId)}/rotate_secret`, body: params, options });
   }
 }
 

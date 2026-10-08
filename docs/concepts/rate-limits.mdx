@@ -1,7 +1,7 @@
 ---
 title: "Rate limits"
 sidebarTitle: "Rate limits"
-description: "Flow Messaging limits requests per API key and reports the budget in RateLimit headers. A 429 rate_limited answer carries Retry-After. Sending limits per sender are separate and come from the send gate."
+description: "Flow Messaging limits requests per API key and reports the budget in RateLimit headers. A 429 rate_limited answer, for the per-key limit or a sender's sending rate, carries Retry-After. New-contact budgets per sender come from the send gate."
 keywords: ["messaging API rate limits", "WhatsApp API rate limit", "429 retry after"]
 ---
 
@@ -18,5 +18,6 @@ RateLimit-Reset: 12
 - `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds) come with every answer.
 - Over the limit, the API answers `429` with type [`rate_limited`](/errors/rate_limited), a `Retry-After` header and `error.retry_after` in seconds. Wait that long, then retry with the **same** idempotency key.
 - The TypeScript SDK retries `429` and `5xx` answers for you (2 retries by default, `maxRetries` to change it), honouring `Retry-After`.
-- **Sending limits are separate.** How many new conversations a sender may start, and how fast it sends, is decided by [the send gate](/concepts/send-gate) (`new_contact_limit`, `sender_throttled`), not by these headers.
+- **Each sender also has a sending rate (pacing).** [The send gate](/concepts/send-gate) lets a sender send only so many messages a second; a send over it is also refused with `429 rate_limited`, `Retry-After` and `error.retry_after`, and `error.sender` names the sender. Retry the same way, with the same idempotency key. The `RateLimit-*` headers describe only the per-key limit.
+- **New-contact budgets are separate.** How many new conversations a sender may start is decided by the send gate (`new_contact_limit`, `sender_throttled`), not by these headers.
 - Use webhooks or the live stream instead of polling `GET /v1/events` in a tight loop.

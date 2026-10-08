@@ -10,12 +10,12 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 | `flow.messages.start({ sender, to: { telegram_user_id \| phone \| handle \| contact }, content })` | `POST /v1/messages` |
 | `flow.messages.retrieve(id)` · `.edit(id, "new text")` · `.unsend(id)` | `GET` · `PATCH` · `DELETE /v1/messages/{id}` |
 | `flow.conversations.list()` · `.retrieve(id)` · `.messages(id)` | `GET /v1/conversations[/{id}[/messages]]` |
-| `flow.conversations.typing(id, "on")` · `.markRead(id)` | `POST /v1/conversations/{id}/typing` · `/read` |
-| `flow.events.stream({ types, after })` | `GET /v1/stream` (WebSocket) |
+| `flow.conversations.typing(id, "on")` · `.markRead(id)` (call the channel at once; `409 outside_window` or `502 channel_error` are safe to ignore) | `POST /v1/conversations/{id}/typing` · `/read` |
+| `flow.events.stream({ types, after })` | `GET /v1/stream` (WebSocket; in browsers the key goes as subprotocol `flow.key.<key>` next to `flow`) |
 | `flow.events.list({ after, type })` · `.retrieve(id)` | `GET /v1/events` (oldest first) |
 | `flow.capabilities.retrieve(convId)` | `GET /v1/capabilities?conversation=` |
 | `flow.files.upload({ file, filename })` · `.download(id)` | `POST /v1/files` · `GET /v1/files/{id}` |
-| `flow.webhookEndpoints.create({ url, events })` (+ list, retrieve, update, delete) | `/v1/webhook_endpoints` |
+| `flow.webhookEndpoints.create({ url, events })` (+ list, retrieve, update, delete) · `.rotateSecret(id, { overlap_seconds })` | `/v1/webhook_endpoints` · `POST .../{id}/rotate_secret` |
 | `flow.senders.list()` · `flow.contacts.list()` · `flow.templates.list()` · `flow.app.retrieve()` | `/v1/senders` · `/v1/contacts` · `/v1/templates` · `/v1/app` |
 
 Handle helpers: `flow.conversation(id)` or `event.conversation` gives `.reply(x)`,
@@ -35,7 +35,10 @@ returns the readable text of any content.
 
 Per channel: buttons are native on Telegram and WhatsApp (3 buttons, else a list) and
 need `fallback: "auto"` on iMessage (numbered text; replies still come back as
-`button_reply`). Templates are WhatsApp only. Edit and unsend: Telegram and iMessage.
+`button_reply`). Templates are WhatsApp only. Edit and unsend: Telegram and iMessage
+(iMessage: edit within 15 minutes, unsend within 2). Text is at most the channel's
+`max_text_length` (4096 on Telegram and WhatsApp, 10000 on iMessage). `channel_options`
+keys outside each channel's allowlist are dropped.
 
 ## Events (discriminated union on `type`)
 
@@ -52,7 +55,7 @@ need `fallback: "auto"` on iMessage (numbered text; replies still come back as
 `idempotency_conflict` IdempotencyConflictError (409) · `outside_window` OutsideWindowError (409) ·
 `unsupported_content` UnsupportedContentError (422) · `file_blocked` FileBlockedError (422) ·
 `new_contact_limit` NewContactLimitError (429, `retryAfter`) · `sender_throttled` SenderThrottledError (429) ·
-`rate_limited` RateLimitError (429, retried) · `channel_error` ChannelError (502, `channelCode`) ·
+`rate_limited` RateLimitError (429, per-key limit or sender pacing, retried) · `channel_error` ChannelError (502, `channelCode`) ·
 `not_implemented` NotImplementedError (501) · `api_error` APIError (5xx, retried).
 
 ## HTTP without the SDK
@@ -66,5 +69,8 @@ curl https://api.flow.engineer/v1/conversations/conv_.../messages \
 
 Webhook signature: `Flow-Signature: t=<unix>,v1=<hex>` where `v1` is HMAC-SHA256 of
 `t.<t>.<raw body>` with the endpoint secret; reject timestamps more than 5 minutes off.
-Answer a `message.received` with `200 {"reply": {"type":"text","text":"..."}}` to reply at once.
+Answer a `message.received` with `200 {"reply": {"type":"text","text":"..."}}` to reply at once
+(`reply` may be a list of up to 10, with `"fallback": "auto"` for every piece). An invalid
+answer sends nothing and is recorded on the delivery as `invalid_request`, not retried.
+While a secret rotates, `Flow-Signature` carries one `v1` per active secret: accept any match.
 Bubbles without the SDK: send one message per paragraph; past ~700 characters, split at a sentence end.

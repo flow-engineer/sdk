@@ -1,28 +1,34 @@
 ---
 title: "rate_limited"
-description: "Too many requests for this key, or sends faster than the sender's pacing."
+description: "Too many requests for this key, or sends faster than the sender's sending rate (pacing)."
 ---
 
 # rate_limited
 
-HTTP 429. Too many requests for this key, or sends faster than the sender's pacing.
+HTTP 429. Too many requests for this key, or sends faster than the sender's sending rate (pacing).
 
 ## What it means
 
-Requests are limited per key (see the `RateLimit-*` headers), and each sender sends at a steady pace.
+Two limits answer with this type:
+
+- **The per-key request limit.** Every answer carries `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; over the limit, any request is refused.
+- **The sender's sending rate (pacing).** The send gate lets each sender send only so many messages a second, whichever key or conversation they come from. Over it, a send is refused and `error.sender` names the sender.
+
+Both carry a `Retry-After` header and `error.retry_after` in seconds.
 
 ## Why it happens
 
 - Polling `GET /v1/events` or `GET /v1/conversations` in a tight loop.
-- Sending many messages into one conversation at once.
+- Sending many messages from one sender at once, for example a reply split into many short bubbles, or a burst of starts.
 
 ## How to fix it
 
-Wait `retry_after` seconds (also in `Retry-After`) and retry with the same `Idempotency-Key`. Receive events by webhook or `GET /v1/stream` instead of polling, and send long answers as fewer messages.
+Wait `Retry-After` seconds (also `error.retry_after`) and retry with the same `Idempotency-Key`, so a send that did go through is not sent twice. Receive events by webhook or `GET /v1/stream` instead of polling, and send long answers as fewer, longer messages. The TypeScript SDK does the wait and the retry for you.
 
 ```ts
 const res = await fetch(url, init);
 if (res.status === 429) await sleep(Number(res.headers.get("Retry-After")) * 1000);
+// then send the same request again with the same Idempotency-Key header
 ```
 
 Every error also carries `hint`, one sentence specific to your request, and

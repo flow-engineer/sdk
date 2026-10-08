@@ -70,7 +70,7 @@ Without the SDK, apply this rule to the model's text and send each bubble with `
 |---|---|---|
 | Telegram | 900 characters | 4096 |
 | WhatsApp | 700 characters | 4096 |
-| iMessage | 400 characters | 4096 |
+| iMessage | 400 characters | 10000 |
 
 Use the event's ID plus the bubble's index as each send's `Idempotency-Key` (`evt_...:0`, `evt_...:1`), so retrying a failed reply never sends a bubble twice.
 

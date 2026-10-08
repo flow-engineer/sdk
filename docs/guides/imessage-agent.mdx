@@ -63,7 +63,7 @@ iMessage lines are personal-style numbers, and iMessage watches closely for unwa
 
 - **Replies are unlimited by the gate.** Someone who has written to the line before is an open conversation.
 - **Writing first needs a line that can start conversations.** A line that may only reply refuses a new contact with `403 permission`. On a line that can start conversations, writing first spends its new-contact budget: a new line is `warming_up`, starts near 15 new contacts a day and grows toward about 50.
-- **The contact must have messaged the line or opted in.** Otherwise the send is accepted but fails later with a `message.failed` event carrying `outside_window`.
+- **The contact must have messaged the line or opted in.** Otherwise the send is accepted but fails later with a `message.failed` event carrying `outside_window`. When the line has an opt-in link, the sender's `address.link` is it: it opens Messages with the line and a prefilled text the person sends to start.
 - **No cold outreach.** Many first messages with no reply, or the same text to many new people, throttle the line (`sender_throttled`).
 
 See [The send gate](/concepts/send-gate).
@@ -72,15 +72,17 @@ See [The send gate](/concepts/send-gate).
 
 | Content | iMessage |
 |---|---|
-| Text | yes (markdown becomes plain text with `fallback: "auto"`) |
+| Text | yes, up to 10000 characters (markdown becomes plain text with `fallback: "auto"`) |
 | Images, video, documents, audio | yes |
 | Tapbacks | yes, fixed set |
-| Typing, read receipts | yes |
-| Effects | being confirmed per line |
+| Typing | yes, within 5 minutes of the contact's last message (otherwise `409 outside_window`, safe to ignore) |
+| Read receipts | yes, for the whole conversation (`up_to` has no effect) |
+| Effects | yes |
 | Buttons | no (numbered-text fallback) |
 | Edit | yes, within 15 minutes of sending (not the message that started the conversation) |
 | Unsend | yes, within 2 minutes of sending |
-| Voice notes, locations, contact cards | not confirmed yet: refused, or sent through your fallback |
+| Voice notes | yes, from an mp3, wav, m4a, caf or aac file |
+| Locations, contact cards | no: `fallback: "auto"` sends a maps link or text |
 
 Use `GET /v1/capabilities?conversation=conv_...` for the live answer for a conversation.
 

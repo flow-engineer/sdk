@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { installAgentsSnippet, installClaudeMcp, installCodexMcp, installSkill } from "../../src/cli/agentfiles.js";
 import { deviceLogin } from "../../src/cli/device.js";
 import { envValue, ignoreDotenv, parseDotenv, setDotenv } from "../../src/cli/env.js";
-import { forwardEvent } from "../../src/cli/listen.js";
+import { forwardEvent, readReply } from "../../src/cli/listen.js";
 import { runBridge } from "../../src/cli/mcp.js";
 import { FlowMessaging, toFlowEvent, verifySignature } from "../../src/index.js";
 import { ids, json, message, mockFetch, receivedEvent } from "../helpers.js";
@@ -123,6 +123,19 @@ describe("listen", () => {
     } finally {
       server.close();
     }
+  });
+
+  it("reads webhook answers as the API does: all pieces with fallback, or nothing", () => {
+    const text = { type: "text", text: "hi" };
+    expect(readReply({})).toEqual({ list: [] });
+    expect(readReply({ reply: null })).toEqual({ list: [] });
+    expect(readReply({ reply: [text, text], fallback: "auto" })).toEqual({ list: [text, text], fallback: "auto" });
+    expect(readReply("hi")).toHaveProperty("error");
+    expect(readReply([text])).toHaveProperty("error");
+    expect(readReply({ reply: [] })).toHaveProperty("error");
+    expect(readReply({ reply: Array(11).fill(text) })).toHaveProperty("error");
+    expect(readReply({ reply: [text, "hi"] })).toHaveProperty("error");
+    expect(readReply({ reply: text, fallback: "numbered" })).toHaveProperty("error");
   });
 });
 

@@ -42,21 +42,45 @@ export async function forwardEvent(
   }
   let replies = 0;
   if (res.ok && event.type === "message.received") {
-    let answer: WebhookReply;
+    let answer: unknown;
     try {
       const text = await res.text();
-      answer = text.trim() ? (JSON.parse(text) as WebhookReply) : {};
+      answer = text.trim() ? JSON.parse(text) : {};
     } catch {
-      answer = {};
+      answer = undefined;
     }
-    const list: Content[] = answer.reply === undefined ? [] : Array.isArray(answer.reply) ? answer.reply : [answer.reply];
+    const parsed = readReply(answer);
+    // As the API does: an answer that is not a valid WebhookReply sends nothing at all.
+    if ("error" in parsed) return { status: res.status, replies: 0, error: `invalid reply (invalid_request): ${parsed.error}` };
+    const { list, fallback } = parsed;
     for (const [i, content] of list.entries()) {
       // The event's ID as the idempotency key, as the API does for webhook replies.
-      await flow.messages.send(event.conversation.id, { content }, { idempotencyKey: list.length > 1 ? `${event.id}:${i}` : event.id });
+      await flow.messages.send(event.conversation.id, fallback === undefined ? { content } : { content, fallback }, {
+        idempotencyKey: list.length > 1 ? `${event.id}:${i}` : event.id,
+      });
       replies++;
     }
   }
   return { status: res.status, replies };
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const isContent = (v: unknown): v is Content => isObject(v) && typeof v.type === "string";
+
+/** Checks a webhook answer's shape as the API does: the pieces to send, or why none are sent. */
+export function readReply(answer: unknown): { list: Content[]; fallback?: WebhookReply["fallback"] } | { error: string } {
+  if (!isObject(answer)) return { error: "the body is not a JSON object" };
+  const { reply, fallback } = answer;
+  if (fallback !== undefined && fallback !== "auto" && !isContent(fallback)) return { error: 'fallback must be "auto" or content' };
+  if (reply === undefined || reply === null) return { list: [] };
+  if (Array.isArray(reply)) {
+    if (reply.length === 0) return { error: "reply is an empty list" };
+    if (reply.length > 10) return { error: `reply has ${reply.length} pieces; at most 10` };
+    if (!reply.every(isContent)) return { error: "every piece of reply must be content with a type" };
+    return { list: reply, fallback: fallback as WebhookReply["fallback"] };
+  }
+  if (!isContent(reply)) return { error: "reply must be content or a list of content" };
+  return { list: [reply], fallback: fallback as WebhookReply["fallback"] };
 }
 
 export interface ListenOptions {
@@ -84,7 +108,7 @@ export async function listen(flow: FlowMessaging, o: ListenOptions): Promise<voi
       continue;
     }
     const r = await forwardEvent(flow, event, o.forwardTo, o.secret);
-    const status = r.status === "error" ? `error: ${r.error}` : String(r.status);
+    const status = r.status === "error" ? `error: ${r.error}` : r.error ? `${r.status}, ${r.error}` : String(r.status);
     print(`${when}  ${event.type.padEnd(28)} ${event.id}  → ${o.forwardTo} [${status}]${r.replies ? `  replied (${r.replies})` : ""}  ${summary}`);
   }
 }
