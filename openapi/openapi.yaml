@@ -147,8 +147,9 @@ info:
     (`whsec_...`), of the string `t.{t}.{body}`: the letter `t`, a dot, the
     timestamp from the header, a dot, and the raw request body exactly as received.
     Compare in constant time and reject timestamps more than 5 minutes from your
-    clock. While a secret is being rotated, the header carries one `v1` per active
-    secret; accept the request if any of them matches.
+    clock. While a secret is being rotated (`POST
+    /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret`), the header carries
+    one `v1` per active secret; accept the request if any of them matches.
 
     Answer `2xx` within 10 seconds. To reply at once, answer a `message.received`
     event with `200` and a body `{"reply": <content>}` or `{"reply": [<content>, ...]}`;
@@ -1200,6 +1201,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Deleted"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret:
+    parameters:
+      - $ref: "#/components/parameters/WebhookEndpointId"
+      - $ref: "#/components/parameters/FlowVersion"
+    post:
+      operationId: rotateWebhookEndpointSecret
+      tags: [Webhook endpoints]
+      summary: Rotate a webhook endpoint's signing secret
+      description: |
+        Makes a new signing secret for the endpoint and returns it in `secret`, shown
+        only this once. The previous secret keeps signing for `overlap_seconds`
+        (default 86400, one day; `0` retires it at once): during the overlap every
+        delivery's `Flow-Signature` carries two `v1` values, one per secret, so you
+        can deploy the new secret while the old one still verifies. When the overlap
+        ends only the new secret signs. Rotating again during an overlap retires the
+        older previous secret at once: at most two secrets are ever active.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookSecretRotateRequest"
+            examples:
+              default_overlap:
+                summary: Keep the old secret for one day
+                value: {}
+              one_hour:
+                summary: Keep the old secret for one hour
+                value: {overlap_seconds: 3600}
+      responses:
+        "200":
+          description: The secret was rotated. `secret` is the new secret, included this once; `previous_secret_expires_at` says when the old one stops signing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "404":
@@ -3424,7 +3474,11 @@ components:
           description: Whether the endpoint receives live-mode or test-mode events.
         secret:
           type: string
-          description: The signing secret (`whsec_...`). Only in the answer to create.
+          description: The signing secret (`whsec_...`). Only in the answers to create and to rotate the secret.
+        previous_secret_expires_at:
+          type: string
+          format: date-time
+          description: While a secret rotation overlaps, when the previous secret stops signing. Absent when only one secret is active.
         created_at:
           type: string
           format: date-time
@@ -3483,6 +3537,16 @@ components:
         has_more:
           type: boolean
           description: Whether more items lie beyond this page in the direction you paged.
+    WebhookSecretRotateRequest:
+      type: object
+      description: Options for rotating a webhook endpoint's signing secret.
+      properties:
+        overlap_seconds:
+          type: integer
+          minimum: 0
+          maximum: 604800
+          default: 86400
+          description: How long the previous secret keeps signing alongside the new one, in seconds (at most 7 days). `0` retires it at once.
     WebhookReply:
       type: object
       description: |
