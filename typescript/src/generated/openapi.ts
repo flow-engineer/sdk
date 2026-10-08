@@ -770,29 +770,45 @@ export interface components {
         };
         /**
          * @description What went wrong. A closed list: new types arrive only with a new API version.
+         *     Each type has a page at `https://docs.flow.engineer/errors/<type>`, given in
+         *     the error's `doc_url`; the error's `hint` says what to change for the case.
          *
-         *     - `invalid_request`: the request is malformed or a parameter is invalid (400).
-         *     - `authentication`: the API key is missing, unknown or revoked (401).
-         *     - `permission`: the key may not do this, for example a test key using a live sender (403).
-         *     - `not_found`: no such object for this app and mode (404).
-         *     - `idempotency_conflict`: the idempotency key was used for a different request, or that request is still running (409).
-         *     - `outside_window`: WhatsApp's 24-hour window is closed; send a `template` (409).
-         *     - `unsupported_content`: the channel cannot show this content and no `fallback` was set (422).
-         *     - `new_contact_limit`: the sender has used its budget for starting conversations; see `retry_after` (429).
-         *     - `sender_throttled`: abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go (429).
-         *     - `file_blocked`: the file failed the malware scan and was not stored (422).
-         *     - `rate_limited`: too many requests for this key; see `retry_after` (429).
-         *     - `channel_error`: the channel refused or failed the message; `channel_code` carries its own code (502, or in `message.failed`).
-         *     - `not_implemented`: this endpoint is not live yet during the beta (501).
-         *     - `api_error`: something went wrong on Flow's side; retry with the same idempotency key (500, 503).
+         *     - `invalid_request` (400): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like.
+         *     - `authentication` (401): the API key is missing, malformed, unknown or revoked. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key.
+         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, or a new conversation from an iMessage line that may only reply. Use the key of the right mode, have the contact send your join code, or wait for the contact to message the line first.
+         *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
+         *     - `idempotency_conflict` (409): the idempotency key was used for a different request, or that request is still running. Use a new key for a new request, or retry the same request after it finishes.
+         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation.
+         *     - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first.
+         *     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
+         *     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
+         *     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file.
+         *     - `rate_limited` (429): too many requests for this key, or sends faster than the sender's pacing. Wait `retry_after` seconds and retry with the same idempotency key.
+         *     - `channel_error` (502, or in `message.failed`): the channel refused or failed the message; `channel_code` carries its own code. Read `message`, change what the channel objected to, and send again.
+         *     - `not_implemented` (501): this endpoint or channel is not live yet during the beta. Use a channel that is live (Telegram, iMessage), or check the changelog.
+         *     - `api_error` (500, 503): something went wrong on Flow's side. Retry with the same idempotency key after `retry_after` seconds, and quote `request_id` if it persists.
          * @enum {string}
          */
         ErrorType: "invalid_request" | "authentication" | "permission" | "not_found" | "idempotency_conflict" | "outside_window" | "unsupported_content" | "new_contact_limit" | "sender_throttled" | "file_blocked" | "rate_limited" | "channel_error" | "not_implemented" | "api_error";
         /** @description The details of an error. */
         ErrorBody: {
             type: components["schemas"]["ErrorType"];
-            /** @description A sentence for a developer saying what went wrong and what to do. Do not parse it; switch on `type`. */
+            /** @description A sentence for a developer saying what went wrong. Do not parse it; switch on `type`. */
             message: string;
+            /**
+             * @description One sentence saying what to change to make the request succeed, specific
+             *     to this case, for example "Send a template instead: POST /v1/messages with
+             *     content.type=template." Written for developers and coding agents alike. Do
+             *     not parse it; it may be reworded at any time.
+             * @example Send a template instead: POST /v1/messages with content.type=template.
+             */
+            hint: string;
+            /**
+             * Format: uri
+             * @description The documentation page for this error's type, `https://docs.flow.engineer/errors/<type>`. It says what the error means, why it happens and how to fix it, with code.
+             * @example https://docs.flow.engineer/errors/outside_window
+             */
+            doc_url: string;
             /** @description The request parameter the error is about, as a dotted path (`content.buttons`, `limit`). */
             param?: string;
             /** @description Seconds to wait before retrying, for errors that clear by themselves. */
@@ -2123,7 +2139,9 @@ export interface components {
                  * @example {
                  *       "error": {
                  *         "type": "invalid_request",
-                 *         "message": "limit must be between 1 and 100",
+                 *         "message": "limit must be between 1 and 100.",
+                 *         "hint": "Pass limit between 1 and 100 (default 20), and page with after or before.",
+                 *         "doc_url": "https://docs.flow.engineer/errors/invalid_request",
                  *         "param": "limit"
                  *       }
                  *     }
@@ -2141,7 +2159,9 @@ export interface components {
                  * @example {
                  *       "error": {
                  *         "type": "authentication",
-                 *         "message": "No valid API key was given. Send Authorization: Bearer fk_test_... or fk_live_..."
+                 *         "message": "No valid API key was given.",
+                 *         "hint": "Send the header Authorization: Bearer fk_test_... (or fk_live_...) with a key from your dashboard.",
+                 *         "doc_url": "https://docs.flow.engineer/errors/authentication"
                  *       }
                  *     }
                  */
@@ -2180,7 +2200,9 @@ export interface components {
                  * @example {
                  *       "error": {
                  *         "type": "outside_window",
-                 *         "message": "Last message from the contact was 31h ago; send a template.",
+                 *         "message": "Last message from the contact was 31h ago; WhatsApp allows only templates now.",
+                 *         "hint": "Send a template instead: POST /v1/messages with content.type=template.",
+                 *         "doc_url": "https://docs.flow.engineer/errors/outside_window",
                  *         "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"
                  *       }
                  *     }
@@ -2198,7 +2220,9 @@ export interface components {
                  * @example {
                  *       "error": {
                  *         "type": "unsupported_content",
-                 *         "message": "iMessage cannot show buttons. Set fallback to send numbered text instead.",
+                 *         "message": "iMessage cannot show buttons.",
+                 *         "hint": "Set \"fallback\": \"auto\" to send numbered text instead, or send text.",
+                 *         "doc_url": "https://docs.flow.engineer/errors/unsupported_content",
                  *         "param": "content.type"
                  *       }
                  *     }
@@ -2226,6 +2250,8 @@ export interface components {
                  *       "error": {
                  *         "type": "new_contact_limit",
                  *         "message": "This sender has started its 15 new conversations for today.",
+                 *         "hint": "Retry after 3600 seconds; replies into existing conversations still go.",
+                 *         "doc_url": "https://docs.flow.engineer/errors/new_contact_limit",
                  *         "retry_after": 3600,
                  *         "sender": "snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"
                  *       }
