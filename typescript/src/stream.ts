@@ -1,9 +1,11 @@
 // The live event stream: GET /v1/stream over a WebSocket, resumed with `after` on
 // every reconnect so no event is lost, de-duplicated, and falling back to polling
-// GET /v1/events where no WebSocket with headers is available.
+// GET /v1/events where no WebSocket is available. Where the WebSocket cannot send
+// headers (browsers), the key goes as the subprotocol `flow.key.<key>` next to `flow`.
 import type { FlowMessaging } from "./client.js";
 import { ConversationHandle } from "./conversation.js";
 import { AuthenticationError, FlowError, PermissionError, InvalidRequestError, errorFromBody } from "./errors.js";
+import { canSendWebSocketHeaders } from "./runtime.js";
 import type { ErrorBody, Event, EventOf, EventType } from "./types.js";
 
 type NoConversation = "sender.status_changed" | "template.status_changed";
@@ -22,7 +24,7 @@ export interface StreamParams<T extends EventType = EventType> {
   /** Resume after this event ID: everything after it is replayed first, then live events. */
   after?: string;
   signal?: AbortSignal;
-  /** `auto` (default): WebSocket where it can carry the key, else polling. */
+  /** `auto` (default): WebSocket where the runtime has one, else polling. */
   transport?: "auto" | "websocket" | "poll";
   /** Polling interval in ms when polling (default 1000). */
   pollInterval?: number;
@@ -36,18 +38,23 @@ type WSLike = {
 };
 type WSCtor = new (url: string, opts?: unknown) => WSLike;
 
-function runtimeCanSendHeaders(): boolean {
-  const g = globalThis as { process?: { versions?: { node?: string; bun?: string } }; Deno?: unknown; Bun?: unknown };
-  return Boolean(g.process?.versions?.node || g.Bun || g.Deno);
+/** The runtime's WebSocket, and whether it can send the key as a header. */
+interface WSRuntime {
+  ctor: WSCtor;
+  headers: boolean;
 }
 
-async function webSocketCtor(): Promise<WSCtor | undefined> {
-  if (!runtimeCanSendHeaders()) return undefined; // browsers and edge runtimes cannot set Authorization
+async function webSocketRuntime(): Promise<WSRuntime | undefined> {
   const g = globalThis as { WebSocket?: WSCtor };
-  if (g.WebSocket) return g.WebSocket;
+  if (!canSendWebSocketHeaders()) {
+    // Browsers and edge runtimes cannot set Authorization: the key goes as a subprotocol.
+    return g.WebSocket ? { ctor: g.WebSocket, headers: false } : undefined;
+  }
+  if (g.WebSocket) return { ctor: g.WebSocket, headers: true };
   try {
     const mod = (await import(/* webpackIgnore: true */ "ws" as string)) as { default?: WSCtor; WebSocket?: WSCtor };
-    return mod.WebSocket ?? mod.default;
+    const ctor = mod.WebSocket ?? mod.default;
+    return ctor ? { ctor, headers: true } : undefined;
   } catch {
     return undefined;
   }
@@ -152,10 +159,10 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
 
   private async run(): Promise<void> {
     const mode = this.params.transport ?? "auto";
-    const WS = mode === "poll" ? undefined : await webSocketCtor();
+    const WS = mode === "poll" ? undefined : await webSocketRuntime();
     if (!WS) {
-      if (mode === "websocket") throw new FlowError("No WebSocket that can send headers here; install `ws` or use transport: \"poll\".", { type: "connection_error" });
-      this.params.onStatus?.("polling", "no WebSocket with headers in this runtime");
+      if (mode === "websocket") throw new FlowError("No WebSocket here; install `ws` or use transport: \"poll\".", { type: "connection_error" });
+      this.params.onStatus?.("polling", "no WebSocket in this runtime");
       return this.poll();
     }
     let attempt = 0;
@@ -170,7 +177,7 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
   }
 
   /** One connection; resolves when it ends, saying whether to reconnect at once. */
-  private connect(WS: WSCtor): Promise<{ opened: boolean; immediate?: boolean; reason?: string; fatal?: unknown }> {
+  private connect(WS: WSRuntime): Promise<{ opened: boolean; immediate?: boolean; reason?: string; fatal?: unknown }> {
     const http = this.flow.http;
     const url = http.url("/v1/stream", { after: this.cursor, type: this.params.types }).replace(/^http/, "ws");
     return new Promise((resolve) => {
@@ -179,7 +186,8 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
       let fatal: unknown;
       let ws: WSLike;
       try {
-        ws = new WS(url, { headers: http.headers() });
+        // Never in the URL: the server takes the key only as a header or a subprotocol.
+        ws = WS.headers ? new WS.ctor(url, { headers: http.headers() }) : new WS.ctor(url, ["flow", `flow.key.${http.apiKey}`]);
       } catch (e) {
         resolve({ opened: false, reason: String(e) });
         return;

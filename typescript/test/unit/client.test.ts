@@ -136,4 +136,27 @@ describe("client", () => {
     await new FlowMessaging({ apiKey: key, fetch }).events.list({ type: ["message.received", "reaction.added"] });
     expect(calls[0]!.url.searchParams.getAll("type")).toEqual(["message.received", "reaction.added"]);
   });
+
+  it("rotates a webhook endpoint's secret with an overlap", async () => {
+    const endpoint = {
+      id: "we_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+      url: "https://example.test/hook",
+      events: ["message.received"],
+      enabled: true,
+      livemode: false,
+      secret: "whsec_new",
+      previous_secret_expires_at: "2026-10-10T00:00:00Z",
+      created_at: "2026-10-01T00:00:00Z",
+    };
+    const { fetch, calls } = mockFetch(() => json(200, endpoint));
+    const flow = new FlowMessaging({ apiKey: key, fetch, baseURL: "https://example.test" });
+    const got = await flow.webhookEndpoints.rotateSecret(endpoint.id, { overlap_seconds: 3600 });
+    expect(got.secret).toBe("whsec_new");
+    await flow.webhookEndpoints.rotateSecret(endpoint.id);
+    expect(calls[0]!.method).toBe("POST");
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/webhook_endpoints/${endpoint.id}/rotate_secret`);
+    expect(calls[0]!.body).toEqual({ overlap_seconds: 3600 });
+    expect(calls[0]!.headers["idempotency-key"]).toMatch(/.{16,}/);
+    expect(calls[1]!.body).toEqual({});
+  });
 });

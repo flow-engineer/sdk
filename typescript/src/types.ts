@@ -93,6 +93,7 @@ export type TemplateCreateRequest = S["TemplateCreateRequest"];
 export type WebhookEndpoint = S["WebhookEndpoint"];
 export type WebhookEndpointCreateRequest = S["WebhookEndpointCreateRequest"];
 export type WebhookEndpointUpdateRequest = S["WebhookEndpointUpdateRequest"];
+export type WebhookSecretRotateRequest = S["WebhookSecretRotateRequest"];
 export type WebhookReply = S["WebhookReply"];
 
 /** Query parameters of list endpoints, by operation. */
