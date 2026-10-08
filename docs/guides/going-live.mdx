@@ -69,6 +69,7 @@ curl https://api.flow.engineer/v1/templates \
 ## iMessage: a dedicated line
 
 - **Request it:** `POST /v1/senders` with `channel: "imessage"`, `display_name` and `country`.
+- **Starting conversations:** a line may only reply unless it can start conversations. A reply-only line refuses new contacts with `403 permission`.
 - **Warm-up:** a new line starts `warming_up`, with a new-contact budget near 15 a day that grows toward about 50. Replies to people who wrote first are not budgeted.
 - **Best practice:** publish the line (on your site, receipts, QR codes) so people write first. Lines used for cold outreach get throttled. See [The send gate](/concepts/send-gate).
 

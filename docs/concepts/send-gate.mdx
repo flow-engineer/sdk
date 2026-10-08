@@ -25,7 +25,7 @@ try {
 | Channel | You may send free-form content when... | Otherwise |
 |---|---|---|
 | WhatsApp | the contact's last message is less than 24 hours old (the **window**) | only an approved `template`; anything else gets `409` [`outside_window`](/errors/outside_window) |
-| iMessage | the contact has written to this line before | the send counts as starting a conversation (rule 2) |
+| iMessage | the contact has written to this line before | a new contact is refused with `403` [`permission`](/errors/permission) unless the line can start conversations; if it can, the send spends budget (rule 2), and a contact who never messaged the line (or opted in) gets a `message.failed` event with [`outside_window`](/errors/outside_window) |
 | Telegram | the contact has started your bot | Telegram refuses the message itself |
 | Sandbox senders | the contact joined through your app with its join code | refused |
 
@@ -39,6 +39,7 @@ Writing to someone first (`POST /v1/messages`) spends the sender's **new-contact
 - **Warm-up**: new lines start with a small daily budget that grows day by day while the sender is `warming_up`. For example, a new iMessage line starts near 15 new contacts a day and grows toward about 50.
 - **Per plan**: a monthly allowance.
 - **WhatsApp**: also the number's messaging tier (`sender.limits.whatsapp_tier`).
+- **iMessage**: only a line that can start conversations writes first at all; a reply-only line gets `403` [`permission`](/errors/permission).
 
 When the budget is used up the send fails with `429` [`new_contact_limit`](/errors/new_contact_limit) and `retry_after` in seconds. A message to someone who already has an open conversation with that sender goes into it and spends nothing.
 
@@ -62,7 +63,7 @@ When one trips, the sender is **throttled**: until `throttled_until`, starting c
 
 - **Reply, don't broadcast.** Agents that answer people who wrote first never meet rules 2 and 3.
 - **Check before you send.** `GET /v1/capabilities?conversation=conv_...` returns `window.open` and what each content type would do.
-- **Retry only what clears by itself.** `new_contact_limit`, `sender_throttled` and `rate_limited` carry `retry_after`; `outside_window` will not clear until the person writes again, so send a template instead.
+- **Retry only what clears by itself.** `new_contact_limit`, `sender_throttled` and `rate_limited` carry `retry_after`; `outside_window` will not clear until the person writes again, so send a template instead (WhatsApp) or wait for them to message the line (iMessage).
 - **Watch `sender.status_changed`.** It is the early warning before a channel acts against a number.
 
 ## Related

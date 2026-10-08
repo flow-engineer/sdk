@@ -62,7 +62,8 @@ await event.conversation.send({
 iMessage lines are personal-style numbers, and iMessage watches closely for unwanted messages. Flow protects your line:
 
 - **Replies are unlimited by the gate.** Someone who has written to the line before is an open conversation.
-- **Writing first spends the line's new-contact budget.** A new line is `warming_up`: it starts near 15 new contacts a day and grows toward about 50.
+- **Writing first needs a line that can start conversations.** A line that may only reply refuses a new contact with `403 permission`. On a line that can start conversations, writing first spends its new-contact budget: a new line is `warming_up`, starts near 15 new contacts a day and grows toward about 50.
+- **The contact must have messaged the line or opted in.** Otherwise the send is accepted but fails later with a `message.failed` event carrying `outside_window`.
 - **No cold outreach.** Many first messages with no reply, or the same text to many new people, throttle the line (`sender_throttled`).
 
 See [The send gate](/concepts/send-gate).
@@ -83,7 +84,7 @@ Use `GET /v1/capabilities?conversation=conv_...` for the live answer for a conve
 
 ## 7. Contacts
 
-An iMessage contact's `address.handle` is a phone number **or an email address**. Do not assume a phone number. To write first, use `to.handle` (or `to.phone`) in `POST /v1/messages`.
+An iMessage contact's `address.handle` is a phone number **or an email address**. Do not assume a phone number. To write first (on a line that can start conversations), use `to.handle` (or `to.phone`) in `POST /v1/messages`.
 
 ## Related
 
