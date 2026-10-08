@@ -60,8 +60,11 @@ Live keys (`fk_live_`) use your dedicated senders.
 async iterator over the WebSocket `GET /v1/stream`. It reconnects by itself and resumes
 with `after` set to the last event it gave you, so a dropped connection or a server
 restart loses nothing; duplicates are dropped. Pass `after: "evt_..."` to replay from
-an event first; `stream.lastEventId` is where to resume after a restart. Where no
-WebSocket can carry the key (browsers, some edge runtimes) it polls `GET /v1/events`.
+an event first; `stream.lastEventId` is where to resume after a restart. Where the
+WebSocket cannot send headers (browsers) it offers the key as the subprotocol
+`flow.key.<key>` next to `flow`; a key in a browser is visible to whoever uses the page,
+so do that only for internal tools or with test keys. Where there is no WebSocket at
+all it polls `GET /v1/events`.
 On Node 18 and 20, install `ws` for the WebSocket (Node 22+ has one built in).
 
 **Webhooks:**
@@ -84,7 +87,9 @@ app.post("/flow", express.raw({ type: "application/json" }), async (req, res) =>
 constant time, 5-minute replay window, several secrets while rotating) and returns the
 typed event. Answer within 10 seconds; a slow agent answers `{}` and calls
 `event.conversation.reply(...)` afterwards. Deliveries are at least once: deduplicate
-on `event.id`.
+on `event.id`. To change the secret, `flow.webhookEndpoints.rotateSecret(id, { overlap_seconds })`
+returns the new one; the old one keeps signing for the overlap (default one day), so
+deliveries verify with either while you deploy.
 
 Events are a discriminated union on `type` (`message.received`, `message.sent`,
 `message.delivered`, `message.read`, `message.failed`, `reaction.added`,
@@ -107,8 +112,8 @@ It turns typing on (and keeps it on), splits the text into bubbles and sends eac
 soon as it is complete, in order. The rule, for those not using the SDK: a bubble ends
 at a blank line, except after a line ending in `:` and between items of one list;
 past the channel's soft length (Telegram 900, WhatsApp 700, iMessage 400 characters) it
-ends at the next sentence end; never inside a code block unless it would pass 4096
-characters. Text is sent as markdown with `fallback: "auto"` (plain text where a
+ends at the next sentence end; never inside a code block unless it would pass the
+channel's text limit (4096 characters; 10000 on iMessage). Text is sent as markdown with `fallback: "auto"` (plain text where a
 channel has no formatting). Options: `{ format: "plain" }`, `{ split: false }`,
 `{ bubbles: { softLength } }`, and `{ idempotencyKey: event.id }` to make retrying a
 whole reply safe. `splitIntoBubbles(text, "whatsapp")` gives the same split.
