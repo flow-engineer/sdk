@@ -680,7 +680,7 @@ paths:
         - name: conversation
           in: query
           required: false
-          description: Only events in this conversation.
+          description: Only events in this conversation. An ID with no conversation of this app and mode answers `404 not_found`.
           schema:
             $ref: "#/components/schemas/ConversationId"
       responses:
@@ -694,6 +694,8 @@ paths:
           $ref: "#/components/responses/InvalidRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "429":
           $ref: "#/components/responses/RateLimited"
         default:
