@@ -1,0 +1,26 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "engineer.flow/messaging",
+  "title": "Flow Messaging",
+  "description": "Two-way messaging for AI agents on Telegram, WhatsApp and iMessage: test, send and debug.",
+  "version": "0.1.0",
+  "websiteUrl": "https://docs.flow.engineer/mcp",
+  "repository": {
+    "url": "https://github.com/flow-engineer/sdk",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.flow.engineer/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "\"Bearer \" and your Flow Messaging API key: fk_test_... for the sandbox tools, fk_live_... for production tools.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

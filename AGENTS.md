@@ -40,6 +40,11 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 ## Layout
 
 - `openapi/openapi.yaml`: the spec. `redocly.yaml`: lint rules.
-- `docs/`: the Mintlify site later (docs.flow.engineer).
+- `docs/`: the Mintlify site later (docs.flow.engineer). `docs/errors/<type>.md` is
+  one page per `ErrorType` (what it means, why, how to fix it, code); every error's
+  `doc_url` points at it, and the service embeds copies for the MCP tool
+  `explain_error` (its `make generate` copies them, so a new error type needs a
+  page here first). `docs/mcp.md` is the hosted MCP server's page.
+- `server.json`: the entry for the official MCP registry (not submitted yet).
 - `typescript/`, `python/`, `go/`: the SDKs, not written yet (TypeScript first, then
   Python, then Go; design-v1, section 12).
