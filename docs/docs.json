@@ -1,0 +1,225 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Flow Messaging",
+  "description": "Flow Messaging is a two-way messaging API for AI agents on WhatsApp, Telegram and iMessage: one HTTP API and SDKs (TypeScript, Python, Go) to receive messages, reply, stream LLM answers as chat bubbles, and start conversations, with webhooks, a live event stream and an MCP server.",
+  "colors": {
+    "primary": "#0b7a5a",
+    "light": "#3cc497",
+    "dark": "#0b7a5a"
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://docs.flow.engineer"
+  },
+  "favicon": "/logo/favicon.svg",
+  "appearance": {
+    "default": "system"
+  },
+  "navbar": {
+    "links": [
+      {
+        "type": "github",
+        "href": "https://github.com/flow-engineer/sdk"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get a test key",
+      "href": "https://api.flow.engineer/admin"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Docs",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "index",
+              "quickstart",
+              "coding-agents",
+              "mcp",
+              "pricing"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/senders",
+              "concepts/conversations",
+              "concepts/content-types",
+              "concepts/events-and-webhooks",
+              "concepts/streaming-replies",
+              "concepts/send-gate",
+              "concepts/test-and-live-mode",
+              "concepts/idempotency",
+              "concepts/versioning",
+              "concepts/rate-limits"
+            ]
+          },
+          {
+            "group": "Channel guides",
+            "pages": [
+              "guides/whatsapp-agent",
+              "guides/telegram-agent",
+              "guides/imessage-agent",
+              "guides/local-development",
+              "guides/going-live"
+            ]
+          },
+          {
+            "group": "Agent frameworks",
+            "pages": [
+              "frameworks/vercel-ai-sdk",
+              "frameworks/openai-agents-sdk",
+              "frameworks/claude-agent-sdk",
+              "frameworks/langchain",
+              "frameworks/mastra"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "openapi": "openapi.yaml",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/introduction"
+            ]
+          },
+          {
+            "group": "Messages",
+            "pages": [
+              "POST /v1/conversations/{conversation_id}/messages",
+              "POST /v1/messages",
+              "GET /v1/messages/{message_id}",
+              "PATCH /v1/messages/{message_id}",
+              "DELETE /v1/messages/{message_id}"
+            ]
+          },
+          {
+            "group": "Conversations",
+            "pages": [
+              "GET /v1/conversations",
+              "GET /v1/conversations/{conversation_id}",
+              "GET /v1/conversations/{conversation_id}/messages",
+              "POST /v1/conversations/{conversation_id}/typing",
+              "POST /v1/conversations/{conversation_id}/read",
+              "GET /v1/capabilities"
+            ]
+          },
+          {
+            "group": "Events",
+            "pages": [
+              "GET /v1/events",
+              "GET /v1/events/{event_id}",
+              "GET /v1/stream",
+              "webhook event"
+            ]
+          },
+          {
+            "group": "Webhook endpoints",
+            "pages": [
+              "GET /v1/webhook_endpoints",
+              "POST /v1/webhook_endpoints",
+              "GET /v1/webhook_endpoints/{webhook_endpoint_id}",
+              "PATCH /v1/webhook_endpoints/{webhook_endpoint_id}",
+              "DELETE /v1/webhook_endpoints/{webhook_endpoint_id}"
+            ]
+          },
+          {
+            "group": "Files",
+            "pages": [
+              "POST /v1/files",
+              "GET /v1/files/{file_id}"
+            ]
+          },
+          {
+            "group": "Senders and templates",
+            "pages": [
+              "GET /v1/senders",
+              "POST /v1/senders",
+              "GET /v1/senders/{sender_id}",
+              "GET /v1/templates",
+              "POST /v1/templates",
+              "GET /v1/templates/{template_id}",
+              "DELETE /v1/templates/{template_id}"
+            ]
+          },
+          {
+            "group": "Contacts and app",
+            "pages": [
+              "GET /v1/contacts",
+              "GET /v1/contacts/{contact_id}",
+              "GET /v1/app"
+            ]
+          },
+          {
+            "group": "Errors",
+            "pages": [
+              "errors/invalid_request",
+              "errors/authentication",
+              "errors/permission",
+              "errors/not_found",
+              "errors/idempotency_conflict",
+              "errors/outside_window",
+              "errors/unsupported_content",
+              "errors/new_contact_limit",
+              "errors/sender_throttled",
+              "errors/file_blocked",
+              "errors/rate_limited",
+              "errors/channel_error",
+              "errors/not_implemented",
+              "errors/api_error"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "api": {
+    "playground": {
+      "display": "interactive"
+    },
+    "examples": {
+      "languages": ["curl", "javascript", "python", "go"],
+      "defaults": "required"
+    }
+  },
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude", "perplexity", "cursor", "vscode"]
+  },
+  "markdown": {
+    "instructions": [
+      "Flow Messaging is one HTTP API (https://api.flow.engineer) for AI agents to hold two-way conversations on WhatsApp, Telegram and iMessage.",
+      "In TypeScript or JavaScript, use the SDK: npm install @flow-engineer/messaging, then `new FlowMessaging()` (reads FLOW_MESSAGING_KEY). Python (flow-messaging) and Go (github.com/flow-engineer/sdk/go) SDKs are coming; until then call the HTTP API directly.",
+      "Run `npx @flow-engineer/messaging init` to get a test key, write FLOW_MESSAGING_KEY to .env and register the MCP server for Claude Code and Codex.",
+      "Authenticate with `Authorization: Bearer fk_test_...` (sandbox) or `fk_live_...` (real contacts). Never put a live key in client-side code.",
+      "Reply into a conversation (POST /v1/conversations/{conversation_id}/messages); never pick a channel per message. Switch on `error.type`, not the message text.",
+      "Full documentation for agents: https://docs.flow.engineer/llms-full.txt. OpenAPI spec: https://raw.githubusercontent.com/flow-engineer/sdk/main/openapi/openapi.yaml."
+    ]
+  },
+  "seo": {
+    "indexing": "navigable",
+    "metatags": {
+      "canonical": "https://docs.flow.engineer",
+      "og:site_name": "Flow Messaging docs",
+      "og:type": "website",
+      "twitter:card": "summary_large_image"
+    }
+  },
+  "search": {
+    "prompt": "Search Flow Messaging docs"
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/flow-engineer/sdk",
+      "website": "https://flow.engineer"
+    }
+  }
+}

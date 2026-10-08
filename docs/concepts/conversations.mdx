@@ -1,0 +1,83 @@
+---
+title: "Conversations, contacts and channels"
+sidebarTitle: "Conversations and channels"
+description: "How Flow Messaging models a chat: a contact is a person on one channel, a conversation is one sender talking with one contact, and your agent replies into the conversation instead of choosing a channel per message."
+keywords: ["conversation API for AI agents", "WhatsApp conversation API", "multi-channel messaging API", "omnichannel AI agent"]
+---
+
+A **conversation** is one sender talking with one contact; your agent always replies into a conversation, so the channel is already decided.
+
+```ts TypeScript
+// From an event: the conversation is attached and ready to use.
+await event.conversation.reply("Thanks! Your order is on its way.");
+
+// From an ID you stored earlier:
+await flow.conversation("conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1").send("Your order has shipped.");
+```
+
+```bash curl
+curl https://api.flow.engineer/v1/conversations/conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1/messages \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"content": {"type": "text", "text": "Your order has shipped."}}'
+```
+
+## The objects
+
+| Object | ID | What it is |
+|---|---|---|
+| Sender | `snd_` | What your agent talks from: a Telegram bot, a WhatsApp number or an iMessage line. See [Senders](/concepts/senders). |
+| Contact | `ct_` | A person on **one** channel: a phone number, a WhatsApp username, a Telegram user or an iMessage handle. |
+| Conversation | `conv_` | One sender with one contact. Holds the window state and whether the contact opted in. |
+| Message | `msg_` | One message in or out, with typed [content](/concepts/content-types) and a status. |
+| Event | `evt_` | One entry in your app's ordered log. See [Events and webhooks](/concepts/events-and-webhooks). |
+
+IDs are a prefix plus a ULID, so they sort by creation time.
+
+## One channel per conversation
+
+- **There is no cross-channel identity.** The same person on Telegram and on WhatsApp is two contacts and two conversations. Flow never guesses that they are the same person, and never moves a conversation to another channel.
+- **Never assume a phone number.** A Telegram contact has a user ID, a WhatsApp contact may have only a username, and an iMessage handle may be an email address. Read `contact.address` for what the channel gives.
+- **Reply where they wrote.** Each event carries `conversation.channel`, so one agent can serve every channel with the same code.
+
+## What a conversation tells you
+
+```json
+{
+  "id": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+  "channel": "whatsapp",
+  "sender": "snd_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+  "contact": "ct_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+  "livemode": true,
+  "last_inbound_at": "2026-11-03T10:15:00Z",
+  "window_open_until": "2026-11-04T10:15:00Z",
+  "opted_in": true,
+  "created_at": "2026-11-01T08:00:00Z"
+}
+```
+
+- `window_open_until` (WhatsApp only): until when free-form messages may be sent. After it, only a template. Every event repeats it in `conversation.window_open_until`.
+- `opted_in`: the contact wrote first, joined the sandbox, or you recorded their consent.
+- `metadata`: up to 20 string pairs of your own (for example your user ID), kept with the conversation.
+
+## Starting a conversation
+
+Most conversations start when the person writes first. To write first, use `POST /v1/messages` with a sender and an address on that sender's channel:
+
+```bash curl
+curl https://api.flow.engineer/v1/messages \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sender": "snd_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+    "to": { "phone": "+919812345678" },
+    "content": { "type": "template", "template_id": "tpl_01JB8ZC3K5M7P9R1T3V5X7Z9B1", "language": "en" }
+  }'
+```
+
+`to` takes exactly one of `contact`, `phone`, `telegram_user_id` or `handle`. Starting a conversation spends the sender's new-contact budget, and each channel has its own rule for who may be messaged first. See [The send gate](/concepts/send-gate).
+
+## Related
+
+- [Capabilities](/api-reference/capabilities/get-a-conversations-capabilities): what the conversation's channel can show right now.
+- [List conversations](/api-reference/conversations/list-conversations) and [list a conversation's messages](/api-reference/conversations/list-a-conversations-messages).

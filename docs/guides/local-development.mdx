@@ -1,0 +1,55 @@
+---
+title: "Local development: test WhatsApp and Telegram webhooks on localhost"
+sidebarTitle: "Local development"
+description: "Build your messaging agent's webhook on your laptop with no public URL: flow-messaging listen reads the live event stream and forwards each event to localhost, signed like a real delivery, and sends your handler's replies."
+keywords: ["test WhatsApp webhook locally", "Telegram webhook localhost", "webhook local development without ngrok", "flow-messaging listen"]
+---
+
+`listen` lets you build and debug your webhook handler on localhost without a public URL or a tunnel.
+
+```bash
+npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow
+```
+
+```text
+Forwarding events to http://localhost:3000/api/flow, signed with FLOW_MESSAGING_WEBHOOK_SECRET.
+Ready. Listening for events (Ctrl-C to stop).
+10:15:00  message.received             evt_01JB8ZC3K5...  → http://localhost:3000/api/flow [200]  replied (1)  "Do you deliver to 560103?"
+```
+
+## How it works
+
+1. `listen` opens the live event stream with the `FLOW_MESSAGING_KEY` in your environment or `.env`.
+2. Each event is `POST`ed to your `--forward-to` URL with the same headers and signature as a real webhook delivery (`Flow-Signature`, `Flow-Event-Id`, `Flow-Event-Type`, `Flow-Version`).
+3. If your handler answers a `message.received` with `{"reply": ...}`, `listen` sends the reply into the conversation, with the event's ID as the idempotency key, as the API does for real webhooks.
+
+The signing secret is `FLOW_MESSAGING_WEBHOOK_SECRET`. If it is not set, `listen` makes one and saves it to `.env`, so your handler's verification passes with no setup.
+
+## Options
+
+| Flag | What it does |
+|---|---|
+| `--forward-to <url>` | POST each event there, signed. Without it, `listen` only prints events. |
+| `--events a,b` | Only these event types, for example `--events message.received,message.failed`. |
+| `--after evt_...` | Replay from this event first, then go live. Useful to re-run a conversation through new code. |
+| `--secret whsec_...` | The signing secret to use (default `FLOW_MESSAGING_WEBHOOK_SECRET`). |
+
+## Other useful commands
+
+```bash
+npx @flow-engineer/messaging listen                     # print events as they arrive
+npx @flow-engineer/messaging send "Hello from my laptop" # text your newest conversation
+npx @flow-engineer/messaging send --conversation conv_... "Hello"
+```
+
+## Tips
+
+- Use a **test key** while developing: only people who joined your sandbox can reach your handler.
+- `listen` uses the live stream, so it does not interfere with webhook endpoints you registered; both receive events.
+- To run past events through new code, find the event just before them with `GET /v1/events` and pass its ID to `--after`.
+- In Python or Go, point `--forward-to` at your local server the same way; `listen` speaks plain HTTP.
+
+## Related
+
+- [Events and webhooks](/concepts/events-and-webhooks)
+- [For AI coding agents](/coding-agents): the MCP server can wait for events and replay them too.

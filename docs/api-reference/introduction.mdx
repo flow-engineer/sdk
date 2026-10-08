@@ -1,0 +1,64 @@
+---
+title: "API reference: Flow Messaging HTTP API"
+sidebarTitle: "Introduction"
+description: "Reference for the Flow Messaging HTTP API at https://api.flow.engineer: authentication with bearer API keys, request and error shapes, pagination, idempotency and versioning, generated from the OpenAPI 3.1 spec."
+keywords: ["WhatsApp API reference", "messaging REST API", "OpenAPI messaging API"]
+---
+
+This reference documents every endpoint of the Flow Messaging HTTP API, generated from its [OpenAPI 3.1 spec](https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml).
+
+```bash
+curl https://api.flow.engineer/v1/app \
+  -H "Authorization: Bearer fk_test_..." \
+  -H "Flow-Version: 2026-11-01"
+```
+
+## Basics
+
+| | |
+|---|---|
+| Base URL | `https://api.flow.engineer` |
+| Authentication | `Authorization: Bearer fk_test_...` or `fk_live_...` ([test and live mode](/concepts/test-and-live-mode)) |
+| Version | `Flow-Version: 2026-11-01` ([versioning](/concepts/versioning)) |
+| Bodies | JSON (`Content-Type: application/json`), except `POST /v1/files` (multipart) |
+| Retries | `Idempotency-Key` on every `POST` ([idempotency](/concepts/idempotency)) |
+| Spec | [openapi.yaml](https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml) |
+
+## Errors
+
+Errors share one shape. Switch on `error.type`, a closed list; never parse `message`.
+
+```json
+{
+  "error": {
+    "type": "outside_window",
+    "message": "Last message from the contact was 31h ago; WhatsApp allows only templates now.",
+    "hint": "Send a template instead: POST /v1/messages with content.type=template.",
+    "doc_url": "https://docs.flow.engineer/errors/outside_window",
+    "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"
+  }
+}
+```
+
+| Status | `type` |
+|---|---|
+| 400 | [`invalid_request`](/errors/invalid_request) |
+| 401 | [`authentication`](/errors/authentication) |
+| 403 | [`permission`](/errors/permission) |
+| 404 | [`not_found`](/errors/not_found) |
+| 409 | [`idempotency_conflict`](/errors/idempotency_conflict), [`outside_window`](/errors/outside_window) |
+| 422 | [`unsupported_content`](/errors/unsupported_content), [`file_blocked`](/errors/file_blocked) |
+| 429 | [`new_contact_limit`](/errors/new_contact_limit), [`sender_throttled`](/errors/sender_throttled), [`rate_limited`](/errors/rate_limited) |
+| 501 | [`not_implemented`](/errors/not_implemented) |
+| 502 | [`channel_error`](/errors/channel_error) |
+| 500, 503 | [`api_error`](/errors/api_error) |
+
+Errors that clear by themselves carry `retry_after` in seconds; every error carries `request_id`; quote it when asking for help.
+
+## Pagination
+
+Lists take `limit` (1 to 100, default 20) and `after` or `before`, set to the ID of an item you already have, and answer `{ "data": [...], "has_more": true }`. The event log (`GET /v1/events`) is oldest first, so `after` moves forward in time; every other list is newest first.
+
+## Events
+
+The reference lists `GET /v1/events`, the live stream (`GET /v1/stream`, a WebSocket) and the [webhook delivery](/api-reference/webhook-endpoints/an-event-delivered-to-your-endpoint) Flow sends to your endpoint. See [Events and webhooks](/concepts/events-and-webhooks).

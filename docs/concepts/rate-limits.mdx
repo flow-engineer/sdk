@@ -1,0 +1,22 @@
+---
+title: "Rate limits"
+sidebarTitle: "Rate limits"
+description: "Flow Messaging limits requests per API key and reports the budget in RateLimit headers. A 429 rate_limited answer carries Retry-After. Sending limits per sender are separate and come from the send gate."
+keywords: ["messaging API rate limits", "WhatsApp API rate limit", "429 retry after"]
+---
+
+Requests are limited per API key, and every answer tells you where you stand, so a client can slow down before it is refused.
+
+```http
+RateLimit-Limit: 100
+RateLimit-Remaining: 97
+RateLimit-Reset: 12
+```
+
+## Rules
+
+- `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds) come with every answer.
+- Over the limit, the API answers `429` with type [`rate_limited`](/errors/rate_limited), a `Retry-After` header and `error.retry_after` in seconds. Wait that long, then retry with the **same** idempotency key.
+- The TypeScript SDK retries `429` and `5xx` answers for you (2 retries by default, `maxRetries` to change it), honouring `Retry-After`.
+- **Sending limits are separate.** How many new conversations a sender may start, and how fast it sends, is decided by [the send gate](/concepts/send-gate) (`new_contact_limit`, `sender_throttled`), not by these headers.
+- Use webhooks or the live stream instead of polling `GET /v1/events` in a tight loop.

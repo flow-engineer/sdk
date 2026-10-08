@@ -1,0 +1,269 @@
+---
+title: "Events and webhooks: receive WhatsApp, Telegram and iMessage messages"
+sidebarTitle: "Events and webhooks"
+description: "Everything your agent receives is an event in one ordered log, delivered by signed webhook, by a live WebSocket stream, or by polling. Verify signatures, handle retries and ordering, and reply straight from the webhook response."
+keywords: ["WhatsApp webhook for AI agent", "receive WhatsApp messages webhook", "Telegram webhook AI agent", "iMessage webhook API", "webhook signature verification HMAC", "reply in webhook response"]
+---
+
+Everything your agent receives (messages, delivery updates, reactions, sender changes) is an **event** in your app's ordered log, and this page covers the three ways to get them and how to answer.
+
+```ts TypeScript (Next.js route handler)
+// app/api/flow/route.ts
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging();
+
+// Verifies Flow-Signature with FLOW_MESSAGING_WEBHOOK_SECRET, then calls onEvent.
+// For message.received, what onEvent returns is sent as the reply.
+export const POST = flow.webhooks.handler({
+  onEvent: async (event) => {
+    if (event.type !== "message.received") return;
+    return `You said: ${contentText(event.data.message.content)}`;
+  },
+});
+```
+
+## Three ways to receive events
+
+| Way | Use it when | How |
+|---|---|---|
+| **Webhook** | Production; serverless | Register an HTTPS URL with `POST /v1/webhook_endpoints`. Flow `POST`s each event, signed. |
+| **Live stream** | Long-running workers, local scripts | `GET /v1/stream` (WebSocket) or `flow.events.stream()` in TypeScript. Resumable with `after`. |
+| **Polling** | Catch-up, replay, debugging | `GET /v1/events?after=evt_...`, oldest first. |
+
+All three read the same log, so you can mix them: for example a webhook in production and `GET /v1/events` to recover after downtime.
+
+## The event shape
+
+```json
+{
+  "id": "evt_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+  "type": "message.received",
+  "created_at": "2026-11-03T10:15:00Z",
+  "app": "app_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+  "livemode": true,
+  "conversation": {
+    "id": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+    "channel": "whatsapp",
+    "sender": "snd_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+    "contact": "ct_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+    "window_open_until": "2026-11-04T10:15:00Z"
+  },
+  "data": {
+    "message": {
+      "id": "msg_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+      "direction": "in",
+      "status": "received",
+      "content": { "type": "voice", "url": "https://api.flow.engineer/v1/files/file_01JB8ZC3K5M7P9R1T3V5X7Z9B1", "transcript": "Do you deliver to 560103?" }
+    }
+  },
+  "timing": { "received_at": "2026-11-03T10:15:00.012Z", "stored_at": "2026-11-03T10:15:00.020Z", "delivered_at": "2026-11-03T10:15:00.041Z" }
+}
+```
+
+`timing` shows Flow's own overhead: `delivered_at` minus `received_at`.
+
+## Event types
+
+| `type` | When |
+|---|---|
+| `message.received` | The contact sent something. A button tap arrives as `button_reply` content. |
+| `message.sent`, `message.delivered`, `message.read` | Your message's progress, where the channel reports it. |
+| `message.failed` | Your message could not be sent; `data.message.error` says why, with an [error type](/errors/channel_error). |
+| `reaction.added`, `reaction.removed` | The contact reacted to a message. |
+| `typing.started`, `typing.stopped` | The contact is typing, where the channel reports it. |
+| `conversation.started` | A new contact wrote first, joined the sandbox, or you started a conversation (`via`). |
+| `conversation.window_closing` | WhatsApp only, opt-in: the 24-hour window closes in 1 hour. |
+| `sender.status_changed` | A sender was throttled, flagged, banned or restored, or its WhatsApp quality changed. |
+| `template.status_changed` | A WhatsApp template was approved, rejected or paused. |
+
+Status events are high volume. Each webhook endpoint subscribes to the types it lists, so subscribe only to what you use.
+
+## Register a webhook endpoint
+
+```bash curl
+curl https://api.flow.engineer/v1/webhook_endpoints \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/api/flow", "events": ["message.received", "message.failed"]}'
+```
+
+The answer includes the endpoint's signing `secret` (`whsec_...`), shown only this once. Store it as `FLOW_MESSAGING_WEBHOOK_SECRET`. Endpoints belong to the mode of the key that created them: a test key's endpoint receives test events.
+
+## Verify the signature
+
+Every delivery carries these headers:
+
+```text
+Flow-Signature: t=1791763200,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd
+Flow-Event-Id: evt_01JB8ZC3K5M7P9R1T3V5X7Z9B1
+Flow-Event-Type: message.received
+Flow-Version: 2026-11-01
+```
+
+`v1` is the lowercase hex HMAC-SHA256, keyed with the endpoint secret, of the string `t.{t}.{body}`: the letter `t`, a dot, the timestamp from the header, a dot, and the **raw** request body exactly as received. Compare in constant time and reject timestamps more than 5 minutes from your clock. While a secret is being rotated the header carries one `v1` per active secret; accept the request if any matches.
+
+<CodeGroup>
+```ts TypeScript (Express)
+import express from "express";
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging();
+const app = express();
+
+// The raw body is required: a parsed and re-serialized body will not match.
+app.post("/flow", express.raw({ type: "application/json" }), async (req, res) => {
+  let event;
+  try {
+    event = await flow.webhooks.constructEvent(req.body, req.header("Flow-Signature"), process.env.FLOW_MESSAGING_WEBHOOK_SECRET!);
+  } catch {
+    return res.status(400).end();
+  }
+  if (event.type === "message.received") {
+    return res.json(flow.webhooks.reply(`You said: ${contentText(event.data.message.content)}`));
+  }
+  res.json({});
+});
+
+app.listen(3000);
+```
+
+```python Python (FastAPI)
+# The Python SDK (flow-messaging) will ship this as flow.webhooks.construct_event.
+import hashlib, hmac, json, os, time
+from fastapi import FastAPI, Request, Response
+
+app = FastAPI()
+SECRET = os.environ["FLOW_MESSAGING_WEBHOOK_SECRET"]
+
+def verify(body: bytes, header: str, secret: str, tolerance: int = 300) -> bool:
+    fields = [part.strip().split("=", 1) for part in header.split(",") if "=" in part]
+    t = next((v for k, v in fields if k == "t"), None)
+    signatures = [v for k, v in fields if k == "v1"]
+    if t is None or not t.isdigit() or abs(time.time() - int(t)) > tolerance:
+        return False
+    expected = hmac.new(secret.encode(), b"t." + t.encode() + b"." + body, hashlib.sha256).hexdigest()
+    return any(hmac.compare_digest(expected, s) for s in signatures)
+
+@app.post("/flow")
+async def flow_webhook(request: Request):
+    body = await request.body()
+    if not verify(body, request.headers.get("Flow-Signature", ""), SECRET):
+        return Response(status_code=400)
+    event = json.loads(body)
+    if event["type"] == "message.received":
+        text = event["data"]["message"]["content"].get("text", "")
+        return {"reply": {"type": "text", "text": f"You said: {text}"}}
+    return {}
+```
+
+```go Go (net/http)
+// The Go SDK (github.com/flow-engineer/sdk/go) will ship this as webhook.ConstructEvent.
+package main
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+func verify(body []byte, header, secret string) bool {
+	var ts string
+	var sigs []string
+	for _, part := range strings.Split(header, ",") {
+		k, v, _ := strings.Cut(strings.TrimSpace(part), "=")
+		switch k {
+		case "t":
+			ts = v
+		case "v1":
+			sigs = append(sigs, v)
+		}
+	}
+	t, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil {
+		return false
+	}
+	if d := time.Now().Unix() - t; d > 300 || d < -300 {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte("t." + ts + "."))
+	mac.Write(body)
+	want := hex.EncodeToString(mac.Sum(nil))
+	for _, s := range sigs {
+		if hmac.Equal([]byte(want), []byte(s)) {
+			return true
+		}
+	}
+	return false
+}
+
+func main() {
+	secret := os.Getenv("FLOW_MESSAGING_WEBHOOK_SECRET")
+	http.HandleFunc("/flow", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if !verify(body, r.Header.Get("Flow-Signature"), secret) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		var ev struct {
+			Type string `json:"type"`
+			Data struct {
+				Message struct {
+					Content struct {
+						Text string `json:"text"`
+					} `json:"content"`
+				} `json:"message"`
+			} `json:"data"`
+		}
+		_ = json.Unmarshal(body, &ev)
+		w.Header().Set("Content-Type", "application/json")
+		if ev.Type != "message.received" {
+			w.Write([]byte("{}"))
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"reply": map[string]any{"type": "text", "text": "You said: " + ev.Data.Message.Content.Text},
+		})
+	})
+	http.ListenAndServe(":3000", nil)
+}
+```
+</CodeGroup>
+
+## Reply in the webhook response
+
+To answer a `message.received` at once, respond `200` with a reply body. Flow sends it into the event's conversation through the [send gate](/concepts/send-gate), exactly as if you had called `POST /v1/conversations/{conversation_id}/messages` with the event's `id` as the idempotency key. This saves a whole round trip.
+
+```json
+{ "reply": { "type": "text", "text": "Yes, we deliver to 560103." } }
+```
+
+`reply` may also be a list of up to 10 pieces of content, sent in order. A reply the gate refuses arrives later as a `message.failed` event.
+
+**Slow agents answer `200 {}` at once** and send later with `POST /v1/conversations/{conversation_id}/messages`. Keep your handler under 10 seconds; anything that takes longer belongs after the response.
+
+## Delivery rules
+
+- **Answer `2xx` within 10 seconds.** Anything else, or no answer, is a failed delivery.
+- **Retries:** failed deliveries are retried with backoff for 3 days. After that the event stays in the log, marked failed, and you can read it again with `GET /v1/events`.
+- **At least once:** a delivery can repeat. Deduplicate on the event's `id` (also in `Flow-Event-Id`).
+- **Ordered per conversation:** events in one conversation arrive in order, one at a time. Later events in that conversation wait behind a failing one, so a slow endpoint holds back only its own conversations.
+- **Ordering in the log:** events are ordered by commit, not by `created_at`. Reading forward with `after` never skips an event.
+- **Disabled endpoints** keep their place: nothing is lost from the log.
+
+## The live stream
+
+`GET /v1/stream` upgrades to a WebSocket. Every frame is one JSON object: the server sends `event`, `ack`, `error` and `reconnect` frames, and you may send `send` and `start` frames with the same bodies as the HTTP send endpoints (`ref` is your idempotency key, echoed in the `ack` or `error`). Pass `after` to resume: the stream first replays everything after that event, then goes live. When the server is about to restart it sends `reconnect`; reconnect with `after` set to the last event you received. The TypeScript SDK does all of this for you in `flow.events.stream()`, and falls back to polling where a WebSocket cannot carry the key.
+
+## Related
+
+- [Local development](/guides/local-development): forward live events to a handler on your laptop.
+- API: [The webhook event](/api-reference/webhook-endpoints/an-event-delivered-to-your-endpoint), [Create a webhook endpoint](/api-reference/webhook-endpoints/create-a-webhook-endpoint), [List events](/api-reference/events/list-events), [Open the live stream](/api-reference/stream/open-the-live-event-stream-websocket).

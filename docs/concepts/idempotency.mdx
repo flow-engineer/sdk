@@ -1,0 +1,31 @@
+---
+title: "Idempotency: retry sends without double messages"
+sidebarTitle: "Idempotency"
+description: "Send an Idempotency-Key with every POST to Flow Messaging so a retried request never sends a WhatsApp, Telegram or iMessage message twice. Keys are kept 24 hours per app and mode."
+keywords: ["idempotency key API", "avoid duplicate WhatsApp messages", "retry send message API"]
+---
+
+An `Idempotency-Key` header makes a `POST` safe to retry: a repeat with the same key returns the first answer and does not act twice, so a person never gets the same message twice.
+
+```bash
+curl https://api.flow.engineer/v1/conversations/conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1/messages \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Idempotency-Key: evt_01JB8ZC3K5M7P9R1T3V5X7Z9B1" \
+  -H "Content-Type: application/json" \
+  -d '{"content": {"type": "text", "text": "Got it!"}}'
+```
+
+## Rules
+
+- Any unique string up to 255 characters works; a UUID or ULID is a good choice. Every `POST` accepts one.
+- Keys are kept for **24 hours** per app and mode.
+- A repeat returns the first answer with the header `Idempotent-Replayed: true`.
+- Reusing a key with a different method, path or body fails with `409` [`idempotency_conflict`](/errors/idempotency_conflict). So does a repeat that arrives while the first request is still running.
+- Answers worth retrying (`429`, `500`, `502`, `503`, `504`) are **not** kept, so a retry with the same key runs again.
+
+## Good keys for agents
+
+- **Replying to an event:** use the event's `id`, plus the bubble index when you send several messages (`evt_...:0`, `evt_...:1`). A redelivered webhook then cannot make your agent answer twice.
+- **Webhook replies** already use the event's `id` as their key.
+- **Stream frames:** the `ref` of a `send` or `start` frame is its idempotency key.
+- **The TypeScript SDK** generates a key for every `POST` and reuses it across its own retries; pass `idempotencyKey` to choose it yourself.
