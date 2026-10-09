@@ -15,6 +15,7 @@ Flow keeps each `Idempotency-Key` for 24 hours with the request it came with. A 
 
 - The same key was reused for a new request (a constant instead of a fresh UUID).
 - A retry arrived while the first request was still being processed.
+- The first request went through and its answer carried a secret that is shown only once (`POST /v1/webhook_endpoints`, `POST /v1/webhook_endpoints/{id}/rotate_secret`). Flow does not keep that answer. Find the endpoint with `GET /v1/webhook_endpoints`; if you lost its secret, rotate it again with a new key.
 
 ## How to fix it
 

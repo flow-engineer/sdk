@@ -20,7 +20,7 @@ curl https://api.flow.engineer/v1/conversations/conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1/
 - Any unique string up to 255 characters works; a UUID or ULID is a good choice. Every `POST` accepts one.
 - Keys are kept for **24 hours** per app and mode.
 - A repeat returns the first answer with the header `Idempotent-Replayed: true`.
-- Reusing a key with a different method, path or body fails with `409` [`idempotency_conflict`](/errors/idempotency_conflict). So does a repeat that arrives while the first request is still running.
+- Reusing a key with a different method, path or body fails with `409` [`idempotency_conflict`](/errors/idempotency_conflict). So does a repeat that arrives while the first request is still running, and a repeat of a request that made a secret shown only once (creating a webhook endpoint, rotating its secret): Flow does not keep that answer, so it cannot show the secret again.
 - Answers worth retrying (`429`, `500`, `502`, `503`, `504`) are **not** kept, so a retry with the same key runs again.
 
 ## Good keys for agents

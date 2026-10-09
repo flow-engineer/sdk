@@ -105,7 +105,7 @@ Flow-Version: 2026-11-01
 
 ### Rotate the signing secret
 
-`POST /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret` makes a new secret and returns it in `secret`, shown only this once. The old secret keeps signing for `overlap_seconds` (default 86400, one day; `0` retires it at once), so every delivery during the overlap carries two `v1` values and verifies with either secret while you deploy the new one. `previous_secret_expires_at` says when the old one stops. Rotating again during an overlap retires the older secret at once: at most two are ever active.
+`POST /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret` makes a new secret and returns it in `secret`, shown only this once. The old secret keeps signing for `overlap_seconds` (default 86400, one day; `0` retires it at once), so every delivery during the overlap carries two `v1` values and verifies with either secret while you deploy the new one. `previous_secret_expires_at` says when the old one stops. Rotating again during an overlap retires the older secret at once: at most two are ever active. So send an `Idempotency-Key` and retry with the same key; a retry without one is a second rotation, which retires the secret you still have deployed. A repeat of a rotation that went through answers `409 idempotency_conflict` (the new secret is shown only once).
 
 ```ts
 const { secret } = await flow.webhookEndpoints.rotateSecret("we_...", { overlap_seconds: 3600 });
@@ -261,8 +261,8 @@ To answer a `message.received` at once, respond `200` with a reply body. Flow se
 { "reply": [{ "type": "text", "text": "Which size?" }, { "type": "buttons", "text": "Pick one", "buttons": [{ "id": "s", "label": "Small" }, { "id": "m", "label": "Medium" }] }], "fallback": "auto" }
 ```
 
-- An empty body, `{}` or `{"reply": null}` sends nothing, and is not an error.
-- An answer that is not a valid reply (not a JSON object, a `reply` that is not content or a list of content, an empty list, more than 10 pieces, an unknown `fallback`) sends **nothing at all**, not even the valid pieces. It is recorded on the delivery as an [`invalid_request`](/errors/invalid_request) error with the reason, which the MCP tool `get_webhook_deliveries` shows. The delivery counts as delivered and is not retried.
+- An empty body, `{}`, `{"reply": null}` or a body that is not a JSON object (plain text such as `OK`) sends nothing, and is not an error.
+- A JSON object with a `reply` that is not valid, or a body that starts with `{` but is not valid JSON (a `reply` that is not content or a list of content, an empty list, more than 10 pieces, an unknown `fallback`) sends **nothing at all**, not even the valid pieces. It is recorded on the delivery as an [`invalid_request`](/errors/invalid_request) error with the reason, which the MCP tool `get_webhook_deliveries` shows. The delivery counts as delivered and is not retried.
 - A piece the send gate refuses arrives later as a `message.failed` event.
 
 **Slow agents answer `200 {}` at once** and send later with `POST /v1/conversations/{conversation_id}/messages`. Keep your handler under 10 seconds; anything that takes longer belongs after the response.
