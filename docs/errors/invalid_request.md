@@ -15,8 +15,8 @@ Flow could not accept the request as sent: the body is not valid JSON for the en
 
 - A required field is missing (`content`, `to`, `content.type`).
 - A value is the wrong shape: a `telegram_user_id` that is a username instead of digits, an ID with the wrong prefix, `limit` above 100.
-- Text longer than the conversation's channel takes (`max_text_length` in `GET /v1/capabilities`: 4096 characters on Telegram and WhatsApp, 10000 on iMessage; 1024 for captions).
-- Your answer to a `message.received` webhook delivery is not a valid reply (not a JSON object, a `reply` that is not content or a list of 1 to 10 pieces, an unknown `fallback`). Nothing is sent; the error is recorded on the delivery (the MCP tool `get_webhook_deliveries` shows it) and the delivery is not retried.
+- Text longer than the conversation's channel takes (`max_text_length` in `GET /v1/capabilities`: 4096 characters on Telegram and WhatsApp, 9999 on iMessage; 1024 for captions).
+- Your answer to a `message.received` webhook delivery is a JSON object with an invalid `reply` (a `reply` that is not content or a list of 1 to 10 pieces, an unknown `fallback`). Nothing is sent; the error is recorded on the delivery (the MCP tool `get_webhook_deliveries` shows it) and the delivery is not retried.
 
 ## How to fix it
 
