@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Every check, run locally before a PR (no CI jobs: minutes are paid).
-#   scripts/local-checks.sh             spec lint, spec drift (scripts/check-spec-drift.sh), agent docs
+#   scripts/local-checks.sh             spec lint, comparison claims (scripts/check-compare.sh),
+#                                       spec drift (scripts/check-spec-drift.sh), agent docs
 #                                       (scripts/agent-docs.mjs --check) +
 #                                       TypeScript (typecheck, lint, unit tests, build,
 #                                       package contents, integration)
@@ -19,6 +20,9 @@ step() { printf '\n== %s\n' "$*"; }
 
 step "spec lint (Redocly)"
 scripts/lint.sh
+
+step "comparison claims (docs/compare/claims.yaml)"
+scripts/check-compare.sh
 
 cd "$root/typescript"
 step "typescript: install"

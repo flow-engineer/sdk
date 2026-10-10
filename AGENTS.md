@@ -46,6 +46,7 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   `info.version`. With a service checkout (`FLOW_MESSAGING_DIR`, default
   `../flow-messaging`) it compares `api/openapi.yaml` there too: a warning, since a spec
   PR lands before the service regenerates; `STRICT_SERVICE_SPEC=1` makes it fail.
+- **Comparison pages** (`docs/compare/`): every claim about another product is an entry in `docs/compare/claims.yaml` (claim, source URL, date checked, pages), marked on its page with `{/* claim: <id> */}` and linked to its source. `scripts/check-compare.sh` (part of local checks) fails when a claim is older than 90 days or a marker, link or entry is missing; `--fetch` also flags dead sources. Never name the provider behind Flow's iMessage line there.
 - **Lint with Redocly CLI**: `scripts/lint.sh` (runs `npx @redocly/cli@2.60.0 lint`
   with `redocly.yaml`, `recommended-strict`, so any warning fails). It must be clean
   before a PR.

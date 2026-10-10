@@ -80,6 +80,13 @@
               "frameworks/langchain",
               "frameworks/mastra"
             ]
+          },
+          {
+            "group": "Compare",
+            "pages": [
+              "compare/choosing-a-messaging-api",
+              "compare/flow-vs-photon"
+            ]
           }
         ]
       },

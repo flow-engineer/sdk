@@ -7,6 +7,7 @@ Source of https://docs.flow.engineer (Mintlify). Not published itself: Mintlify 
 - `api-reference/introduction.mdx` plus the endpoint pages Mintlify generates from `openapi.yaml`, a copy of `../openapi/openapi.yaml` (the spec is the single source; Mintlify builds only this folder, so it is a real file, and `scripts/check-spec-drift.sh` fails when it differs).
 - `errors/` and `mcp.md`: the error pages (one per error type; each error's `doc_url` links here) and the hosted MCP server page.
 - `skill.md`: the agent skill served at `/skill.md`.
+- `compare/`: the comparison pages. Every claim they make about another product lives in `compare/claims.yaml` (claim, source URL, date checked, pages) and is marked on the page with `{/* claim: <id> */}`. `scripts/check-compare.sh` (run by `scripts/local-checks.sh`) fails when a claim was last checked more than 90 days ago; `scripts/check-compare.sh --fetch` also flags sources that are gone. When you re-verify, update the claim, the page and its "Last verified" line.
 - `logo/`: placeholder text marks.
 
 Mintlify also serves `/llms.txt`, `/llms-full.txt` and a `.md` version of every page; nothing to build for those.

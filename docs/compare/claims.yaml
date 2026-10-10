@@ -1,0 +1,505 @@
+# Every claim the comparison pages (docs/compare/*.mdx) make about another product.
+#
+# Rules:
+# - A claim comes from the product's OWN current docs, pricing page or repository,
+#   never from a third party or another vendor's "vs" page. `claim` paraphrases or
+#   quotes it; `quote` holds the source's own words where they matter.
+# - `checked` is the date someone last opened `source` and saw the claim still true.
+#   scripts/check-compare.sh fails when it is older than 90 days: re-verify, update
+#   the claim and the page (and its "Last verified" line), then the date.
+# - `pages` lists the pages (paths under docs/, no extension) that use the claim.
+#   Each page marks the spot with {/* claim: <id> */} and links `source`.
+# - Keep this file in the small YAML subset the check script reads: each entry starts
+#   with "- id:", then one "  key: value" per line; `pages` is a flow list.
+# - Never name the provider behind Flow's own iMessage line here or on the pages.
+
+# --- Photon (Spectrum, spectrum-ts) ---
+
+- id: photon.channels
+  claim: Spectrum's stable docs list iMessage, WhatsApp Business, Telegram, terminal development and SIP voice calls on iMessage lines; more interfaces (Discord, websites, apps, ...) are described as coming over time or as custom providers.
+  quote: "Today, Spectrum supports iMessage, WhatsApp Business, Telegram, terminal development, and SIP voice calls on iMessage lines."
+  source: https://photon.codes/docs/spectrum-ts/introduction.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon, compare/choosing-a-messaging-api]
+
+- id: photon.imessage-most-mature
+  claim: Photon says iMessage is where Spectrum is most mature, with DMs, groups, typing, reactions, threaded replies, effects, per-line routing and auto-scale.
+  quote: "iMessage is where Spectrum is most mature."
+  source: https://photon.codes/docs/spectrum-ts/introduction.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.slack-package
+  claim: The spectrum-ts README lists a Slack provider package (@spectrum-ts/slack).
+  source: https://github.com/photon-hq/spectrum-ts
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.whatsapp-tech-provider
+  claim: Photon describes itself as an official Meta Business Technology Provider using Meta's official Cloud API for WhatsApp.
+  quote: "Photon - an official Meta Business Technology Provider."
+  source: https://photon.codes/platform/whatsapp
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.sdk-typescript
+  claim: spectrum-ts is a TypeScript SDK.
+  quote: "`spectrum-ts` is a unified messaging SDK for TypeScript."
+  source: https://photon.codes/docs/spectrum-ts/getting-started.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.stable-no-http-send
+  claim: Photon's stable webhook docs say there is no public HTTP send-message endpoint today and that one is on the roadmap; the SDK is the supported path.
+  quote: "An HTTP send-message API is on the roadmap; until then, the SDK is the supported path."
+  source: https://photon.codes/docs/webhooks/quickstart.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.beta-http-send
+  claim: Photon's Beta docs document an HTTP send endpoint (POST /v1/projects/{id}/messages) with a required idempotency-key header, for SMS, email, WhatsApp Personal, WhatsApp Business, iMessage or Telegram text and image messages; the Beta docs say they are being rewritten.
+  quote: "Sends SMS, email, WhatsApp Personal, WhatsApp Business, iMessage, or Telegram text and image messages."
+  source: https://photon.codes/docs/beta/api-reference/messages/send-a-message
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.beta-clients
+  claim: Photon's Beta API clients are libraries for TypeScript, Python and Rust.
+  quote: "The Photon API clients are libraries for TypeScript, Python, and Rust"
+  source: https://photon.codes/docs/beta/api-client/index.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.license-stars
+  claim: spectrum-ts is MIT-licensed on GitHub, with about 1,979 stars on 10 Oct 2026.
+  source: https://github.com/photon-hq/spectrum-ts
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.self-host
+  claim: Photon says the core system is fully open source and can be self-hosted with first-party and community adaptors, without Spectrum Cloud.
+  quote: "The core system is fully open-sourced - you can self-host using first-party and community platform adaptors, no Spectrum Cloud service required."
+  source: https://photon.codes/pricing
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon, compare/choosing-a-messaging-api]
+
+- id: photon.local-imessage
+  claim: Spectrum's local iMessage mode reads the macOS Messages database on your own Mac, needs no project credentials, and supports text, attachments and contacts (no reactions, edits, groups or streaming).
+  quote: "Reads the macOS Messages SQLite database directly. It is an explicit, macOS-only install and does not require project credentials."
+  source: https://photon.codes/docs/spectrum-ts/providers/imessage/connection-and-routing.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.pricing
+  claim: Photon's plans are Free ($0, up to 10 users, unlimited daily messages with Auto Scale), Pro ($25/mo, up to 100 users), Business ($250/line/mo, dedicated iMessage lines, cold outreach up to 50 new contacts a day; the card lists WhatsApp and phone calls) and Enterprise (custom).
+  quote: "$250/line/mo"
+  source: https://photon.codes/pricing
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon, compare/choosing-a-messaging-api]
+
+- id: photon.mcp-docs
+  claim: Photon's docs offer a docs-search MCP server (Mintlify); its earlier product MCP repository, mcp-legacy (67 iMessage tools), is archived on GitHub.
+  source: https://github.com/photon-hq/mcp-legacy
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon, compare/choosing-a-messaging-api]
+
+- id: photon.inbound-iterator
+  claim: In spectrum-ts, inbound messages arrive through app.messages, an AsyncIterable of (Space, Message) tuples.
+  quote: "`app.messages` is an `AsyncIterable` of tuples containing a `Space` and a `Message`."
+  source: https://photon.codes/docs/spectrum-ts/getting-started.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.webhook-delivery
+  claim: Photon's stable webhook delivery makes up to 6 attempts with about 39 seconds of backoff in total, has no dead-letter queue, gives no per-space ordering guarantee, and does not echo outbound messages as webhooks.
+  quote: "No per-space ordering guarantee. A late retry for an earlier message can land after a successfully-delivered later message."
+  source: https://photon.codes/docs/webhooks/delivery.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.beta-events
+  claim: Photon's Beta API contract adds outbound status events (accepted, dispatched, delivered, failed) and a Socket.IO event stream.
+  source: https://api.photon.codes/openapi.json
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.unsupported-behaviour
+  claim: In spectrum-ts, reactions and replies no-op silently where a platform lacks them (a reply is not downgraded to a regular send); other constraints throw UnsupportedError; markdown and voice degrade automatically.
+  quote: "the reply is not downgraded to a regular send"
+  source: https://photon.codes/docs/spectrum-ts/reactions-and-replies.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.whatsapp-window
+  claim: Photon's low-level WhatsApp kit documents templates as the only way to send outside the 24-hour customer service window.
+  quote: "Templates are the only way to send outside the 24-hour customer service window."
+  source: https://photon.codes/docs/advanced-kits/whatsapp/templates.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.imessage-quotas
+  claim: Photon documents 5,000 messages per server per day and 50 new conversations initiated per iMessage line per day.
+  quote: "50 new conversations initiated per line per day."
+  source: https://photon.codes/docs/spectrum-ts/providers/imessage/connection-and-routing.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.streaming
+  claim: spectrum-ts text() and markdown() accept LLM streams (OpenAI, Anthropic, AI SDK); iMessage in remote mode edits the message in place and Telegram private chats show a native draft preview.
+  quote: "Both `text()` and `markdown()` accept a `StreamTextSource`"
+  source: https://photon.codes/docs/spectrum-ts/content/text.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.polls
+  claim: spectrum-ts can send polls.
+  source: https://photon.codes/docs/spectrum-ts/content/polls.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.telegram-code
+  claim: The Telegram receive-and-reply example (Spectrum with telegram.config({ botToken }), cloud mode with projectId and projectSecret, which registers the webhook on startup).
+  source: https://photon.codes/docs/spectrum-ts/providers/telegram/setup.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.integrations
+  claim: Photon publishes an iMessage adapter for the Vercel Chat SDK (chat-adapter-imessage).
+  source: https://photon.codes/docs/integrations/chat-sdk.md
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+- id: photon.soc2
+  claim: Photon's homepage states it is SOC 2 Type II compliant.
+  quote: "Photon is SOC 2 Type II Compliant."
+  source: https://photon.codes
+  checked: 2026-10-10
+  pages: [compare/flow-vs-photon]
+
+# --- Telegram Bot API ---
+
+- id: telegram.free
+  claim: The Telegram Bot Platform is free for users and developers.
+  quote: "free for both users and developers"
+  source: https://core.telegram.org/bots
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: telegram.no-first-message
+  claim: Telegram bots cannot start conversations; the user must message the bot or add it to a group first.
+  quote: "Bots can't start conversations with users. A user must either add them to a group or send them a message first."
+  source: https://core.telegram.org/bots
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: telegram.updates
+  claim: Updates come by getUpdates or by webhook (mutually exclusive) and are kept on Telegram's servers for at most 24 hours.
+  quote: "they will not be kept longer than 24 hours"
+  source: https://core.telegram.org/bots/api#getting-updates
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: telegram.webhook-retries
+  claim: Telegram retries a failed webhook request and gives up after "a reasonable amount of attempts"; a secret_token sets the X-Telegram-Bot-Api-Secret-Token header.
+  quote: "we will repeat the request and give up after a reasonable amount of attempts"
+  source: https://core.telegram.org/bots/api#setwebhook
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: telegram.update-id
+  claim: update_id increases sequentially, so a webhook consumer can ignore repeated updates or restore the order when they arrive out of order.
+  quote: "allows you to ignore repeated updates or to restore the correct update sequence, should they get out of order"
+  source: https://core.telegram.org/bots/api#update
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: telegram.limits
+  claim: Telegram asks bots to send at most about one message per second per chat, 20 per minute in a group and about 30 per second in bulk, answering 429 with retry_after beyond that.
+  quote: "In a single chat, avoid sending more than one message per second."
+  source: https://core.telegram.org/bots/faq
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: telegram.drafts
+  claim: sendMessageDraft (Bot API 9.3, opened to all bots in 9.5) streams partial messages to a user in a private chat while they are generated.
+  quote: "allowing partial messages to be streamed to a user while being generated"
+  source: https://core.telegram.org/bots/api-changelog
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: telegram.sendmessage
+  claim: A bot replies with sendMessage (chat_id and text) at https://api.telegram.org/bot<token>/sendMessage.
+  source: https://core.telegram.org/bots/api#sendmessage
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+# --- iMessage APIs ---
+
+- id: apple.mfb-msp
+  claim: Apple Messages for Business requires an Apple-approved Messaging Service Provider; automation must connect through an MSP, with a live-agent escalation path.
+  quote: "Automation and virtual agents must connect to Apple Messages for Business through an Apple-approved MSP — not through a direct technical connection."
+  source: https://register.apple.com/resources/messages/messaging-documentation/faq
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: sendblue.channels
+  claim: Sendblue sends and receives iMessage, SMS, MMS and RCS, falling back from iMessage to RCS then SMS.
+  quote: "Sendblue is the easiest way to send and receive iMessages, SMS, MMS, and RCS programmatically."
+  source: https://docs.sendblue.com/llms.txt
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: sendblue.pricing
+  claim: Sendblue's plans are a Free Sandbox ($0, shared number, up to 10 verified contacts, inbound-first), AI Agent ($100/month per dedicated line, inbound-first, 1,000 inbound contacts a day) and Enterprise (custom, full outbound, SOC 2 and HIPAA), with no per-message fees.
+  quote: "$100 /month Per dedicated line"
+  source: https://www.sendblue.com/pricing
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: sendblue.mcp
+  claim: Sendblue's MCP server runs locally with npx (sendblue-api-mcp).
+  source: https://docs.sendblue.com/mcp
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: sendblue.webhooks
+  claim: Sendblue retries a webhook up to 3 times on a 5xx answer and authenticates it with an sb-signing-secret header that must match your configured secret.
+  quote: "Sendblue retries webhook delivery up to 3 times if your endpoint returns a 5xx server error."
+  source: https://docs.sendblue.com/getting-started/webhooks
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: sendblue.sdks
+  claim: Sendblue has official Node.js/TypeScript and Python SDKs, community SDKs for Go, Rust and Ruby, a CLI with a sandbox, and a Chat SDK adapter.
+  source: https://docs.sendblue.com/llms.txt
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: linq.channels
+  claim: Linq offers iMessage, RCS and SMS (with voice) for AI agents, and a WhatsApp beta enabled on request.
+  quote: "APIs for iMessage, RCS, SMS, and Voice built for Agents"
+  source: https://linqapp.com
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: linq.whatsapp-beta
+  claim: Linq's WhatsApp channel is a beta that your Linq contact enables for your account.
+  quote: "Ask your Linq contact to enable WhatsApp beta access for your account before starting."
+  source: https://docs.linqapp.com/channel/whatsapp/getting-started/connect-whatsapp/
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: linq.pricing
+  claim: Linq's plans are Hobby ($0/mo via the CLI, 20-contact limit), Pro (starting at $260/mo, 7-day free trial) and Enterprise (custom, contractual SLAs).
+  quote: "Starting at $260/mo"
+  source: https://linqapp.com/s/pricing
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: linq.webhooks
+  claim: Linq signs webhooks with the Standard Webhooks specification and retries about 10 times within 30 minutes, at least once.
+  quote: "Delivery model: At-least-once (duplicates possible)"
+  source: https://docs.linqapp.com/channel/imessage/guides/webhooks/
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: linq.sdks-mcp
+  claim: Linq has official TypeScript/Node.js, Python and Go SDKs, and a local MCP server run with npx (@linqapp/sdk-mcp).
+  quote: "Official SDKs are available for **TypeScript/Node.js**, **Python**, and **Go**."
+  source: https://docs.linqapp.com/channel/imessage/guides/resources/faq/
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: linq.soc2
+  claim: Linq states it holds SOC 2 Type I and Type II certifications.
+  quote: "Linq holds both SOC 2 Type I and SOC 2 Type II certifications."
+  source: https://linqapp.com/s/security
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: blooio.channels
+  claim: Blooio sends and receives iMessage, RCS and SMS (SMS through an optional connected Twilio account).
+  quote: "SMS: Available through an optional connected Twilio account"
+  source: https://blooio.com/guides/self-serve.md
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: blooio.whatsapp
+  claim: Blooio says it is a Tech Provider on the WhatsApp Business Platform.
+  quote: "Blooio is a Tech Provider on the WhatsApp Business Platform."
+  source: https://blooio.com/integrations/whatsapp
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: blooio.mfb
+  claim: Blooio says it is an official Apple Messages for Business Messaging Service Provider.
+  quote: "Blooio is an official Apple Messages for Business Messaging Service Provider (MSP)."
+  source: https://blooio.com/integrations/api.md
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: blooio.pricing
+  claim: Blooio's plans run from a free trial (20 messages) and Starter at $39/mo to Commercial Dedicated at $289/mo per line, with no per-message fees on any plan; Starter may start 5 new conversations a day, Commercial Shared 15, the dedicated plans unlimited, and the Inbound plan is reply-only.
+  quote: "No per-message fees on any plan."
+  source: https://blooio.com/pricing.md
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: blooio.sdks
+  claim: Blooio lists SDKs for Node.js/TypeScript, Python, Java and Go.
+  source: https://blooio.com/llms-full.txt
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: linq.free-inbound-first
+  claim: On Linq's free CLI tier (shared line, up to 20 contacts) a contact must text first; paid lines don't have these restrictions.
+  quote: "Existing users on a paid line don't have these restrictions."
+  source: https://linqapp.com/cli
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: blooio.mcp
+  claim: Blooio hosts an MCP server at https://mcp.blooio.com/v4.
+  quote: "The hosted MCP server is available at `https://mcp.blooio.com/v4`."
+  source: https://blooio.com/index.md
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: blooio.webhooks
+  claim: Blooio signs webhooks with HMAC-SHA256.
+  quote: "Blooio signs all outgoing webhooks with an HMAC-SHA256 signature"
+  source: https://docs.blooio.com/webhook-signatures
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+# --- Twilio ---
+
+- id: twilio.channels
+  claim: Twilio Messaging sends to SMS, MMS, RCS and WhatsApp with one API, with Facebook Messenger in public beta; Telegram is not among the channels on that page.
+  quote: "Send messages to customers across preferred channels like SMS, MMS, RCS, and WhatsApp with one API."
+  source: https://www.twilio.com/docs/messaging
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.amb-beta
+  claim: Twilio's Apple Messages for Business channel is a private beta you apply to join.
+  quote: "Apply to join our private beta for Apple Messages for Business."
+  source: https://www.twilio.com/en-us/messaging/channels/apple-messages-for-business
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.sms-price
+  claim: Twilio charges $0.0083 per US SMS segment, outbound or inbound, plus carrier fees, and US A2P 10DLC registration fees apply.
+  quote: "Text messages are charged per segment."
+  source: https://www.twilio.com/en-us/sms/pricing/us
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.whatsapp-price
+  claim: Twilio's WhatsApp fee is $0.005 per message, inbound or outbound, plus Meta's per-template fees passed through, and $0.001 per failed message.
+  quote: "Twilio's per-message fee for WhatsApp is $0.005, inbound or outbound"
+  source: https://www.twilio.com/en-us/whatsapp/pricing
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.trial
+  claim: A Twilio trial needs no credit card, includes free units (such as 100 SMS and 100 WhatsApp messages), expires after 30 days and sends only to up to 5 verified numbers.
+  quote: "Trial accounts expire after 30 days."
+  source: https://www.twilio.com/docs/usage/tutorials/how-to-use-your-free-trial-account
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.10dlc
+  claim: Anyone sending SMS or MMS from a US 10DLC number by application must register for A2P 10DLC, including individuals and hobbyists.
+  quote: "This includes individuals and hobbyists using Twilio."
+  source: https://www.twilio.com/docs/messaging/compliance/a2p-10dlc
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.signature
+  claim: Twilio signs webhook requests with HMAC-SHA1 keyed with your Auth Token, in the X-Twilio-Signature header.
+  quote: "Twilio sends this signature in an HTTP header called X-Twilio-Signature"
+  source: https://www.twilio.com/docs/usage/security
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.retries
+  claim: Twilio's webhook connection overrides default to 1 retry, on connection failures only (rp=ct), within 15,000 ms in total; up to 5 retries can be set.
+  quote: "Retry count | Key: rc | Accepted values: Any integer from 0 to 5 inclusive | Default: 1"
+  source: https://www.twilio.com/docs/usage/webhooks/webhooks-connection-overrides
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.status-order
+  claim: Twilio does not guarantee that message status callbacks arrive in the order they were sent.
+  quote: "there is no guarantee that the status callback requests always arrive at your endpoint in the order they were sent"
+  source: https://www.twilio.com/docs/messaging/guides/track-outbound-message-status
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.whatsapp-window
+  claim: On WhatsApp through Twilio, outside the 24-hour customer service window only approved templates may be sent; otherwise the send fails with error 63016.
+  quote: "Outside of a customer service window, you may only send a message using an approved template."
+  source: https://www.twilio.com/docs/whatsapp/key-concepts
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.mcp
+  claim: Twilio MCP is a Public Beta hosted server for API search and documentation retrieval; it does not execute API calls.
+  quote: "It does not execute API calls on your behalf."
+  source: https://www.twilio.com/docs/ai/mcp
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.agent-connect
+  claim: Twilio Agent Connect, generally available since May 2026, is a Python and TypeScript SDK that connects AI agents to Voice, SMS, chat, WhatsApp and RCS.
+  quote: "Twilio Agent Connect is now generally available with multi-channel support."
+  source: https://www.twilio.com/en-us/changelog/twilio-agent-connect-is-now-generally-available
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.sdks
+  claim: Twilio has server-side SDKs for C#/.NET, Java, Node.js, PHP, Python, Ruby and Go.
+  source: https://www.twilio.com/docs/libraries
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.sla
+  claim: Twilio's API SLA sets a 99.95% monthly availability threshold for its services APIs.
+  source: https://www.twilio.com/en-us/legal/service-level-agreement/twilio-apis
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: twilio.countries
+  claim: Twilio says SMS reaches 180+ countries.
+  quote: "Reach 180+ countries reliably with localized senders, compliance tools, and global guidelines."
+  source: https://www.twilio.com/en-us/messaging/channels/sms
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+# --- Other CPaaS ---
+
+- id: sinch.channels
+  claim: Sinch's Conversation API channels include SMS, RCS, WhatsApp, MMS, Viber, Instagram, Messenger, WeChat, Telegram, KakaoTalk and LINE.
+  source: https://developers.sinch.com/docs/conversation/channel-support
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: infobip.channels
+  claim: Infobip's Conversations API channels include Apple Messages for Business, Telegram, WhatsApp, SMS, RCS, Viber and more.
+  source: https://www.infobip.com/docs/conversations-api
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: infobip.mcp
+  claim: Infobip hosts remote MCP servers per channel (SMS, WhatsApp, Viber, RCS, email, voice and others) at mcp.infobip.com.
+  source: https://github.com/infobip/mcp
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
+
+- id: vonage.channels
+  claim: The Vonage Messages API covers SMS, MMS, RCS, WhatsApp, Messenger, Viber and email.
+  quote: "The Vonage Messages API integrates with SMS, MMS, RCS, WhatsApp, Messenger, Viber, and Email"
+  source: https://developer.vonage.com/en/messages/overview
+  checked: 2026-10-10
+  pages: [compare/choosing-a-messaging-api]
