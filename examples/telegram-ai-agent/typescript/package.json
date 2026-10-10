@@ -1,0 +1,9 @@
+{
+  "name": "flow-messaging-example-telegram-ai-agent",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": { "start": "node main.ts" },
+  "dependencies": { "@anthropic-ai/sdk": "^0.133.0" },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "~5.9.3" }
+}

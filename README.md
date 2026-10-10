@@ -52,8 +52,10 @@ gives coding agents and assistants the same actions.
   contract and the source of the SDKs and the API reference.
 - [`typescript/`](typescript): `@flow-engineer/messaging`, the TypeScript SDK and CLI
   (`init`, `listen`, `send`, `mcp`).
-- [`examples/`](examples): runnable agents (echo, Vercel AI SDK, OpenAI Agents SDK,
-  Claude Agent SDK, Mastra, LangChain.js, Eve note).
+- [`examples/`](examples): runnable agents. Plain HTTP in TypeScript and Python, tested
+  end to end: Telegram echo, an AI support agent, a webhook receiver, your own
+  Telegram bot. With the SDK: echo, Vercel AI SDK, OpenAI Agents SDK, Claude Agent
+  SDK, Mastra, LangChain.js, Eve note.
 - [`plugin/`](plugin): agent files: a Claude Code plugin (skill and MCP server) and the
   `AGENTS.md` section for Codex. Install with
   `claude plugin marketplace add flow-engineer/sdk` and

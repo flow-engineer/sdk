@@ -1,0 +1,8 @@
+{
+  "name": "flow-messaging-example-telegram-echo",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": { "start": "node main.ts" },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "~5.9.3" }
+}
