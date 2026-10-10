@@ -1,0 +1,138 @@
+---
+title: "Flow Messaging vs Photon (spectrum-ts) for AI agents"
+sidebarTitle: "Flow vs Photon"
+description: "Flow Messaging and Photon's Spectrum (spectrum-ts) compared for putting an AI agent on Telegram, iMessage and WhatsApp: channels, API shape, delivery guarantees, channel rules, MCP, sandbox, pricing and self-hosting. Every Photon claim links to Photon's own docs."
+keywords: ["Photon spectrum-ts alternative", "Flow Messaging vs Photon", "spectrum-ts comparison", "Photon iMessage API alternative", "AI agent messaging API comparison", "Telegram AI agent SDK"]
+---
+
+**Last verified: 10 Oct 2026.** Every claim about Photon on this page links to Photon's own docs, pricing page or repository, as read in October 2026. Both products change quickly, so check the linked source before relying on a detail, and [open an issue](https://github.com/flow-engineer/sdk/issues) if something here is out of date. This page is written by the Flow Messaging team.
+
+This page compares Flow Messaging with Photon's Spectrum (`spectrum-ts`). Both give an AI agent two-way conversations on messaging apps. They are built differently: Spectrum is an open-source TypeScript SDK with an optional managed cloud, and Flow is a hosted HTTP API with SDKs on top.
+
+## TL;DR
+
+| | Flow Messaging | Photon (Spectrum) |
+|---|---|---|
+| What it is | A hosted HTTP API (OpenAPI 3.1) that hosts the senders and keeps an event log | An open-source TypeScript SDK (`spectrum-ts`) plus the managed Spectrum Cloud {/* claim: photon.sdk-typescript */}([source](https://photon.codes/docs/spectrum-ts/getting-started.md), Oct 2026) |
+| Channels today | Telegram (live); iMessage (live, replies only, lines arranged with the Flow team); WhatsApp **coming**, pending Meta's approval | iMessage, WhatsApp Business, Telegram, terminal, and SIP voice on iMessage lines {/* claim: photon.channels */}([source](https://photon.codes/docs/spectrum-ts/introduction.md), Oct 2026); RCS and SMS fallback on its Free, Pro and Business plans {/* claim: photon.pricing */}([source](https://photon.codes/pricing), Oct 2026). The Beta API adds SMS and email {/* claim: photon.beta-http-send */}([source](https://photon.codes/docs/beta/api-reference/messages/send-a-message), Oct 2026) |
+| Languages | Any language over HTTP. TypeScript SDK on npm (`@flow-engineer/messaging`). Python and Go **coming** | `spectrum-ts` is TypeScript. Beta HTTP API clients for TypeScript, Python and Rust {/* claim: photon.beta-clients */}([source](https://photon.codes/docs/beta/api-client/index.md), Oct 2026) |
+| HTTP send API | Yes, every operation | Stable docs: no, the SDK is the supported path {/* claim: photon.stable-no-http-send */}([source](https://photon.codes/docs/webhooks/quickstart.md), Oct 2026). Beta docs: yes {/* claim: photon.beta-http-send */}([source](https://photon.codes/docs/beta/api-reference/messages/send-a-message), Oct 2026) |
+| Receiving | Signed webhooks, a resumable WebSocket stream, or polling the event log | An async iterator in the SDK {/* claim: photon.inbound-iterator */}([source](https://photon.codes/docs/spectrum-ts/getting-started.md), Oct 2026), or signed webhooks handled by `app.webhook()` on an HTTP route {/* claim: photon.webhook-mode */}([source](https://photon.codes/docs/spectrum-ts/webhooks.md), Oct 2026) |
+| Webhook retries and order | Retried with backoff for 3 days, then kept in the log; in order per conversation | Stable: up to 6 attempts within a default backoff budget of about 30 seconds (about 26 s on average, 39 s at most; up to about 3.5 minutes of wall clock if every attempt times out), tunable by Photon; no dead-letter queue and no per-space ordering guarantee, and Photon recommends reconciling through its API {/* claim: photon.webhook-delivery */}([source](https://photon.codes/docs/webhooks/delivery.md), Oct 2026). Beta: webhook destinations with a retry budget, manual retry and dead-lettering {/* claim: photon.beta-webhooks */}([source](https://api.photon.codes/openapi.json), Oct 2026) |
+| Status of your sends | `message.sent` and `message.failed` events, plus `delivered` and `read` where the channel reports them (Telegram reports neither) | Stable: outbound messages are not echoed as webhooks (same source). Beta: accepted, dispatched, delivered and failed events {/* claim: photon.beta-events */}([source](https://api.photon.codes/openapi.json), Oct 2026) |
+| Channel rules | One send gate for every send: new-contact budgets and pacing (and the WhatsApp window once WhatsApp opens); content a channel cannot show is refused or sent as the fallback you chose | Per feature: no-op, automatic degrade, or `UnsupportedError` {/* claim: photon.unsupported-behaviour */}([source](https://photon.codes/docs/spectrum-ts/reactions-and-replies.md), Oct 2026) |
+| MCP | A hosted MCP server at `api.flow.engineer/mcp` that the project owner can choose to add | A docs-search MCP server {/* claim: photon.mcp-docs */}([source](https://photon.codes/docs/mcp), Oct 2026), and Spectrum skills that add Spectrum knowledge to AI coding tools {/* claim: photon.skills */}([source](https://photon.codes/docs/spectrum-ts/introduction.md), Oct 2026) |
+| Try it free | A test key with no account in one call: 1 contact, 50 messages, 7 days. Signed in with GitHub: 3 contacts, 100 messages each | Free plan: up to 10 users, unlimited daily messages with Auto Scale {/* claim: photon.pricing */}([source](https://photon.codes/pricing), Oct 2026) |
+| Paid pricing | Not published yet; for WhatsApp, Meta's fees passed through | Pro \$25/mo; Business \$250/line/mo; Enterprise custom (same source) |
+| Self-hosting | No. The service is hosted only; the spec and SDKs are open source (Apache-2.0) | Yes: "fully open-sourced", self-hostable without Spectrum Cloud {/* claim: photon.self-host */}([source](https://photon.codes/pricing), Oct 2026) |
+| Maturity | Beta, launched October 2026 | `spectrum-ts`: MIT, about 1,979 GitHub stars {/* claim: photon.license-stars */}([source](https://github.com/photon-hq/spectrum-ts), Oct 2026) |
+
+## Choose Photon if
+
+- **You want to self-host, or run on your own Mac.** Spectrum is open source and runs without Photon's cloud. Its local iMessage mode reads the Messages database on your own Mac and needs no project credentials {/* claim: photon.local-imessage */}([source](https://photon.codes/docs/spectrum-ts/providers/imessage/connection-and-routing.md), Oct 2026).
+- **You need WhatsApp, SMS, voice or Slack today.** Flow's WhatsApp is not live yet, and Flow has no SMS yet; Photon's plans include RCS and SMS fallback ([source](https://photon.codes/pricing), Oct 2026). Photon describes itself as an official Meta Business Technology Provider {/* claim: photon.whatsapp-tech-provider */}([source](https://photon.codes/platform/whatsapp), Oct 2026), and the `spectrum-ts` README lists a Slack provider {/* claim: photon.slack-package */}([source](https://github.com/photon-hq/spectrum-ts), Oct 2026).
+- **You need iMessage groups, polls or cold outreach.** Photon says iMessage is where Spectrum is most mature, with groups, effects and per-line routing {/* claim: photon.imessage-most-mature */}([source](https://photon.codes/docs/spectrum-ts/introduction.md), Oct 2026). It can send polls {/* claim: photon.polls */}([source](https://photon.codes/docs/spectrum-ts/content/polls.md), Oct 2026), and its Business plan supports cold outreach to up to 50 new contacts a day per line ([source](https://photon.codes/pricing), Oct 2026). Flow's iMessage line is replies only, and Flow conversations are one-to-one.
+- **You write TypeScript and want streaming built into the SDK.** `text()` takes an OpenAI, Anthropic or AI SDK stream. On iMessage (remote mode) it edits the message in place; on Telegram private chats it shows a native draft preview {/* claim: photon.streaming */}([source](https://photon.codes/docs/spectrum-ts/content/text.md), Oct 2026).
+- **You build on the Vercel Chat SDK.** Photon publishes an iMessage adapter for it {/* claim: photon.integrations */}([source](https://photon.codes/docs/integrations/chat-sdk.md), Oct 2026).
+- **You need a compliance statement now.** Photon's homepage states it is SOC 2 Type II compliant {/* claim: photon.soc2 */}([source](https://photon.codes), Oct 2026). Flow does not publish a compliance certification.
+
+## Choose Flow if
+
+- **Your agent is not written in TypeScript.** Every operation is plain HTTP and JSON with an [OpenAPI 3.1 spec](https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml), so Python, Go or any other language works today, without waiting for an SDK.
+- **You want a durable event log.** Webhooks are retried for 3 days and arrive in order per conversation; after that the events stay in the log, and `GET /v1/events?after=...` or the live stream replays them. See [Events and webhooks](/concepts/events-and-webhooks).
+- **Duplicate messages would hurt.** Every `POST` takes an `Idempotency-Key`, so a retried request never sends twice ([Idempotency](/concepts/idempotency)), and replies sent in a webhook answer use the event's ID as their key.
+- **You want channel rules enforced for you.** Every send passes one [send gate](/concepts/send-gate). Nothing is converted silently: content a channel cannot show fails with `422 unsupported_content`, or goes as the `fallback` you chose, and the message reports what was shown.
+- **You want errors an agent can act on.** Every error has a closed `type`, a `hint` for this case and a `doc_url` ([error types](/errors/invalid_request)).
+- **A coding agent should be able to start on its own.** `POST /v1/sandbox/keys` returns a test key with no account, and the shared Telegram sandbox bot is ready to use ([Keys and sign-in](/get-a-key)). The project owner can also add Flow's hosted [MCP server](/mcp) to their coding tools, so the agent can send a real test message and see what the webhook answered.
+- **You don't want to hold channel credentials.** Flow hosts the senders: the sandbox bot, or your own Telegram bot connected once with its token.
+
+## Same task: receive a Telegram message and reply
+
+**Photon** (`spectrum-ts`), from Photon's Telegram setup page {/* claim: photon.telegram-code */}([source](https://photon.codes/docs/spectrum-ts/providers/telegram/setup.md), Oct 2026). This example runs the `app.messages` loop in a long-lived process; with `projectId` and `projectSecret` (cloud mode) the provider registers the bot's webhook on startup. Spectrum can also receive over HTTP instead (see below).
+
+```ts Photon (spectrum-ts)
+import { Spectrum } from "spectrum-ts";
+import { telegram } from "spectrum-ts/providers/telegram";
+
+const app = await Spectrum({
+  projectId: process.env.PROJECT_ID!,
+  projectSecret: process.env.PROJECT_SECRET!,
+  providers: [
+    telegram.config({
+      botToken: process.env.TELEGRAM_BOT_TOKEN!,
+    }),
+  ],
+});
+
+for await (const [space, message] of app.messages) {
+  if (message.content.type === "text") {
+    await space.send(`Echo: ${message.content.text}`);
+  }
+}
+```
+
+**Flow**, as a webhook in any runtime with the Fetch API (Next.js, Hono, Workers, Bun). It uses plain HTTP and Node's `crypto`, so the same shape works in any language without an SDK. The bot is Flow's sandbox bot, or your own bot connected with `POST /v1/senders`; Flow holds the token and receives Telegram's webhook.
+
+```ts Flow (HTTP, no SDK)
+// app/api/flow/route.ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+// Flow-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.<t>.<raw body>">
+function verify(body: string, header: string, secret: string): boolean {
+  const parts = header.split(",").map((p) => p.trim().split("="));
+  const t = parts.find(([k]) => k === "t")?.[1];
+  if (!t || Math.abs(Date.now() / 1000 - Number(t)) > 300) return false;
+  const want = createHmac("sha256", secret).update(`t.${t}.${body}`).digest();
+  return parts.some(([k, v = ""]) => k === "v1" && /^[0-9a-f]{64}$/.test(v) && timingSafeEqual(want, Buffer.from(v, "hex")));
+}
+
+export async function POST(req: Request) {
+  const body = await req.text(); // the raw body: a re-serialized one will not verify
+  if (!verify(body, req.headers.get("Flow-Signature") ?? "", process.env.FLOW_MESSAGING_WEBHOOK_SECRET!)) {
+    return new Response(null, { status: 400 });
+  }
+  const event = JSON.parse(body);
+  if (event.type !== "message.received") return Response.json({});
+  // The reply goes through the send gate into the same conversation.
+  return Response.json({ reply: `Echo: ${event.data.message.content.text ?? ""}` });
+}
+```
+
+Register the URL once (the answer holds the `whsec_...` signing secret, shown once):
+
+```bash
+curl https://api.flow.engineer/v1/webhook_endpoints \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/api/flow", "events": ["message.received"]}'
+```
+
+What differs:
+
+- **Where the process runs.** Both can run as a webhook. Spectrum has the `app.messages` loop for a long-lived process and a webhook mode, which Photon describes as "Receive messages via HTTP instead of a long-lived process": `app.webhook()` handles a `POST` route, with first-party adapters for Hono, Express and Elysia {/* claim: photon.webhook-mode */}([source](https://photon.codes/docs/spectrum-ts/webhooks.md), Oct 2026). Flow's handler is a stateless webhook in any language, and Flow also offers a stream (`GET /v1/stream`) for long-running workers and local development.
+- **What happens when your server is down.** Flow keeps retrying for 3 days and keeps every event in the log for replay. Photon's stable webhooks make up to 6 attempts within a default backoff budget of about 30 seconds, which the Photon team can tune; there is no dead-letter queue, and for zero loss Photon recommends reconciling against its API {/* claim: photon.webhook-delivery */}([source](https://photon.codes/docs/webhooks/delivery.md), Oct 2026). Photon's Beta API contract adds webhook destinations with a retry budget, manual retry and dead-lettering {/* claim: photon.beta-webhooks */}([source](https://api.photon.codes/openapi.json), Oct 2026).
+- **Who holds the bot token.** With Flow, you send the token once to `POST /v1/senders` and never handle it again. With Spectrum on Telegram, your process holds it.
+
+## Details
+
+### Channels
+
+- **Flow today:** Telegram is live, on the shared sandbox bot or your own bot (self-serve once you sign in). iMessage is live for replies: the person writes first, and lines are arranged with the Flow team. WhatsApp is **coming**: Flow is waiting for Meta's approval. See [Channel guides](/guides/telegram-agent).
+- **Photon today:** iMessage, WhatsApp Business, Telegram, terminal and SIP voice in its stable docs {/* claim: photon.channels */}([source](https://photon.codes/docs/spectrum-ts/introduction.md), Oct 2026), with RCS and SMS fallback on its Free, Pro and Business plans {/* claim: photon.pricing */}([source](https://photon.codes/pricing), Oct 2026). Its Beta send endpoint adds SMS and email {/* claim: photon.beta-http-send */}([source](https://photon.codes/docs/beta/api-reference/messages/send-a-message), Oct 2026). Photon covers more channels than Flow does today.
+
+### Channel rules
+
+- **WhatsApp window.** Flow's gate refuses free-form content more than 24 hours after the person's last message with `409 outside_window`, and the agent sends a template instead. Photon's low-level WhatsApp kit documents templates as the only way to send outside the window {/* claim: photon.whatsapp-window */}([source](https://photon.codes/docs/advanced-kits/whatsapp/templates.md), Oct 2026). (Flow's WhatsApp is coming.)
+- **iMessage limits.** Photon documents 50 new conversations started per line per day {/* claim: photon.imessage-quotas */}([source](https://photon.codes/docs/spectrum-ts/providers/imessage/connection-and-routing.md), Oct 2026). Flow's iMessage line is replies only, so the gate refuses a message to someone who has not written to the line.
+- **Unsupported content.** Spectrum no-ops some features silently (a reply on a platform without replies is not sent as a regular message) {/* claim: photon.unsupported-behaviour */}([source](https://photon.codes/docs/spectrum-ts/reactions-and-replies.md), Oct 2026), degrades others (markdown reaches platforms without native formatting as readable plain text) {/* claim: photon.content-degrade */}([source](https://photon.codes/docs/spectrum-ts/content/markdown.md), Oct 2026), and surfaces provider-specific constraints as an `UnsupportedError` {/* claim: photon.unsupported-error */}([source](https://photon.codes/docs/spectrum-ts/spaces-and-users.md), Oct 2026). Flow never converts silently: it refuses with a typed error, or sends your `fallback` and reports what was shown in `delivered_as` ([Content types](/concepts/content-types)).
+
+### Status of Flow items marked coming
+
+- **WhatsApp:** waiting for Meta's approval.
+- **Python and Go SDKs:** not written yet; use the HTTP API.
+- **docs.flow.engineer:** not deployed yet. Until then, the API serves [llms.txt](https://api.flow.engineer/llms.txt), the [agent quickstart](https://api.flow.engineer/docs/quickstart.md) and the [OpenAPI spec](https://api.flow.engineer/openapi.yaml).
+
+## Related
+
+- [Choosing a messaging API for your AI agent](/compare/choosing-a-messaging-api): Flow, Photon, the Telegram Bot API, Twilio and iMessage APIs side by side.
+- [Quickstart](/quickstart) and [Keys and sign-in](/get-a-key).
