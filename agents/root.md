@@ -6,7 +6,7 @@ Agents: read /llms.txt. No key? POST /v1/sandbox/keys (no account needed):
 
     curl -X POST https://api.flow.engineer/v1/sandbox/keys
 
-Build the app on the REST API (paths under /v1/). MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime.
+Build the app on the REST API (paths under /v1/). MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime.
 
 - Quickstart: /docs/quickstart.md
 - OpenAPI spec: /openapi.yaml

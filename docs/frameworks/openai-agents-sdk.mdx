@@ -1,11 +1,11 @@
 ---
-title: "OpenAI Agents SDK on WhatsApp, Telegram and iMessage"
+title: "OpenAI Agents SDK on Telegram and iMessage"
 sidebarTitle: "OpenAI Agents SDK"
-description: "Run an OpenAI Agents SDK agent on WhatsApp, Telegram and iMessage with Flow Messaging: stream the run into reply() in TypeScript, or send the final output over HTTP from Python."
+description: "Run an OpenAI Agents SDK agent on Telegram and iMessage with Flow Messaging: stream the run into reply() in TypeScript, or send the final output over HTTP from Python."
 keywords: ["OpenAI Agents SDK WhatsApp", "OpenAI agent Telegram", "OpenAI Agents SDK iMessage", "connect OpenAI agent to WhatsApp", "ChatGPT agent WhatsApp API"]
 ---
 
-This page puts an [OpenAI Agents SDK](https://openai.github.io/openai-agents-js/) agent on WhatsApp, Telegram and iMessage: each message runs the agent, and its streamed answer is sent back as chat bubbles.
+This page puts an [OpenAI Agents SDK](https://openai.github.io/openai-agents-js/) agent on Telegram and iMessage: each message runs the agent, and its streamed answer is sent back as chat bubbles. iMessage is for replies only, on a line the Flow team sets up for your app; WhatsApp is coming (it waits on Meta's approval) and will use the same code.
 
 <CodeGroup>
 ```ts TypeScript
@@ -28,7 +28,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ```python Python (HTTP)
 # pip install openai-agents fastapi requests
-# The Python SDK (flow-messaging) is coming soon; this calls the HTTP API.
+# There is no Python SDK yet (only TypeScript is published); this calls the HTTP API.
 import os, requests
 from fastapi import FastAPI, Request, BackgroundTasks
 from agents import Agent, Runner
@@ -60,7 +60,7 @@ async def flow_webhook(request: Request, tasks: BackgroundTasks):
 ## How it fits
 
 - In TypeScript, `run(agent, input, { stream: true })` returns a streamed result; `reply()` reads its text stream and sends bubbles while the agent runs.
-- In Python, answer the webhook with `{}` at once and send the agent's `final_output` afterwards. Split long answers at paragraph breaks ([the bubble rule](/concepts/streaming-replies#the-bubble-rule-for-any-language)).
+- In Python, answer the webhook with `{}` at once and send the agent's `final_output` afterwards. Text longer than the channel's limit (4096 characters on Telegram) is refused, so split long answers at paragraph breaks ([the bubble rule](/concepts/streaming-replies#the-bubble-rule-for-any-language)) and send each part with its own `Idempotency-Key`.
 - Give the agent the conversation's history from `GET /v1/conversations/{conversation_id}/messages`, or keep your own session keyed by `conversation.id`.
 - Verify webhook signatures as shown in [Events and webhooks](/concepts/events-and-webhooks#verify-the-signature).
 

@@ -1,11 +1,11 @@
 ---
-title: "LangChain agents on WhatsApp, Telegram and iMessage"
+title: "LangChain agents on Telegram and iMessage"
 sidebarTitle: "LangChain"
-description: "Connect a LangChain chat model or chain to WhatsApp, Telegram and iMessage with Flow Messaging: pass model.stream() to reply() in TypeScript, or answer from the webhook in Python."
+description: "Connect a LangChain chat model or chain to Telegram and iMessage with Flow Messaging: pass model.stream() to reply() in TypeScript, or answer from the webhook in Python."
 keywords: ["LangChain WhatsApp", "LangChain Telegram bot", "LangChain iMessage", "LangChain chatbot WhatsApp API", "LangChain messaging integration"]
 ---
 
-This page connects a [LangChain](https://js.langchain.com) model or chain to WhatsApp, Telegram and iMessage: Flow delivers each message and `reply()` sends the streamed chunks as chat bubbles.
+This page connects a [LangChain](https://js.langchain.com) model or chain to Telegram and iMessage: Flow delivers each message and `reply()` sends the streamed chunks as chat bubbles. iMessage is for replies only, on a line the Flow team sets up for your app; WhatsApp is coming (it waits on Meta's approval) and will use the same code.
 
 <CodeGroup>
 ```ts TypeScript
@@ -27,7 +27,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ```python Python (webhook reply)
 # pip install langchain-openai fastapi
-# The Python SDK (flow-messaging) is coming soon; this answers in the webhook response.
+# There is no Python SDK yet (only TypeScript is published); this answers in the webhook response.
 from fastapi import FastAPI, Request
 from langchain_openai import ChatOpenAI
 
@@ -41,14 +41,14 @@ async def flow_webhook(request: Request):
         return {}
     text = event["data"]["message"]["content"].get("text", "")
     answer = await model.ainvoke([("system", "You are the assistant for Asha's Bakery."), ("human", text)])
-    return {"reply": {"type": "text", "text": answer.content, "format": "markdown"}}
+    return {"reply": {"type": "text", "text": answer.content, "format": "markdown"}, "fallback": "auto"}
 ```
 </CodeGroup>
 
 ## How it fits
 
 - Any runnable whose `.stream()` yields message chunks works with `reply()`: chat models, `prompt.pipe(model)` chains, and chains ending in a string output parser.
-- The Python version answers in the webhook response (one round trip). That suits answers that take under 10 seconds; for slower chains answer `{}` and send later. See [Events and webhooks](/concepts/events-and-webhooks#reply-in-the-webhook-response).
+- The Python version answers in the webhook response (one round trip). Flow waits 10 seconds for the answer, so this suits fast chains; for slower ones answer `{}` at once and send later with `POST /v1/conversations/{conversation_id}/messages`. `fallback: "auto"` sends the markdown as plain text where a channel has no formatting, and the reply goes out as one message, so keep it within the channel's text limit (4096 characters on Telegram). See [Events and webhooks](/concepts/events-and-webhooks#reply-in-the-webhook-response).
 - Keep chat history per `conversation.id`, or read it from `GET /v1/conversations/{conversation_id}/messages`.
 
 ## Full example

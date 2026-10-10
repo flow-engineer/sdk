@@ -1,11 +1,11 @@
 ---
-title: "Vercel AI SDK on WhatsApp, Telegram and iMessage"
+title: "Vercel AI SDK on Telegram and iMessage"
 sidebarTitle: "Vercel AI SDK"
-description: "Connect a Vercel AI SDK agent to WhatsApp, Telegram and iMessage with Flow Messaging: pass the streamText result to reply() and it is sent as chat bubbles, with conversation history and tools."
+description: "Connect a Vercel AI SDK agent to Telegram and iMessage with Flow Messaging: pass the streamText result to reply() and it is sent as chat bubbles, with conversation history and tools."
 keywords: ["Vercel AI SDK WhatsApp", "AI SDK Telegram bot", "Vercel AI SDK iMessage", "streamText WhatsApp", "Next.js WhatsApp AI agent"]
 ---
 
-This page connects a [Vercel AI SDK](https://ai-sdk.dev) agent to WhatsApp, Telegram and iMessage: Flow delivers each message, and `reply()` sends the `streamText` result back as chat bubbles.
+This page connects a [Vercel AI SDK](https://ai-sdk.dev) agent to Telegram and iMessage: Flow delivers each message, and `reply()` sends the `streamText` result back as chat bubbles. iMessage is for replies only, on a line the Flow team sets up for your app; WhatsApp is coming (it waits on Meta's approval) and will use the same code.
 
 ```ts TypeScript
 // app/api/flow/route.ts (Next.js)
@@ -45,9 +45,9 @@ Set `FLOW_MESSAGING_KEY`, `FLOW_MESSAGING_WEBHOOK_SECRET` and `OPENAI_API_KEY`, 
 ## How it fits
 
 - `reply(result)` reads `result.textStream`, keeps the typing indicator on, and sends a bubble at each paragraph break while the model writes. See [Streaming replies](/concepts/streaming-replies).
-- Tools work as usual (`tools`, `stopWhen`); only the final text is sent to the person. To show progress during long tool calls, wrap the work in `event.conversation.responding(...)`.
+- Tools work as usual (`tools`, `stopWhen`); only the model's text is sent to the person, never tool calls or their results (text the model writes between tool steps is sent too). To show progress during long tool calls, wrap the work in `event.conversation.responding(...)`.
 - The webhook answers at once and `after()` runs the reply, so slow models never cause a timed-out delivery.
-- One handler serves every channel; `event.conversation.channel` tells you which one if you want to adapt the tone.
+- One handler serves Telegram and iMessage alike; `event.conversation.channel` tells you which one if you want to adapt the tone.
 
 ## Full example
 
@@ -55,5 +55,6 @@ Set `FLOW_MESSAGING_KEY`, `FLOW_MESSAGING_WEBHOOK_SECRET` and `OPENAI_API_KEY`, 
 
 ## Related
 
-- [Build a WhatsApp agent](/guides/whatsapp-agent)
+- [Build a Telegram agent](/guides/telegram-agent)
+- [Build an iMessage agent](/guides/imessage-agent)
 - [Events and webhooks](/concepts/events-and-webhooks)

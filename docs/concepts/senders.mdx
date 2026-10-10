@@ -1,11 +1,17 @@
 ---
 title: "Senders: the shared sandbox and dedicated numbers, bots and lines"
 sidebarTitle: "Senders"
-description: "A sender is what your AI agent talks from: a Telegram bot, a WhatsApp number or an iMessage line. Use Flow's shared sandbox senders while building and a dedicated sender of your own to go live."
+description: "A sender is what your AI agent talks from: a Telegram bot or an iMessage line (WhatsApp numbers are coming). Use Flow's shared Telegram sandbox bot while building and a dedicated sender of your own to go live."
 keywords: ["WhatsApp number for AI agent", "iMessage line for AI agent", "Telegram bot for AI agent", "messaging sandbox", "dedicated WhatsApp number API"]
 ---
 
-A **sender** is what your agent talks from: a Telegram bot, a WhatsApp number or an iMessage line. Flow hosts every sender, so you never manage channel credentials.
+A **sender** is what your agent talks from: a Telegram bot or an iMessage line (and a WhatsApp number once WhatsApp is available). Flow hosts every sender, so you never manage channel credentials.
+
+| Channel | Shared sandbox (test key) | Dedicated (live key) |
+|---|---|---|
+| Telegram | Flow's sandbox bot | Your own bot: connect its token with `POST /v1/senders` |
+| iMessage | None | A line the Flow team connects to your app; replies only |
+| WhatsApp | Not available yet | Not available yet (waiting on Meta's approval) |
 
 ```bash
 curl https://api.flow.engineer/v1/senders \
@@ -31,7 +37,7 @@ curl https://api.flow.engineer/v1/senders \
 }
 ```
 
-`address.link` opens a chat with the sender: `https://t.me/...` for a Telegram bot, `https://wa.me/...` for a WhatsApp number. On the Telegram sandbox bot the link carries your join code (`https://t.me/<bot>?start=<code>`), so opening it and tapping **Start** joins your app. For an iMessage line it is the line's opt-in link, which opens Messages with the line and a prefilled text the person sends to start the conversation; it is set only when the line has one configured.
+`address.link` opens a chat with the sender: `https://t.me/...` for a Telegram bot (and `https://wa.me/...` for a WhatsApp number, once available). On the Telegram sandbox bot the link carries your join code (`https://t.me/<bot>?start=<code>`), so opening it and tapping **Start** joins your app. For an iMessage line it is the line's opt-in link, which opens Messages with the line and a prefilled text the person sends to start the conversation; it is set only when the line has one configured.
 
 ## Two kinds of sender
 
@@ -41,7 +47,7 @@ curl https://api.flow.engineer/v1/senders \
 | Key | `fk_test_...` | `fk_live_...` |
 | Who it can talk to | Only people who sent your app's join code | Anyone the channel's rules allow |
 | Name people see | Flow's sandbox name | Your brand |
-| How you get it | Already there | `POST /v1/senders` (see [Going live](/guides/going-live)) |
+| How you get it | Already there | Telegram: `POST /v1/senders` with your bot's token. iMessage: ask the Flow team. See [Going live](/guides/going-live) |
 
 ## The sandbox and join codes
 
@@ -57,14 +63,14 @@ Each sender has its own status and budget for starting conversations:
 
 | `status` | Meaning |
 |---|---|
-| `pending` | Requested; Flow is provisioning it. |
+| `pending` | Requested; Flow is provisioning it (for senders Flow provisions, such as WhatsApp numbers once available). |
 | `active` | Sending normally. |
 | `warming_up` | Active, with a new-contact budget that grows day by day. |
 | `throttled` | Slowed after an abuse signal; recovers by itself at `throttled_until`. Replies still go. |
 | `flagged` | Flagged by the channel or by Flow; starting conversations is paused. A Telegram bot whose token Telegram rejected is `flagged` and holds its queued messages until you send the new token (`POST /v1/senders`); held messages fail with `outside_window` (`channel_code` `queued_too_long`) after 72 hours. |
 | `banned` | It cannot send or receive: the channel banned it, you disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was connected to another app. |
 
-`limits.new_contacts_per_day` and `limits.new_contacts_per_hour` are the sender's current budget for starting conversations; WhatsApp senders also show `quality_rating` and `limits.whatsapp_tier`. Every change arrives as a `sender.status_changed` event. The rules behind them are on [The send gate](/concepts/send-gate).
+`limits.new_contacts_per_day` and `limits.new_contacts_per_hour` are the sender's current budget for starting conversations; WhatsApp senders (once available) also show `quality_rating` and `limits.whatsapp_tier`. Every change arrives as a `sender.status_changed` event. The rules behind them are on [The send gate](/concepts/send-gate).
 
 ## Related
 
