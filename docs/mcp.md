@@ -16,7 +16,9 @@ answered.
 - Auth: your Flow Messaging API key, `Authorization: Bearer fk_test_...` or
   `fk_live_...`. The key's mode decides which tools the agent sees.
 
-Keep the key in an environment variable, never in a file you commit:
+Keys are issued by the Flow team while signup is in preview: ask the Flow team for a
+test key (`fk_test_...`), or a live key (`fk_live_...`) when you go live. Keep the key
+in an environment variable, never in a file you commit:
 
 ```bash
 export FLOW_MESSAGING_KEY=fk_test_...
@@ -94,11 +96,14 @@ who has not joined your app's sandbox.
 
 A typical session, in the agent's words:
 
-1. `whoami`, then `sandbox_join`: "Open this link on your phone and press Start."
+1. `whoami`, then `sandbox_join`: "Open this link on your phone and tap Start." (Telegram; on other channels the person sends `join <code>`, for example `join wild-otter-04508705`.)
 2. `wait_for_event` with `types: ["conversation.started", "message.received"]`.
 3. `send_test_message` with `text: "Hello from my agent"`.
 4. `wait_for_event` with `types: ["message.sent", "message.failed"]` and
-   `after` set to the `cursor` the send returned.
+   `after` set to the `cursor` the send returned. Wait for these two, not
+   `message.delivered`: every send ends in one of them, while delivery is reported
+   only by some channels. If the call times out (about 50 seconds), call it again
+   with the `next_after` it returned.
 5. After wiring a webhook: `get_webhook_deliveries` to see what your server
    answered, fix it, `replay_event`, and check again.
 

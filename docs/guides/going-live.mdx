@@ -5,11 +5,11 @@ description: "Move your AI agent from the sandbox to production: request a dedic
 keywords: ["dedicated WhatsApp number for AI agent", "WhatsApp business verification API", "WhatsApp message templates API", "iMessage dedicated line", "go live WhatsApp API"]
 ---
 
-Going live means sending from a **dedicated sender** of your own with a **live key**; your agent's code does not change.
+Going live means sending from a **dedicated sender** of your own with a **live key**; your agent's code does not change. The examples below assume `FLOW_MESSAGING_KEY` holds your live key (`fk_live_...`).
 
 ```bash curl
 curl https://api.flow.engineer/v1/senders \
-  -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   -H "Content-Type: application/json" \
   -d '{"channel": "whatsapp", "display_name": "Asha'\''s Bakery", "country": "IN"}'
 ```
@@ -17,8 +17,8 @@ curl https://api.flow.engineer/v1/senders \
 ## Checklist
 
 <Steps>
-  <Step title="Create a live key">
-    In the [dashboard](https://api.flow.engineer/admin), create an `fk_live_...` key. Keep it on your server only.
+  <Step title="Get a live key">
+    Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (`fk_test_...`), or a live key (`fk_live_...`) when you go live. Ask for an `fk_live_...` key and keep it on your server only.
   </Step>
   <Step title="Request a dedicated sender">
     `POST /v1/senders` with the channel (see each channel below). WhatsApp numbers and iMessage lines start `pending` while Flow provisions them; you receive `sender.status_changed` when they are ready. A Telegram bot is `active` at once.
@@ -34,7 +34,7 @@ curl https://api.flow.engineer/v1/senders \
 ## WhatsApp: a dedicated number
 
 - **Request it:** `POST /v1/senders` with `channel: "whatsapp"`, the `display_name` people should see, and the `country` for the number (ISO code such as `IN`). Flow buys and hosts the number.
-- **Verify your business:** WhatsApp requires the business behind a number to be verified. The dashboard links you to WhatsApp's business verification and connects the number when it is done.
+- **Verify your business:** WhatsApp requires the business behind a number to be verified. While signup is in preview, the Flow team sends you WhatsApp's business verification link and connects the number when it is done.
 - **Quality and tiers:** the sender shows WhatsApp's `quality_rating` (`green`, `yellow`, `red`) and its messaging tier in `limits.whatsapp_tier`. New numbers start on a lower tier for conversations you start; replies to people who wrote first are not limited by the tier.
 - **Fees:** WhatsApp charges per template message by category; those fees are passed through at cost. See [Pricing](/pricing).
 
@@ -44,7 +44,7 @@ A template is a message WhatsApp approved in advance. You need one to message so
 
 ```bash curl
 curl https://api.flow.engineer/v1/templates \
-  -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "snd_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
@@ -75,7 +75,7 @@ curl https://api.flow.engineer/v1/templates \
 
 ## Telegram: your own bot
 
-Create a bot with **@BotFather** and send its token: `POST /v1/senders` with `channel: "telegram"` and `telegram_bot_token`. It is connected and `active` at once. See [Build a Telegram agent](/guides/telegram-agent#2-use-your-own-bot).
+Create a bot with **@BotFather** and send its token: `POST /v1/senders` with `channel: "telegram"` and `telegram_bot_token`. It is connected and `active` at once. See [Build a Telegram agent](/guides/telegram-agent#2-your-own-telegram-bot).
 
 - **New token:** after revoking a token in @BotFather, send the new one the same way. The bot stays the same sender; one Telegram rejected meanwhile is `flagged` until you do.
 - **Disconnect:** `DELETE /v1/senders/{sender_id}` removes the bot's webhook and token and retires the sender.

@@ -28,25 +28,36 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ## 1. Try it on the sandbox bot
 
-1. `npx @flow-engineer/messaging init` saves a test key and prints the sandbox bot's `https://t.me/...` link and your join code.
-2. Open the link, press **Start**, and send the join code (for example `join brave-otter`).
-3. Run the code above and send the bot a message.
+1. Get a test key (`fk_test_...`): keys are issued by the Flow team while signup is in preview. Set it as `FLOW_MESSAGING_KEY`.
+2. `GET /v1/senders?channel=telegram` lists the sandbox bot. Its `address.link` is `https://t.me/<bot>?start=<code>`, with your join code in it. (`npx @flow-engineer/messaging init` will print it once the npm package ships.)
+3. Open the link and tap **Start**. That's it, you've joined.
+4. Run the code above and send the bot a message.
 
-## 2. Use your own bot
+If the link can't be used (for example you found the bot by searching for it), send the bot the sender's `join_code` instead, for example `join wild-otter-04508705`.
+
+## 2. Your own Telegram bot
 
 Telegram is the fastest channel to go live on: bring a bot token and it is connected at once.
 
 1. In Telegram, open **@BotFather**, send `/newbot`, and copy the token.
-2. Connect it with a **live** key:
+2. Put the token in an environment variable on your server or in your terminal, and connect it with a **live** key (`FLOW_MESSAGING_KEY=fk_live_...`):
 
 ```bash curl
+export TELEGRAM_BOT_TOKEN=...   # the token from BotFather; never commit it
+
 curl https://api.flow.engineer/v1/senders \
-  -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"channel": "telegram", "telegram_bot_token": "<token from BotFather>"}'
+  -d "{\"channel\": \"telegram\", \"telegram_bot_token\": \"$TELEGRAM_BOT_TOKEN\"}"
 ```
 
-Flow checks the token, keeps it encrypted, points the bot's webhook at Flow and answers with the sender `active`. The token is never returned. Switch `FLOW_MESSAGING_KEY` to the live key and your agent now answers on your bot.
+Flow checks the token, keeps it encrypted, points the bot's webhook at Flow and answers with the sender `active`. The token is never returned. With `FLOW_MESSAGING_KEY` set to the live key, your agent now answers on your bot.
+
+<Warning>
+The bot token controls your bot. Never paste it into a chat with an AI assistant (including your coding agent), and never commit it. Keep it in an environment variable and send it from your own server or terminal, as above.
+</Warning>
+
+Removing a sender (`DELETE /v1/senders/{id}`) is coming soon.
 
 <Warning>
 A bot can have only one webhook. Connecting a bot to Flow replaces any webhook it had, so do not keep another server polling or receiving updates for the same bot.

@@ -23,9 +23,10 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ## 1. Try it on the sandbox line
 
-1. `npx @flow-engineer/messaging init` saves a test key and prints the iMessage sandbox line and your join code.
-2. From an iPhone or Mac, text the join code (for example `join brave-otter`) to the line.
-3. Run the code above and send a message.
+1. Get a test key (`fk_test_...`): keys are issued by the Flow team while signup is in preview. Set it as `FLOW_MESSAGING_KEY`.
+2. `GET /v1/senders?channel=imessage` lists the iMessage sandbox line with its `join_code`. (`npx @flow-engineer/messaging init` will print it once the npm package ships.)
+3. From an iPhone or Mac, text the join code (for example `join wild-otter-04508705`) to the line.
+4. Run the code above and send a message.
 
 ## 2. Bubbles fit iMessage
 
