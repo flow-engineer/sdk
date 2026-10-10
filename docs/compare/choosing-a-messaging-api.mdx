@@ -1,0 +1,174 @@
+---
+title: "Choosing a messaging API for your AI agent: Telegram, WhatsApp and iMessage"
+sidebarTitle: "Choosing a messaging API"
+description: "A neutral guide to putting an AI agent on Telegram, WhatsApp or iMessage: Flow Messaging, Photon, the Telegram Bot API, Twilio and other CPaaS, and iMessage APIs (Sendblue, Linq, Blooio) compared by channels, two-way support, MCP, pricing model, sandbox and self-hosting, with sources. Says when Flow is not the right choice."
+keywords: ["best messaging API for AI agents", "WhatsApp API for AI agent comparison", "iMessage API for AI agents comparison", "Telegram bot API vs", "Twilio alternative for AI agents", "Sendblue vs Linq vs Blooio", "messaging API with MCP server"]
+---
+
+**Last verified: 10 Oct 2026.** Every claim about another product on this page links to that product's own docs, pricing page or repository, as read in October 2026. Prices and features change; check the linked source before relying on a detail, and [open an issue](https://github.com/flow-engineer/sdk/issues) if something here is out of date. This page is written by the Flow Messaging team.
+
+This guide helps you pick how to give an AI agent two-way conversations on Telegram, WhatsApp or iMessage, including when another product fits better than Flow.
+
+## TL;DR: pick by need
+
+| If you need... | Consider | Why |
+|---|---|---|
+| One Telegram bot, and you are happy to run its server | The Telegram Bot API directly | Free {/* claim: telegram.free */}([Telegram](https://core.telegram.org/bots), Oct 2026), and nothing sits between you and Telegram |
+| WhatsApp in production today | Twilio, Photon (Business plan), Blooio, Infobip, Sinch, Vonage; Linq (beta) | Flow's WhatsApp is **coming**, pending Meta's approval |
+| SMS, MMS or voice, in many countries | Twilio, Sinch, Vonage, Infobip | SMS and voice are not available on Flow yet |
+| iMessage where your agent writes first, or group chats | Sendblue, Linq, Blooio, Photon; groups need a paid plan on Sendblue and Linq (table below) | Flow's iMessage line is replies only, one-to-one |
+| FaceTime calls from an API | Sendblue, on a purchased FaceTime line {/* claim: sendblue.facetime-groups */}([source](https://docs.sendblue.com/llms.txt)); Blooio, on dedicated plans by request {/* claim: blooio.pricing */}([source](https://blooio.com/pricing.md)) | Flow has no calling |
+| Apple's official business channel | Apple Messages for Business, through an Apple-approved provider | Apple requires bots to connect through one {/* claim: apple.mfb-msp */}([Apple](https://register.apple.com/resources/messages/messaging-documentation/faq), Oct 2026) |
+| Open source you can self-host | Photon's `spectrum-ts` | MIT, runs without Photon's cloud {/* claim: photon.self-host */}([Photon](https://photon.codes/pricing), Oct 2026) |
+| Any language over plain HTTP, hosted senders, an ordered event log, idempotent sends and channel rules enforced for you, on Telegram and iMessage (replies) | Flow Messaging | One API across its channels, signed webhooks retried for 3 days, one send gate |
+| A coding agent that can get a key and test on its own, with no account | Flow Messaging | `POST /v1/sandbox/keys` returns a test key and a ready sandbox bot |
+
+## Side by side
+
+| | Channels | Two-way | MCP server | Pricing model | Free tier or sandbox | Self-host |
+|---|---|---|---|---|---|---|
+| **Flow Messaging** | Telegram; iMessage (replies only, lines arranged with the Flow team); WhatsApp **coming** | Yes: webhooks, WebSocket stream, polling | Hosted (`api.flow.engineer/mcp`), optional | Plans; prices not published yet; for WhatsApp, Meta's fees passed through | Test key with no account: 1 contact, 50 messages, 7 days; signed in with GitHub: 3 contacts, 100 messages each | No |
+| **Photon** (`spectrum-ts`) | iMessage, WhatsApp Business, Telegram, terminal, SIP voice {/* claim: photon.channels */}([source](https://photon.codes/docs/spectrum-ts/introduction.md)); RCS and SMS fallback (pricing page); the Beta API adds SMS and email {/* claim: photon.beta-http-send */}([source](https://photon.codes/docs/beta/api-reference/messages/send-a-message)) | Yes | Docs search {/* claim: photon.mcp-docs */}([source](https://photon.codes/docs/mcp)); Spectrum skills for AI coding tools {/* claim: photon.skills */}([source](https://photon.codes/docs/spectrum-ts/introduction.md)) | Free; Pro \$25/mo; Business \$250/line/mo; Enterprise custom {/* claim: photon.pricing */}([source](https://photon.codes/pricing)) | Free plan, up to 10 users | Yes (MIT) |
+| **Telegram Bot API** | Telegram | Yes: webhook or `getUpdates` {/* claim: telegram.updates */}([source](https://core.telegram.org/bots/api#getting-updates)) | — | Free | Free | You run the bot; Telegram runs the API |
+| **Twilio** | SMS, MMS, RCS, WhatsApp; Messenger (public beta) {/* claim: twilio.channels */}([source](https://www.twilio.com/docs/messaging)); Apple Messages for Business (private beta) {/* claim: twilio.amb-beta */}([source](https://www.twilio.com/en-us/messaging/channels/apple-messages-for-business)) | Yes: webhooks | Hosted docs search (Public Beta), does not call APIs {/* claim: twilio.mcp */}([source](https://www.twilio.com/docs/ai/mcp)); the open-source `@twilio-alpha/mcp` server calls the APIs {/* claim: twilio.mcp-alpha */}([source](https://github.com/twilio-labs/mcp)) | Per message: US SMS from \$0.0083/segment plus carrier fees; 10DLC registration extra {/* claim: twilio.sms-price */}([source](https://www.twilio.com/en-us/sms/pricing/us)); WhatsApp \$0.005 plus Meta's fees {/* claim: twilio.whatsapp-price */}([source](https://www.twilio.com/en-us/whatsapp/pricing)) | Trial: free units, 30 days, verified numbers only, in your sign-up country {/* claim: twilio.trial */}([source](https://www.twilio.com/docs/usage/tutorials/how-to-use-your-free-trial-account)) | — |
+| **Sendblue** | iMessage, SMS, MMS, RCS {/* claim: sendblue.channels */}([source](https://docs.sendblue.com/llms.txt)) | Yes | Local (`npx`) {/* claim: sendblue.mcp */}([source](https://docs.sendblue.com/mcp)) | Per line: AI Agent \$100/month; no per-message fees {/* claim: sendblue.pricing */}([source](https://www.sendblue.com/pricing)) | Sandbox: 10 verified contacts, they write first | — |
+| **Linq** | iMessage, RCS, SMS; voice (per its homepage) {/* claim: linq.channels */}([source](https://linqapp.com)); WhatsApp beta on request {/* claim: linq.whatsapp-beta */}([source](https://docs.linqapp.com/channel/whatsapp/getting-started/connect-whatsapp/)) | Yes | Local (`npx`) {/* claim: linq.sdks-mcp */}([source](https://docs.linqapp.com/channel/imessage/guides/resources/faq/)) | Hobby \$0; Pro from \$260/mo; Enterprise custom {/* claim: linq.pricing */}([source](https://linqapp.com/s/pricing)) | Hobby: 20 contacts; Pro: 7-day trial | — |
+| **Blooio** | iMessage, RCS; SMS through your own Twilio account {/* claim: blooio.channels */}([source](https://blooio.com/guides/self-serve.md)); WhatsApp Business {/* claim: blooio.whatsapp */}([source](https://docs.blooio.com/guides/whatsapp-business)) | Yes | Hosted {/* claim: blooio.mcp */}([source](https://blooio.com/index.md)) | Starter \$39/mo; Commercial Shared \$89/mo; Commercial Dedicated \$289/mo per line; Inbound \$98/mo (reply-only); Enterprise Dedicated from \$195/mo per line at 6+ lines; no per-message fees {/* claim: blooio.pricing */}([source](https://blooio.com/pricing.md)) | Free trial: 20 messages | — |
+
+All sources as of Oct 2026. "—" means the vendor does not document it.
+
+## When Flow is not the right choice
+
+Pick something else if any of these is true today:
+
+- **You need WhatsApp in production now.** Flow's WhatsApp is waiting for Meta's approval.
+- **You need SMS, RCS, voice, email, Slack, Discord or any channel beyond Telegram and iMessage.** None of these is available on Flow yet. Twilio and the other CPaaS providers cover SMS, RCS and voice, the iMessage APIs below fall back to SMS, and Photon lists more channels than Flow, with RCS and SMS fallback on its plans.
+- **Your agent must start iMessage conversations, or use groups or FaceTime calls.** Flow's iMessage line answers people who wrote first, one-to-one, and lines are arranged with the Flow team rather than self-serve.
+- **You must self-host, or keep message data on your own infrastructure.** Flow is a hosted service only; its spec and SDKs are open source, the service is not.
+- **You need published prices, a contractual SLA or a compliance certification today.** Flow is in beta and publishes none of these yet.
+- **You run one simple Telegram bot.** The Bot API is free, and a few dozen lines of code may be all you need (see below).
+- **You want a Python or Go SDK today.** Flow's TypeScript SDK is on npm (`@flow-engineer/messaging`); the Python and Go SDKs are coming, so until then other languages call the HTTP API.
+
+## The Telegram Bot API directly
+
+**Raw is fine when** you run one bot, your server is up, and an occasional duplicate or out-of-order message would not matter. Telegram hosts the API for free; you write the bot.
+
+**What you take on:**
+
+- **Downtime.** Telegram retries a failed webhook and gives up "after a reasonable amount of attempts" {/* claim: telegram.webhook-retries */}([Telegram](https://core.telegram.org/bots/api#setwebhook), Oct 2026), and keeps undelivered updates for at most 24 hours {/* claim: telegram.updates */}([Telegram](https://core.telegram.org/bots/api#getting-updates), Oct 2026).
+- **Order and duplicates.** `update_id` increases sequentially so that you can drop repeats and restore the order yourself when updates arrive out of order {/* claim: telegram.update-id */}([Telegram](https://core.telegram.org/bots/api#update), Oct 2026).
+- **Rate limits.** About one message per second per chat, 20 per minute in a group and about 30 per second in bulk unless paid broadcasts are enabled, with `429` errors beyond that {/* claim: telegram.limits */}([Telegram](https://core.telegram.org/bots/faq), Oct 2026); the error's `retry_after` gives the seconds to wait {/* claim: telegram.retry-after */}([Telegram](https://core.telegram.org/bots/api#responseparameters), Oct 2026).
+- **Sending twice.** If a send times out, you cannot tell whether it went out, so you need your own guard against repeating it.
+- **Who can be messaged.** Bots cannot start conversations; the person messages the bot first {/* claim: telegram.no-first-message */}([Telegram](https://core.telegram.org/bots), Oct 2026). This rule applies through Flow too.
+
+Telegram also gives bots things Flow does not expose yet, such as streaming a draft message while it is generated (`sendMessageDraft`, private chats) {/* claim: telegram.drafts */}([Telegram](https://core.telegram.org/bots/api-changelog), Oct 2026).
+
+**What Flow adds on top of Telegram:**
+
+- **Ordering:** events reach you in order per conversation, one at a time.
+- **Retries without duplicates:** webhooks are retried for 3 days and every event stays in a log you can replay; every send takes an `Idempotency-Key`, so a retry never sends twice.
+- **The send gate:** pacing per sender, refusals with typed errors (`type`, `hint`, `doc_url`) instead of raw channel errors.
+- **Signed webhooks:** an HMAC-SHA256 `Flow-Signature` on every delivery, and the option to reply in the webhook answer.
+- **The sandbox:** a shared test bot and a test key with no account, so you can try it before you make a bot.
+- **One API across channels:** the same code answers on iMessage, and on WhatsApp when it opens.
+
+**Same task: receive a Telegram message and reply.** First with the Bot API directly, following Telegram's `setWebhook` and `sendMessage` reference {/* claim: telegram.sendmessage */}([Telegram](https://core.telegram.org/bots/api#sendmessage), Oct 2026):
+
+```ts Telegram Bot API (direct)
+// app/api/telegram/route.ts. Register it once:
+// curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+//   -d url=https://example.com/api/telegram -d secret_token=$TELEGRAM_WEBHOOK_SECRET
+export async function POST(req: Request) {
+  if (req.headers.get("X-Telegram-Bot-Api-Secret-Token") !== process.env.TELEGRAM_WEBHOOK_SECRET) {
+    return new Response(null, { status: 401 });
+  }
+  const update = await req.json();
+  const msg = update.message;
+  if (msg?.text) {
+    await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: msg.chat.id, text: `Echo: ${msg.text}` }),
+    });
+  }
+  return new Response("ok");
+}
+```
+
+Then with Flow, over plain HTTP (no SDK needed). Register the URL once with `POST /v1/webhook_endpoints` and keep the `whsec_...` secret it returns:
+
+```ts Flow (HTTP, no SDK)
+// app/api/flow/route.ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+// Flow-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.<t>.<raw body>">
+function verify(body: string, header: string, secret: string): boolean {
+  const parts = header.split(",").map((p) => p.trim().split("="));
+  const t = parts.find(([k]) => k === "t")?.[1];
+  if (!t || Math.abs(Date.now() / 1000 - Number(t)) > 300) return false;
+  const want = createHmac("sha256", secret).update(`t.${t}.${body}`).digest();
+  return parts.some(([k, v = ""]) => k === "v1" && /^[0-9a-f]{64}$/.test(v) && timingSafeEqual(want, Buffer.from(v, "hex")));
+}
+
+export async function POST(req: Request) {
+  const body = await req.text(); // the raw body: a re-serialized one will not verify
+  if (!verify(body, req.headers.get("Flow-Signature") ?? "", process.env.FLOW_MESSAGING_WEBHOOK_SECRET!)) {
+    return new Response(null, { status: 400 });
+  }
+  const event = JSON.parse(body);
+  if (event.type !== "message.received") return Response.json({});
+  // The reply goes through the send gate into the same conversation, keyed by the event's ID.
+  return Response.json({ reply: `Echo: ${event.data.message.content.text ?? ""}` });
+}
+```
+
+The Flow version is about the same length. The difference is what happens around it: with Flow, a redelivered event cannot make Flow send the webhook-answer reply twice, an outage of up to 3 days loses nothing, and the same handler works on Flow's iMessage line.
+
+## Twilio and other CPaaS providers
+
+Twilio and the other CPaaS (communications platform) providers are broad, mature platforms built around phone numbers.
+
+**Where Twilio is stronger than Flow:** SMS that reaches 180+ countries {/* claim: twilio.countries */}([Twilio](https://www.twilio.com/en-us/messaging/channels/sms), Oct 2026), voice, a 99.95% API availability SLA (99.99% with Enterprise Edition), with service credits {/* claim: twilio.sla */}([Twilio](https://www.twilio.com/en-us/legal/service-level-agreement/twilio-apis), Oct 2026), server SDKs in seven languages {/* claim: twilio.sdks */}([Twilio](https://www.twilio.com/docs/libraries), Oct 2026), and Agent Connect, a generally available Python and TypeScript SDK that connects AI agents to Voice, SMS, chat, WhatsApp and RCS {/* claim: twilio.agent-connect */}([Twilio](https://www.twilio.com/en-us/changelog/twilio-agent-connect-is-now-generally-available), Oct 2026).
+
+**What to know for agent conversations on Twilio:**
+
+- **Telegram** is not among the channels on Twilio's Messaging docs, and Apple Messages for Business is a private beta (sources in the table above).
+- **Webhooks** are signed with HMAC-SHA1 in `X-Twilio-Signature` {/* claim: twilio.signature */}([Twilio](https://www.twilio.com/docs/usage/security), Oct 2026). Retries are set per webhook URL with connection overrides, a fragment on the URL such as `#rc=3&rp=5xx,ct`: by default a webhook is retried once, on connection failures only, within 15 seconds in total, and you can set up to 5 retries and which failures count {/* claim: twilio.retries */}([Twilio](https://www.twilio.com/docs/usage/webhooks/webhooks-connection-overrides), Oct 2026). Status callbacks are not guaranteed to arrive in order {/* claim: twilio.status-order */}([Twilio](https://www.twilio.com/docs/messaging/guides/track-outbound-message-status), Oct 2026).
+- **WhatsApp's 24-hour window** is yours to handle: outside it only approved templates go, and other sends fail with error 63016 {/* claim: twilio.whatsapp-window */}([Twilio](https://www.twilio.com/docs/whatsapp/key-concepts), Oct 2026).
+- **US SMS** from a 10DLC number needs A2P 10DLC registration, hobbyists included {/* claim: twilio.10dlc */}([Twilio](https://www.twilio.com/docs/messaging/compliance/a2p-10dlc), Oct 2026).
+
+**Other CPaaS providers:** Sinch's Conversation API includes Telegram and WhatsApp among its channels {/* claim: sinch.channels */}([Sinch](https://developers.sinch.com/docs/conversation/channel-support), Oct 2026). Infobip's Conversations API includes Telegram and Apple Messages for Business {/* claim: infobip.channels */}([Infobip](https://www.infobip.com/docs/conversations-api), Oct 2026), and Infobip hosts an MCP server per channel {/* claim: infobip.mcp */}([Infobip](https://github.com/infobip/mcp), Oct 2026). The Vonage Messages API covers SMS, MMS, RCS, WhatsApp, Messenger, Viber and email {/* claim: vonage.channels */}([Vonage](https://developer.vonage.com/en/messages/overview), Oct 2026).
+
+**Choose a CPaaS provider if** you need SMS or voice, many countries, an SLA, or channels Flow lacks. **Choose Flow if** your agent lives on Telegram or iMessage replies and you want ordered, replayable events, idempotent sends and channel rules enforced for you.
+
+## iMessage APIs for agents
+
+Apple's official channel for businesses is Apple Messages for Business. Apple says automation and virtual agents must connect through an Apple-approved Messaging Service Provider, with a path to a live agent {/* claim: apple.mfb-msp */}([Apple](https://register.apple.com/resources/messages/messaging-documentation/faq), Oct 2026). Blooio says it is one of those providers {/* claim: blooio.mfb */}([Blooio](https://blooio.com/integrations/api.md), Oct 2026).
+
+Several APIs give an agent an iMessage phone line instead:
+
+| | Sendblue | Linq | Blooio | Flow Messaging |
+|---|---|---|---|---|
+| Plans | Sandbox free; AI Agent \$100/month per line; Enterprise custom {/* claim: sendblue.pricing */}([source](https://www.sendblue.com/pricing)) | Hobby \$0; Pro from \$260/mo; Enterprise custom {/* claim: linq.pricing */}([source](https://linqapp.com/s/pricing)) | Starter \$39/mo; Commercial Shared \$89/mo; Commercial Dedicated \$289/mo per line; Inbound \$98/mo; Enterprise Dedicated from \$195/mo per line at 6+ lines; \$75 per custom area code {/* claim: blooio.pricing */}([source](https://blooio.com/pricing.md)) | Prices not published yet |
+| Agent writes first | Enterprise ("Full outbound messaging"; pricing page) | Paid lines; on the free tier the contact writes first {/* claim: linq.free-inbound-first */}([source](https://linqapp.com/cli)) | Starter 5 new contacts a day, Commercial Shared 15, dedicated plans unlimited; Inbound plan reply-only (pricing page) | No: replies only |
+| Group chats | On select (paid) plans {/* claim: sendblue.facetime-groups */}([source](https://docs.sendblue.com/llms.txt)) | Pro and above (pricing page) | All plans (pricing page) | No: one-to-one |
+| FaceTime | On a purchased FaceTime line (same source) | — | Dedicated plans, on request (pricing page) | No |
+| Webhooks | Retried up to 3 times on 5xx {/* claim: sendblue.webhooks */}([source](https://docs.sendblue.com/getting-started/webhooks)); shared-secret header (`sb-signing-secret`) {/* claim: sendblue.security */}([source](https://docs.sendblue.com/security)) | Standard Webhooks signing; about 10 retries in 30 minutes {/* claim: linq.webhooks */}([source](https://docs.linqapp.com/channel/imessage/guides/webhooks/)) | HMAC-SHA256 {/* claim: blooio.webhooks */}([source](https://docs.blooio.com/webhook-signatures)) | HMAC-SHA256; retried for 3 days; ordered per conversation |
+| SDKs | Node.js/TypeScript, Python; community Go, Rust, Ruby {/* claim: sendblue.sdks */}([source](https://docs.sendblue.com/llms.txt)) | TypeScript/Node.js, Python, Go {/* claim: linq.sdks-mcp */}([source](https://docs.linqapp.com/channel/imessage/guides/resources/faq/)) | Node.js/TypeScript, Python, Java, Go {/* claim: blooio.sdks */}([source](https://blooio.com/llms-full.txt)) | HTTP for any language; TypeScript SDK on npm (`@flow-engineer/messaging`); Python and Go coming |
+| MCP | Local (`npx`) | Local (`npx`) | Hosted | Hosted, optional |
+| Compliance statement | SOC 2 Type II, company-wide; HIPAA on a dedicated HIPAA instance (security page above) | SOC 2 Type I and Type II {/* claim: linq.soc2 */}([source](https://linqapp.com/s/security)) | SOC 2 Type 1 and Type 2 in progress; GDPR and CCPA/CPRA passing {/* claim: blooio.trust */}([source](https://trust.blooio.com)); HIPAA-scoped deployments with a BAA on request {/* claim: blooio.hipaa */}([source](https://blooio.com/llms-full.txt)) | None published |
+
+All sources as of Oct 2026.
+
+**Choose Sendblue, Linq or Blooio if** your agent must write first, you need groups, FaceTime calls (Sendblue, Blooio) or RCS and SMS fallback, you want to set up a dedicated line yourself, or you need a SOC 2 report today (Sendblue, Linq; Blooio's is in progress). **Choose Flow if** your agent answers people who write to it, and you want the same API, events and send gate as on Telegram. On Flow's iMessage line the person writes first (the line's opt-in link helps them do it), and lines are arranged with the Flow team; the iMessage sandbox is not part of the self-serve test key.
+
+## About Flow, today
+
+- **Live:** Telegram (sandbox bot, or your own bot once you sign in with GitHub); the TypeScript SDK on npm (`@flow-engineer/messaging`); iMessage replies on lines arranged with the Flow team; signed, ordered webhooks and a WebSocket stream; the send gate; typed errors with hints; a hosted MCP server, which the project owner can choose to add to their coding tools; test keys with no account (`POST /v1/sandbox/keys`); GitHub sign-in and a dashboard.
+- **Not available yet:** SMS and voice.
+- **Coming:** WhatsApp (pending Meta's approval); Python and Go SDKs; docs.flow.engineer (not deployed yet; meanwhile see [llms.txt](https://api.flow.engineer/llms.txt) and the [OpenAPI spec](https://api.flow.engineer/openapi.yaml)).
+
+## Related
+
+- [Flow vs Photon (spectrum-ts)](/compare/flow-vs-photon)
+- [Quickstart](/quickstart), [Keys and sign-in](/get-a-key), [The send gate](/concepts/send-gate), [Events and webhooks](/concepts/events-and-webhooks)
