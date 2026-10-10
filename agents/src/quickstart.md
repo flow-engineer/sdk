@@ -919,6 +919,27 @@ and new conversations per hour and per day, growing during a new sender's warm-u
   started the conversation); **unsend** within 2 minutes. If iMessage refuses, a
   `message.failed` follows.
 
+### SMS (US): in pilot
+
+- **US numbers (10DLC or toll-free) are registered and connected by the Flow team**
+  for each customer; `POST /v1/senders` with `"channel": "sms"` answers `501`. Not in
+  the sandbox allowance. The sender's `sms` shows `number_type`,
+  `registration_status`, `mms` and `quiet_hours`.
+- **Consent first**: `POST /v1/messages` to someone who never texted your numbers
+  needs `"consent": {"obtained_at": "...", "method": "web_form"}` (else `403
+  permission`, `consent_required`).
+- **STOP is final until START**: a contact who texts STOP (or a variant) gets
+  `opted_out_at`, and every send to them answers `403 permission`,
+  `contact_opted_out`. HELP is answered automatically. You still get these texts as
+  `message.received`.
+- **Quiet hours** (default 21:00-08:00 in the contact's time zone) apply to contacts
+  who have not texted in the last hour: `409 outside_window`, `quiet_hours`, with
+  `retry_after`.
+- **Text** up to {{text_caps.sms}} characters and {{sms_max_segments}} segments (an
+  emoji makes the text UCS-2: 670 characters); `message.sms` shows `segments` and
+  `encoding`. Images, audio and video go as MMS; buttons, locations and contact
+  cards need `"fallback": "auto"`; no reactions, edits, unsends, typing or read.
+
 ### WhatsApp
 
 Coming (it waits on Meta's approval). `POST /v1/senders` with `"channel": "whatsapp"`

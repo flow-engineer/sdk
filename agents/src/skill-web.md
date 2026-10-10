@@ -12,7 +12,7 @@ metadata:
 
 Flow Messaging is one API for AI agents to hold conversations on Telegram and iMessage, with WhatsApp coming. Flow hosts the senders (bots, lines), delivers every inbound message as an event, and passes every send through one gate that applies each channel's rules.
 
-Channels today: Telegram is live (the shared sandbox bot, or your own bot with a live key). iMessage is live for replies only, on lines the Flow team connects to your app: the person always writes first. WhatsApp is not available yet (it waits on Meta's approval). There is no SMS and no voice calling.
+Channels today: Telegram is live (the shared sandbox bot, or your own bot with a live key). iMessage is live for replies only, on lines the Flow team connects to your app: the person always writes first. WhatsApp is not available yet (it waits on Meta's approval). SMS (US): in pilot, on US numbers the Flow team registers for a customer; not generally available. There is no voice calling.
 
 ## Set up
 

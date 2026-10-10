@@ -187,9 +187,9 @@ async function onEvent(event: FlowEvent) {
 It turns typing on (and keeps it on), splits the text into bubbles and sends each as
 soon as it is complete, in order. The rule, for those not using the SDK: a bubble ends
 at a blank line, except after a line ending in `:` and between items of one list;
-past the channel's soft length (Telegram 900, WhatsApp 700, iMessage 400 characters) it
+past the channel's soft length (Telegram 900, WhatsApp 700, iMessage 400, SMS 300 characters) it
 ends at the next sentence end; never inside a code block unless it would pass the
-channel's text limit (4096 characters; 10000 on iMessage). Text is sent as markdown with `fallback: "auto"` (plain text where a
+channel's text limit (4096 characters; 10000 on iMessage; 670 on SMS, 10 segments even with an emoji). Text is sent as markdown with `fallback: "auto"` (plain text where a
 channel has no formatting). Options: `{ format: "plain" }`, `{ split: false }`,
 `{ bubbles: { softLength } }`, and `{ idempotencyKey: event.id }` to make retrying a
 whole reply safe. `splitIntoBubbles(text, "whatsapp")` gives the same split.

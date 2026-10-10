@@ -42,7 +42,7 @@ Per channel: buttons are native on Telegram and WhatsApp (3 buttons, else a list
 need `fallback: "auto"` on iMessage (numbered text; replies still come back as
 `button_reply`). Templates are WhatsApp only. Edit and unsend: Telegram and iMessage
 (iMessage: edit within 15 minutes, unsend within 2). Text is at most the channel's
-`max_text_length` (4096 on Telegram and WhatsApp, 9999 on iMessage). `channel_options`
+`max_text_length` (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 and 10 segments on SMS, which is in pilot in the US). `channel_options`
 keys outside each channel's allowlist are dropped.
 
 ## Events (discriminated union on `type`)

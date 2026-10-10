@@ -14,7 +14,8 @@
     "cli_device_code": "FLOW_DEVICE_CODE",
     "cli_device_url": "FLOW_DEVICE_URL"
   },
-  "text_caps": { "telegram": 4096, "imessage": 9999, "whatsapp": 4096 },
+  "text_caps": { "telegram": 4096, "imessage": 9999, "whatsapp": 4096, "sms": 1530 },
+  "sms_max_segments": 10,
   "allowance": {
     "anonymous": { "contacts": 1, "messages_per_contact": 50, "key_ttl_days": 7 },
     "signed_in": { "contacts": 3, "messages_per_contact": 100 },
