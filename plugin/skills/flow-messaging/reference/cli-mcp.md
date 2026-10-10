@@ -37,7 +37,8 @@ code, exits), shows them to the user, and runs `login` again once they approve.
 
 The same over HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_...",
 "client_name": "Claude Code"}` answers `device_code` (`fdc_...`, never show it),
-`user_code` and `verification_uri_complete` (show these) and `interval`. Poll
+`user_code` and `verification_uri` (show both: the person opens the page and types the
+code) and `interval`. Poll
 `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds
 (`429 rate_limited`: wait `retry_after`) until `status` is `approved` (with `key`, shown
 once), `denied` or `expired`. Signed-in people manage keys at https://api.flow.engineer/admin.
