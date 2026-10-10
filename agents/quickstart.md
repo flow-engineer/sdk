@@ -361,6 +361,17 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   digits). On SMS and iMessage the contact answers buttons with their number (`"2"`).
   A simulated iMessage line, like Flow's real lines, only replies: post a turn
   before your agent sends.
+- Simulated SMS keeps the rules that concern the contact. Before the contact's
+  first turn, a send to them is a start that needs their consent: without
+  `consent` on `POST /v1/messages` (`to.contact`), it answers `403 permission`
+  (`consent_required`). A turn with the text STOP opts the contact out (its
+  `opted_out_at` is set, `opted_out_via` `keyword`; sends answer `403 permission`,
+  `contact_opted_out`) and START lifts it; both turns still reach your agent, and
+  the transcript shows no automatic keyword reply. A simulated SMS sender keeps no
+  quiet hours (a test never depends on the time of day) and sends media as MMS.
+- A HIPAA account (`hipaa` on the account in `GET /v1/app`) can simulate only SMS:
+  a simulated `telegram` or `imessage` conversation, or a turn in one made before
+  the flag was set, answers `403 permission` (`hipaa_channel_not_covered`).
 - Free: simulated traffic is not in the sandbox allowance. An app has at most 500
   simulated conversations (then `403 permission`, `simulated_conversation_limit`:
   reuse conversations, or post an address that has one), and a key makes at most

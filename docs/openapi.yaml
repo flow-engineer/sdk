@@ -188,7 +188,8 @@ info:
       permission` with `channel_code` `hipaa_channel_not_covered`; messages
       already queued there fail the same way. Contacts get a fixed refusal from
       the sandbox senders instead of reaching the app, and nothing they send
-      there is stored or delivered.
+      there is stored or delivered. Simulated conversations (`POST
+      /v1/test/conversations`) follow the same rule: only SMS can be simulated.
     - **Sandbox senders**: only contacts who joined through your app (by sending its
       join code, for example `join brave-otter-40718263`).
 
@@ -269,6 +270,20 @@ info:
     contacts and senders carry `simulated: true` (senders `kind: simulated`), exist
     only in test mode, are never shown to live keys, and follow your plan's
     retention like other test data.
+
+    The SMS rules that concern the contact hold on a simulated SMS conversation as
+    on a real number. A start or reply before the contact's first turn needs their
+    recorded consent (`consent` on `POST /v1/messages`; otherwise `403 permission`
+    with `channel_code` `consent_required`). A turn with the text STOP (or a
+    variant) opts the simulated contact out (its `opted_out_at`, `opted_out_via`
+    `keyword`; sends answer `403 permission` with `channel_code`
+    `contact_opted_out`), and START to the simulated sender lifts it; the turn is
+    still delivered as `message.received`, and the transcript shows no automatic
+    keyword reply. A simulated SMS sender keeps no quiet hours, so a test's outcome
+    never depends on the time of day, and it sends media as MMS. A HIPAA account
+    (`Account.hipaa`) can simulate only SMS: creating a simulated `telegram` or
+    `imessage` conversation, or posting a turn to one made before the flag was set,
+    answers `403 permission` with `channel_code` `hipaa_channel_not_covered`.
 
     ## MCP server
 
@@ -1797,6 +1812,15 @@ paths:
         today, only replies, so the contact writes first; on SMS and iMessage
         buttons need `fallback` and the contact answers with the button's number.
 
+        On SMS, the rules that concern the contact hold too. Before the contact's
+        first turn, a send to them is a start that needs their recorded consent:
+        without `consent` (on `POST /v1/messages` with `to.contact`), it answers
+        `403 permission` with `channel_code` `consent_required`, as a real SMS start
+        does. A turn with the text STOP opts the contact out and START lifts it (see
+        `POST /v1/test/conversations/{conversation_id}/inbound`). A simulated SMS
+        sender keeps no quiet hours, so a test's outcome never depends on the time of
+        day, and it sends media and voice as MMS.
+
         Creating the conversation sends no event. The contact's first turn starts it
         as a real contact's first message does: `conversation.started` (`via`
         `inbound`), then `message.received`.
@@ -1816,6 +1840,11 @@ paths:
         minute per key (`429 rate_limited`), on top of the plan's request rate
         limit. A live key answers `403 permission` with `channel_code`
         `test_mode_only`.
+
+        A HIPAA account (`Account.hipaa`) can simulate only the channels its
+        business associate agreement covers (SMS), as it can connect senders only
+        there: `telegram` or `imessage` answers `403 permission` with `channel_code`
+        `hipaa_channel_not_covered` (`param` `channel`).
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1849,7 +1878,17 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
-          $ref: "#/components/responses/PermissionDenied"
+          description: |
+            `permission`: a live key (`channel_code` `test_mode_only`), the app's
+            500 simulated conversations reached (`simulated_conversation_limit`), or
+            a HIPAA account asking for a channel its business associate agreement
+            does not cover (`hipaa_channel_not_covered`; only `sms` can be simulated).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: {type: permission, message: "This account handles health information under a business associate agreement, and Telegram is not a channel Flow holds such an agreement for, so it cannot be simulated here either.", hint: "Simulate an SMS conversation instead: POST /v1/test/conversations with {\"channel\":\"sms\"}.", doc_url: "https://api.flow.engineer/docs/errors/permission", param: channel, channel_code: hipaa_channel_not_covered}
         "429":
           $ref: "#/components/responses/RateLimited"
         default:
@@ -1883,9 +1922,21 @@ paths:
         `422 unsupported_content`, and text over its `max_text_length` answers
         `400 invalid_request`.
 
+        On SMS, the keywords work as from a real phone, matched against the whole
+        text. STOP (or STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT, REVOKE, OPT OUT,
+        OPTOUT) opts the simulated contact out against the simulated sender: the
+        contact's `opted_out_at` is set and `opted_out_via` is `keyword`, and sends
+        to them answer `403 permission` with `channel_code` `contact_opted_out`.
+        START (or UNSTOP, YES) lifts it. The turn is still delivered as
+        `message.received`. A keyword reply is never recorded as a message, so the
+        transcript shows no automatic reply to STOP, START or HELP.
+
         A conversation that is not simulated answers `403 permission` with
         `channel_code` `not_simulated`; a live key answers `403 permission` with
-        `channel_code` `test_mode_only`.
+        `channel_code` `test_mode_only`. In a HIPAA account (`Account.hipaa`), a
+        turn on a simulated `telegram` or `imessage` conversation (one made before
+        the flag was set) answers `403 permission` with `channel_code`
+        `hipaa_channel_not_covered` (`param` `conversation_id`).
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1915,7 +1966,17 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
-          $ref: "#/components/responses/PermissionDenied"
+          description: |
+            `permission`: a live key (`channel_code` `test_mode_only`), a
+            conversation that is not simulated (`not_simulated`), or, in a HIPAA
+            account, a simulated conversation on a channel its business associate
+            agreement does not cover (`hipaa_channel_not_covered`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: {type: permission, message: "This account handles health information under a business associate agreement, and Telegram is not a channel Flow holds such an agreement for, so it cannot be simulated here either.", hint: "Simulate an SMS conversation instead: POST /v1/test/conversations with {\"channel\":\"sms\"}.", doc_url: "https://api.flow.engineer/docs/errors/permission", param: conversation_id, channel_code: hipaa_channel_not_covered}
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -2492,7 +2553,10 @@ components:
             and messages already queued there fail the same way. The sandbox
             senders answer the account's contacts with a fixed refusal and store
             and deliver nothing they send; turning the flag on ends the account's
-            sandbox joins. Set by the Flow team.
+            sandbox joins. Only SMS can be simulated (`POST /v1/test/conversations`):
+            creating a simulated Telegram or iMessage conversation, or posting a
+            turn to one made before the flag was set, answers the same refusal.
+            Set by the Flow team.
         created_at:
           type: string
           format: date-time
