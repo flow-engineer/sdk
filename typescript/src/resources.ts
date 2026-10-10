@@ -339,7 +339,7 @@ const MAX_POLL_FAILURES = 5;
 
 /**
  * Sign-in from an agent or CLI (the device flow): a person approves in a browser with
- * GitHub or Google, and the agent receives a key. Needs no API key.
+ * GitHub, and the agent receives a key. Needs no API key.
  */
 export class Device {
   constructor(private readonly http: HttpClient) {}

@@ -52,7 +52,7 @@ WhatsApp is not available yet; its column shows what it will support.
 | `edit` | yes | no | yes, within 15 minutes | none |
 | `unsend` | yes, within 48 hours | no | yes, within 2 minutes | none |
 
-Text is at most the channel's `max_text_length`: 4096 characters on Telegram and WhatsApp, 9999 on iMessage; longer text is refused with `invalid_request`. Ask the API instead of this table: `GET /v1/capabilities?conversation=conv_...` returns, per content type, `native`, `fallback` (with what `auto` sends) or `unsupported`, plus the channel's size limits and whether the window is open.
+Text is at most the channel's `max_text_length`: 4096 characters on Telegram and WhatsApp, 9999 on iMessage; longer text is refused with `invalid_request`. Telegram counts UTF-16 code units of the text as shown (after markdown), so an emoji such as 😀 counts as 2. A media `caption` takes at most 1024, also when an edit replaces it. Ask the API instead of this table: `GET /v1/capabilities?conversation=conv_...` returns, per content type, `native`, `fallback` (with what `auto` sends) or `unsupported`, plus the channel's size limits and whether the window is open.
 
 ## Nothing is converted silently
 

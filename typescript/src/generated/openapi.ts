@@ -104,7 +104,8 @@ export interface paths {
         /**
          * Edit a sent message
          * @description Replaces the text of one of your outbound messages (on Telegram, also the
-         *     caption of a media message). Telegram and iMessage support edits (iMessage:
+         *     caption of a media message, which takes at most 1024 characters where a text
+         *     message takes 4096). Telegram and iMessage support edits (iMessage:
          *     within 15 minutes of sending, and not the message that started the
          *     conversation); WhatsApp does not (`422 unsupported_content`).
          *
@@ -1756,7 +1757,7 @@ export interface components {
              * @enum {string}
              */
             type: "text";
-            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
+            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage; see `GET /v1/capabilities`). Telegram counts UTF-16 code units of the text as shown (after markdown), so an emoji such as 😀 counts as 2. In an edit of a media message the text replaces its caption, and the caption limit applies (1024). Longer text is refused with `invalid_request`. */
             text: string;
             /**
              * @description How to read `text`. Inbound text is always `plain`.
@@ -1787,7 +1788,7 @@ export interface components {
              */
             url?: string;
             file_id?: components["schemas"]["FileId"];
-            /** @description Text shown with the media. */
+            /** @description Text shown with the media, at most 1024 characters. Telegram counts UTF-16 code units, so an emoji such as 😀 counts as 2. Longer captions are refused with `invalid_request`. */
             caption?: string;
             /** @description The file's name, shown for documents. */
             filename?: string;
@@ -1834,8 +1835,8 @@ export interface components {
             type: "buttons";
             /**
              * @description The text above the buttons: at most 4096 characters on Telegram (the same
-             *     as a text message; Telegram's 1024 limit is for media captions only) and
-             *     1024 on WhatsApp (its limit for messages with buttons). On iMessage,
+             *     as a text message, in UTF-16 code units; Telegram's 1024 limit is for media
+             *     captions only) and 1024 on WhatsApp (its limit for messages with buttons). On iMessage,
              *     `fallback: auto` sends the text and the numbered choices as one text
              *     message, which must fit the channel's `max_text_length`. Longer text is
              *     refused with `invalid_request`.
@@ -1977,7 +1978,7 @@ export interface components {
              * @enum {string}
              */
             type: "effect";
-            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
+            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage; see `GET /v1/capabilities`). Telegram counts UTF-16 code units, so an emoji such as 😀 counts as 2. Longer text is refused with `invalid_request`. */
             text: string;
             /**
              * @description The effect.
@@ -2471,7 +2472,7 @@ export interface components {
         };
         /** @description Size limits on this channel. */
         ChannelLimits: {
-            /** @description The longest text one message may carry, in characters (4096 on Telegram and WhatsApp, 9999 on iMessage). Longer text is refused with `invalid_request`. */
+            /** @description The longest text one message may carry, in characters (4096 on Telegram and WhatsApp, 9999 on iMessage). Telegram counts UTF-16 code units, so an emoji such as 😀 counts as 2; the other channels count Unicode characters. A media caption takes at most 1024. Longer text is refused with `invalid_request`. */
             max_text_length?: number;
             /** @description The most buttons one message may carry natively. */
             max_buttons?: number;
