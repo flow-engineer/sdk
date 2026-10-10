@@ -6,7 +6,8 @@
   JSDoc types.
 - CLI: `--help` says Telegram, iMessage and WhatsApp. Types regenerated from the
   spec: the WhatsApp `preview_url` channel option, the typing window on WhatsApp,
-  and how WhatsApp numbers are connected.
+  how WhatsApp numbers are connected, and `whatsapp` as a simulated channel for
+  `flow.test.createConversation`.
 
 ## 0.1.1
 

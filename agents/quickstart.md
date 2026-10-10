@@ -324,7 +324,7 @@ Good to know:
 
 A test key can also play the person's side itself, for automated tests or when no
 phone is at hand. A **simulated contact** exists only inside Flow, on `telegram`,
-`imessage` or `sms`:
+`whatsapp`, `imessage` or `sms`:
 
 ```bash
 # 1. A conversation with a new simulated contact (201; made-up address, so each call is fresh)
@@ -361,6 +361,12 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   digits). On SMS and iMessage the contact answers buttons with their number (`"2"`).
   A simulated iMessage line, like Flow's real lines, only replies: post a turn
   before your agent sends.
+- Simulated WhatsApp keeps WhatsApp's rules. The contact's turns go through the
+  real WhatsApp inbound path, so each turn opens the 24-hour window; outside it
+  (also before the contact's first turn) only a `template` can be sent (`409
+  outside_window`). Buttons go as up to 3 reply buttons, or a list for 4 to 10;
+  reactions and `reply_to` work; edits and unsends answer `422
+  unsupported_content`. The contact's address is a `phone`.
 - Simulated SMS keeps the rules that concern the contact. Before the contact's
   first turn, a send to them is a start that needs their consent: without
   `consent` on `POST /v1/messages` (`to.contact`), it answers `403 permission`
@@ -370,7 +376,7 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   the transcript shows no automatic keyword reply. A simulated SMS sender keeps no
   quiet hours (a test never depends on the time of day) and sends media as MMS.
 - A HIPAA account (`hipaa` on the account in `GET /v1/app`) can simulate only SMS:
-  a simulated `telegram` or `imessage` conversation, or a turn in one made before
+  a simulated `telegram`, `whatsapp` or `imessage` conversation, or a turn in one made before
   the flag was set, answers `403 permission` (`hipaa_channel_not_covered`).
 - Free: simulated traffic is not in the sandbox allowance. An app has at most 500
   simulated conversations (then `403 permission`, `simulated_conversation_limit`:

@@ -31,7 +31,7 @@ curl https://api.flow.engineer/v1/app -H "Authorization: Bearer $FLOW_MESSAGING_
 
 A test key can also play the person's side, so an automated test suite (or an agent
 checking its own work) runs end to end with no phone and no real channel. A
-**simulated contact** exists only inside Flow, on Telegram, iMessage or SMS.
+**simulated contact** exists only inside Flow, on Telegram, WhatsApp, iMessage or SMS.
 
 ```bash
 # A conversation with a new simulated contact (made-up address; one per test case)
@@ -61,7 +61,14 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript -H "
   answer `contact_opted_out`) and START lifts it; the transcript shows no
   automatic keyword reply. A simulated SMS sender keeps no quiet hours, so a test
   never depends on the time of day, and it sends media as MMS.
-- **HIPAA accounts** simulate only SMS: a simulated Telegram or iMessage
+- **WhatsApp rules hold too.** The contact's turns go through the real WhatsApp
+  inbound path, so each turn opens the 24-hour window; outside it (also before the
+  contact's first turn) only a `template` can be sent (`409`
+  [`outside_window`](/errors/outside_window)). Buttons go as up to 3 reply buttons,
+  or a list for 4 to 10; reactions and `reply_to` work; edits and unsends are
+  refused (`422` [`unsupported_content`](/errors/unsupported_content)). The
+  transcript shows what the contact would see after any fallback.
+- **HIPAA accounts** simulate only SMS: a simulated Telegram, WhatsApp or iMessage
   conversation, or a turn in one made before the flag was set, answers `403`
   [`permission`](/errors/permission) (`hipaa_channel_not_covered`).
 - Live keys get `403` [`permission`](/errors/permission) (`test_mode_only`).

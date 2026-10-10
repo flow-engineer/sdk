@@ -944,11 +944,17 @@ export interface paths {
          *     The conversation is on your app's **simulated sender** for the channel
          *     (`kind` `simulated`), which Flow creates on first use. It never touches a
          *     network: sends to the simulated contact pass the real send gate and end
-         *     `sent`. Simulated channels: `telegram`, `imessage` and `sms`; `whatsapp`
-         *     answers `501 not_implemented` (there are no simulated WhatsApp contacts yet). The channel's rules
-         *     hold as on a real sender: a simulated iMessage line, like Flow's lines
-         *     today, only replies, so the contact writes first; on SMS and iMessage
-         *     buttons need `fallback` and the contact answers with the button's number.
+         *     `sent`. Simulated channels: `telegram`, `whatsapp`, `imessage` and `sms`.
+         *     The channel's rules hold as on a real sender: a simulated iMessage line,
+         *     like Flow's lines today, only replies, so the contact writes first; on SMS
+         *     and iMessage buttons need `fallback` and the contact answers with the
+         *     button's number.
+         *
+         *     On WhatsApp, the contact's turns go through the real WhatsApp inbound path,
+         *     so each turn opens the 24-hour window. Outside it, including before the
+         *     contact's first turn, only a `template` can be sent (`409 outside_window`).
+         *     Buttons go as up to 3 reply buttons, or a list for 4 to 10; reactions and
+         *     `reply_to` work; edits and unsends answer `422 unsupported_content`.
          *
          *     On SMS, the rules that concern the contact hold too. Before the contact's
          *     first turn, a send to them is a start that needs their recorded consent:
@@ -981,8 +987,8 @@ export interface paths {
          *
          *     A HIPAA account (`Account.hipaa`) can simulate only the channels its
          *     business associate agreement covers (SMS), as it can connect senders only
-         *     there: `telegram` or `imessage` answers `403 permission` with `channel_code`
-         *     `hipaa_channel_not_covered` (`param` `channel`).
+         *     there: `telegram`, `whatsapp` or `imessage` answers `403 permission` with
+         *     `channel_code` `hipaa_channel_not_covered` (`param` `channel`).
          */
         post: operations["createTestConversation"];
         delete?: never;
@@ -1037,10 +1043,13 @@ export interface paths {
          *     `message.received`. A keyword reply is never recorded as a message, so the
          *     transcript shows no automatic reply to STOP, START or HELP.
          *
+         *     On WhatsApp, each turn opens the conversation's 24-hour window, as a real
+         *     contact's message does.
+         *
          *     A conversation that is not simulated answers `403 permission` with
          *     `channel_code` `not_simulated`; a live key answers `403 permission` with
          *     `channel_code` `test_mode_only`. In a HIPAA account (`Account.hipaa`), a
-         *     turn on a simulated `telegram` or `imessage` conversation (one made before
+         *     turn on a simulated `telegram`, `whatsapp` or `imessage` conversation (one made before
          *     the flag was set) answers `403 permission` with `channel_code`
          *     `hipaa_channel_not_covered` (`param` `conversation_id`).
          */
@@ -1071,7 +1080,8 @@ export interface paths {
          *     ID it has) to see what your agent sent back to the simulated contact. Each
          *     entry is a `Message` with, for a sent message, `shown`: what the simulated
          *     contact's phone shows, after the send gate applied any fallback (numbered
-         *     text for buttons on SMS, for example).
+         *     text for buttons on SMS, or a list for 4 to 10 buttons on WhatsApp, for
+         *     example).
          *
          *     A conversation that is not simulated answers `403 permission` with
          *     `channel_code` `not_simulated`; a live key answers `403 permission` with
@@ -1305,7 +1315,7 @@ export interface components {
              *     senders answer the account's contacts with a fixed refusal and store
              *     and deliver nothing they send; turning the flag on ends the account's
              *     sandbox joins. Only SMS can be simulated (`POST /v1/test/conversations`):
-             *     creating a simulated Telegram or iMessage conversation, or posting a
+             *     creating a simulated Telegram, WhatsApp or iMessage conversation, or posting a
              *     turn to one made before the flag was set, answers the same refusal.
              *     Set by the Flow team.
              */
@@ -2926,7 +2936,7 @@ export interface components {
         };
         /** @description A simulated conversation to create (test keys only). */
         TestConversationRequest: {
-            /** @description The channel to simulate. `telegram`, `imessage` or `sms`; `whatsapp` answers `501 not_implemented`. */
+            /** @description The channel to simulate. `telegram`, `whatsapp`, `imessage` or `sms`. */
             channel: components["schemas"]["Channel"];
             contact?: components["schemas"]["TestContactAddress"];
             /** @description The simulated contact's display name, as a channel would report it. */
@@ -2934,11 +2944,11 @@ export interface components {
         };
         /**
          * @description The simulated contact's address on the channel. Give one field that fits the
-         *     channel: `phone` on SMS and iMessage, `handle` on iMessage, `telegram_user_id`
-         *     on Telegram. Omit `contact` to get a new contact with a made-up address.
+         *     channel: `phone` on SMS, iMessage and WhatsApp, `handle` on iMessage,
+         *     `telegram_user_id` on Telegram. Omit `contact` to get a new contact with a made-up address.
          */
         TestContactAddress: {
-            /** @description SMS or iMessage. E.164 phone number; on SMS a US number (`+1` and ten digits). */
+            /** @description SMS, iMessage or WhatsApp. E.164 phone number; on SMS a US number (`+1` and ten digits). */
             phone?: string;
             /** @description iMessage. A phone number or an email address. */
             handle?: string;

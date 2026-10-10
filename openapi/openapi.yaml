@@ -250,8 +250,8 @@ info:
     ## Testing with simulated contacts
 
     A test key can play the end user's side without a phone or a real channel. `POST
-    /v1/test/conversations` creates a conversation on `telegram`, `imessage` or `sms`
-    with a **simulated contact**; `POST /v1/test/conversations/{conversation_id}/inbound`
+    /v1/test/conversations` creates a conversation on `telegram`, `whatsapp`,
+    `imessage` or `sms` with a **simulated contact**; `POST /v1/test/conversations/{conversation_id}/inbound`
     writes as that contact (text, or media uploaded with `POST /v1/files`). Each turn
     reaches your agent exactly like a real message: a `message.received` event by
     webhook, on the stream and in the event log, in order. Your agent replies with
@@ -282,9 +282,19 @@ info:
     still delivered as `message.received`, and the transcript shows no automatic
     keyword reply. A simulated SMS sender keeps no quiet hours, so a test's outcome
     never depends on the time of day, and it sends media as MMS. A HIPAA account
-    (`Account.hipaa`) can simulate only SMS: creating a simulated `telegram` or
-    `imessage` conversation, or posting a turn to one made before the flag was set,
-    answers `403 permission` with `channel_code` `hipaa_channel_not_covered`.
+    (`Account.hipaa`) can simulate only SMS: creating a simulated `telegram`,
+    `whatsapp` or `imessage` conversation, or posting a turn to one made before the
+    flag was set, answers `403 permission` with `channel_code`
+    `hipaa_channel_not_covered`.
+
+    A simulated WhatsApp conversation keeps WhatsApp's rules. The contact's turns go
+    through the same inbound path as a real WhatsApp message, so each turn opens the
+    24-hour window, and the send gate applies WhatsApp's rules: outside the window
+    (also before the contact's first turn) only a `template` can be sent (`409
+    outside_window`); buttons go as up to 3 reply buttons, or a list for 4 to 10;
+    reactions and `reply_to` work; edits and unsends answer `422
+    unsupported_content`. The transcript shows what the contact would see after any
+    fallback.
 
     ## MCP server
 
@@ -1809,11 +1819,17 @@ paths:
         The conversation is on your app's **simulated sender** for the channel
         (`kind` `simulated`), which Flow creates on first use. It never touches a
         network: sends to the simulated contact pass the real send gate and end
-        `sent`. Simulated channels: `telegram`, `imessage` and `sms`; `whatsapp`
-        answers `501 not_implemented` (there are no simulated WhatsApp contacts yet). The channel's rules
-        hold as on a real sender: a simulated iMessage line, like Flow's lines
-        today, only replies, so the contact writes first; on SMS and iMessage
-        buttons need `fallback` and the contact answers with the button's number.
+        `sent`. Simulated channels: `telegram`, `whatsapp`, `imessage` and `sms`.
+        The channel's rules hold as on a real sender: a simulated iMessage line,
+        like Flow's lines today, only replies, so the contact writes first; on SMS
+        and iMessage buttons need `fallback` and the contact answers with the
+        button's number.
+
+        On WhatsApp, the contact's turns go through the real WhatsApp inbound path,
+        so each turn opens the 24-hour window. Outside it, including before the
+        contact's first turn, only a `template` can be sent (`409 outside_window`).
+        Buttons go as up to 3 reply buttons, or a list for 4 to 10; reactions and
+        `reply_to` work; edits and unsends answer `422 unsupported_content`.
 
         On SMS, the rules that concern the contact hold too. Before the contact's
         first turn, a send to them is a start that needs their recorded consent:
@@ -1846,8 +1862,8 @@ paths:
 
         A HIPAA account (`Account.hipaa`) can simulate only the channels its
         business associate agreement covers (SMS), as it can connect senders only
-        there: `telegram` or `imessage` answers `403 permission` with `channel_code`
-        `hipaa_channel_not_covered` (`param` `channel`).
+        there: `telegram`, `whatsapp` or `imessage` answers `403 permission` with
+        `channel_code` `hipaa_channel_not_covered` (`param` `channel`).
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1934,10 +1950,13 @@ paths:
         `message.received`. A keyword reply is never recorded as a message, so the
         transcript shows no automatic reply to STOP, START or HELP.
 
+        On WhatsApp, each turn opens the conversation's 24-hour window, as a real
+        contact's message does.
+
         A conversation that is not simulated answers `403 permission` with
         `channel_code` `not_simulated`; a live key answers `403 permission` with
         `channel_code` `test_mode_only`. In a HIPAA account (`Account.hipaa`), a
-        turn on a simulated `telegram` or `imessage` conversation (one made before
+        turn on a simulated `telegram`, `whatsapp` or `imessage` conversation (one made before
         the flag was set) answers `403 permission` with `channel_code`
         `hipaa_channel_not_covered` (`param` `conversation_id`).
       parameters:
@@ -2002,7 +2021,8 @@ paths:
         ID it has) to see what your agent sent back to the simulated contact. Each
         entry is a `Message` with, for a sent message, `shown`: what the simulated
         contact's phone shows, after the send gate applied any fallback (numbered
-        text for buttons on SMS, for example).
+        text for buttons on SMS, or a list for 4 to 10 buttons on WhatsApp, for
+        example).
 
         A conversation that is not simulated answers `403 permission` with
         `channel_code` `not_simulated`; a live key answers `403 permission` with
@@ -2557,7 +2577,7 @@ components:
             senders answer the account's contacts with a fixed refusal and store
             and deliver nothing they send; turning the flag on ends the account's
             sandbox joins. Only SMS can be simulated (`POST /v1/test/conversations`):
-            creating a simulated Telegram or iMessage conversation, or posting a
+            creating a simulated Telegram, WhatsApp or iMessage conversation, or posting a
             turn to one made before the flag was set, answers the same refusal.
             Set by the Flow team.
         created_at:
@@ -4681,7 +4701,7 @@ components:
       properties:
         channel:
           $ref: "#/components/schemas/Channel"
-          description: The channel to simulate. `telegram`, `imessage` or `sms`; `whatsapp` answers `501 not_implemented`.
+          description: The channel to simulate. `telegram`, `whatsapp`, `imessage` or `sms`.
         contact:
           $ref: "#/components/schemas/TestContactAddress"
         name:
@@ -4693,14 +4713,14 @@ components:
       type: object
       description: |
         The simulated contact's address on the channel. Give one field that fits the
-        channel: `phone` on SMS and iMessage, `handle` on iMessage, `telegram_user_id`
-        on Telegram. Omit `contact` to get a new contact with a made-up address.
+        channel: `phone` on SMS, iMessage and WhatsApp, `handle` on iMessage,
+        `telegram_user_id` on Telegram. Omit `contact` to get a new contact with a made-up address.
       minProperties: 1
       maxProperties: 1
       properties:
         phone:
           type: string
-          description: SMS or iMessage. E.164 phone number; on SMS a US number (`+1` and ten digits).
+          description: SMS, iMessage or WhatsApp. E.164 phone number; on SMS a US number (`+1` and ten digits).
           pattern: "^\\+[1-9][0-9]{6,14}$"
         handle:
           type: string
