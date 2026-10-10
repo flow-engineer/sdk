@@ -39,7 +39,9 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   owner's choice).
 - **Spec drift**: `scripts/check-spec-drift.sh` fails when a copy of the spec drifts
   from `openapi/openapi.yaml`: stale generated types (`npm run check-generated`),
-  `docs/openapi.yaml` no longer the symlink to it, or the SDK's `API_VERSION` (and any
+  `docs/openapi.yaml` not an identical copy of it (a real file, not a symlink, since
+  Mintlify builds only `docs/`; after a spec change run
+  `cp openapi/openapi.yaml docs/openapi.yaml`), or the SDK's `API_VERSION` (and any
   `Flow-Version:` date in the READMEs, `llms.txt`, `plugin/`) not the spec's
   `info.version`. With a service checkout (`FLOW_MESSAGING_DIR`, default
   `../flow-messaging`) it compares `api/openapi.yaml` there too: a warning, since a spec

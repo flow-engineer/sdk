@@ -16,9 +16,9 @@ answered.
 - Auth: your Flow Messaging API key, `Authorization: Bearer fk_test_...` or
   `fk_live_...`. The key's mode decides which tools the agent sees.
 
-<!-- agents:mcp-note -->
+{/* agents:mcp-note */}
 MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. The hosted MCP server at `https://api.flow.engineer/mcp` is an optional tool for testing and operating the integration during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to a coding agent, it can use them for sandbox testing.
-<!-- /agents:mcp-note -->
+{/* /agents:mcp-note */}
 
 No key yet? Get a test key with no account in one call (the MCP server needs a key,
 so do this first; without one, `/mcp` answers `401` with this call in its `hint`):
@@ -44,7 +44,7 @@ keep the app and send 100 messages to each of 3 contacts. See
 
 The project owner adds it; a coding agent shows them the line for their tool:
 
-<!-- agents:mcp-setup -->
+{/* agents:mcp-setup */}
 Claude Code:
 
 ```bash
@@ -64,7 +64,7 @@ Cursor (`~/.cursor/mcp.json`):
 ```json
 {"mcpServers": {"flow": {"url": "https://api.flow.engineer/mcp", "headers": {"Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}"}}}}
 ```
-<!-- /agents:mcp-setup -->
+{/* /agents:mcp-setup */}
 
 ### Any other client
 

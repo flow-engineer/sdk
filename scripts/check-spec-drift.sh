@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fails when a copy of the spec in this repo drifts from openapi/openapi.yaml:
 #   - typescript/src/generated/openapi.ts is stale (npm run check-generated);
-#   - docs/openapi.yaml is no longer the symlink to ../openapi/openapi.yaml (or identical);
+#   - docs/openapi.yaml is not an identical copy of openapi/openapi.yaml (a real file:
+#     Mintlify builds only the docs/ folder and does not follow a symlink out of it);
 #   - the TypeScript SDK's API_VERSION (sent as Flow-Version), or a `Flow-Version:` date
 #     in the README, llms.txt or the agent files, differs from the spec's info.version.
 # With a service checkout at ${FLOW_MESSAGING_DIR:-../flow-messaging}, it also compares
@@ -25,14 +26,15 @@ ok() { echo "ok: $*"; }
 
 # 2. docs/openapi.yaml.
 docs="$root/docs/openapi.yaml"
-if [ -L "$docs" ] && [ "$(readlink "$docs")" = "../openapi/openapi.yaml" ]; then
-  ok "docs/openapi.yaml is the symlink to ../openapi/openapi.yaml"
+fix="cp openapi/openapi.yaml docs/openapi.yaml"
+if [ -L "$docs" ]; then
+  bad "docs/openapi.yaml is a symlink; Mintlify builds only docs/ and needs a real copy ($fix)"
 elif [ -f "$docs" ] && cmp -s "$docs" "$spec"; then
   ok "docs/openapi.yaml is identical to openapi/openapi.yaml"
-elif [ -e "$docs" ] || [ -L "$docs" ]; then
-  bad "docs/openapi.yaml differs from openapi/openapi.yaml (make it a symlink: ln -sf ../openapi/openapi.yaml docs/openapi.yaml)"
+elif [ -f "$docs" ]; then
+  bad "docs/openapi.yaml differs from openapi/openapi.yaml ($fix)"
 else
-  bad "docs/openapi.yaml is missing (ln -s ../openapi/openapi.yaml docs/openapi.yaml)"
+  bad "docs/openapi.yaml is missing ($fix)"
 fi
 
 # 3. The API version.
