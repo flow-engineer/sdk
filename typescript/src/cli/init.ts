@@ -160,7 +160,7 @@ export async function init(o: InitOptions): Promise<void> {
         else print(`  For Codex, run: ${c.command}\n  or add to ~/.codex/config.toml:\n${c.toml.replace(/^/gm, "    ")}`);
       }
     } else {
-      print("Skipped the agent config (no consent; pass --yes to install it). To set it up by hand:");
+      print("Skipped the agent config (no consent). It is the project owner's choice: they can run init --yes, or set it up by hand:");
       for (const l of manualAgentSetup(o)) print(l);
     }
   }

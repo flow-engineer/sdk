@@ -8,7 +8,7 @@ keywords: ["add WhatsApp to AI agent", "Claude Code WhatsApp", "Codex WhatsApp i
 This page is written for AI coding agents: follow it step by step to give the user's AI agent WhatsApp, Telegram or iMessage with Flow Messaging.
 
 <Prompt description="Paste this into Claude Code, Codex or Cursor to have it do the integration." actions={["copy", "cursor"]}>
-Add two-way WhatsApp, Telegram and iMessage messaging to my AI agent using Flow Messaging. Follow https://docs.flow.engineer/coding-agents.md exactly: use FLOW_MESSAGING_KEY if it is set, otherwise get a test key yourself with `npx @flow-engineer/messaging init` (or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`), use the TypeScript SDK `@flow-engineer/messaging` (or the HTTP API at https://api.flow.engineer in other languages), receive `message.received` events, reply with my agent's answer through `event.conversation.reply(...)`, and verify it end to end in the sandbox with the Flow MCP tools (server `flow`) before you finish.
+Add two-way WhatsApp, Telegram and iMessage messaging to my AI agent using Flow Messaging. Follow https://docs.flow.engineer/coding-agents.md exactly: use FLOW_MESSAGING_KEY if it is set, otherwise get a test key yourself with `npx @flow-engineer/messaging init` (or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`), use the TypeScript SDK `@flow-engineer/messaging` (or the HTTP API at https://api.flow.engineer in other languages), receive `message.received` events, reply with my agent's answer through `event.conversation.reply(...)`, and verify it end to end in the sandbox before you finish. Build on the REST API; the Flow MCP server is an optional development tool that I add myself if I want it.
 </Prompt>
 
 ## 1. Get a key and set up
@@ -23,9 +23,9 @@ With no key in the environment or `.env`, `init` gets one (`POST /v1/sandbox/key
 
 - writes `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env` and adds `.env` to `.gitignore`;
 - prints the sandbox link and join code, the allowance and the expiry;
-- with the user's approval (`--yes` skips the question), installs the Claude Code skill in `.claude/skills/flow-messaging/`, adds a Flow Messaging section to `AGENTS.md` (read by Codex and other agents), and registers the MCP server `flow` for Claude Code (`.mcp.json`) and Codex (`codex mcp add`).
+- with the user's approval (they are the project owner, so leave the answer to them and never pass `--yes` yourself), installs the Claude Code skill in `.claude/skills/flow-messaging/`, adds a Flow Messaging section to `AGENTS.md` (read by Codex and other agents), and registers the MCP server `flow` for Claude Code (`.mcp.json`) and Codex (`codex mcp add`).
 
-Flags: `--yes` (no questions), `--key fk_test_...` (use a key you already have), `--no-agent-files`, `--no-mcp`, `--no-codex`, `--dir <path>`.
+Flags: `--yes` (no questions; the owner's choice, not an agent's), `--key fk_test_...` (use a key you already have), `--no-agent-files`, `--no-mcp`, `--no-codex`, `--dir <path>`.
 
 Without the CLI, the same key by HTTP:
 
@@ -56,35 +56,39 @@ For Python and Go, the SDKs (`flow-messaging` on PyPI, `github.com/flow-engineer
 
 Never hard-code keys, never commit `.env`, and never put a key in browser or mobile code.
 
-## 3. The MCP server
+## 3. The MCP server (optional, for development)
 
-Flow's MCP server lets you (the coding agent) inspect and test the integration: who the key belongs to, send a test message, wait for an event, read webhook deliveries, replay an event, and explain an error. The key's mode chooses the tools: a test key gets build-time tools, a live key gets send, reply and read tools. Full list: [MCP server](/mcp).
+{/* agents:mcp */}
+**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. Never make the app call the MCP server.
 
-<CodeGroup>
-```bash Claude Code
-claude mcp add --transport http flow https://api.flow.engineer/mcp \
-  --header "Authorization: Bearer $FLOW_MESSAGING_KEY"
+The hosted MCP server at `https://api.flow.engineer/mcp` (Streamable HTTP, the same API key as a Bearer token) is an optional tool for testing and operating the integration while you build: with a test key it shows the sandbox join link, sends test messages, waits for events, reads webhook deliveries and replays events; with a live key it reads and answers conversations. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to you, use them for sandbox testing.
+
+To suggest it, show the project owner the line for their tool. The server is named `flow` and reads the key from `FLOW_MESSAGING_KEY` in their environment:
+
+Claude Code:
+
+```bash
+claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"
 ```
 
-```toml Codex (~/.codex/config.toml)
+Codex (`~/.codex/config.toml`):
+
+```toml
 [mcp_servers.flow]
 url = "https://api.flow.engineer/mcp"
 bearer_token_env_var = "FLOW_MESSAGING_KEY"
 ```
 
-```json Cursor (.cursor/mcp.json)
-{
-  "mcpServers": {
-    "flow": {
-      "url": "https://api.flow.engineer/mcp",
-      "headers": { "Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}" }
-    }
-  }
-}
-```
-</CodeGroup>
+Cursor (`~/.cursor/mcp.json`):
 
-`npx @flow-engineer/messaging mcp` is a stdio bridge to `https://api.flow.engineer/mcp` that reads `FLOW_MESSAGING_KEY` from the environment or `.env`; use it for any client that runs MCP servers as commands, for example `codex mcp add flow -- npx -y @flow-engineer/messaging mcp`.
+```json
+{"mcpServers": {"flow": {"url": "https://api.flow.engineer/mcp", "headers": {"Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}"}}}}
+```
+
+Test keys get `sandbox_join`, `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
+{/* /agents:mcp */}
+
+`npx @flow-engineer/messaging mcp` is a stdio bridge to `https://api.flow.engineer/mcp` that reads `FLOW_MESSAGING_KEY` from the environment or `.env`, for clients that run MCP servers as commands. Full tool list: [MCP server](/mcp).
 
 ## 4. The skill
 
@@ -122,11 +126,12 @@ Do not finish until this works:
 
 1. Ask the user to join the sandbox from their phone, if they have not: give them the sandbox sender's link from `sandbox_join` (or `GET /v1/senders`). On Telegram, opening the link and tapping **Start** joins; otherwise they send `join <code>`, for example `join wild-otter-04508705`.
 2. Start the app (reading `GET /v1/stream` when developing locally without a public URL).
-3. With the MCP server, call `send_test_message` or ask the user to send a message, then `wait_for_event` for `message.received`. After a send, wait for `message.sent` or `message.failed` (not `message.delivered`, which not every channel reports). Each `wait_for_event` call waits up to 50 seconds (a longer `timeout_seconds` is clamped to 50, with a note, not refused); if it times out, call it again with `after` set to the `next_after` it returned.
-4. If a delivery failed, read it with `get_webhook_deliveries`, fix the handler, and `replay_event`.
+3. If the Flow MCP tools are available to you, call `send_test_message` or ask the user to send a message, then `wait_for_event` for `message.received`. Without them, ask the user to send a message and read it with `GET /v1/events?type=message.received`. After a send, wait for `message.sent` or `message.failed` (not `message.delivered`, which not every channel reports). Each `wait_for_event` call waits up to 50 seconds (a longer `timeout_seconds` is clamped to 50, with a note, not refused); if it times out, call it again with `after` set to the `next_after` it returned.
+4. If a delivery failed, read it with `get_webhook_deliveries` (MCP), fix the handler, and `replay_event`; without the MCP tools, fix the handler and have the user write again.
 
 ## Rules
 
+- **Build on the REST API (or the SDK once published);** the MCP server is never a runtime dependency.
 - **Use the SDK in TypeScript/JavaScript;** do not hand-roll HTTP calls there.
 - **Reply into the conversation** (`event.conversation`, or `POST /v1/conversations/{conversation_id}/messages`). Never choose a channel per message and never assume a contact has a phone number.
 - **Verify webhook signatures** on the raw body before trusting it; deduplicate on the event `id`.
