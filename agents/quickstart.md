@@ -20,7 +20,7 @@ section 3 (receive over a WebSocket), section 6 (reply).
 
 ```yaml
 # Machine-readable summary
-api: Flow Messaging (two-way messaging for AI agents on Telegram, iMessage, WhatsApp)
+api: Flow Messaging (two-way messaging for AI agents on Telegram and iMessage; WhatsApp coming)
 base_url: https://api.flow.engineer
 spec: https://api.flow.engineer/openapi.yaml   # OpenAPI 3.1, version 2026-11-01
 llms_txt: https://api.flow.engineer/llms.txt
@@ -30,8 +30,8 @@ cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the
 sandbox_allowance:                           # outbound messages only (inbound is free); GET /v1/app returns allowance
   anonymous: 1 contact, 50 messages in total, Telegram sandbox; the key expires after 7 days
   signed_in: 3 contacts x 100 messages each, no expiry, one allowance per person over all their apps   # iMessage is in neither
-sign_in: "npx @flow-engineer/messaging login"   # GitHub or Google; or POST /v1/device/authorizations, then poll POST /v1/device/token
-dashboard: https://api.flow.engineer/admin    # sign in with GitHub or Google
+sign_in: "npx @flow-engineer/messaging login"   # GitHub; or POST /v1/device/authorizations, then poll POST /v1/device/token
+dashboard: https://api.flow.engineer/admin    # sign in with GitHub
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
 key_prefixes:
@@ -140,7 +140,7 @@ one, writes both to `.env`, and prints the sandbox link and join code).
 
 ### Sandbox allowance
 
-| | Without an account (this key) | Signed in (GitHub or Google) |
+| | Without an account (this key) | Signed in (GitHub) |
 |---|---|---|
 | Contacts | 1 | 3 |
 | Messages | 50 in total | 100 per contact |
@@ -156,7 +156,7 @@ person can still claim the app.
 
 ### Sign in to keep the app
 
-A person signs in with GitHub or Google and the app is **claimed**: its data and keys
+A person signs in with GitHub and the app is **claimed**: its data and keys
 are kept, the expiry is removed, and the app moves under the person's signed-in
 allowance: 3 contacts x 100 messages, **one allowance per person**, shared by every
 app they own or claim (a person may claim up to 10 apps). `allowance.scope` is
@@ -206,10 +206,10 @@ Revoked, ask the person for a key from the dashboard's Keys page, or sign in wit
 the device flow above.
 
 Signed-in people see their apps and keys in the dashboard,
-https://api.flow.engineer/admin (sign in with GitHub or Google). There they can make
+https://api.flow.engineer/admin (sign in with GitHub). There they can make
 **live keys** (`fk_live_...`) themselves (switch to **Live**, then Keys > **Create
 live key**: https://api.flow.engineer/admin/keys?mode=live) and go live on Telegram
-with their own bot (section 7). iMessage lines and WhatsApp numbers are arranged with the Flow team.
+with their own bot (section 7). iMessage lines are arranged with the Flow team; WhatsApp is not available yet.
 
 ## 1. Authenticate
 
@@ -926,7 +926,7 @@ answers `501 not_implemented` for now.
 
 ## 12. MCP server (optional, for development)
 
-**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. Never make the app call the MCP server.
+**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. Never make the app call the MCP server.
 
 The hosted MCP server at `https://api.flow.engineer/mcp` (Streamable HTTP, the same API key as a Bearer token) is an optional tool for testing and operating the integration while you build: with a test key it shows the sandbox join link, sends test messages, waits for events, reads webhook deliveries and replays events; with a live key it reads and answers conversations. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to you, use them for sandbox testing.
 
@@ -963,8 +963,8 @@ key (section 0). After `send_test_message`, pass the `cursor` it returned as `af
 The package `@flow-engineer/messaging` has a CLI you run with `npx`: `init` (gets a
 test key when none is set, writes `.env`, prints the sandbox link and join code) and
 `login` (a person signs in to keep the app), both in section 0. Its TypeScript SDK is
-coming soon (Python and Go after it): until it is published, build on plain HTTP and
-the WebSocket as shown here.
+published (`npm install @flow-engineer/messaging`); the Python and Go SDKs are not
+published yet, so in those languages build on plain HTTP and the WebSocket as shown here.
 
 ## 14. Endpoint index
 

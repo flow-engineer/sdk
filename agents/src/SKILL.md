@@ -5,8 +5,9 @@ description: Use when code must let an AI agent, bot or LLM app send or receive 
 
 # Flow Messaging
 
-One API for an AI agent to talk with people on **WhatsApp, Telegram and iMessage**.
-Flow hosts the senders (bots, numbers, lines); you get typed events in and send typed
+One API for an AI agent to talk with people on **Telegram and iMessage** (iMessage:
+replies only, on lines the Flow team connects; WhatsApp is coming, not available yet).
+Flow hosts the senders (bots, lines); you get typed events in and send typed
 content out. TypeScript SDK: `@flow-engineer/messaging` (Node 18+, Bun, Deno, edge).
 Other languages: the HTTP API at `https://api.flow.engineer` (spec:
 https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml).
@@ -29,7 +30,7 @@ person opens the sandbox link and taps Start first.
 {{> sign-in}} {{> allowance-errors}} In the SDK these are `PermissionError` (with
 `channelCode`) and `AuthenticationError`. Dashboard: {{dashboard_url}}. Going live:
 signed-in users make `fk_live_` keys in the dashboard and connect their own Telegram
-bot; iMessage and WhatsApp senders are arranged with the Flow team. Details:
+bot; iMessage lines are arranged with the Flow team, and WhatsApp is not available yet. Details:
 [CLI and MCP](reference/cli-mcp.md).
 
 ## An agent in 10 lines

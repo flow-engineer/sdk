@@ -1,25 +1,24 @@
 ---
 title: "Pricing"
 sidebarTitle: "Pricing"
-description: "Flow Messaging plans for AI agents on WhatsApp, Telegram and iMessage: Free, Pro, Business and Enterprise. Prices are coming soon; building in the sandbox is free."
+description: "Flow Messaging plans for AI agents: Free, Pro, Business and Enterprise. Prices and plan limits are not decided yet; building in the sandbox is free."
 keywords: ["WhatsApp API pricing for AI agents", "iMessage API pricing", "messaging API pricing"]
 ---
 
-This page lists Flow Messaging's plans. **Prices are coming soon**; building and testing in the sandbox with a test key is free.
+This page lists what is decided about Flow Messaging's pricing. **Prices and what each paid plan includes are not decided yet**; building and testing in the sandbox with a test key is free.
 
 | | Free | Pro | Business | Enterprise |
 |---|---|---|---|---|
-| For | Building and trying Flow | A first agent in production | Teams running agents at scale | Large or regulated deployments |
-| Price | Free | Coming soon | Coming soon | Contact us |
-| Senders | Shared sandbox | Coming soon | Coming soon | Custom |
+| Price | Free | Not decided yet | Not decided yet | Contact the Flow team |
+| What it includes | The sandbox allowance (below) | Not decided yet | Not decided yet | Not decided yet |
 
-Every plan covers WhatsApp, Telegram and iMessage with the same API. Message content and media are kept 30 days by default; retention is set per plan.
+Message content and media are kept 30 days by default; retention will be set per plan.
 
 ## What to know now
 
-- **Test mode is free**, within the sandbox allowance: without an account 1 contact and 50 messages in total (the key expires after 7 days); signed in with GitHub or Google, 3 contacts and 100 messages each, shared by all your apps. Only messages your agent sends count. See [Keys and sign-in](/get-a-key).
-- **WhatsApp's own fees are passed through at cost.** WhatsApp charges per template message by category (marketing, utility, authentication); Flow adds no markup to them.
-- **Plan limits are enforced by the send gate**, as a monthly allowance of new conversations. Replies to people who wrote to you are what agents mostly send.
-- **Test keys take one call**, with no account: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`. Signed in, you make live keys (`fk_live_...`) in the dashboard and go live on Telegram with your own bot; iMessage lines, WhatsApp numbers and billing are arranged with the Flow team.
+- **Test mode is free**, within the sandbox allowance: without an account 1 contact and 50 messages in total on the Telegram sandbox (the key expires after 7 days); signed in with GitHub, 3 contacts and 100 messages each, shared by all your apps. Only messages your agent sends count. See [Keys and sign-in](/get-a-key).
+- **Test keys take one call**, with no account: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`. Signed in, you make live keys (`fk_live_...`) in the dashboard and go live on Telegram with your own bot. iMessage lines are arranged with the Flow team.
+- **WhatsApp is not available yet.** When it is, WhatsApp's own per-message fees (charged by Meta) are passed through.
+- Billing is not live yet; nothing is charged today.
 
 Questions about pricing or volume: ask the Flow team.

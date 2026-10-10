@@ -1,6 +1,6 @@
-## Messaging (WhatsApp, Telegram, iMessage): Flow Messaging
+## Messaging (Telegram, iMessage): Flow Messaging
 
-This project talks with people on WhatsApp, Telegram and iMessage through Flow
+This project talks with people on Telegram and iMessage through Flow
 Messaging (`{{package}}`, API at {{base_url}}, docs at
 {{docs_url}}). The key is `{{env.api_key}}` in `.env` (`fk_test_` keys
 reach only the sandbox: a person opens the sandbox link and taps Start, or sends the
@@ -24,7 +24,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 - Webhooks: `flow.webhooks.handler({ secret, onEvent })` for Request/Response
   frameworks, or `await flow.webhooks.constructEvent(rawBody, signature, secret)`.
 - Reply into a conversation; never choose a channel per message. Contacts may have no phone number.
-- WhatsApp outside 24 h needs a `template`; unsupported content needs `fallback: "auto"`.
+- iMessage is reply-only; WhatsApp is not available yet (when it is, outside 24 h needs a `template`). Unsupported content needs `fallback: "auto"`.
 - Errors are typed classes (`OutsideWindowError`, `UnsupportedContentError`, ...); retries are automatic.
 - Local testing: `npx {{package}} listen --forward-to <url>`, `npx {{package}} send "hi"`.
 - {{> mcp-short}}

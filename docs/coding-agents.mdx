@@ -1,14 +1,16 @@
 ---
 title: "For AI coding agents: integrate Flow Messaging with Claude Code, Codex or Cursor"
 sidebarTitle: "For AI coding agents"
-description: "Instructions for coding agents (Claude Code, Codex, Cursor, ChatGPT) adding WhatsApp, Telegram or iMessage to an AI agent with Flow Messaging: install, environment variables, the MCP server, the skill, and the rules to follow."
+description: "Instructions for coding agents (Claude Code, Codex, Cursor, ChatGPT) adding Telegram or iMessage to an AI agent with Flow Messaging: install, environment variables, the MCP server, the skill, and the rules to follow."
 keywords: ["add WhatsApp to AI agent", "Claude Code WhatsApp", "Codex WhatsApp integration", "MCP server WhatsApp Telegram iMessage", "AI agent SMS iMessage WhatsApp SDK", "messaging MCP server"]
 ---
 
-This page is written for AI coding agents: follow it step by step to give the user's AI agent WhatsApp, Telegram or iMessage with Flow Messaging.
+This page is written for AI coding agents: follow it step by step to give the user's AI agent Telegram or iMessage with Flow Messaging.
+
+What exists today: Telegram is live (the shared sandbox bot with a test key, the user's own bot with a live key). iMessage is live for replies only, on lines the Flow team connects to the user's app; it is not in the sandbox. WhatsApp is not available yet (it waits on Meta's approval), and there is no SMS. If the user asks for WhatsApp, say so and build on Telegram: the code does not change per channel.
 
 <Prompt description="Paste this into Claude Code, Codex or Cursor to have it do the integration." actions={["copy", "cursor"]}>
-Add two-way WhatsApp, Telegram and iMessage messaging to my AI agent using Flow Messaging. Follow https://docs.flow.engineer/coding-agents.md exactly: use FLOW_MESSAGING_KEY if it is set, otherwise get a test key yourself with `npx @flow-engineer/messaging init` (or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`), use the TypeScript SDK `@flow-engineer/messaging` (or the HTTP API at https://api.flow.engineer in other languages), receive `message.received` events, reply with my agent's answer through `event.conversation.reply(...)`, and verify it end to end in the sandbox before you finish. Build on the REST API; the Flow MCP server is an optional development tool that I add myself if I want it.
+Add two-way Telegram messaging (and iMessage replies, if the Flow team has connected a line) to my AI agent using Flow Messaging. Follow https://docs.flow.engineer/coding-agents.md exactly: use FLOW_MESSAGING_KEY if it is set, otherwise get a test key yourself with `npx @flow-engineer/messaging init` (or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`), use the TypeScript SDK `@flow-engineer/messaging` (or the HTTP API at https://api.flow.engineer in other languages), receive `message.received` events, reply with my agent's answer through `event.conversation.reply(...)`, and verify it end to end in the sandbox before you finish. Build on the REST API; the Flow MCP server is an optional development tool that I add myself if I want it.
 </Prompt>
 
 ## 1. Get a key and set up
@@ -43,7 +45,7 @@ Then add the SDK to a TypeScript or JavaScript project:
 npm install @flow-engineer/messaging
 ```
 
-For Python and Go, the SDKs (`flow-messaging` on PyPI, `github.com/flow-engineer/sdk/go`) are coming soon: call the HTTP API directly, as each page's Python and Go examples show.
+The Python and Go SDKs are not published yet: in those languages call the HTTP API directly, as each page's Python and Go examples show.
 
 ## 2. Environment variables
 
@@ -59,7 +61,7 @@ Never hard-code keys, never commit `.env`, and never put a key in browser or mob
 ## 3. The MCP server (optional, for development)
 
 {/* agents:mcp */}
-**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. Never make the app call the MCP server.
+**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. Never make the app call the MCP server.
 
 The hosted MCP server at `https://api.flow.engineer/mcp` (Streamable HTTP, the same API key as a Bearer token) is an optional tool for testing and operating the integration while you build: with a test key it shows the sandbox join link, sends test messages, waits for events, reads webhook deliveries and replays events; with a live key it reads and answers conversations. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to you, use them for sandbox testing.
 
@@ -131,13 +133,13 @@ Do not finish until this works:
 
 ## Rules
 
-- **Build on the REST API (or the SDK once published);** the MCP server is never a runtime dependency.
+- **Build on the REST API (or the TypeScript SDK);** the MCP server is never a runtime dependency.
 - **Use the SDK in TypeScript/JavaScript;** do not hand-roll HTTP calls there.
 - **Reply into the conversation** (`event.conversation`, or `POST /v1/conversations/{conversation_id}/messages`). Never choose a channel per message and never assume a contact has a phone number.
 - **Verify webhook signatures** on the raw body before trusting it; deduplicate on the event `id`.
 - **Answer webhooks within 10 seconds.** Run slow agents after the response (`after()`, `waitUntil()`, a queue) or use the event stream.
 - **Do not send unsupported content blindly.** Set `fallback: "auto"` or check `GET /v1/capabilities`. `reply()` already sets it.
-- **Respect WhatsApp's 24-hour window:** on `outside_window`, send an approved `template`, do not retry the same content.
+- **Never message first on iMessage:** the person writes first; on `outside_window`, wait for them to write, do not retry the same content. (WhatsApp, once available: send an approved `template` instead.)
 - **Test keys only while building.** Do not switch to `fk_live_` unless the user asks.
 - **Do not work around the sandbox allowance.** On `403 permission` with `channel_code` `sandbox_allowance_used` or `sandbox_contact_limit`, or `401 authentication` with `sandbox_key_expired`, do not retry and do not get more keys: ask the user to sign in (`npx @flow-engineer/messaging login --no-wait`, then `login` once they approve).
 

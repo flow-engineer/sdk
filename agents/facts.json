@@ -27,7 +27,7 @@
     "url": "https://api.flow.engineer/mcp",
     "server_name": "flow",
     "owner_rule": "Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself.",
-    "runtime_rule": "MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime.",
+    "runtime_rule": "MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime.",
     "add": {
       "claude": "claude mcp add --transport http flow https://api.flow.engineer/mcp --header \"Authorization: Bearer $FLOW_MESSAGING_KEY\"",
       "codex_toml": "[mcp_servers.flow]\nurl = \"https://api.flow.engineer/mcp\"\nbearer_token_env_var = \"FLOW_MESSAGING_KEY\"",

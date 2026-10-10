@@ -5,8 +5,9 @@ description: Use when code must let an AI agent, bot or LLM app send or receive 
 
 # Flow Messaging
 
-One API for an AI agent to talk with people on **WhatsApp, Telegram and iMessage**.
-Flow hosts the senders (bots, numbers, lines); you get typed events in and send typed
+One API for an AI agent to talk with people on **Telegram and iMessage** (iMessage:
+replies only, on lines the Flow team connects; WhatsApp is coming, not available yet).
+Flow hosts the senders (bots, lines); you get typed events in and send typed
 content out. TypeScript SDK: `@flow-engineer/messaging` (Node 18+, Bun, Deno, edge).
 Other languages: the HTTP API at `https://api.flow.engineer` (spec:
 https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml).
@@ -25,11 +26,11 @@ From code: `await new FlowMessaging().sandbox.createKey()`. A key you already ha
 `init --key fk_test_...`. Test keys reach only the shared sandbox: on their phone the
 person opens the sandbox link and taps Start first.
 
-Sandbox allowance: without an account, 1 contact and 50 messages in total on the Telegram sandbox (WhatsApp's when it opens), and the key expires after 7 days. Signed in (GitHub or Google): 3 contacts x 100 messages each, no expiry, one allowance per person shared by every app they own or claim (up to 10 claimed apps). iMessage is in neither. Only messages your agent sends count. `(await flow.app.retrieve()).allowance` shows what is left.
-To keep the app, a person signs in with GitHub or Google: run `npx @flow-engineer/messaging login --no-wait`, show them the link and code it prints (they open the page, sign in and type the code), and after they approve run `npx @flow-engineer/messaging login` (it replaces `FLOW_MESSAGING_KEY` in `.env` and drops `FLOW_CLAIM_TOKEN`). Past the allowance, sends fail with `403 permission` and `channel_code` `sandbox_allowance_used`, `sandbox_contact_limit`, `sandbox_channel_not_included` or `sign_in_required`; an expired key is `401 authentication` with `sandbox_key_expired`. Do not retry or get more keys: ask the person to sign in. In the SDK these are `PermissionError` (with
+Sandbox allowance: without an account, 1 contact and 50 messages in total on the Telegram sandbox (WhatsApp's when it opens), and the key expires after 7 days. Signed in (GitHub): 3 contacts x 100 messages each, no expiry, one allowance per person shared by every app they own or claim (up to 10 claimed apps). iMessage is in neither. Only messages your agent sends count. `(await flow.app.retrieve()).allowance` shows what is left.
+To keep the app, a person signs in with GitHub: run `npx @flow-engineer/messaging login --no-wait`, show them the link and code it prints (they open the page, sign in and type the code), and after they approve run `npx @flow-engineer/messaging login` (it replaces `FLOW_MESSAGING_KEY` in `.env` and drops `FLOW_CLAIM_TOKEN`). Past the allowance, sends fail with `403 permission` and `channel_code` `sandbox_allowance_used`, `sandbox_contact_limit`, `sandbox_channel_not_included` or `sign_in_required`; an expired key is `401 authentication` with `sandbox_key_expired`. Do not retry or get more keys: ask the person to sign in. In the SDK these are `PermissionError` (with
 `channelCode`) and `AuthenticationError`. Dashboard: https://api.flow.engineer/admin. Going live:
 signed-in users make `fk_live_` keys in the dashboard and connect their own Telegram
-bot; iMessage and WhatsApp senders are arranged with the Flow team. Details:
+bot; iMessage lines are arranged with the Flow team, and WhatsApp is not available yet. Details:
 [CLI and MCP](reference/cli-mcp.md).
 
 ## An agent in 10 lines
@@ -87,7 +88,7 @@ it is async and needs the **raw** body. Local development: `npx @flow-engineer/m
 - Errors are classes per `error.type` (`OutsideWindowError`, `RateLimitError`,
   `NewContactLimitError`, ...). Retries with idempotency keys are automatic.
 - Deliveries are at least once: deduplicate on `event.id`.
-- MCP server (optional, for development): `https://api.flow.engineer/mcp`, with the same key as a Bearer token. MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. For Claude Code the command is `claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"` (Codex and Cursor: section 12 of https://api.flow.engineer/docs/quickstart.md). If its tools are already available to you, use them for sandbox testing; after a test send, wait for `message.sent` or `message.failed`.
+- MCP server (optional, for development): `https://api.flow.engineer/mcp`, with the same key as a Bearer token. MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. For Claude Code the command is `claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"` (Codex and Cursor: section 12 of https://api.flow.engineer/docs/quickstart.md). If its tools are already available to you, use them for sandbox testing; after a test send, wait for `message.sent` or `message.failed`.
 
 More: [API and content types](reference/api.md) · [frameworks](reference/frameworks.md) ·
 [CLI and MCP](reference/cli-mcp.md) · docs https://docs.flow.engineer

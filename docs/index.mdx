@@ -1,12 +1,12 @@
 ---
 title: "Flow Messaging: WhatsApp, Telegram and iMessage API for AI agents"
 sidebarTitle: "Introduction"
-description: "One API and SDK to give your AI agent WhatsApp, Telegram and iMessage. Receive messages by webhook or live stream, reply with text, media, buttons and streamed LLM answers, and start conversations through one send gate."
+description: "One API and SDK to give your AI agent Telegram and iMessage, with WhatsApp coming. Receive messages by webhook or live stream, reply with text, media, buttons and streamed LLM answers, and send through one send gate."
 keywords: ["WhatsApp API for AI agents", "iMessage API for AI agents", "Telegram bot API for AI agents", "AI agent messaging API", "AI agent SMS iMessage WhatsApp SDK", "conversational AI messaging API"]
 "og:title": "Flow Messaging: one API to give AI agents WhatsApp, Telegram and iMessage"
 ---
 
-Flow Messaging is a two-way messaging API that lets an AI agent talk with people on **WhatsApp**, **Telegram** and **iMessage** through one HTTP API, one event format and one set of SDKs.
+Flow Messaging is a two-way messaging API that lets an AI agent talk with people on **Telegram** and **iMessage** through one HTTP API, one event format and one SDK. **WhatsApp** is coming (it waits on Meta's approval) and uses the same API.
 
 ```ts TypeScript
 import { FlowMessaging, contentText } from "@flow-engineer/messaging";
@@ -19,16 +19,16 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 }
 ```
 
-That loop is a working agent on every channel. Swap the reply for your model's answer and you are done: [Quickstart](/quickstart) takes about 5 minutes.
+That loop is a working agent on every live channel, with no per-channel code. Swap the reply for your model's answer and you are done: [Quickstart](/quickstart) takes about 5 minutes.
 
-No account needed to start: one call gets a test key (`curl -X POST https://api.flow.engineer/v1/sandbox/keys`, or `npx @flow-engineer/messaging init`). Sign in with GitHub or Google later to keep the app. See [Keys and sign-in](/get-a-key).
+No account needed to start: one call gets a test key (`curl -X POST https://api.flow.engineer/v1/sandbox/keys`, or `npx @flow-engineer/messaging init`). Sign in with GitHub later to keep the app. See [Keys and sign-in](/get-a-key).
 
 ## How it works
 
-1. Flow hosts the **senders**: a Telegram bot, a WhatsApp number or an iMessage line. Start on the shared sandbox; move to your own dedicated sender to go live.
+1. Flow hosts the **senders**: a Telegram bot or an iMessage line (and WhatsApp numbers once WhatsApp is available). Start on the shared Telegram sandbox bot; go live with your own Telegram bot, or an iMessage line the Flow team connects to your app.
 2. A person messages your sender. Flow stores the message and delivers it to you as an **event**: by signed webhook, by a live WebSocket stream, or by polling the event log.
-3. Your agent replies into the **conversation** with typed content (text, media, voice, buttons, reactions, templates). Streamed LLM answers become natural chat bubbles.
-4. Every send passes one **send gate** that applies each channel's rules (WhatsApp's 24-hour window, new-contact limits, pacing), so your sender stays healthy.
+3. Your agent replies into the **conversation** with typed content (text, media, voice notes, buttons, reactions). Streamed LLM answers become natural chat bubbles.
+4. Every send passes one **send gate** that applies each channel's rules (who may be messaged, new-contact limits, pacing), so your sender stays healthy.
 5. Delivery updates (`message.sent`, `delivered`, `read`, `failed`) come back as events in the same ordered log.
 
 You never handle channel credentials, channel webhooks or per-channel payload formats.
@@ -46,20 +46,22 @@ You never handle channel credentials, channel webhooks or per-channel payload fo
 
 | Language | Package | Status |
 |---|---|---|
-| TypeScript / JavaScript | `npm install @flow-engineer/messaging` | Beta |
-| Python | `pip install flow-messaging` | Coming soon; use the HTTP API |
-| Go | `go get github.com/flow-engineer/sdk/go` | Coming soon; use the HTTP API |
+| TypeScript / JavaScript | `npm install @flow-engineer/messaging` | Published (0.1.0), beta |
+| Python | Not published yet | Use the HTTP API |
+| Go | Not published yet | Use the HTTP API |
 | Any language | HTTP at `https://api.flow.engineer` ([OpenAPI spec](https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml)) | Beta |
 
 The SDKs are open source (Apache-2.0) at [github.com/flow-engineer/sdk](https://github.com/flow-engineer/sdk).
 
 ## Channels
 
-| Channel | What your agent talks from | Notes |
-|---|---|---|
-| Telegram | A Flow sandbox bot, or your own bot | Bring a bot token to go live in minutes. |
-| WhatsApp | A Flow sandbox number, or your own dedicated number | Free-form replies within 24 hours of the person's last message; templates after that. |
-| iMessage | A Flow sandbox line, or your own dedicated line | Replies to people who wrote first; writing first only on a line that can start conversations, budgeted per line with a warm-up. |
+| Channel | Status | What your agent talks from | Notes |
+|---|---|---|---|
+| Telegram | Live | Flow's sandbox bot (test key), or your own bot (live key) | Bring a bot token to go live in minutes. |
+| iMessage | Live, replies only | A line the Flow team connects to your app (live key) | The person always writes first; your agent replies. Not part of the sandbox. Ask the Flow team for a line. |
+| WhatsApp | Coming (waiting on Meta's approval) | Not available yet | When it ships: free-form replies within 24 hours of the person's last message, templates after that. |
+
+There is no SMS channel yet and no voice calling.
 
 <Note>
 Flow Messaging is in **beta**. The API shape may still change; changes ship as new dated versions (see [Versioning](/concepts/versioning)). `GET /v1/senders` lists the sandbox senders your test key can use right now.
@@ -71,11 +73,11 @@ Flow Messaging is in **beta**. The API shape may still change; changes ship as n
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Receive and answer your first message in 5 minutes.
   </Card>
-  <Card title="Build a WhatsApp agent" icon="whatsapp" href="/guides/whatsapp-agent">
-    Windows, templates and buttons on WhatsApp.
+  <Card title="Build a Telegram agent" icon="telegram" href="/guides/telegram-agent">
+    The sandbox bot, then your own bot.
   </Card>
   <Card title="Build an iMessage agent" icon="apple" href="/guides/imessage-agent">
-    Tapbacks, effects and new-contact limits.
+    Replies, tapbacks and effects on a Flow-connected line.
   </Card>
   <Card title="For AI coding agents" icon="robot" href="/coding-agents">
     Let Claude Code or Codex do the integration.

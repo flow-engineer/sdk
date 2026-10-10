@@ -469,20 +469,23 @@ export interface paths {
         put?: never;
         /**
          * Request a dedicated sender
-         * @description Asks Flow for a dedicated sender: a branded WhatsApp number, an iMessage line
-         *     or a Telegram bot. Flow provisions it; the sender starts as `pending` and you
-         *     receive `sender.status_changed` when it is ready. WhatsApp numbers also need
-         *     your business verified through Meta's Embedded Signup; the Flow team sends
-         *     you the link. Live keys only.
+         * @description Connects a dedicated sender to your app. Today this connects a Telegram bot
+         *     (below). iMessage lines are connected by the Flow team, not by API: a request
+         *     with `channel: "imessage"` answers `501 not_implemented`; ask the Flow team,
+         *     and the line then appears in `GET /v1/senders`. WhatsApp is not available
+         *     yet (it waits on Meta's approval), so `channel: "whatsapp"` answers `501
+         *     not_implemented`; once it ships, a WhatsApp number starts as `pending`, you
+         *     receive `sender.status_changed` when it is ready, and your business is
+         *     verified through Meta's Embedded Signup. Live keys only.
          *
          *     To get a live key (`fk_live_...`), a person signs in to the dashboard at
-         *     `https://api.flow.engineer/admin` (GitHub or Google), switches to **Live**,
+         *     `https://api.flow.engineer/admin` (GitHub), switches to **Live**,
          *     and clicks **Create live key** on the Keys page
          *     (`https://api.flow.engineer/admin/keys?mode=live`). An app made without an
          *     account (`POST /v1/sandbox/keys`) is claimed first, by signing in through the
          *     device flow or its `claim_url`. A test key gets `403 permission` here, with
-         *     a `hint` naming these steps. Telegram bots are self-serve; iMessage lines and
-         *     WhatsApp numbers are arranged with the Flow team.
+         *     a `hint` naming these steps. Telegram bots are self-serve; iMessage lines are
+         *     arranged with the Flow team.
          *
          *     A Telegram bot is connected at once: give the token BotFather issued as
          *     `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
@@ -810,8 +813,8 @@ export interface paths {
          *
          *     The key and the `claim_token` are shown **once**: save both. The app has a
          *     sandbox allowance of 1 contact and 50 messages sent in total on the
-         *     Telegram and WhatsApp sandboxes (inbound messages are free; iMessage is
-         *     not included), and its keys **expire after 7 days**. After expiry the keys
+         *     Telegram sandbox, and WhatsApp's when it opens (inbound messages are free;
+         *     iMessage is not included), and its keys **expire after 7 days**. After expiry the keys
          *     stop working and the contact is removed from the sandbox; a person can
          *     still claim the app.
          *
@@ -846,7 +849,7 @@ export interface paths {
         put?: never;
         /**
          * Start a sign-in from an agent or CLI (device flow)
-         * @description Starts a sign-in that a person finishes in a browser with GitHub or Google
+         * @description Starts a sign-in that a person finishes in a browser with GitHub
          *     (the OAuth 2.0 device authorization grant, RFC 8628, in Flow's JSON shape).
          *     Show the person `verification_uri` and `user_code`: they open the page,
          *     sign in and type the code you show them. Then poll `POST /v1/device/token`
@@ -1193,7 +1196,7 @@ export interface components {
          */
         SandboxAllowance: {
             /**
-             * @description `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in with GitHub or Google.
+             * @description `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (GitHub; Google sign-in is not enabled yet).
              * @enum {string}
              */
             tier: "anonymous" | "signed_in";
@@ -1259,7 +1262,7 @@ export interface components {
             claim_token: string;
             /**
              * Format: uri
-             * @description A page where a person signs in with GitHub or Google and claims the app in the browser, without the CLI. It holds the claim token, so treat it like one. The claim hands out no key and revokes the app's keys unless the person ticks "Keep my agent's current key working"; afterwards they make keys on the dashboard's Keys page.
+             * @description A page where a person signs in with GitHub and claims the app in the browser, without the CLI. It holds the claim token, so treat it like one. The claim hands out no key and revokes the app's keys unless the person ticks "Keep my agent's current key working"; afterwards they make keys on the dashboard's Keys page.
              * @example https://api.flow.engineer/admin/claim#token=fct_...
              */
             claim_url: string;
@@ -3584,7 +3587,7 @@ export interface operations {
                     "application/json": components["schemas"]["Sender"];
                 };
             };
-            /** @description The request was accepted. The sender is `pending` (WhatsApp numbers and iMessage lines); you receive `sender.status_changed` when it is ready. */
+            /** @description The request was accepted. The sender is `pending` (WhatsApp numbers, once WhatsApp is available); you receive `sender.status_changed` when it is ready. */
             202: {
                 headers: {
                     [name: string]: unknown;

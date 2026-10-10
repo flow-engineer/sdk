@@ -1,5 +1,5 @@
 ---
-title: "Events and webhooks: receive WhatsApp, Telegram and iMessage messages"
+title: "Events and webhooks: receive Telegram and iMessage messages"
 sidebarTitle: "Events and webhooks"
 description: "Everything your agent receives is an event in one ordered log, delivered by signed webhook, by a live WebSocket stream, or by polling. Verify signatures, handle retries and ordering, and reply straight from the webhook response."
 keywords: ["WhatsApp webhook for AI agent", "receive WhatsApp messages webhook", "Telegram webhook AI agent", "iMessage webhook API", "webhook signature verification HMAC", "reply in webhook response"]
@@ -44,17 +44,16 @@ All three read the same log, so you can mix them: for example a webhook in produ
   "livemode": true,
   "conversation": {
     "id": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
-    "channel": "whatsapp",
+    "channel": "telegram",
     "sender": "snd_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
-    "contact": "ct_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
-    "window_open_until": "2026-11-04T10:15:00Z"
+    "contact": "ct_01JB8ZC3K5M7P9R1T3V5X7Z9B1"
   },
   "data": {
     "message": {
       "id": "msg_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
       "direction": "in",
       "status": "received",
-      "content": { "type": "voice", "url": "https://api.flow.engineer/v1/files/file_01JB8ZC3K5M7P9R1T3V5X7Z9B1", "transcript": "Do you deliver to 560103?" }
+      "content": { "type": "text", "text": "Do you deliver to 560103?" }
     }
   },
   "timing": { "received_at": "2026-11-03T10:15:00.012Z", "stored_at": "2026-11-03T10:15:00.020Z", "delivered_at": "2026-11-03T10:15:00.041Z" }
@@ -73,9 +72,9 @@ All three read the same log, so you can mix them: for example a webhook in produ
 | `reaction.added`, `reaction.removed` | The contact reacted to a message. |
 | `typing.started`, `typing.stopped` | The contact is typing, where the channel reports it. |
 | `conversation.started` | A new contact wrote first, joined the sandbox, or you started a conversation (`via`). |
-| `conversation.window_closing` | WhatsApp only, opt-in: the 24-hour window closes in 1 hour. |
-| `sender.status_changed` | A sender was throttled, flagged, banned or restored, or its WhatsApp quality changed. |
-| `template.status_changed` | A WhatsApp template was approved, rejected or paused. |
+| `conversation.window_closing` | WhatsApp only (not available yet), opt-in: the 24-hour window closes in 1 hour. |
+| `sender.status_changed` | A sender was throttled, flagged, banned or restored (or, once WhatsApp is available, its quality changed). |
+| `template.status_changed` | A WhatsApp template was approved, rejected or paused (WhatsApp is not available yet). |
 
 Status events are high volume. Each webhook endpoint subscribes to the types it lists, so subscribe only to what you use.
 
@@ -138,7 +137,7 @@ app.listen(3000);
 ```
 
 ```python Python (FastAPI)
-# The Python SDK (flow-messaging) will ship this as flow.webhooks.construct_event.
+# The Python SDK is not published yet, so this checks the signature by hand.
 import hashlib, hmac, json, os, time
 from fastapi import FastAPI, Request, Response
 
@@ -167,7 +166,7 @@ async def flow_webhook(request: Request):
 ```
 
 ```go Go (net/http)
-// The Go SDK (github.com/flow-engineer/sdk/go) will ship this as webhook.ConstructEvent.
+// The Go SDK is not published yet, so this checks the signature by hand.
 package main
 
 import (

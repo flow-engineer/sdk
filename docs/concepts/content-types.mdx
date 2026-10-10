@@ -1,5 +1,5 @@
 ---
-title: "Content types: text, media, voice notes, buttons and reactions on every channel"
+title: "Content types: text, media, voice notes, buttons and reactions per channel"
 sidebarTitle: "Content types"
 description: "Every message carries one typed piece of content: text, media, voice, buttons, reactions, WhatsApp templates, locations, contact cards and iMessage effects. See what WhatsApp, Telegram and iMessage each show, and how fallbacks work."
 keywords: ["send WhatsApp buttons API", "iMessage tapback API", "Telegram inline keyboard AI agent", "WhatsApp voice note API", "send image WhatsApp API", "messaging content types"]
@@ -34,7 +34,9 @@ await conversation.send({
 
 ## What each channel shows
 
-| `type` | Telegram | WhatsApp | iMessage | `fallback: "auto"` sends |
+WhatsApp is not available yet; its column shows what it will support.
+
+| `type` | Telegram | WhatsApp (coming) | iMessage | `fallback: "auto"` sends |
 |---|---|---|---|---|
 | `text` | yes | yes | yes | markdown becomes plain text |
 | `media` | yes | yes | yes | none |
@@ -73,11 +75,12 @@ A reply to numbered-text buttons ("2") still arrives as a `button_reply` with th
 Inbound messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `location`, `contact_card` and `file_blocked`.
 
 - **Media and voice notes** always come with the file: `url` (a Flow file URL that redirects to short-lived signed bytes) and `file_id`. Fetch it with your API key, or with `flow.files.download(url)`.
-- **Voice note transcripts**: with transcription on for your app, `voice` content also has `transcript`, so your model can read what was said. The audio is always included either way.
+- **Voice note transcripts**: Flow does not transcribe voice notes yet (the app setting `transcription` cannot be turned on). On iMessage, a voice note may carry a `transcript` when the channel provides one; on Telegram it never does. The audio is always included.
 - **Button taps** arrive as `button_reply` with `button_id` and `label`.
-- **`file_blocked`** means the person sent a file Flow did not keep: it failed the malware scan, its type is not passed on (programs, web pages), it could not be scanned, or it was too large. The `reason` says which, and there is no `url`. Documents (PDF, Office, archives) are scanned; images, audio and video are not.
+- **`file_blocked`** means the person sent a file Flow did not keep: its type is not passed on (programs, web pages), it was too large, or (once malware scanning is on) it failed or could not get the scan. The `reason` says which, and there is no `url`.
+- **Documents are not malware-scanned yet.** Documents and archives people send you (PDF, Office files, zip and the like) are kept unscanned: treat them as untrusted.
 
-In TypeScript, `contentText(content)` returns the readable text of any content: the text, a caption, a transcript or a tapped button's label.
+In TypeScript, `contentText(content)` returns the readable text of any content: the text, a caption, a transcript (when there is one) or a tapped button's label.
 
 ## Sending files
 
@@ -86,10 +89,10 @@ Give media as an HTTPS `url` Flow can fetch, or upload it first and send its `fi
 ```bash curl
 curl https://api.flow.engineer/v1/files \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
-  -F file=@brochure.pdf -F channel=whatsapp
+  -F file=@receipt.png -F channel=telegram
 ```
 
-Files up to 100 MB are taken; with `channel` set, the file is checked against that channel's limit at once. Files are kept for your plan's retention period (30 days by default).
+Files up to 100 MB are taken; with `channel` set, the file is checked against that channel's limit at once. Until malware scanning is on, uploads of documents and archives (PDF, Office files, zip and the like) are refused with `422` [`unsupported_content`](/errors/unsupported_content), and so are sends of documents people sent you; images, audio and video are not affected. Files are kept for your plan's retention period (30 days by default).
 
 ## Typing, read receipts, edits and reactions
 
