@@ -356,7 +356,11 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   the contact saw (for example numbered text for buttons on SMS; answering `2`
   comes back as `button_reply`).
 - The channel's rules apply to what the contact sends: no documents or locations
-  over SMS (`422 unsupported_content`), text up to the channel's `max_text_length`.
+  over SMS (`422 unsupported_content`), text up to the channel's `max_text_length`,
+  no inline `reply_to` on SMS; an SMS contact's `phone` is a US number (`+1` and ten
+  digits). On SMS and iMessage the contact answers buttons with their number (`"2"`).
+  A simulated iMessage line, like Flow's real lines, only replies: post a turn
+  before your agent sends.
 - Free: simulated traffic is not in the sandbox allowance; only the key's rate limit
   applies. The gate skips pacing, new-contact budgets and abuse throttling for
   simulated senders, so tests can run in parallel.

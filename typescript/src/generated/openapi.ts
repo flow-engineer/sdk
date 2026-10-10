@@ -943,7 +943,10 @@ export interface paths {
          *     (`kind` `simulated`), which Flow creates on first use. It never touches a
          *     network: sends to the simulated contact pass the real send gate and end
          *     `sent`. Simulated channels: `telegram`, `imessage` and `sms`; `whatsapp`
-         *     answers `501 not_implemented` until WhatsApp ships.
+         *     answers `501 not_implemented` until WhatsApp ships. The channel's rules
+         *     hold as on a real sender: a simulated iMessage line, like Flow's lines
+         *     today, only replies, so the contact writes first; on SMS and iMessage
+         *     buttons need `fallback` and the contact answers with the button's number.
          *
          *     Creating the conversation sends no event. The contact's first turn starts it
          *     as a real contact's first message does: `conversation.started` (`via`
@@ -2896,7 +2899,7 @@ export interface components {
          *     on Telegram. Omit `contact` to get a new contact with a made-up address.
          */
         TestContactAddress: {
-            /** @description SMS or iMessage. E.164 phone number. */
+            /** @description SMS or iMessage. E.164 phone number; on SMS a US number (`+1` and ten digits). */
             phone?: string;
             /** @description iMessage. A phone number or an email address. */
             handle?: string;
@@ -2911,7 +2914,7 @@ export interface components {
              *     `POST /v1/files`. Other types answer `400 invalid_request`.
              */
             content: components["schemas"]["Content"];
-            /** @description A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, iMessage). The received message shows it in `reply_to`. */
+            /** @description A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`. */
             reply_to?: components["schemas"]["MessageId"];
         };
         /** @description A simulated turn Flow accepted. Its `message.received` event follows. */
