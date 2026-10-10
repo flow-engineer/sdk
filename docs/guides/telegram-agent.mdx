@@ -57,7 +57,9 @@ Flow checks the token, keeps it encrypted, points the bot's webhook at Flow and 
 The bot token controls your bot. Never paste it into a chat with an AI assistant (including your coding agent), and never commit it. Keep it in an environment variable and send it from your own server or terminal, as above.
 </Warning>
 
-Removing a sender (`DELETE /v1/senders/{id}`) is coming soon.
+To disconnect the bot, call `DELETE /v1/senders/{sender_id}` with your live key: Flow removes the bot's webhook, deletes its token and retires the sender (`banned`).
+
+If Telegram rejects the token (you revoked it in @BotFather), the sender turns `flagged`: new sends answer `403 permission` and queued messages are held. Send the new token the same way (`POST /v1/senders`) and the same sender becomes `active` again and sends them. A held message waits at most 72 hours after Flow accepted it; after that it fails with `outside_window` (`channel_code` `queued_too_long`) in `message.failed` instead of going out late.
 
 <Warning>
 A bot can have only one webhook. Connecting a bot to Flow replaces any webhook it had, so do not keep another server polling or receiving updates for the same bot.

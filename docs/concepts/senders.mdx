@@ -61,8 +61,8 @@ Each sender has its own status and budget for starting conversations:
 | `active` | Sending normally. |
 | `warming_up` | Active, with a new-contact budget that grows day by day. |
 | `throttled` | Slowed after an abuse signal; recovers by itself at `throttled_until`. Replies still go. |
-| `flagged` | Flagged by the channel or by Flow; starting conversations is paused. |
-| `banned` | Banned by the channel; it cannot send. |
+| `flagged` | Flagged by the channel or by Flow; starting conversations is paused. A Telegram bot whose token Telegram rejected is `flagged` and holds its queued messages until you send the new token (`POST /v1/senders`); held messages fail with `outside_window` (`channel_code` `queued_too_long`) after 72 hours. |
+| `banned` | It cannot send or receive: the channel banned it, you disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was connected to another app. |
 
 `limits.new_contacts_per_day` and `limits.new_contacts_per_hour` are the sender's current budget for starting conversations; WhatsApp senders also show `quality_rating` and `limits.whatsapp_tier`. Every change arrives as a `sender.status_changed` event. The rules behind them are on [The send gate](/concepts/send-gate).
 

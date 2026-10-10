@@ -53,5 +53,6 @@ react, typing and list conversations.
 
 After a test send, wait for `message.sent` or `message.failed` (with the send's
 `cursor` as `after`), not `message.delivered`: not every channel reports delivery.
-`wait_for_event` waits up to about 50 seconds per call; call it again with its
-`next_after` to keep waiting.
+`wait_for_event` waits up to 50 seconds per call (default 25; a longer
+`timeout_seconds` is clamped to 50, with a note, not refused); call it again with
+its `next_after` to keep waiting.

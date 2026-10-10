@@ -58,7 +58,7 @@ export const POST = flow.webhooks.handler({
 
 ## MCP server
 
-`https://api.flow.engineer/mcp` (Streamable HTTP, bearer API key) or, once the npm package ships, `npx -y @flow-engineer/messaging mcp` (stdio). Name the server `flow`. Test keys get build tools (`whoami`, `sandbox_join`, `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`, `capabilities`, `explain_error`); live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`. After a send, wait for `message.sent` or `message.failed`, not `message.delivered` (not every channel reports delivery). Each `wait_for_event` call waits up to about 50 seconds; call it again with `after` set to the returned `next_after` to keep waiting.
+`https://api.flow.engineer/mcp` (Streamable HTTP, bearer API key) or, once the npm package ships, `npx -y @flow-engineer/messaging mcp` (stdio). Name the server `flow`. Test keys get build tools (`whoami`, `sandbox_join`, `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`, `capabilities`, `explain_error`); live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`. After a send, wait for `message.sent` or `message.failed`, not `message.delivered` (not every channel reports delivery). Each `wait_for_event` call waits up to 50 seconds (a longer `timeout_seconds` is clamped to 50, with a note, not refused); call it again with `after` set to the returned `next_after` to keep waiting.
 
 ## Docs
 

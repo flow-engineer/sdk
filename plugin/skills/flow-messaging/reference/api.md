@@ -17,6 +17,7 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 | `flow.files.upload({ file, filename })` (`file`: Blob, Uint8Array/Buffer or ArrayBuffer; returns a `File` whose `id` is the `file_id`) · `.download(id)` | `POST /v1/files` · `GET /v1/files/{id}` |
 | `flow.webhookEndpoints.create({ url, events })` (+ list, retrieve, update, delete) · `.rotateSecret(id, { overlap_seconds })` | `/v1/webhook_endpoints` · `POST .../{id}/rotate_secret` |
 | `flow.senders.list()` · `flow.contacts.list()` · `flow.templates.list()` · `flow.app.retrieve()` | `/v1/senders` · `/v1/contacts` · `/v1/templates` · `/v1/app` |
+| `flow.senders.request({ channel: "telegram", telegram_bot_token })` · `.disconnect(id)` (live keys) | `POST /v1/senders` · `DELETE /v1/senders/{id}` |
 
 Handle helpers: `flow.conversation(id)` or `event.conversation` gives `.reply(x)`,
 `.send(x)`, `.typing("on")`, `.markRead()`, `.react(msgId, "👍")`,

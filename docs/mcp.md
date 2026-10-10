@@ -102,8 +102,8 @@ A typical session, in the agent's words:
 4. `wait_for_event` with `types: ["message.sent", "message.failed"]` and
    `after` set to the `cursor` the send returned. Wait for these two, not
    `message.delivered`: every send ends in one of them, while delivery is reported
-   only by some channels. If the call times out (about 50 seconds), call it again
-   with the `next_after` it returned.
+   only by some channels. If the call times out (at most 50 seconds; a longer `timeout_seconds` is clamped to 50, with a note), call it
+   again with the `next_after` it returned.
 5. After wiring a webhook: `get_webhook_deliveries` to see what your server
    answered, fix it, `replay_event`, and check again.
 

@@ -77,7 +77,7 @@ curl https://api.flow.engineer/v1/templates \
 
 Create a bot with **@BotFather** and send its token: `POST /v1/senders` with `channel: "telegram"` and `telegram_bot_token`. It is connected and `active` at once. See [Build a Telegram agent](/guides/telegram-agent#2-your-own-telegram-bot).
 
-- **New token:** after revoking a token in @BotFather, send the new one the same way. The bot stays the same sender; one Telegram rejected meanwhile is `flagged` until you do.
+- **New token:** after revoking a token in @BotFather, send the new one the same way. The bot stays the same sender; one Telegram rejected meanwhile is `flagged` until you do. Messages queued while it is flagged wait at most 72 hours, then fail with `outside_window` (`channel_code` `queued_too_long`).
 - **Disconnect:** `DELETE /v1/senders/{sender_id}` removes the bot's webhook and token and retires the sender.
 - **One app per bot:** connecting a bot to another app moves it there and retires the old sender.
 

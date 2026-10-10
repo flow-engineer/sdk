@@ -121,7 +121,7 @@ Do not finish until this works:
 
 1. Ask the user to join the sandbox from their phone, if they have not: give them the sandbox sender's link from `sandbox_join` (or `GET /v1/senders`). On Telegram, opening the link and tapping **Start** joins; otherwise they send `join <code>`, for example `join wild-otter-04508705`.
 2. Start the app (reading `GET /v1/stream` when developing locally without a public URL).
-3. With the MCP server, call `send_test_message` or ask the user to send a message, then `wait_for_event` for `message.received`. After a send, wait for `message.sent` or `message.failed` (not `message.delivered`, which not every channel reports). Each `wait_for_event` call waits up to about 50 seconds; if it times out, call it again with `after` set to the `next_after` it returned.
+3. With the MCP server, call `send_test_message` or ask the user to send a message, then `wait_for_event` for `message.received`. After a send, wait for `message.sent` or `message.failed` (not `message.delivered`, which not every channel reports). Each `wait_for_event` call waits up to 50 seconds (a longer `timeout_seconds` is clamped to 50, with a note, not refused); if it times out, call it again with `after` set to the `next_after` it returned.
 4. If a delivery failed, read it with `get_webhook_deliveries`, fix the handler, and `replay_event`.
 
 ## Rules

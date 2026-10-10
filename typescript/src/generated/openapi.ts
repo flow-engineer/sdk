@@ -443,8 +443,8 @@ export interface paths {
          * @description Asks Flow for a dedicated sender: a branded WhatsApp number, an iMessage line
          *     or a Telegram bot. Flow provisions it; the sender starts as `pending` and you
          *     receive `sender.status_changed` when it is ready. WhatsApp numbers also need
-         *     your business verified through Meta's Embedded Signup, linked from the
-         *     dashboard. Live keys only.
+         *     your business verified through Meta's Embedded Signup; the Flow team sends
+         *     you the link. Live keys only.
          *
          *     A Telegram bot is connected at once: give the token BotFather issued as
          *     `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
@@ -873,7 +873,7 @@ export interface components {
         };
         /**
          * @description What went wrong. A closed list: new types arrive only with a new API version.
-         *     Each type has a page at `https://docs.flow.engineer/errors/<type>`, given in
+         *     Each type has a page at `https://api.flow.engineer/docs/errors/<type>`, given in
          *     the error's `doc_url`; the error's `hint` says what to change for the case.
          *
          *     - `invalid_request` (400): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like.
@@ -908,8 +908,8 @@ export interface components {
             hint: string;
             /**
              * Format: uri
-             * @description The documentation page for this error's type, `https://docs.flow.engineer/errors/<type>`. It says what the error means, why it happens and how to fix it, with code.
-             * @example https://docs.flow.engineer/errors/outside_window
+             * @description The documentation page for this error's type, `https://api.flow.engineer/docs/errors/<type>`. It says what the error means, why it happens and how to fix it, with code.
+             * @example https://api.flow.engineer/docs/errors/outside_window
              */
             doc_url: string;
             /** @description The request parameter the error is about, as a dotted path (`content.buttons`, `limit`). */
@@ -947,7 +947,7 @@ export interface components {
         App: {
             id: components["schemas"]["AppId"];
             account: components["schemas"]["AccountId"];
-            /** @description The app's name, shown in the dashboard. */
+            /** @description The app's name. */
             name: string;
             /**
              * Format: date
@@ -955,7 +955,10 @@ export interface components {
              */
             api_version: string;
             settings: components["schemas"]["AppSettings"];
-            /** @description The code a contact sends to a shared sandbox sender to join this app, for example `join brave-otter`. */
+            /**
+             * @description The app's sandbox join code on its own, without the word `join`: two words and eight digits, for example `brave-otter-40718263`. A contact joins this app by sending `join ` followed by it to a shared sandbox sender (`join brave-otter-40718263`); each shared sender's `join_code` gives that whole message.
+             * @example brave-otter-40718263
+             */
             sandbox_join_code?: string;
             /**
              * Format: date-time
@@ -963,7 +966,7 @@ export interface components {
              */
             created_at: string;
         };
-        /** @description Per-app behaviour, set in the dashboard. */
+        /** @description Per-app behaviour. The Flow team sets it for now; ask them to change it. */
         AppSettings: {
             /** @description When on, inbound voice notes carry a `transcript` (adds about 1 to 2 seconds to voice notes only). */
             transcription: boolean;
@@ -1021,7 +1024,10 @@ export interface components {
              * @enum {string}
              */
             quality_rating?: "green" | "yellow" | "red" | "unknown";
-            /** @description Shared senders only. What a contact sends to join your app, for example `join brave-otter`. */
+            /**
+             * @description Shared senders only. The whole message a contact sends to this sender to join your app: `join `, a space, then the app's `sandbox_join_code` (from `GET /v1/app`), for example `join brave-otter-40718263`. Show it to testers as is.
+             * @example join brave-otter-40718263
+             */
             join_code?: string;
             /**
              * Format: date-time
@@ -2284,7 +2290,9 @@ export interface components {
         /**
          * @description The optional body of your answer to a `message.received` delivery. `reply` is
          *     one piece of content or a list of up to 10, sent in order into the event's
-         *     conversation through the send gate. Leave `reply` out, set it to `null`, or
+         *     conversation through the send gate. A non-empty string, as `reply` or as an
+         *     item of the list, is text: `{"reply": "Hi"}` is short for
+         *     `{"reply": {"type": "text", "text": "Hi"}}`. Leave `reply` out, set it to `null`, or
          *     answer `{}`, an empty body or any body that is not a JSON object (such as
          *     `OK`) to send nothing now; that is not an error.
          *
@@ -2317,8 +2325,8 @@ export interface components {
          *     }
          */
         WebhookReply: {
-            /** @description One piece of content, or a list of 1 to 10 pieces sent in order. `null` sends nothing. */
-            reply?: components["schemas"]["Content"] | components["schemas"]["Content"][] | null;
+            /** @description One piece of content, or a list of 1 to 10 pieces sent in order. A non-empty string is text content. `null` sends nothing. */
+            reply?: components["schemas"]["Content"] | string | (components["schemas"]["Content"] | string)[] | null;
             /** @description What to send when the channel cannot show a piece of `reply`, as on HTTP sends. It applies to every piece. */
             fallback?: components["schemas"]["Fallback"];
         };
@@ -2345,7 +2353,7 @@ export interface components {
                  *         "type": "invalid_request",
                  *         "message": "limit must be between 1 and 100.",
                  *         "hint": "Pass limit between 1 and 100 (default 20), and page with after or before.",
-                 *         "doc_url": "https://docs.flow.engineer/errors/invalid_request",
+                 *         "doc_url": "https://api.flow.engineer/docs/errors/invalid_request",
                  *         "param": "limit"
                  *       }
                  *     }
@@ -2364,8 +2372,8 @@ export interface components {
                  *       "error": {
                  *         "type": "authentication",
                  *         "message": "No valid API key was given.",
-                 *         "hint": "Send the header Authorization: Bearer fk_test_... (or fk_live_...) with a key from your dashboard.",
-                 *         "doc_url": "https://docs.flow.engineer/errors/authentication"
+                 *         "hint": "Send the header Authorization: Bearer fk_test_... (or fk_live_...) with your app's API key; the Flow team issues keys.",
+                 *         "doc_url": "https://api.flow.engineer/docs/errors/authentication"
                  *       }
                  *     }
                  */
@@ -2408,7 +2416,7 @@ export interface components {
                  *         "type": "outside_window",
                  *         "message": "Last message from the contact was 31h ago; WhatsApp allows only templates now.",
                  *         "hint": "Send a template instead: POST /v1/messages with content.type=template.",
-                 *         "doc_url": "https://docs.flow.engineer/errors/outside_window",
+                 *         "doc_url": "https://api.flow.engineer/docs/errors/outside_window",
                  *         "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"
                  *       }
                  *     }
@@ -2428,7 +2436,7 @@ export interface components {
                  *         "type": "unsupported_content",
                  *         "message": "iMessage cannot show buttons.",
                  *         "hint": "Set \"fallback\": \"auto\" to send numbered text instead, or send text.",
-                 *         "doc_url": "https://docs.flow.engineer/errors/unsupported_content",
+                 *         "doc_url": "https://api.flow.engineer/docs/errors/unsupported_content",
                  *         "param": "content.type"
                  *       }
                  *     }
@@ -2451,7 +2459,7 @@ export interface components {
                  *         "type": "channel_error",
                  *         "message": "The channel refused: the request timed out.",
                  *         "hint": "Typing and read receipts are safe to ignore; carry on and send your reply.",
-                 *         "doc_url": "https://docs.flow.engineer/errors/channel_error",
+                 *         "doc_url": "https://api.flow.engineer/docs/errors/channel_error",
                  *         "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"
                  *       }
                  *     }
@@ -2482,7 +2490,7 @@ export interface components {
                  *         "type": "new_contact_limit",
                  *         "message": "This sender has started its 15 new conversations for today.",
                  *         "hint": "Retry after 3600 seconds; replies into existing conversations still go.",
-                 *         "doc_url": "https://docs.flow.engineer/errors/new_contact_limit",
+                 *         "doc_url": "https://api.flow.engineer/docs/errors/new_contact_limit",
                  *         "retry_after": 3600,
                  *         "sender": "snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"
                  *       }
