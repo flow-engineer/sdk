@@ -1025,7 +1025,9 @@ export interface components {
              *     the allowance does not cover this sandbox channel), `sign_in_required`
              *     (`permission`: an app made without an account cannot do this) or
              *     `sandbox_key_expired` (`authentication`: a key from `POST
-             *     /v1/sandbox/keys` passed its `expires_at`).
+             *     /v1/sandbox/keys` passed its `expires_at`; `permission`, for a send
+             *     that carries no key, such as a reply in a webhook answer, from such an
+             *     app).
              */
             channel_code?: string;
             /** @description Flow's ID for this request. Quote it when asking for help. */
