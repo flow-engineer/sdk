@@ -280,13 +280,17 @@ npx @flow-engineer/messaging mcp
 
 ## Agent files
 
-`init` installs these once you say yes (or pass `--yes`), and the repo publishes them (`plugin/`):
+`init` installs these once the project owner says yes (or passes `--yes`), and the repo publishes them (`plugin/`):
 
 - a Claude Code skill, `.claude/skills/flow-messaging/` (`SKILL.md` and short references);
 - a section in `AGENTS.md` for Codex and other agents;
 - the MCP server, named `flow`, for Claude Code in `.mcp.json` (the same as
   `claude mcp add --scope project flow -- npx -y @flow-engineer/messaging mcp`), and for
   Codex through `codex mcp add flow -- npx -y @flow-engineer/messaging mcp`.
+
+<!-- agents:mcp-note -->
+MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. The hosted MCP server at `https://api.flow.engineer/mcp` is an optional tool for testing and operating the integration during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to a coding agent, it can use them for sandbox testing.
+<!-- /agents:mcp-note -->
 
 The repo is also a Claude Code plugin marketplace:
 `claude plugin marketplace add flow-engineer/sdk`, then

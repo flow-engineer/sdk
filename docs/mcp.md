@@ -16,6 +16,10 @@ answered.
 - Auth: your Flow Messaging API key, `Authorization: Bearer fk_test_...` or
   `fk_live_...`. The key's mode decides which tools the agent sees.
 
+<!-- agents:mcp-note -->
+MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. The hosted MCP server at `https://api.flow.engineer/mcp` is an optional tool for testing and operating the integration during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to a coding agent, it can use them for sandbox testing.
+<!-- /agents:mcp-note -->
+
 No key yet? Get a test key with no account in one call (the MCP server needs a key,
 so do this first; without one, `/mcp` answers `401` with this call in its `hint`):
 
@@ -36,32 +40,18 @@ days; a person signs in with GitHub or Google (`npx @flow-engineer/messaging log
 keep the app and send 100 messages to each of 3 contacts. See
 [Keys and sign-in](https://docs.flow.engineer/get-a-key). Signed in, you make live keys (`fk_live_...`) in the dashboard and go live on Telegram with your own bot; iMessage lines and WhatsApp numbers are arranged with the Flow team.
 
-## Add it to your agent
+## Add it to your coding tools
 
-### Claude Code
+The project owner adds it; a coding agent shows them the line for their tool:
+
+<!-- agents:mcp-setup -->
+Claude Code:
 
 ```bash
 claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"
 ```
 
-Or share it with your team in the project's `.mcp.json` (the variable is expanded
-from each person's environment):
-
-```json
-{
-  "mcpServers": {
-    "flow": {
-      "type": "http",
-      "url": "https://api.flow.engineer/mcp",
-      "headers": { "Authorization": "Bearer ${FLOW_MESSAGING_KEY}" }
-    }
-  }
-}
-```
-
-### Codex
-
-In `~/.codex/config.toml`:
+Codex (`~/.codex/config.toml`):
 
 ```toml
 [mcp_servers.flow]
@@ -69,20 +59,12 @@ url = "https://api.flow.engineer/mcp"
 bearer_token_env_var = "FLOW_MESSAGING_KEY"
 ```
 
-### Cursor
-
-In `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (everywhere):
+Cursor (`~/.cursor/mcp.json`):
 
 ```json
-{
-  "mcpServers": {
-    "flow": {
-      "url": "https://api.flow.engineer/mcp",
-      "headers": { "Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}" }
-    }
-  }
-}
+{"mcpServers": {"flow": {"url": "https://api.flow.engineer/mcp", "headers": {"Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}"}}}}
 ```
+<!-- /agents:mcp-setup -->
 
 ### Any other client
 
