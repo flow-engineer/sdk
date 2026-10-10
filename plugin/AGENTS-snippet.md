@@ -24,7 +24,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 - Webhooks: `flow.webhooks.handler({ secret, onEvent })` for Request/Response
   frameworks, or `await flow.webhooks.constructEvent(rawBody, signature, secret)`.
 - Reply into a conversation; never choose a channel per message. Contacts may have no phone number.
-- iMessage is reply-only; WhatsApp is not available yet (when it is, outside 24 h needs a `template`). Unsupported content needs `fallback: "auto"`.
+- iMessage is reply-only. WhatsApp numbers are arranged with the Flow team (build and test on Telegram meanwhile; the code is the same); on WhatsApp, outside 24 h needs a `template`. Unsupported content needs `fallback: "auto"`.
 - Errors are typed classes (`OutsideWindowError`, `UnsupportedContentError`, ...); retries are automatic.
 - Local testing: `npx @flow-engineer/messaging listen --forward-to <url>`, `npx @flow-engineer/messaging send "hi"`.
 - MCP server (optional, for development): `https://api.flow.engineer/mcp`, with the same key as a Bearer token. MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. For Claude Code the command is `claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"` (Codex and Cursor: section 12 of https://api.flow.engineer/docs/quickstart.md). If its tools are already available to you, use them for sandbox testing; after a test send, wait for `message.sent` or `message.failed`.

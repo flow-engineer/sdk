@@ -72,9 +72,9 @@ All three read the same log, so you can mix them: for example a webhook in produ
 | `reaction.added`, `reaction.removed` | The contact reacted to a message. |
 | `typing.started`, `typing.stopped` | The contact is typing, where the channel reports it. |
 | `conversation.started` | A new contact wrote first, joined the sandbox, or you started a conversation (`via`). |
-| `conversation.window_closing` | WhatsApp only (not available yet), opt-in: the 24-hour window closes in 1 hour. |
-| `sender.status_changed` | A sender was throttled, flagged, banned or restored (or, once WhatsApp is available, its quality changed). |
-| `template.status_changed` | A WhatsApp template was approved, rejected or paused (WhatsApp is not available yet). |
+| `conversation.window_closing` | WhatsApp only, opt-in: the 24-hour window closes in 1 hour. |
+| `sender.status_changed` | A sender was throttled, flagged, banned or restored (or, on WhatsApp, its quality changed). |
+| `template.status_changed` | A WhatsApp template was approved, rejected or paused. |
 
 Status events are high volume. Each webhook endpoint subscribes to the types it lists, so subscribe only to what you use.
 

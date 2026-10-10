@@ -1,6 +1,6 @@
 ---
 name: flow-messaging
-description: Give an AI agent two-way Telegram and iMessage conversations with Flow Messaging (one HTTP API at api.flow.engineer, TypeScript SDK @flow-engineer/messaging; WhatsApp is coming). Use when the user wants their agent, bot or LLM app to receive and reply to Telegram or iMessage messages (or asks about WhatsApp), stream LLM answers into chats, or handle messaging webhooks.
+description: Give an AI agent two-way Telegram and iMessage conversations with Flow Messaging (one HTTP API at api.flow.engineer, TypeScript SDK @flow-engineer/messaging; WhatsApp numbers are arranged with the Flow team). Use when the user wants their agent, bot or LLM app to receive and reply to Telegram or iMessage messages (or asks about WhatsApp), stream LLM answers into chats, or handle messaging webhooks.
 license: Apache-2.0
 compatibility: TypeScript/JavaScript via @flow-engineer/messaging (Node 18+, Bun, Deno, edge runtimes). Any other language via the HTTP API. Python and Go SDKs are not published yet.
 metadata:
@@ -10,13 +10,13 @@ metadata:
 
 # Flow Messaging
 
-Flow Messaging is one API for AI agents to hold conversations on Telegram and iMessage, with WhatsApp coming. Flow hosts the senders (bots, lines), delivers every inbound message as an event, and passes every send through one gate that applies each channel's rules.
+Flow Messaging is one API for AI agents to hold conversations on Telegram, iMessage and WhatsApp. Flow hosts the senders (bots, lines), delivers every inbound message as an event, and passes every send through one gate that applies each channel's rules.
 
-Channels today: Telegram is live (the shared sandbox bot, or your own bot with a live key). iMessage is live for replies only, on lines the Flow team connects to your app: the person always writes first. WhatsApp is not available yet (it waits on Meta's approval). SMS (US): in pilot, on US numbers the Flow team registers for a customer; not generally available. There is no voice calling.
+Channels today: Telegram is live (the shared sandbox bot, or your own bot with a live key). iMessage is live for replies only, on lines the Flow team connects to your app: the person always writes first. WhatsApp: on numbers the Flow team connects to your app, either a number Flow provides or one in your business's own WhatsApp Business Account; the shared WhatsApp sandbox is not open yet. If the user asks for WhatsApp, tell them WhatsApp numbers are arranged with the Flow team, and build and test on Telegram meanwhile: the code does not change per channel. SMS (US): in pilot, on US numbers the Flow team registers for a customer; not generally available. There is no voice calling.
 
 ## Set up
 
-1. Get a key. Check for `FLOW_MESSAGING_KEY` (environment or `.env`) first; never get a second key when you have one. No key yet? Get a test key with no account, in one call: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`, then save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once) in a git-ignored `.env`. Or run `npx @flow-engineer/messaging init`: it does the same and prints the sandbox link and join code, then asks before installing agent files or the MCP server. That answer is the project owner's, so never pass `--yes` for them. Never invent or hard-code keys. Live keys (`fk_live_...`) come later, only when the user goes live: signed in, they make one in the dashboard for their own Telegram bot (iMessage lines are arranged with the Flow team; WhatsApp is not available yet).
+1. Get a key. Check for `FLOW_MESSAGING_KEY` (environment or `.env`) first; never get a second key when you have one. No key yet? Get a test key with no account, in one call: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`, then save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once) in a git-ignored `.env`. Or run `npx @flow-engineer/messaging init`: it does the same and prints the sandbox link and join code, then asks before installing agent files or the MCP server. That answer is the project owner's, so never pass `--yes` for them. Never invent or hard-code keys. Live keys (`fk_live_...`) come later, only when the user goes live: signed in, they make one in the dashboard for their own Telegram bot (iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team).
 2. Build on the REST API: MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. TypeScript/JavaScript: `npm install @flow-engineer/messaging`. Other languages: HTTP to `https://api.flow.engineer` with `Authorization: Bearer $FLOW_MESSAGING_KEY`.
 3. The user joins the sandbox from their phone: `GET /v1/senders` (or, when the Flow MCP tools are available, `sandbox_join`) gives each sandbox sender's `address.link`. On Telegram, opening the link and tapping Start joins. Otherwise they send the sender's `join_code`, for example `join wild-otter-04508705`, to it.
 
@@ -66,7 +66,7 @@ export const POST = flow.webhooks.handler({
 - Reply into the conversation; never choose a channel per message; never assume a contact has a phone number.
 - Verify webhook signatures on the raw body; deduplicate on event `id`; answer within 10 seconds.
 - iMessage: reply only; never message a contact first.
-- WhatsApp (once available): free-form only within 24 hours of the person's last message, else a `template` (`409 outside_window`).
+- WhatsApp: free-form only within 24 hours of the person's last message, else a `template` (`409 outside_window`).
 - Content a channel cannot show fails with `422 unsupported_content` unless `fallback` is set (`"auto"` is usually right).
 - Switch on `error.type`; each error has `hint` and `doc_url` (`https://api.flow.engineer/docs/errors/<type>`).
 - Use test keys while building; live keys only on the server.

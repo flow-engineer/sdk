@@ -31,7 +31,7 @@ install any Flow package.
 | [own-telegram-bot](own-telegram-bot) | Go live with your own @BotFather bot (`POST /v1/senders`), then disconnect it. | yes | |
 
 Telegram is live today. iMessage is replies-only and arranged with the Flow team
-(with a live key); WhatsApp is coming. Your code does not change between channels:
+(with a live key), and so are WhatsApp numbers. Your code does not change between channels:
 you reply into a conversation (`conv_...`) and never pick a channel per message.
 
 These examples are tested: `scripts/check-examples.sh --e2e` runs each one against

@@ -20,7 +20,7 @@
   "sms_max_segments": 10,
   "sign_in": "GitHub",
   "sdk_version": "0.1.1",
-  "cli_tagline": "Telegram and iMessage (WhatsApp coming) for AI agents.",
+  "cli_tagline": "Telegram, iMessage and WhatsApp for AI agents.",
   "allowance": {
     "anonymous": { "contacts": 1, "messages_per_contact": 50, "key_ttl_days": 7 },
     "signed_in": { "contacts": 3, "messages_per_contact": 100 },

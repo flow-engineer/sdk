@@ -1,15 +1,15 @@
 ---
-title: "WhatsApp AI agents with Flow Messaging (coming soon)"
-sidebarTitle: "WhatsApp agent (coming)"
-description: "WhatsApp is not available on Flow Messaging yet: it waits on Meta's approval. How a WhatsApp agent will work (webhooks, buttons, the 24-hour window and templates), and how to build on Telegram today with the same code."
+title: "WhatsApp AI agents with Flow Messaging"
+sidebarTitle: "WhatsApp agent"
+description: "How a WhatsApp agent works on Flow Messaging (webhooks, buttons, the 24-hour window and templates) on a WhatsApp number the Flow team connects, and how to build and test it on Telegram with the same code."
 keywords: ["WhatsApp API for AI agents", "WhatsApp AI agent", "send WhatsApp message from LLM agent", "WhatsApp chatbot API", "WhatsApp Business API AI", "WhatsApp LLM integration", "connect AI agent to WhatsApp"]
 ---
 
-<Warning>
-**WhatsApp is not available yet.** Flow is waiting on Meta's approval as a Tech Provider. Until then there is no WhatsApp sandbox and no WhatsApp numbers: `POST /v1/senders` with `"channel": "whatsapp"` answers `501` [`not_implemented`](/errors/not_implemented). Build on [Telegram](/guides/telegram-agent) today; the code below does not change per channel, so it will answer on WhatsApp once it ships.
-</Warning>
+<Note>
+**WhatsApp numbers are connected by the Flow team**, not by API: either a number Flow provides, or a number in your business's own WhatsApp Business Account. `POST /v1/senders` with `"channel": "whatsapp"` answers `501` [`not_implemented`](/errors/not_implemented); the number appears in `GET /v1/senders` once it is connected. The shared WhatsApp sandbox is not open yet, so build and test on [Telegram](/guides/telegram-agent) meanwhile; the code below does not change per channel.
+</Note>
 
-This page shows how an AI agent will answer people on WhatsApp once it is available: it receives messages, streams the model's answer back as chat bubbles, uses buttons, and handles WhatsApp's 24-hour window.
+This page shows how an AI agent answers people on WhatsApp: it receives messages, streams the model's answer back as chat bubbles, uses buttons, and handles WhatsApp's 24-hour window.
 
 ```ts TypeScript
 // app/api/whatsapp/route.ts (Next.js). npm install @flow-engineer/messaging ai @ai-sdk/openai
@@ -67,7 +67,7 @@ Answer within 10 seconds; for anything slower, answer `200 {}` at once and send 
 
 ## 3. Voice notes
 
-WhatsApp users send a lot of voice notes. Each one will arrive as `voice` content with the audio file (`url`, `file_id`):
+WhatsApp users send a lot of voice notes. Each one arrives as `voice` content with the audio file (`url`, `file_id`):
 
 ```json
 { "type": "voice", "url": "https://api.flow.engineer/v1/files/file_01JB8ZC3K5M7P9R1T3V5X7Z9B1", "duration_seconds": 4.2 }
@@ -77,7 +77,7 @@ Flow does not transcribe voice notes yet, so fetch the audio and transcribe it y
 
 ## 4. Buttons and lists
 
-WhatsApp will show up to 3 reply buttons, and a list for 4 to 10:
+WhatsApp shows up to 3 reply buttons, and a list for 4 to 10:
 
 ```ts TypeScript
 import { buttons } from "@flow-engineer/messaging";
@@ -108,9 +108,9 @@ await flow.conversation(conversationId).send(
 );
 ```
 
-Once WhatsApp numbers are available, templates are created on your dedicated number with `POST /v1/templates` and reviewed by WhatsApp; you receive `template.status_changed` when one is approved, rejected or paused. See [Going live](/guides/going-live#whatsapp-templates).
+Templates are created on your dedicated WhatsApp number with `POST /v1/templates` and reviewed by WhatsApp; you receive `template.status_changed` when one is approved, rejected or paused. See [Going live](/guides/going-live#whatsapp-templates).
 
-## 6. What WhatsApp will support
+## 6. What WhatsApp supports
 
 | Content | WhatsApp |
 |---|---|
@@ -118,13 +118,15 @@ Once WhatsApp numbers are available, templates are created on your dedicated num
 | Images, video, documents, audio | yes |
 | Voice notes | yes, both ways |
 | Buttons | up to 3, else a list (up to 10) |
-| Reactions, read receipts, typing | yes |
+| Reactions, read receipts | yes |
+| Typing | within 24 hours of the person's last message, once they have written |
 | Locations, contact cards | yes |
 | Edit or unsend | no (`422 unsupported_content`) |
+| Link previews | `channel_options.preview_url` on text (on by default when the text holds a link) |
 
 ## 7. Going live on WhatsApp
 
-Not possible yet. When WhatsApp ships, Flow will host a dedicated number for you, your business will be verified through Meta, and your agent's code stays the same. Until then, go live on [your own Telegram bot](/guides/going-live), or ask the Flow team about an iMessage line.
+WhatsApp numbers are arranged with the Flow team: either a number Flow provides, or a number in your business's own WhatsApp Business Account. With your own account, add a payment method in WhatsApp Manager: Meta bills its fees to your business directly. On a number Flow provides, Meta's per-message fees are passed through (see [Pricing](/pricing)). Once the number is connected it appears in `GET /v1/senders` with your live key, and your agent's code stays the same.
 
 <Warning>
 WhatsApp's business policy does not allow general-purpose AI assistants. Your agent must serve your business's own customers (support, orders, bookings, updates). Agents that only reply to people who wrote first, about your business, are the safe pattern.
