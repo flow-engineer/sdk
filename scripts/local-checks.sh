@@ -3,10 +3,13 @@
 #   scripts/local-checks.sh             spec lint, spec drift (scripts/check-spec-drift.sh) +
 #                                       TypeScript (typecheck, lint, unit tests, build,
 #                                       package contents, integration)
-#   EXAMPLES=1 scripts/local-checks.sh  also typecheck examples/ against their real dependencies
-# The integration test runs the Flow Messaging service from a checkout beside this repo
-# (FLOW_MESSAGING_DIR, default ../flow-messaging; needs Go and Postgres binaries) and is
-# skipped without one. REQUIRE_INTEGRATION=1 makes a skip fail.
+#                                       + the plain-HTTP examples (scripts/check-examples.sh:
+#                                       typecheck, byte-compile, and run each one end to end)
+#   EXAMPLES=1 scripts/local-checks.sh  also typecheck the SDK examples against their real dependencies
+# The integration test and the examples' end-to-end run use the Flow Messaging service
+# from a checkout beside this repo (FLOW_MESSAGING_DIR, default ../flow-messaging; needs
+# Go and Postgres binaries) and are skipped without one. REQUIRE_INTEGRATION=1 makes a
+# skip fail.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root=$(pwd)
@@ -45,6 +48,17 @@ elif [ "${REQUIRE_INTEGRATION:-0}" = "1" ]; then
   echo "no service checkout at $server (set FLOW_MESSAGING_DIR) or no Go"; exit 1
 else
   echo "skipped: no service checkout at $server or no Go (set FLOW_MESSAGING_DIR)"
+fi
+
+cd "$root"
+step "examples: plain HTTP examples (typecheck, compile, end to end against the local service)"
+if [ -f "$server/cmd/telegramsim/main.go" ] && command -v go >/dev/null; then
+  FLOW_MESSAGING_DIR="$server" scripts/check-examples.sh --e2e
+elif [ "${REQUIRE_INTEGRATION:-0}" = "1" ]; then
+  echo "no service checkout at $server (set FLOW_MESSAGING_DIR) or no Go"; exit 1
+else
+  scripts/check-examples.sh
+  echo "end to end skipped: no service checkout at $server or no Go (set FLOW_MESSAGING_DIR)"
 fi
 
 if [ "${EXAMPLES:-0}" = "1" ]; then

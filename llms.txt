@@ -43,6 +43,15 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ## Examples
 
+Plain HTTP, no SDK, TypeScript and Python, each tested end to end:
+
+- [Telegram echo (WebSocket stream, no public URL)](https://github.com/flow-engineer/sdk/tree/main/examples/telegram-echo)
+- [Telegram AI support agent (history per conversation, "Talk to a human" button, Idempotency-Key)](https://github.com/flow-engineer/sdk/tree/main/examples/telegram-ai-agent)
+- [Webhook receiver (Flow-Signature, dedupe on event.id, reply in the answer)](https://github.com/flow-engineer/sdk/tree/main/examples/webhook-receiver)
+- [Your own Telegram bot (POST /v1/senders with a live key)](https://github.com/flow-engineer/sdk/tree/main/examples/own-telegram-bot)
+
+With the TypeScript SDK:
+
 - [Echo agent, 20 lines](https://github.com/flow-engineer/sdk/tree/main/examples/echo)
 - [Vercel AI SDK](https://github.com/flow-engineer/sdk/tree/main/examples/vercel-ai-sdk)
 - [OpenAI Agents SDK](https://github.com/flow-engineer/sdk/tree/main/examples/openai-agents)

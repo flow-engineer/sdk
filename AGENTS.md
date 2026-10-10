@@ -24,8 +24,18 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 - **Run `scripts/local-checks.sh` before a PR.** It runs the spec lint, the spec
   drift check and, in `typescript/`: typecheck (`tsc`, sources and tests),
   ESLint, the unit tests (vitest), the build (tsup: ESM, CJS, types, the CLI), the
-  package contents, and the integration test. `EXAMPLES=1` also typechecks
-  `examples/` against their real dependencies.
+  package contents, and the integration test; then `scripts/check-examples.sh`.
+  `EXAMPLES=1` also typechecks the SDK examples against their real dependencies.
+- **The plain-HTTP examples are tested end to end**: `scripts/check-examples.sh`
+  typechecks `examples/*/typescript/main.ts` and byte-compiles
+  `examples/*/python/main.py`; with `--e2e` (what local checks run when a service
+  checkout and Go are there) it builds the service from `FLOW_MESSAGING_DIR`, runs it
+  with Postgres from `initdb` and the Telegram simulator, and
+  `scripts/examples-e2e.py` runs every example, plays the Telegram user and checks
+  the output and what the bot sent. Change an example and its scenario together; a
+  new example needs a scenario. Keep examples to what the spec guarantees, and
+  never tell an agent to install or configure the MCP server (that is the project
+  owner's choice).
 - **Spec drift**: `scripts/check-spec-drift.sh` fails when a copy of the spec drifts
   from `openapi/openapi.yaml`: stale generated types (`npm run check-generated`),
   `docs/openapi.yaml` no longer the symlink to it, or the SDK's `API_VERSION` (and any
@@ -93,6 +103,9 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   page here first). `docs/mcp.md` is the hosted MCP server's page.
 - `server.json`: the entry for the official MCP registry (not submitted yet).
 - `typescript/`: `@flow-engineer/messaging`, the SDK and the CLI.
-- `examples/`: runnable agents, each with a README, using the sandbox.
+- `examples/`: runnable agents, each with a README, using the sandbox. The
+  plain-HTTP ones (`telegram-echo`, `telegram-ai-agent`, `webhook-receiver`,
+  `own-telegram-bot`) have one `main.ts` and/or `main.py` each and no Flow SDK; the
+  others use the TypeScript SDK.
 - `plugin/`, `.claude-plugin/`: the agent files and the plugin marketplace.
 - `python/`, `go/`: the SDKs, not written yet (Python, then Go; design-v1, section 12).
