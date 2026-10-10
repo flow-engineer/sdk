@@ -85,7 +85,7 @@ who has not joined your app's sandbox.
 | `whoami` | The app, account and mode behind the key, its senders and webhook endpoints, and a `cursor` for `wait_for_event`. |
 | `sandbox_join` | Your join code, a link per channel that opens the chat with `join <code>` filled in, and who has joined. Pass `include_qr: true` to add a QR code (as text, SVG and PNG). |
 | `send_test_message` | Sends text or any content to someone who joined, through the real send gate. With one joined person it needs only `text`. |
-| `wait_for_event` | Waits up to 50 seconds (default 25, under the 60-second tool timeout of common MCP clients) for an event (filter by `types` and `conversation`) and returns it the moment it lands; call again with `after` set to its `next_after` to wait longer. |
+| `wait_for_event` | Waits up to 50 seconds (default 25, under the 60-second tool timeout of common MCP clients; a longer `timeout_seconds` is clamped to 50, with a note) for an event (filter by `types` and `conversation`) and returns it the moment it lands; call again with `after` set to its `next_after` to wait longer. |
 | `list_events` | Reads your app's event log, like `GET /v1/events`. |
 | `get_webhook_deliveries` | Shows each delivery to your webhook: the request Flow sent, your status code and the start of your answer, the error and the next retry. |
 | `replay_event` | Sends an event to your webhook again, for example after you fixed your handler. |

@@ -1647,7 +1647,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            error: {type: authentication, message: "No valid API key was given.", hint: "Send the header Authorization: Bearer fk_test_... (or fk_live_...) with a key from your dashboard.", doc_url: "https://api.flow.engineer/docs/errors/authentication"}
+            error: {type: authentication, message: "No valid API key was given.", hint: "Send the header Authorization: Bearer fk_test_... (or fk_live_...) with your app's API key; the Flow team issues keys.", doc_url: "https://api.flow.engineer/docs/errors/authentication"}
     PermissionDenied:
       description: The key may not do this, for example a test key using a live sender (`permission`).
       content:
