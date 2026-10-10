@@ -22,8 +22,8 @@ The key is valid but this action is not allowed for it.
 - The allowance has no room for this contact (`sandbox_contact_limit`), or the send used a sandbox channel the allowance does not cover, such as iMessage (`sandbox_channel_not_included`; iMessage lines are arranged with the Flow team and used with a live key).
 - An app made without an account tried something that needs a person signed in, such as connecting its own Telegram bot, or uploading more than 20 files in a day (`sign_in_required`).
 - SMS (US, in pilot): the contact opted out by texting STOP or a variant (`contact_opted_out`; their contact shows `opted_out_at`). Messages already queued to them fail with the same code in `message.failed`.
-- SMS: you started a conversation with someone who has never texted any of your SMS numbers, without recording their consent (`consent_required`).
-- Your account handles health information (`hipaa` on the account in `GET /v1/app`) and the send or sender is on a channel without a business associate agreement: Telegram, WhatsApp or iMessage (`hipaa_channel_not_covered`).
+- SMS: you started a conversation with someone who has never texted any of your SMS numbers, without recording their consent (`consent_required`). A simulated SMS contact (`POST /v1/test/conversations`) works the same way: before its first inbound turn, a send to it needs `consent`. After a simulated STOP turn, sends to it answer `contact_opted_out` until a START turn.
+- Your account handles health information (`hipaa` on the account in `GET /v1/app`) and the send or sender is on a channel without a business associate agreement: Telegram, WhatsApp or iMessage (`hipaa_channel_not_covered`). The same goes for simulated conversations: such an account can simulate only SMS, so creating a simulated Telegram or iMessage conversation, or posting a turn to one made before the flag was set, is refused too.
 - A live key called a simulated-contact endpoint under `/v1/test/` (`test_mode_only`): simulated conversations exist only in test mode. Or a test key posted a simulated turn to, or read the transcript of, a conversation with a real contact (`not_simulated`). Or the app already has 500 simulated conversations, the most one app may have (`simulated_conversation_limit`).
 
 ## How to fix it
@@ -53,7 +53,7 @@ curl -X POST https://api.flow.engineer/v1/messages \
        "consent": {"obtained_at": "2026-10-01T15:04:05Z", "method": "web_form", "proof": "signup-8812"}}'
 ```
 
-In a HIPAA account, send from an SMS sender instead; the other channels cannot carry its messages.
+In a HIPAA account, send from an SMS sender instead; the other channels cannot carry its messages. To test, simulate an SMS conversation: `POST /v1/test/conversations` with `{"channel": "sms"}`.
 
 For `test_mode_only`, call `/v1/test/...` with your `fk_test_` key. For `not_simulated`, create a simulated conversation first (`POST /v1/test/conversations`) and use its ID; a real contact can only be written to by the person. For `simulated_conversation_limit`, reuse the simulated conversations you have: keep their `conv_` IDs, or post the same `contact` address again, which returns its conversation.
 

@@ -54,6 +54,16 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript -H "
   nothing leaves Flow. The key's request rate limit still applies, and the gate skips
   the rules that protect a real number (pacing, new-contact budgets, abuse
   throttling), so tests can run in parallel.
+- **SMS rules hold for the contact.** Before a simulated SMS contact's first turn,
+  a send to them is a start that needs `consent` on `POST /v1/messages`, as on a
+  real number (`403` [`permission`](/errors/permission), `consent_required`). A
+  turn with the text STOP opts the contact out (`opted_out_via` `keyword`; sends
+  answer `contact_opted_out`) and START lifts it; the transcript shows no
+  automatic keyword reply. A simulated SMS sender keeps no quiet hours, so a test
+  never depends on the time of day, and it sends media as MMS.
+- **HIPAA accounts** simulate only SMS: a simulated Telegram or iMessage
+  conversation, or a turn in one made before the flag was set, answers `403`
+  [`permission`](/errors/permission) (`hipaa_channel_not_covered`).
 - Live keys get `403` [`permission`](/errors/permission) (`test_mode_only`).
   `GET /v1/senders` lists simulated senders only with `kind=simulated`.
 

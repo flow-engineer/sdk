@@ -87,6 +87,10 @@ for await (const m of flow.test.transcript(conv.id)) console.log(m.direction, m.
 
 Free (not in the sandbox allowance); sends pass the real gate and end `message.sent`
 without touching a network. Live keys get `PermissionError` (`test_mode_only`).
+Simulated SMS keeps the contact's rules: a send before the contact's first turn
+needs `consent` (`consent_required`), a STOP turn opts them out until START (no
+keyword reply in the transcript); no quiet hours, media goes as MMS. A HIPAA account
+can simulate only SMS (`hipaa_channel_not_covered`).
 
 ## Rules that save debugging
 
