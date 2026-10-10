@@ -20,7 +20,7 @@ The key is valid but this action is not allowed for it.
 - On iMessage, you started a new conversation from a line that may only reply. The contact must message the line first.
 - The app's sandbox allowance is used up (`channel_code` `sandbox_allowance_used`). Apps made with `POST /v1/sandbox/keys` may send 50 messages in total to 1 contact; apps of people who signed in, 100 messages to each of 3 contacts. Only messages your agent sends count.
 - The allowance has no room for this contact (`sandbox_contact_limit`), or the send used a sandbox channel the allowance does not cover, such as the iMessage sandbox (`sandbox_channel_not_included`).
-- An app made without an account tried something that needs a person signed in, such as connecting its own Telegram bot (`sign_in_required`).
+- An app made without an account tried something that needs a person signed in, such as connecting its own Telegram bot, or uploading more than 20 files in a day (`sign_in_required`).
 
 ## How to fix it
 
