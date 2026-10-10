@@ -30,9 +30,11 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 - **The plain-HTTP examples are tested end to end**: `scripts/check-examples.sh`
   typechecks `examples/*/typescript/main.ts` and byte-compiles
   `examples/*/python/main.py`; with `--e2e` (what local checks run when a service
-  checkout and Go are there) it builds the service from `FLOW_MESSAGING_DIR`, runs it
-  with Postgres from `initdb` and the Telegram simulator, and
-  `scripts/examples-e2e.py` runs every example, plays the Telegram user and checks
+  checkout and Go are there) it starts the service from `FLOW_MESSAGING_DIR` with
+  that checkout's `scripts/local-stack.sh --background --live-key` (Postgres from
+  `initdb` on a unix socket, the Telegram simulator; a checkout without the script is
+  refused), maps the stack's env file onto `scripts/examples-e2e.py`'s inputs and
+  stops the stack on exit; `scripts/examples-e2e.py` runs every example, plays the Telegram user and checks
   the output and what the bot sent. Change an example and its scenario together; a
   new example needs a scenario. Keep examples to what the spec guarantees, and
   never tell an agent to install or configure the MCP server (that is the project
