@@ -16,13 +16,26 @@ answered.
 - Auth: your Flow Messaging API key, `Authorization: Bearer fk_test_...` or
   `fk_live_...`. The key's mode decides which tools the agent sees.
 
-Keys are issued by the Flow team while signup is in preview: ask the Flow team for a
-test key (`fk_test_...`), or a live key (`fk_live_...`) when you go live. Keep the key
-in an environment variable, never in a file you commit:
+No key yet? Get a test key with no account in one call (the MCP server needs a key,
+so do this first; without one, `/mcp` answers `401` with this call in its `hint`):
+
+```bash
+curl -X POST https://api.flow.engineer/v1/sandbox/keys
+```
+
+Save `key` and `claim_token` (both shown once). Keep the key in an environment
+variable, never in a file you commit:
 
 ```bash
 export FLOW_MESSAGING_KEY=fk_test_...
+export FLOW_CLAIM_TOKEN=fct_...
 ```
+
+This key allows 1 contact and 50 messages on the Telegram sandbox and expires after 7
+days; a person signs in with GitHub or Google (`npx @flow-engineer/messaging login`) to
+keep the app and send 100 messages to each of 3 contacts. See
+[Keys and sign-in](https://docs.flow.engineer/get-a-key). Live keys (`fk_live_...`) are
+arranged with the Flow team when you go live.
 
 ## Add it to your agent
 

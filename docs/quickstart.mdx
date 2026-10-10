@@ -7,32 +7,37 @@ keywords: ["send WhatsApp message from LLM agent", "AI agent WhatsApp quickstart
 
 This page gets an agent answering messages on your phone in about 5 minutes: get a test key, join the shared sandbox, receive a message, and reply.
 
-<Note>
-`npx @flow-engineer/messaging init` is available once the npm package ships; until then use the API (curl) or the hosted MCP server with `claude mcp add`, as the steps below do.
-</Note>
-
 ```bash
 npx @flow-engineer/messaging init
 ```
 
-That one command will save your test key to `.env` as `FLOW_MESSAGING_KEY`, set up your coding agent (skill, `AGENTS.md`, MCP server), and print the sandbox link and join code. It asks before writing anything; `--yes` skips the questions. The steps below do the same by hand and then build the agent.
+That one command gets a test key with no account, saves it to `.env` as `FLOW_MESSAGING_KEY` (with `FLOW_CLAIM_TOKEN`), sets up your coding agent (skill, `AGENTS.md`, MCP server), and prints the sandbox link and join code. It asks before setting up your coding agent; `--yes` skips the question. The steps below do the same by hand and then build the agent.
 
 <Steps>
   <Step title="Get a test key">
-    Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (`fk_test_...`), or a live key (`fk_live_...`) when you go live. Test keys reach only the shared sandbox, so nothing reaches anyone who has not joined it.
+    Already have one in `FLOW_MESSAGING_KEY`? Skip this step. Otherwise get one in one call, with no account:
+
+    ```bash
+    curl -X POST https://api.flow.engineer/v1/sandbox/keys
+    ```
+
+    The answer holds `key` (`fk_test_...`) and `claim_token` (`fct_...`), both shown once, plus your app's `sandbox_join_code` and the sandbox `senders`. Save them:
 
     ```bash
     export FLOW_MESSAGING_KEY=fk_test_...
+    export FLOW_CLAIM_TOKEN=fct_...
     ```
 
-    Check it, and read your app's sandbox join code:
+    Test keys reach only the shared sandbox, so nothing reaches anyone who has not joined it. This key allows 1 contact and 50 messages on the Telegram sandbox and expires after 7 days; [sign in](/get-a-key#3-sign-in-to-keep-the-app) with GitHub or Google (`npx @flow-engineer/messaging login`) to keep the app and send 100 messages to each of 3 contacts. See [Keys and sign-in](/get-a-key).
+
+    Check the key, and read your app's sandbox join code and what is left of its allowance:
 
     ```bash
     curl https://api.flow.engineer/v1/app \
       -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
     ```
 
-    The answer includes `app.sandbox_join_code`, for example `wild-otter-04508705`.
+    The answer includes `app.sandbox_join_code`, for example `wild-otter-04508705`, and `allowance`.
   </Step>
 
   <Step title="Join the sandbox from your phone">

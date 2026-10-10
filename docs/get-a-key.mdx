@@ -1,0 +1,186 @@
+---
+title: "Get a test key, sign in and the sandbox allowance"
+sidebarTitle: "Keys and sign-in"
+description: "Get a Flow Messaging test key in one unauthenticated call, with no account. What the sandbox allowance covers, how a person signs in with GitHub or Google (device flow) to keep the app, and what each allowance error means."
+keywords: ["WhatsApp API test key", "Telegram bot API key for AI agent", "messaging API no signup", "device flow sign in CLI", "AI agent sandbox"]
+---
+
+Anyone, including an AI coding agent, can get a test key without an account. A person signs in later, with GitHub or Google, to keep the app and get more room in the sandbox.
+
+## 1. Get a key in one call
+
+First check whether you already have one: if `FLOW_MESSAGING_KEY` is set (in the environment or `.env`), use it and skip this step.
+
+<CodeGroup>
+```bash curl
+curl -X POST https://api.flow.engineer/v1/sandbox/keys
+# Optional name, shown in the dashboard once the app is claimed:
+# -H "Content-Type: application/json" -d '{"name": "Support agent"}'
+```
+
+```bash CLI
+npx @flow-engineer/messaging init
+```
+
+```ts TypeScript
+import { FlowMessaging } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging(); // no key needed for this call
+const sandbox = await flow.sandbox.createKey({ name: "Support agent" });
+// save sandbox.key as FLOW_MESSAGING_KEY and sandbox.claim_token as FLOW_CLAIM_TOKEN
+```
+</CodeGroup>
+
+The answer (`201`, a `SandboxKey`, shortened here) is a new app of its own:
+
+```json
+{
+  "key": "fk_test_...",
+  "claim_token": "fct_...",
+  "claim_url": "https://api.flow.engineer/admin/claim#token=fct_...",
+  "api_key": { "id": "key_...", "mode": "test", "expires_at": "2026-10-17T09:30:00Z" },
+  "app": { "id": "app_...", "name": "Sandbox app", "sandbox_join_code": "wild-otter-04508705" },
+  "allowance": { "tier": "anonymous", "contacts": { "limit": 1, "used": 0 }, "messages": { "limit": 50, "used": 0, "remaining": 50 } },
+  "senders": [
+    { "id": "snd_...", "channel": "telegram", "kind": "shared", "address": { "link": "https://t.me/..." }, "join_code": "join wild-otter-04508705" }
+  ]
+}
+```
+
+- **`key` and `claim_token` are shown once.** Save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN`, in the environment or a git-ignored `.env`. The claim token (and `claim_url`, which holds it) lets a person claim the app, so treat it like the key.
+- **Join from a phone:** open a sender's `address.link` (on Telegram, tap **Start**), or send it the `join_code`.
+- **Don't call it again** when you already have a key. Calls are limited per client address and network; going over answers `429 rate_limited` with `retry_after`.
+
+`init` does all of this: with no key in the environment or `.env`, it gets one itself, writes `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env`, and prints the sandbox link and join code, the allowance and the expiry. To use a key you already have, pass `init --key fk_test_...`.
+
+## 2. The sandbox allowance
+
+Test keys send only on Flow's shared sandbox senders, and only to people who joined your app there. What an app may send there for free:
+
+| | No account (key from `POST /v1/sandbox/keys`) | Signed in (GitHub or Google) |
+|---|---|---|
+| Contacts | 1 | 3 |
+| Messages | 50 in total | 100 per contact |
+| Channels | Telegram sandbox (WhatsApp when its sandbox opens) | Telegram sandbox (WhatsApp when its sandbox opens) |
+| Key expiry | 7 days (`api_key.expires_at`) | none |
+
+- Only messages your agent sends count. Inbound messages are free.
+- A contact counts once it joins your app, and keeps counting after it leaves.
+- The iMessage sandbox is not part of either allowance.
+- The WhatsApp sandbox is not open yet; when it opens, the allowance covers it.
+- When a key from `POST /v1/sandbox/keys` expires, its keys stop working and its contact is removed from the sandbox. A person can still sign in and claim the app.
+- Going live (`fk_live_` keys, your own dedicated senders, real contacts) is arranged with the Flow team. See [Going live](/guides/going-live).
+
+See what is left with `GET /v1/app` (shortened):
+
+```bash
+curl https://api.flow.engineer/v1/app -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+```
+
+```json
+{
+  "allowance": {
+    "tier": "anonymous",
+    "channels": ["telegram", "whatsapp"],
+    "contacts": { "limit": 1, "used": 1 },
+    "messages_per_contact": 50,
+    "messages": { "limit": 50, "used": 12, "remaining": 38 },
+    "expires_at": "2026-10-17T09:30:00Z",
+    "upgrade": "Sign in to keep this app and send 100 messages to each of 3 contacts: npx @flow-engineer/messaging login"
+  }
+}
+```
+
+In TypeScript: `(await flow.app.retrieve()).allowance`.
+
+## 3. Sign in to keep the app
+
+A person signs in with GitHub or Google through the device flow (OAuth 2.0 device authorization, RFC 8628). It **claims** the app: its data and keys are kept, the expiry is removed, and the allowance becomes 3 contacts with 100 messages each. The new key replaces the sandbox key.
+
+### With the CLI
+
+```bash
+npx @flow-engineer/messaging login
+```
+
+It reads `FLOW_CLAIM_TOKEN` from `.env`, prints a link and a short code (for example `WDJB-MJHT`), opens the browser and waits. Once the person approves, it replaces `FLOW_MESSAGING_KEY` in `.env` with the new key and removes `FLOW_CLAIM_TOKEN`. `--no-browser` skips opening the browser.
+
+**Coding agents that cannot wait** on a command: run `npx @flow-engineer/messaging login --no-wait`. It prints the link and code and exits. Show them to the person, and once they say they approved, run `npx @flow-engineer/messaging login` again to collect the key.
+
+### With curl
+
+1. Start the sign-in with the claim token. `client_name` is shown to the person on the approval page.
+
+   ```bash
+   curl -X POST https://api.flow.engineer/v1/device/authorizations \
+     -H "Content-Type: application/json" \
+     -d '{"claim_token": "'"$FLOW_CLAIM_TOKEN"'", "client_name": "Claude Code"}'
+   ```
+
+   ```json
+   {
+     "device_code": "fdc_...",
+     "user_code": "WDJB-MJHT",
+     "verification_uri": "https://api.flow.engineer/admin/device",
+     "verification_uri_complete": "https://api.flow.engineer/admin/device?code=WDJB-MJHT",
+     "expires_in": 900,
+     "interval": 5
+   }
+   ```
+
+   Without a claim token, send the app's test key instead (`-H "Authorization: Bearer $FLOW_MESSAGING_KEY"`).
+
+2. Show the person `verification_uri_complete` and `user_code`. Never show `device_code`.
+
+3. Poll every `interval` seconds:
+
+   ```bash
+   curl -X POST https://api.flow.engineer/v1/device/token \
+     -H "Content-Type: application/json" -d '{"device_code": "fdc_..."}'
+   ```
+
+   - `pending`: wait `interval` seconds and poll again. `429 rate_limited` means slow down: wait `retry_after` seconds.
+   - `approved`: the answer holds `key` (shown once). Save it as `FLOW_MESSAGING_KEY` in place of the sandbox key, and drop `FLOW_CLAIM_TOKEN`.
+   - `denied`: the person refused. Stop.
+   - `expired`: the codes ran out (after 15 minutes) or were already used. Start again.
+
+### With TypeScript
+
+```ts
+import { DeviceSignInError, FlowMessaging } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging();
+try {
+  const token = await flow.device.signIn({
+    claimToken: process.env.FLOW_CLAIM_TOKEN,
+    clientName: "My agent",
+    prompt: (auth) => console.log(`Open ${auth.verification_uri_complete} and check the code ${auth.user_code}`),
+  });
+  // token.key replaces FLOW_MESSAGING_KEY
+} catch (err) {
+  if (err instanceof DeviceSignInError) console.log(`Sign-in ${err.reason}`); // "denied" or "expired"
+  else throw err;
+}
+```
+
+`signIn` polls for you, honouring `interval` and `retry_after`. For your own loop, use `flow.device.authorize({ claimToken, clientName })` and `flow.device.poll(deviceCode)`.
+
+### In a browser
+
+`claim_url` opens a page where the person signs in and claims the app without the CLI.
+
+## The dashboard
+
+Signed-in people manage their apps and keys at [api.flow.engineer/admin](https://api.flow.engineer/admin) (sign in with GitHub or Google), including creating and revoking keys.
+
+## Errors
+
+| Error | `channel_code` | What it means | What to do |
+|---|---|---|---|
+| `403 permission` | `sandbox_allowance_used` | The app sent all the messages its allowance allows. | Sign in (`login`) to lift it to 100 per contact for 3 contacts. Signed in already: go live. |
+| `403 permission` | `sandbox_contact_limit` | The allowance has no room for another contact. | Sign in for 3 contacts, or keep testing with the contact who joined. |
+| `403 permission` | `sandbox_channel_not_included` | The send used a sandbox channel the allowance does not cover, such as iMessage. | Use the Telegram sandbox sender. |
+| `403 permission` | `sign_in_required` | An app made without an account tried something that needs a person signed in, such as connecting its own Telegram bot. | Sign in (`login`), then retry. |
+| `401 authentication` | `sandbox_key_expired` | The key from `POST /v1/sandbox/keys` is past its `expires_at` (7 days). | Sign in to claim the app and get a new key, or get a new key with `POST /v1/sandbox/keys`. |
+
+Switch on `error.type` and read `error.channel_code`; each error also carries a `hint` and a `doc_url` ([permission](/errors/permission), [authentication](/errors/authentication), [rate_limited](/errors/rate_limited)).

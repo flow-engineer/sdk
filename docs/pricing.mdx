@@ -17,9 +17,9 @@ Every plan covers WhatsApp, Telegram and iMessage with the same API. Message con
 
 ## What to know now
 
-- **Test mode is free.** Everything in the [Quickstart](/quickstart) works on the Free plan.
+- **Test mode is free**, within the sandbox allowance: without an account 1 contact and 50 messages in total (the key expires after 7 days); signed in with GitHub or Google, 3 contacts and 100 messages each. Only messages your agent sends count. See [Keys and sign-in](/get-a-key).
 - **WhatsApp's own fees are passed through at cost.** WhatsApp charges per template message by category (marketing, utility, authentication); Flow adds no markup to them.
 - **Plan limits are enforced by the send gate**, as a monthly allowance of new conversations. Replies to people who wrote to you are what agents mostly send.
-- **Keys and billing** are handled by the Flow team while signup is in preview: ask the Flow team for a test key (`fk_test_...`), or a live key (`fk_live_...`) when you go live.
+- **Test keys take one call**, with no account: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`. Live keys (`fk_live_...`) and billing are arranged with the Flow team when you go live.
 
 Questions about pricing or volume: ask the Flow team.

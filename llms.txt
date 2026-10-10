@@ -2,6 +2,18 @@
 
 > One API for AI agents to talk with people on WhatsApp, Telegram and iMessage. Flow hosts the senders (Telegram bots, WhatsApp numbers, iMessage lines), delivers inbound messages as typed events (webhooks, a WebSocket stream, or polling) and sends typed content through one gate that applies each channel's rules. HTTP API at https://api.flow.engineer; TypeScript SDK `@flow-engineer/messaging`; MCP server at https://api.flow.engineer/mcp.
 
+No key yet? Check `FLOW_MESSAGING_KEY` first; if it is unset, get a test key with no account in one call, and save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once):
+
+```sh
+curl -X POST https://api.flow.engineer/v1/sandbox/keys   # or: npx @flow-engineer/messaging init (writes both to .env)
+```
+
+- The answer also holds the sandbox senders: a person joins by opening `senders[].address.link` (Telegram: tap Start) or sending its `join_code`. Rate limited per address (`429 rate_limited`, `retry_after`); never call it when you already have a key.
+- Sandbox allowance. No account: 1 contact, 50 messages in total, Telegram sandbox (WhatsApp when its sandbox opens), key expires after 7 days. Signed in: 3 contacts x 100 messages, no expiry. iMessage is in neither. Only messages your agent sends count. `GET /v1/app` returns `allowance`.
+- Sign in to keep the app (GitHub or Google, device flow): `npx @flow-engineer/messaging login`. Agents that cannot wait: `login --no-wait` prints the link and code and exits; run `login` again after the person approves. By HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_..."}`, show `verification_uri_complete`, poll `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `approved` (`key`), `denied` or `expired`.
+- Errors: `403 permission` with `channel_code` `sandbox_allowance_used`, `sandbox_contact_limit`, `sandbox_channel_not_included` or `sign_in_required`; `401 authentication` with `sandbox_key_expired`. Fix: sign in, or get a new key.
+- Dashboard: https://api.flow.engineer/admin. Full page: https://docs.flow.engineer/get-a-key
+
 Quickstart (TypeScript, Node 18+/Bun/Deno/edge):
 
 ```ts
@@ -12,7 +24,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 }
 ```
 
-- Keys: `fk_test_...` (shared sandbox only; a person joins by opening the sandbox link and tapping Start, or on iMessage by texting the join code, e.g. `join wild-otter-04508705`) and `fk_live_...`. Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (fk_test_...). `npx @flow-engineer/messaging init --key fk_test_...` writes `FLOW_MESSAGING_KEY` to `.env`, prints the join code, and asks before installing agent files and the MCP server `flow` (`--yes` skips the question).
+- Keys: `fk_test_...` (shared sandbox only; a person joins by opening the sandbox link and tapping Start, or by sending the join code, e.g. `join wild-otter-04508705`) and `fk_live_...`. Live keys and dedicated senders are arranged with the Flow team. `npx @flow-engineer/messaging init` (or `init --key fk_test_...` for a key you have) writes `FLOW_MESSAGING_KEY` to `.env`, prints the join code, and asks before installing agent files and the MCP server `flow` (`--yes` skips the question). SDK without a key: `flow.sandbox.createKey()`, `flow.device.signIn({ claimToken, prompt })`.
 - Handler type: `FlowEvent` (or `FlowEventOf<"message.received">`) is what the stream and webhook handlers give you; its `conversation` has `reply`, `send`, `typing`, `markRead`, `react`. `Event` is the plain API JSON (`flow.events.list()`).
 - Sends: `flow.messages.send(convId, { content, reply_to: "msg_..." })` for an inline reply (the message's `reply_to` echoes it). Files: `const file = await flow.files.upload({ file: bytes, filename })` (Blob, Uint8Array/Buffer or ArrayBuffer), then send `{ type: "media", kind: "document", file_id: file.id }`.
 - `event.conversation.reply(x)` accepts a string, content, a list of content, or a stream from OpenAI, Anthropic, Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, LangChain, Mastra or any AsyncIterable<string>; it keeps typing on and sends chat bubbles split at paragraph and sentence ends.

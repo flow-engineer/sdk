@@ -1,6 +1,7 @@
 # Flow Messaging API reference (short)
 
-Client: `const flow = new FlowMessaging({ apiKey?, baseURL?, flowVersion?, maxRetries?, timeout? })`.
+Client: `const flow = new FlowMessaging({ apiKey?, baseURL?, flowVersion?, maxRetries?, timeout? })`
+(the key is optional for `flow.sandbox` and `flow.device`).
 Every method mirrors one endpoint; lists return a `PagePromise` (await it for a page,
 `for await` it for every item, `.toArray()`).
 
@@ -18,6 +19,9 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 | `flow.webhookEndpoints.create({ url, events })` (+ list, retrieve, update, delete) · `.rotateSecret(id, { overlap_seconds })` | `/v1/webhook_endpoints` · `POST .../{id}/rotate_secret` |
 | `flow.senders.list()` · `flow.contacts.list()` · `flow.templates.list()` · `flow.app.retrieve()` | `/v1/senders` · `/v1/contacts` · `/v1/templates` · `/v1/app` |
 | `flow.senders.request({ channel: "telegram", telegram_bot_token })` · `.disconnect(id)` (live keys) | `POST /v1/senders` · `DELETE /v1/senders/{id}` |
+| `flow.sandbox.createKey({ name? })` (no key; returns `key`, `claim_token`, `app`, `allowance`, `senders`) | `POST /v1/sandbox/keys` |
+| `flow.device.signIn({ claimToken?, clientName?, prompt })` (start and poll; resolves with the approved token, `.key`; throws `DeviceSignInError`, `reason` `denied` or `expired`) · `.authorize(...)` · `.poll(deviceCode)` | `POST /v1/device/authorizations` · `POST /v1/device/token` |
+| `(await flow.app.retrieve()).allowance` (sandbox allowance: `contacts`, `messages.remaining`, `expires_at`) | `GET /v1/app` |
 
 Handle helpers: `flow.conversation(id)` or `event.conversation` gives `.reply(x)`,
 `.send(x)`, `.typing("on")`, `.markRead()`, `.react(msgId, "👍")`,
@@ -62,6 +66,13 @@ Not every channel reports `message.delivered`: to confirm a send, wait for `mess
 `rate_limited` RateLimitError (429, per-key limit or sender pacing, retried) · `channel_error` ChannelError (502, `channelCode`) ·
 `not_implemented` NotImplementedError (501) · `api_error` APIError (5xx, retried).
 Every error has `hint` (what to change) and `docUrl` (`https://api.flow.engineer/docs/errors/<type>`).
+
+Sandbox allowance codes (`err.channelCode`): `PermissionError` with `sandbox_allowance_used`
+(messages used up), `sandbox_contact_limit` (no room for another contact),
+`sandbox_channel_not_included` (channel not covered, such as iMessage: use the Telegram
+sandbox) or `sign_in_required` (needs a signed-in app); `AuthenticationError` with
+`sandbox_key_expired` (7 days passed). Fix: sign in (`npx @flow-engineer/messaging login`),
+or get a new key.
 
 ## HTTP without the SDK
 

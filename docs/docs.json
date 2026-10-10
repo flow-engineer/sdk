@@ -27,7 +27,7 @@
     "primary": {
       "type": "button",
       "label": "Get a test key",
-      "href": "/quickstart"
+      "href": "/get-a-key"
     }
   },
   "navigation": {
@@ -40,6 +40,7 @@
             "pages": [
               "index",
               "quickstart",
+              "get-a-key",
               "coding-agents",
               "mcp",
               "pricing"
@@ -160,6 +161,14 @@
             ]
           },
           {
+            "group": "Onboarding",
+            "pages": [
+              "POST /v1/sandbox/keys",
+              "POST /v1/device/authorizations",
+              "POST /v1/device/token"
+            ]
+          },
+          {
             "group": "Errors",
             "pages": [
               "errors/invalid_request",
@@ -198,7 +207,7 @@
     "instructions": [
       "Flow Messaging is one HTTP API (https://api.flow.engineer) for AI agents to hold two-way conversations on WhatsApp, Telegram and iMessage.",
       "In TypeScript or JavaScript, use the SDK: npm install @flow-engineer/messaging, then `new FlowMessaging()` (reads FLOW_MESSAGING_KEY). Python (flow-messaging) and Go (github.com/flow-engineer/sdk/go) SDKs are coming; until then call the HTTP API directly.",
-      "Keys are issued by the Flow team while signup is in preview: ask for a test key (fk_test_...), or a live key (fk_live_...) when going live. Keep it in FLOW_MESSAGING_KEY. Register the hosted MCP server as `flow`: claude mcp add --transport http flow https://api.flow.engineer/mcp --header \"Authorization: Bearer $FLOW_MESSAGING_KEY\". `npx @flow-engineer/messaging init` will do this once the npm package ships.",
+      "No key yet? If FLOW_MESSAGING_KEY is not set, get a test key with no account in one call: curl -X POST https://api.flow.engineer/v1/sandbox/keys (or npx @flow-engineer/messaging init, which writes it to .env). Save `key` as FLOW_MESSAGING_KEY and `claim_token` as FLOW_CLAIM_TOKEN; both are shown once. It allows 1 contact and 50 messages on the Telegram sandbox and expires after 7 days; a person signs in with `npx @flow-engineer/messaging login` (GitHub or Google) to keep the app and get 3 contacts x 100 messages. Live keys (fk_live_...) are arranged with the Flow team. Register the hosted MCP server as `flow`: claude mcp add --transport http flow https://api.flow.engineer/mcp --header \"Authorization: Bearer $FLOW_MESSAGING_KEY\".",
       "Authenticate with `Authorization: Bearer fk_test_...` (sandbox) or `fk_live_...` (real contacts). Never put a live key in client-side code.",
       "Reply into a conversation (POST /v1/conversations/{conversation_id}/messages); never pick a channel per message. Switch on `error.type`, not the message text.",
       "Full documentation for agents: https://docs.flow.engineer/llms-full.txt. OpenAPI spec: https://raw.githubusercontent.com/flow-engineer/sdk/main/openapi/openapi.yaml."
