@@ -448,8 +448,20 @@ export interface paths {
          *
          *     A Telegram bot is connected at once: give the token BotFather issued as
          *     `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
-         *     webhook at Flow, and answers with the sender `active`. The token is never
-         *     returned.
+         *     webhook at Flow, and answers `200` with the sender `active`. The token is
+         *     never returned. One bot is one sender:
+         *
+         *     - Connecting a bot that is already a sender of this app updates its token in
+         *       place and answers with the same sender (use it after revoking a token in
+         *       @BotFather; a sender `flagged` because Telegram rejected its old token
+         *       becomes `active` again and its queued messages go out).
+         *     - Connecting a bot that is a sender of another app moves it here: holding
+         *       the token proves control of the bot. The old sender is retired (`banned`)
+         *       and its app receives `sender.status_changed`.
+         *     - A bot that is one of Flow's sandbox senders is refused with
+         *       `403 permission`.
+         *
+         *     To disconnect a bot, call `DELETE /v1/senders/{sender_id}`.
          */
         post: operations["requestSender"];
         delete?: never;
@@ -478,7 +490,23 @@ export interface paths {
         get: operations["getSender"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Disconnect a sender
+         * @description Disconnects one of your dedicated Telegram bots from Flow. Flow removes the
+         *     bot's webhook (best effort), deletes its stored token, and retires the
+         *     sender: its status becomes `banned`, it no longer sends or receives, and
+         *     messages still queued from it fail. You receive `sender.status_changed`.
+         *     The sender, its conversations and its messages stay readable. Repeating the
+         *     call is safe and answers with the retired sender.
+         *
+         *     Live keys only. Shared sandbox senders belong to Flow and cannot be
+         *     disconnected (`403 permission` with a test key). iMessage lines and WhatsApp
+         *     numbers are disconnected by Flow, not by API (`501 not_implemented`).
+         *
+         *     To use the bot again, connect it with `POST /v1/senders`; it becomes a new
+         *     sender.
+         */
+        delete: operations["disconnectSender"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1005,8 +1033,14 @@ export interface components {
          *     - `active`: sending normally.
          *     - `warming_up`: active, with a new-contact budget that grows day by day.
          *     - `throttled`: the gate slowed it after an abuse signal; it recovers by itself.
-         *     - `flagged`: the channel or Flow flagged it; starts are paused.
-         *     - `banned`: the channel banned it; it cannot send.
+         *     - `flagged`: the channel or Flow flagged it; starts are paused. A Telegram
+         *       bot is also `flagged` when Telegram rejects its token (revoked in
+         *       @BotFather): it then sends nothing, new sends answer `403 permission`, and
+         *       queued messages wait until you connect the bot again with its new token
+         *       (`POST /v1/senders`).
+         *     - `banned`: it cannot send or receive: the channel banned it, you
+         *       disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was
+         *       connected to another app.
          * @enum {string}
          */
         SenderStatus: "pending" | "active" | "warming_up" | "throttled" | "flagged" | "banned";
@@ -2891,7 +2925,7 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Only events of these types. Repeat the parameter for several (`type=message.received&type=reaction.added`). */
                 type?: components["schemas"]["EventType"][];
-                /** @description Only events in this conversation. */
+                /** @description Only events in this conversation. An ID with no conversation of this app and mode answers `404 not_found`. */
                 conversation?: components["schemas"]["ConversationId"];
             };
             header?: {
@@ -2914,6 +2948,7 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
@@ -3153,7 +3188,16 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The request was accepted. The sender is `pending`. */
+            /** @description The sender is connected and `active` (Telegram bots), or an already connected bot's token was updated in place. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sender"];
+                };
+            };
+            /** @description The request was accepted. The sender is `pending` (WhatsApp numbers and iMessage lines); you receive `sender.status_changed` when it is ready. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -3194,6 +3238,37 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    disconnectSender: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The sender's ID. */
+                sender_id: components["parameters"]["SenderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sender is disconnected; it is returned with status `banned`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sender"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];

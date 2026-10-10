@@ -959,8 +959,20 @@ paths:
 
         A Telegram bot is connected at once: give the token BotFather issued as
         `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
-        webhook at Flow, and answers with the sender `active`. The token is never
-        returned.
+        webhook at Flow, and answers `200` with the sender `active`. The token is
+        never returned. One bot is one sender:
+
+        - Connecting a bot that is already a sender of this app updates its token in
+          place and answers with the same sender (use it after revoking a token in
+          @BotFather; a sender `flagged` because Telegram rejected its old token
+          becomes `active` again and its queued messages go out).
+        - Connecting a bot that is a sender of another app moves it here: holding
+          the token proves control of the bot. The old sender is retired (`banned`)
+          and its app receives `sender.status_changed`.
+        - A bot that is one of Flow's sandbox senders is refused with
+          `403 permission`.
+
+        To disconnect a bot, call `DELETE /v1/senders/{sender_id}`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -970,8 +982,14 @@ paths:
             schema:
               $ref: "#/components/schemas/SenderRequest"
       responses:
+        "200":
+          description: The sender is connected and `active` (Telegram bots), or an already connected bot's token was updated in place.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sender"
         "202":
-          description: The request was accepted. The sender is `pending`.
+          description: The request was accepted. The sender is `pending` (WhatsApp numbers and iMessage lines); you receive `sender.status_changed` when it is ready.
           content:
             application/json:
               schema:
@@ -1005,6 +1023,41 @@ paths:
                 $ref: "#/components/schemas/Sender"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: disconnectSender
+      tags: [Senders]
+      summary: Disconnect a sender
+      description: |
+        Disconnects one of your dedicated Telegram bots from Flow. Flow removes the
+        bot's webhook (best effort), deletes its stored token, and retires the
+        sender: its status becomes `banned`, it no longer sends or receives, and
+        messages still queued from it fail. You receive `sender.status_changed`.
+        The sender, its conversations and its messages stay readable. Repeating the
+        call is safe and answers with the retired sender.
+
+        Live keys only. Shared sandbox senders belong to Flow and cannot be
+        disconnected (`403 permission` with a test key). iMessage lines and WhatsApp
+        numbers are disconnected by Flow, not by API (`501 not_implemented`).
+
+        To use the bot again, connect it with `POST /v1/senders`; it becomes a new
+        sender.
+      responses:
+        "200":
+          description: The sender is disconnected; it is returned with status `banned`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sender"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
         "404":
           $ref: "#/components/responses/NotFound"
         "429":
@@ -2030,8 +2083,14 @@ components:
         - `active`: sending normally.
         - `warming_up`: active, with a new-contact budget that grows day by day.
         - `throttled`: the gate slowed it after an abuse signal; it recovers by itself.
-        - `flagged`: the channel or Flow flagged it; starts are paused.
-        - `banned`: the channel banned it; it cannot send.
+        - `flagged`: the channel or Flow flagged it; starts are paused. A Telegram
+          bot is also `flagged` when Telegram rejects its token (revoked in
+          @BotFather): it then sends nothing, new sends answer `403 permission`, and
+          queued messages wait until you connect the bot again with its new token
+          (`POST /v1/senders`).
+        - `banned`: it cannot send or receive: the channel banned it, you
+          disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was
+          connected to another app.
       enum: [pending, active, warming_up, throttled, flagged, banned]
     SenderAddress:
       type: object

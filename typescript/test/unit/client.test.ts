@@ -159,4 +159,23 @@ describe("client", () => {
     expect(calls[0]!.headers["idempotency-key"]).toMatch(/.{16,}/);
     expect(calls[1]!.body).toEqual({});
   });
+
+  it("disconnects a sender with DELETE", async () => {
+    const sender = {
+      id: "snd_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+      channel: "telegram",
+      kind: "dedicated",
+      livemode: true,
+      status: "banned",
+      address: { username: "example_bot" },
+      limits: { new_contacts_per_day: 0, new_contacts_per_hour: 0 },
+      created_at: "2026-10-01T00:00:00Z",
+    };
+    const { fetch, calls } = mockFetch(() => json(200, sender));
+    const flow = new FlowMessaging({ apiKey: "fk_live_unit", fetch, baseURL: "https://example.test" });
+    const got = await flow.senders.disconnect(sender.id);
+    expect(got.status).toBe("banned");
+    expect(calls[0]!.method).toBe("DELETE");
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/senders/${sender.id}`);
+  });
 });

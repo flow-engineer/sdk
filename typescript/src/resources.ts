@@ -181,6 +181,11 @@ export class Senders {
   request(params: SenderRequest, options?: RequestOptions): Promise<Sender> {
     return this.http.request({ method: "POST", path: "/v1/senders", body: params, options });
   }
+
+  /** Disconnects one of your Telegram bots (live keys): removes its webhook and token and retires the sender (status `banned`). */
+  disconnect(senderId: string, options?: RequestOptions): Promise<Sender> {
+    return this.http.request({ method: "DELETE", path: `/v1/senders/${enc(senderId)}`, options });
+  }
 }
 
 export class Templates {
