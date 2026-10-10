@@ -39,6 +39,7 @@ key_prefixes:
   fk_live_: live mode; your dedicated senders: your own Telegram bot (self-serve, live key from the dashboard), an iMessage line (arranged with the Flow team)
 sandbox_join: open the sandbox sender's address.link (https://t.me/<bot>?start=<code>) and tap Start,
               or send its join_code text ("join wild-otter-04508705")
+simulated_contacts: POST /v1/test/conversations, then POST /v1/test/conversations/{id}/inbound   # test keys; no phone; free (not in the allowance); section 2
 version_header: "Flow-Version: 2026-11-01"   # optional; pins the API version
 content_type: application/json               # except POST /v1/files (multipart/form-data)
 idempotency_header: "Idempotency-Key: <unique string, max 255 chars>"   # every POST; kept 24 h
@@ -318,6 +319,52 @@ Good to know:
   account, 3 signed in) and how many messages you send them.
 - If the Flow MCP tools are available to you, `sandbox_join` (section 12) returns the
   same link and lists who joined.
+
+### Test without a phone: simulated contacts
+
+A test key can also play the person's side itself, for automated tests or when no
+phone is at hand. A **simulated contact** exists only inside Flow, on `telegram`,
+`imessage` or `sms`:
+
+```bash
+# 1. A conversation with a new simulated contact (201; made-up address, so each call is fresh)
+curl -s https://api.flow.engineer/v1/test/conversations \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" -d '{"channel": "sms", "name": "Test contact"}'
+# {"id": "conv_...", "channel": "sms", "sender": "snd_...", "contact": "ct_...", "simulated": true, ...}
+
+# 2. Write as the contact (202). Media: upload with POST /v1/files first, then
+#    {"type": "media", "kind": "image", "file_id": "file_...", "caption": "..."}
+curl -s https://api.flow.engineer/v1/test/conversations/conv_.../inbound \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" -d '{"content": {"type": "text", "text": "Do you deliver on Sundays?"}}'
+# {"message": "msg_...", "conversation": "conv_...", "channel_message_id": "sim_...", "status": "queued"}
+
+# 3. Read both sides, oldest first; page on with ?after=<last message id>
+curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+```
+
+- Each turn reaches your agent exactly like a real one: `conversation.started` (`via`
+  `inbound`) before the first turn, then `message.received` with the `message` ID
+  from step 2, by webhook, on the stream and in `GET /v1/events`, in order. The
+  conversation and contact carry `simulated: true`.
+- Your agent replies as usual (HTTP, stream frame or webhook answer). The send passes
+  the real gate (content support, `fallback`, text limits, edit targets) and ends
+  `message.sent` on your app's simulated sender (`kind: simulated`), which never
+  touches a network. Transcript entries are messages; a sent one has `shown`, what
+  the contact saw (for example numbered text for buttons on SMS; answering `2`
+  comes back as `button_reply`).
+- The channel's rules apply to what the contact sends: no documents or locations
+  over SMS (`422 unsupported_content`), text up to the channel's `max_text_length`.
+- Free: simulated traffic is not in the sandbox allowance; only the key's rate limit
+  applies. The gate skips pacing, new-contact budgets and abuse throttling for
+  simulated senders, so tests can run in parallel.
+- Live keys get `403 permission` (`channel_code` `test_mode_only`); a real
+  conversation gets `403 permission` (`not_simulated`). `GET /v1/senders` leaves
+  simulated senders out unless you pass `kind=simulated`.
+- MCP (if available to you): `simulate_inbound` and `get_test_transcript` do the
+  same.
 
 ## 3. Receive events: WebSocket (local dev) or webhook
 
@@ -979,7 +1026,7 @@ Cursor (`~/.cursor/mcp.json`):
 {"mcpServers": {"flow": {"url": "https://api.flow.engineer/mcp", "headers": {"Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}"}}}}
 ```
 
-Test keys get `sandbox_join`, `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
+Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
 
 Without a key, `/mcp` answers `401` and its `hint` gives the one call that gets a test
 key (section 0). After `send_test_message`, pass the `cursor` it returned as `after` to
@@ -1035,3 +1082,6 @@ Every operation in the spec (https://api.flow.engineer/openapi.yaml):
 | `POST /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret` | Rotate a webhook endpoint's signing secret |
 | `GET /v1/contacts` | List contacts |
 | `GET /v1/contacts/{contact_id}` | Get a contact |
+| `POST /v1/test/conversations` | Create a simulated conversation |
+| `POST /v1/test/conversations/{conversation_id}/inbound` | Write as the simulated contact |
+| `GET /v1/test/conversations/{conversation_id}/transcript` | Read a simulated conversation, both ways |

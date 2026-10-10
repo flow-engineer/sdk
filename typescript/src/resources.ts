@@ -8,6 +8,7 @@ import type {
   Capabilities,
   Channel,
   Contact,
+  Content,
   Conversation,
   ConversationAction,
   Deleted,
@@ -27,10 +28,15 @@ import type {
   SandboxKeyRequest,
   Sender,
   SenderRequest,
+  SimulatedInbound,
+  SimulatedInboundRequest,
   StartConversationRequest,
   Template,
   TemplateCreateRequest,
+  TestConversationRequest,
+  TestTranscriptParams,
   TextContent,
+  TranscriptEntry,
   WebhookEndpoint,
   WebhookEndpointCreateRequest,
   WebhookEndpointUpdateRequest,
@@ -431,6 +437,60 @@ export class Device {
       signal: params.signal,
       wait: params.wait,
     });
+  }
+}
+
+/**
+ * Simulated contacts (test keys only): play the end user's side with no phone and no
+ * real channel. Each inbound turn reaches your agent as a real `message.received`;
+ * its replies pass the real send gate and end `message.sent` without touching a
+ * network. Free: not counted in the sandbox allowance. Live keys get `PermissionError`
+ * (`channelCode` `test_mode_only`).
+ *
+ * ```ts
+ * const conv = await flow.test.createConversation({ channel: "sms" });
+ * await flow.test.inbound(conv.id, { type: "text", text: "Do you deliver on Sundays?" });
+ * for await (const m of flow.test.transcript(conv.id)) console.log(m.direction, m.shown ?? m.content);
+ * ```
+ */
+export class Testing {
+  constructor(private readonly http: HttpClient) {}
+
+  /**
+   * A conversation with a simulated contact on `telegram`, `imessage` or `sms`. Without
+   * `contact`, the contact gets a new made-up address, so each call is a fresh conversation.
+   */
+  createConversation(params: TestConversationRequest, options?: RequestOptions): Promise<Conversation> {
+    return this.http.request({ method: "POST", path: "/v1/test/conversations", body: params, options });
+  }
+
+  /**
+   * Writes one turn as the simulated contact: content (a string is text) or a full
+   * request with `reply_to`. Media takes a `file_id` from `flow.files.upload`. The
+   * answer's `message` is the ID the `message.received` event will carry.
+   */
+  inbound(
+    conversationId: string,
+    input: string | Content | SimulatedInboundRequest,
+    options?: RequestOptions,
+  ): Promise<SimulatedInbound> {
+    const body: SimulatedInboundRequest =
+      typeof input === "string"
+        ? { content: { type: "text", text: input } }
+        : "type" in input
+          ? { content: input }
+          : input;
+    return this.http.request({
+      method: "POST",
+      path: `/v1/test/conversations/${enc(conversationId)}/inbound`,
+      body,
+      options,
+    });
+  }
+
+  /** Both sides of a simulated conversation, oldest first; sent messages carry `shown`. */
+  transcript(conversationId: string, params: TestTranscriptParams = {}): PagePromise<TranscriptEntry> {
+    return list(this.http, `/v1/test/conversations/${enc(conversationId)}/transcript`, params);
   }
 }
 

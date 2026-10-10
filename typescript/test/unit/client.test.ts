@@ -212,6 +212,41 @@ describe("client", () => {
     expect(calls[0]!.body).toEqual({ content: { type: "text", text: "Yes, that one." }, reply_to: target });
   });
 
+  it("drives a simulated conversation: create, inbound, transcript oldest first", async () => {
+    const { fetch, calls } = mockFetch((req) => {
+      if (req.url.pathname === "/v1/test/conversations")
+        return json(201, { id: ids.conv, app: "app_x", channel: "sms", sender: "snd_x", contact: "ct_x", livemode: false, opted_in: true, simulated: true, created_at: "2026-11-01T00:00:00Z" });
+      if (req.url.pathname.endsWith("/inbound"))
+        return json(202, { message: ids.msg(1), conversation: ids.conv, channel_message_id: "sim_1", status: "queued" });
+      if (req.url.pathname.endsWith("/transcript")) {
+        if (!req.url.searchParams.get("after"))
+          return json(200, { conversation: ids.conv, data: [{ ...message(1, "hi"), direction: "in", status: "received" }], has_more: true });
+        return json(200, {
+          conversation: ids.conv,
+          data: [{ ...message(2, "Size?"), status: "sent", shown: { type: "text", text: "Size?\n1. S\n2. M" } }],
+          has_more: false,
+        });
+      }
+      return undefined;
+    });
+    const flow = new FlowMessaging({ apiKey: key, fetch, baseURL: "https://example.test" });
+    const conv = await flow.test.createConversation({ channel: "sms", name: "Test contact" });
+    expect(conv.simulated).toBe(true);
+    expect(calls[0]!.headers["idempotency-key"]).toMatch(/.{16,}/);
+    const turn = await flow.test.inbound(conv.id, "hi");
+    expect(turn.message).toBe(ids.msg(1));
+    expect(calls[1]!.url.pathname).toBe(`/v1/test/conversations/${ids.conv}/inbound`);
+    expect(calls[1]!.body).toEqual({ content: { type: "text", text: "hi" } });
+    await flow.test.inbound(conv.id, { type: "media", kind: "image", file_id: "file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5" });
+    expect(calls[2]!.body).toEqual({ content: { type: "media", kind: "image", file_id: "file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5" } });
+    await flow.test.inbound(conv.id, { content: { type: "text", text: "that one" }, reply_to: ids.msg(1) });
+    expect(calls[3]!.body).toEqual({ content: { type: "text", text: "that one" }, reply_to: ids.msg(1) });
+    const seen: string[] = [];
+    for await (const m of flow.test.transcript(conv.id)) seen.push(`${m.direction}:${m.shown?.type ?? m.content.type}`);
+    expect(seen).toEqual(["in:text", "out:text"]);
+    expect(calls.at(-1)!.url.searchParams.get("after")).toBe(ids.msg(1));
+  });
+
   it("FlowEventOf types a handler whose event can reply", async () => {
     const { fetch, calls } = mockFetch(() => json(202, message(3, "Got it")));
     const flow = new FlowMessaging({ apiKey: key, fetch, baseURL: "https://example.test" });

@@ -15,6 +15,7 @@ Flow Messaging is in beta. Some endpoints and channels are in the spec before th
 
 - Using WhatsApp before it is live (it waits on Meta's approval; Telegram and iMessage are live).
 - Asking for an iMessage line with `POST /v1/senders`: iMessage lines are connected by the Flow team, not by API.
+- A simulated conversation on WhatsApp (`POST /v1/test/conversations` with `channel: "whatsapp"`): simulated contacts are on Telegram, iMessage and SMS until WhatsApp ships.
 - An endpoint that arrives in a later release.
 
 ## How to fix it

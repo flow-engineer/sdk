@@ -27,6 +27,39 @@ curl https://api.flow.engineer/v1/app -H "Authorization: Bearer $FLOW_MESSAGING_
 - **Test mode has a sandbox allowance.** Without an account: 1 contact, 50 messages in total, and the key expires after 7 days (`api_key.expires_at`). Signed in with GitHub: 3 contacts, 100 messages each, no expiry, one allowance per person shared by all their apps. It covers the Telegram sandbox (and WhatsApp when its sandbox opens), not iMessage, and counts only messages your agent sends. `GET /v1/app` returns what is left (`allowance`). See [Keys and sign-in](/get-a-key).
 - **Keep live keys on your server.** Never ship a key in a web page or a mobile app.
 
+## Simulated contacts: test without a phone
+
+A test key can also play the person's side, so an automated test suite (or an agent
+checking its own work) runs end to end with no phone and no real channel. A
+**simulated contact** exists only inside Flow, on Telegram, iMessage or SMS.
+
+```bash
+# A conversation with a new simulated contact (made-up address; one per test case)
+curl -s https://api.flow.engineer/v1/test/conversations -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Content-Type: application/json" -d '{"channel": "sms"}'
+# Write as the contact (media: upload with POST /v1/files, then pass file_id)
+curl -s https://api.flow.engineer/v1/test/conversations/conv_.../inbound -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Content-Type: application/json" -d '{"content": {"type": "text", "text": "Do you deliver on Sundays?"}}'
+# Both sides, oldest first, with what the contact was shown
+curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+```
+
+- Each turn reaches your agent exactly like a real message: `message.received` by
+  webhook, on the stream and in the event log, in order, with `simulated: true` on
+  the conversation.
+- Your agent replies with its normal send. It passes the real send gate (content
+  support, `fallback`, text limits) and ends `message.sent` on your app's simulated
+  sender (`kind: simulated`), which never touches a network.
+- **Free:** simulated traffic does not count against the sandbox allowance, since
+  nothing leaves Flow. The key's request rate limit still applies, and the gate skips
+  the rules that protect a real number (pacing, new-contact budgets, abuse
+  throttling), so tests can run in parallel.
+- Live keys get `403` [`permission`](/errors/permission) (`test_mode_only`).
+  `GET /v1/senders` lists simulated senders only with `kind=simulated`.
+
+In TypeScript: `flow.test.createConversation({ channel: "sms" })`,
+`flow.test.inbound(convId, "hi")` and `flow.test.transcript(convId)`.
+
 ## Going from test to live
 
 Your code does not change. Connect your own Telegram bot (or have the Flow team connect an iMessage line), switch `FLOW_MESSAGING_KEY` to a live key, and register your webhook endpoint again with the live key. See [Going live](/guides/going-live).

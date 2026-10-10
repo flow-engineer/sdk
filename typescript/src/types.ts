@@ -31,6 +31,7 @@ export type DeviceToken = S["DeviceToken"];
 export type SignedInUser = S["SignedInUser"];
 
 export type Sender = S["Sender"];
+export type SenderKind = S["SenderKind"];
 export type SenderStatus = S["SenderStatus"];
 export type SenderAddress = S["SenderAddress"];
 export type SenderLimits = S["SenderLimits"];
@@ -46,6 +47,7 @@ export type ConversationAction = S["ConversationAction"];
 
 export type Message = S["Message"];
 export type MessageStatus = S["MessageStatus"];
+export type MessageDirection = S["MessageDirection"];
 export type DeliveredAs = S["DeliveredAs"];
 export type Fallback = S["Fallback"];
 export type ChannelOptions = S["ChannelOptions"];
@@ -111,6 +113,12 @@ export type WebhookEndpointCreateRequest = S["WebhookEndpointCreateRequest"];
 export type WebhookEndpointUpdateRequest = S["WebhookEndpointUpdateRequest"];
 export type WebhookSecretRotateRequest = S["WebhookSecretRotateRequest"];
 export type WebhookReply = S["WebhookReply"];
+export type TestConversationRequest = S["TestConversationRequest"];
+export type TestContactAddress = S["TestContactAddress"];
+export type SimulatedInboundRequest = S["SimulatedInboundRequest"];
+export type SimulatedInbound = S["SimulatedInbound"];
+export type TestTranscript = S["TestTranscript"];
+export type TranscriptEntry = S["TranscriptEntry"];
 
 /** Query parameters of list endpoints, by operation. */
 export type ListConversationsParams = NonNullable<operations["listConversations"]["parameters"]["query"]>;
@@ -120,3 +128,4 @@ export type ListSendersParams = NonNullable<operations["listSenders"]["parameter
 export type ListTemplatesParams = NonNullable<operations["listTemplates"]["parameters"]["query"]>;
 export type ListWebhookEndpointsParams = NonNullable<operations["listWebhookEndpoints"]["parameters"]["query"]>;
 export type ListContactsParams = NonNullable<operations["listContacts"]["parameters"]["query"]>;
+export type TestTranscriptParams = NonNullable<operations["getTestTranscript"]["parameters"]["query"]>;
