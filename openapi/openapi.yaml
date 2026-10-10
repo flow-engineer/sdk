@@ -965,7 +965,8 @@ paths:
         - Connecting a bot that is already a sender of this app updates its token in
           place and answers with the same sender (use it after revoking a token in
           @BotFather; a sender `flagged` because Telegram rejected its old token
-          becomes `active` again and its queued messages go out).
+          becomes `active` again, or `throttled` while an abuse throttle still
+          runs, and its queued messages go out).
         - Connecting a bot that is a sender of another app moves it here: holding
           the token proves control of the bot. The old sender is retired (`banned`)
           and its app receives `sender.status_changed`.
@@ -2087,7 +2088,9 @@ components:
           bot is also `flagged` when Telegram rejects its token (revoked in
           @BotFather): it then sends nothing, new sends answer `403 permission`, and
           queued messages wait until you connect the bot again with its new token
-          (`POST /v1/senders`).
+          (`POST /v1/senders`). They wait at most 72 hours after Flow accepted
+          them; older ones fail with `outside_window` (`channel_code`
+          `queued_too_long`) in `message.failed` instead of going out late.
         - `banned`: it cannot send or receive: the channel banned it, you
           disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was
           connected to another app.

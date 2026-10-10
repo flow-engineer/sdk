@@ -23,7 +23,7 @@ The key is valid but this action is not allowed for it.
 
 Use the key of the right mode. On the sandbox, have the contact send your app's join code (`join brave-otter`) to the sandbox sender; the MCP tool `sandbox_join` gives a link and a QR code. Then send again.
 
-If Telegram rejected your bot's token, get a new token from @BotFather (`/mybots`, API Token) and connect the bot again with `POST /v1/senders` and your live key: the same sender becomes `active`, and its queued messages go out.
+If Telegram rejected your bot's token, get a new token from @BotFather (`/mybots`, API Token) and connect the bot again with `POST /v1/senders` and your live key: the same sender becomes `active`, and its queued messages go out (those queued for more than 72 hours fail with `outside_window` instead).
 
 On an iMessage line that may only reply, wait for the contact to message it, then reply in that conversation (`POST /v1/conversations/{conversation_id}/messages`).
 
