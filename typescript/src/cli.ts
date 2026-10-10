@@ -6,7 +6,7 @@ import { parseArgs } from "node:util";
 import { FlowMessaging } from "./client.js";
 import { MCP_URL } from "./cli/agentfiles.js";
 import { LOGIN_COMMAND, login } from "./cli/device.js";
-import { envValue, setDotenv } from "./cli/env.js";
+import { announceAPIHost, envValue, resolveBaseURL, setDotenv } from "./cli/env.js";
 import { KEY_HELP, init } from "./cli/init.js";
 import { listen } from "./cli/listen.js";
 import { runBridge } from "./cli/mcp.js";
@@ -53,7 +53,8 @@ Commands
            with FLOW_MESSAGING_KEY from the environment or .env.
 
 Global options
-  --base-url <url>   API base URL (default https://api.flow.engineer, or FLOW_MESSAGING_BASE_URL)
+  --base-url <url>   API base URL (default https://api.flow.engineer, or FLOW_MESSAGING_BASE_URL
+                     from the environment or this folder's .env; another API is named on stderr)
   -h, --help         this help
   -v, --version      the version
 
@@ -68,8 +69,15 @@ function key(): string {
 /** Flow's channel codes that signing in fixes. */
 const SIGN_IN_FIXES = new Set(["sandbox_allowance_used", "sandbox_contact_limit", "sandbox_key_expired", "sign_in_required"]);
 
-function baseURL(v: unknown): string | undefined {
-  return (typeof v === "string" && v) || envValue("FLOW_MESSAGING_BASE_URL") || undefined;
+/**
+ * The API base URL (the flag, the environment, or the project's own .env, never a
+ * parent folder's), announced on stderr when it is not api.flow.engineer, since the key
+ * and claim token go there.
+ */
+function baseURL(v: unknown, dir = "."): string | undefined {
+  const url = resolveBaseURL(v, path.resolve(dir));
+  announceAPIHost(url);
+  return url;
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -102,7 +110,7 @@ async function main(argv: string[]): Promise<number> {
         dir: values.dir!,
         key: values.key,
         name: values.name,
-        baseURL: baseURL(values["base-url"]),
+        baseURL: baseURL(values["base-url"], values.dir),
         agentFiles: !values["no-agent-files"],
         mcp: !values["no-mcp"],
         codex: !values["no-codex"],
@@ -124,7 +132,7 @@ async function main(argv: string[]): Promise<number> {
       process.once("SIGINT", () => ctrl.abort());
       await login({
         dir: values.dir!,
-        baseURL: baseURL(values["base-url"]),
+        baseURL: baseURL(values["base-url"], values.dir),
         wait: !values["no-wait"],
         browser: !values["no-browser"],
         signal: ctrl.signal,
@@ -182,7 +190,9 @@ async function main(argv: string[]): Promise<number> {
     }
     case "mcp": {
       const { values } = parseArgs({ args: rest, options: { url: { type: "string" }, key: { type: "string" } } });
-      const url = values.url ?? process.env.FLOW_MESSAGING_MCP_URL ?? (baseURL(undefined) ? `${baseURL(undefined)}/mcp` : MCP_URL);
+      const base = resolveBaseURL(undefined);
+      const url = values.url ?? process.env.FLOW_MESSAGING_MCP_URL ?? (base ? `${base.replace(/\/+$/, "")}/mcp` : MCP_URL);
+      announceAPIHost(url);
       await runBridge({ url, apiKey: values.key ?? key() });
       return 0;
     }

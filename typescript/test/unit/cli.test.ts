@@ -216,7 +216,7 @@ describe("login", () => {
     const r = await login({
       dir,
       fetch,
-      baseURL: "https://api.test",
+      baseURL: "https://api.flow.engineer",
       wait: true,
       browser: true,
       print: (l) => lines.push(l),
@@ -232,7 +232,7 @@ describe("login", () => {
     const out = lines.join("\n");
     expect(out).toContain("WDJB-MJHT");
     expect(out).toContain('Claimed "My agent"');
-    expect(out).toContain("https://api.test/admin");
+    expect(out).toContain("https://api.flow.engineer/admin");
     expect(out).not.toContain("fdc_unitdevice");
   });
 
@@ -244,7 +244,7 @@ describe("login", () => {
     });
     const dir = project();
     const lines: string[] = [];
-    const base = { dir, fetch, baseURL: "https://api.test", wait: false, browser: false, print: (l: string) => lines.push(l), sleep: async () => undefined };
+    const base = { dir, fetch, baseURL: "https://api.flow.engineer", wait: false, browser: false, print: (l: string) => lines.push(l), sleep: async () => undefined };
     expect(await login(base)).toBe("pending");
     expect(parseDotenv(readFileSync(path.join(dir, ".env"), "utf8")).FLOW_DEVICE_CODE).toBe("fdc_unitdevice");
     expect(lines.join("\n")).toContain("run `npx @flow-engineer/messaging login` again");

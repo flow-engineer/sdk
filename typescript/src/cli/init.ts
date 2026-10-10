@@ -9,7 +9,7 @@ import { FlowMessaging } from "../client.js";
 import type { SandboxAllowance, Sender } from "../types.js";
 import { MCP_COMMAND, MCP_SERVER_NAME, installAgentsSnippet, installClaudeMcp, installCodexMcp, installSkill } from "./agentfiles.js";
 import { LOGIN_COMMAND, describeAllowance } from "./device.js";
-import { envValue, ignoreDotenv, setDotenv } from "./env.js";
+import { dotenvIgnored, ignoreDotenv, projectEnvValue, setDotenv } from "./env.js";
 
 /** Where to get a key. */
 export const KEY_HELP = "No key yet? `npx @flow-engineer/messaging init` gets a test key in one call, no account needed.";
@@ -81,11 +81,13 @@ export async function init(o: InitOptions): Promise<void> {
   const print = o.print ?? ((l: string) => void process.stdout.write(l + "\n"));
   const dir = path.resolve(o.dir);
 
-  // 1. The key: given, already set, or a new sandbox key.
+  // 1. The key: given, already set, or a new sandbox key. Read from and written to the
+  // project's own .env only, never a parent folder's.
   const envFile = path.join(dir, ".env");
+  const wasIgnored = dotenvIgnored(dir);
   let key = o.key;
   if (!key) {
-    const existing = envValue("FLOW_MESSAGING_KEY", dir);
+    const existing = projectEnvValue("FLOW_MESSAGING_KEY", dir);
     if (existing) {
       key = existing;
       print("Using the FLOW_MESSAGING_KEY already set.");
@@ -134,7 +136,8 @@ export async function init(o: InitOptions): Promise<void> {
     const r = setDotenv(envFile, "FLOW_MESSAGING_KEY", key);
     print(`✓ FLOW_MESSAGING_KEY ${r === "unchanged" ? "already in" : r === "added" ? "written to" : "updated in"} .env`);
   }
-  if (ignoreDotenv(dir)) print("✓ Added .env to .gitignore");
+  // setDotenv adds .env to .gitignore when it creates .env; an existing .env is listed too.
+  if (ignoreDotenv(dir) || (!wasIgnored && dotenvIgnored(dir))) print("✓ Added .env to .gitignore");
 
   // 4. Agent files and MCP registration, only with consent.
   if (o.agentFiles || o.mcp) {
