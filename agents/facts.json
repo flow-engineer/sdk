@@ -41,7 +41,7 @@
     },
     "tools": {
       "common": ["whoami", "capabilities", "explain_error"],
-      "test": ["sandbox_join", "send_test_message", "wait_for_event", "list_events", "get_webhook_deliveries", "replay_event"],
+      "test": ["sandbox_join", "send_test_message", "simulate_inbound", "get_test_transcript", "wait_for_event", "list_events", "get_webhook_deliveries", "replay_event"],
       "live": ["send_message", "reply", "react", "typing", "list_conversations", "get_conversation_messages"]
     }
   }

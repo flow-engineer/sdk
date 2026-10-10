@@ -39,6 +39,7 @@ key_prefixes:
   fk_live_: live mode; your dedicated senders: your own Telegram bot (self-serve, live key from the dashboard), an iMessage line (arranged with the Flow team)
 sandbox_join: open the sandbox sender's address.link (https://t.me/<bot>?start=<code>) and tap Start,
               or send its join_code text ("join wild-otter-04508705")
+simulated_contacts: POST /v1/test/conversations, then POST /v1/test/conversations/{id}/inbound   # test keys; no phone; free (not in the allowance); section 2
 version_header: "Flow-Version: {{api_version}}"   # optional; pins the API version
 content_type: application/json               # except POST /v1/files (multipart/form-data)
 idempotency_header: "Idempotency-Key: <unique string, max 255 chars>"   # every POST; kept 24 h
@@ -318,6 +319,59 @@ Good to know:
   account, 3 signed in) and how many messages you send them.
 - If the Flow MCP tools are available to you, `sandbox_join` (section 12) returns the
   same link and lists who joined.
+
+### Test without a phone: simulated contacts
+
+A test key can also play the person's side itself, for automated tests or when no
+phone is at hand. A **simulated contact** exists only inside Flow, on `telegram`,
+`imessage` or `sms`:
+
+```bash
+# 1. A conversation with a new simulated contact (201; made-up address, so each call is fresh)
+curl -s https://api.flow.engineer/v1/test/conversations \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" -d '{"channel": "sms", "name": "Test contact"}'
+# {"id": "conv_...", "channel": "sms", "sender": "snd_...", "contact": "ct_...", "simulated": true, ...}
+
+# 2. Write as the contact (202). Media: upload with POST /v1/files first, then
+#    {"type": "media", "kind": "image", "file_id": "file_...", "caption": "..."}
+curl -s https://api.flow.engineer/v1/test/conversations/conv_.../inbound \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" -d '{"content": {"type": "text", "text": "Do you deliver on Sundays?"}}'
+# {"message": "msg_...", "conversation": "conv_...", "channel_message_id": "sim_...", "status": "queued"}
+
+# 3. Read both sides, oldest first; page on with ?after=<last message id>
+curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+```
+
+- Each turn reaches your agent exactly like a real one: `conversation.started` (`via`
+  `inbound`) before the first turn, then `message.received` with the `message` ID
+  from step 2, by webhook, on the stream and in `GET /v1/events`, in order. The
+  conversation and contact carry `simulated: true`.
+- Your agent replies as usual (HTTP, stream frame or webhook answer). The send passes
+  the real gate (content support, `fallback`, text limits, edit targets) and ends
+  `message.sent` on your app's simulated sender (`kind: simulated`), which never
+  touches a network. Transcript entries are messages; a sent one has `shown`, what
+  the contact saw (for example numbered text for buttons on SMS; answering `2`
+  comes back as `button_reply`).
+- The channel's rules apply to what the contact sends: no documents or locations
+  over SMS (`422 unsupported_content`), text up to the channel's `max_text_length`,
+  no inline `reply_to` on SMS; an SMS contact's `phone` is a US number (`+1` and ten
+  digits). On SMS and iMessage the contact answers buttons with their number (`"2"`).
+  A simulated iMessage line, like Flow's real lines, only replies: post a turn
+  before your agent sends.
+- Free: simulated traffic is not in the sandbox allowance. An app has at most 500
+  simulated conversations (then `403 permission`, `simulated_conversation_limit`:
+  reuse conversations, or post an address that has one), and a key makes at most
+  120 requests a minute to `/v1/test/` (`429 rate_limited`). A media turn refers
+  to your upload's `file_id` itself. The gate skips pacing, new-contact budgets and abuse throttling for
+  simulated senders, so tests can run in parallel.
+- Live keys get `403 permission` (`channel_code` `test_mode_only`); a real
+  conversation gets `403 permission` (`not_simulated`). `GET /v1/senders` leaves
+  simulated senders out unless you pass `kind=simulated`.
+- MCP (if available to you): `simulate_inbound` and `get_test_transcript` do the
+  same.
 
 ## 3. Receive events: WebSocket (local dev) or webhook
 

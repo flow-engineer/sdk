@@ -49,6 +49,10 @@ curl https://api.flow.engineer/v1/senders \
 | Name people see | Flow's sandbox name | Your brand |
 | How you get it | Already there | Telegram: `POST /v1/senders` with your bot's token. iMessage: ask the Flow team. See [Going live](/guides/going-live) |
 
+A third kind, `simulated`, exists only in test mode: your app's stand-in for a channel,
+used by [simulated contacts](/concepts/test-and-live-mode#simulated-contacts-test-without-a-phone).
+It never touches a network, and `GET /v1/senders` lists it only with `kind=simulated`.
+
 ## The sandbox and join codes
 
 A shared sender serves many apps at once. A person joins **your** app by sending its join code, such as `join wild-otter-04508705`, to the sandbox sender. On Telegram, opening the sender's `address.link` and tapping **Start** does the same; typing `join <code>` is the fallback when the link can't be used. From then on their messages reach your app, and your app can message them.

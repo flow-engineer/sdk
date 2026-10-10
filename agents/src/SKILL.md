@@ -76,6 +76,18 @@ nothing and run `event.conversation.reply(...)` after answering (on serverless, 
 Express/other: `await flow.webhooks.constructEvent(rawBody, req.headers["flow-signature"], secret)`;
 it is async and needs the **raw** body. Local development: `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow`.
 
+## Test without a phone (test keys)
+
+```ts
+const conv = await flow.test.createConversation({ channel: "sms" }); // a simulated contact; also telegram, imessage
+await flow.test.inbound(conv.id, { type: "text", text: "Do you deliver on Sundays?" });
+// your agent gets a real message.received and replies as usual; then:
+for await (const m of flow.test.transcript(conv.id)) console.log(m.direction, m.shown ?? m.content);
+```
+
+Free (not in the sandbox allowance); sends pass the real gate and end `message.sent`
+without touching a network. Live keys get `PermissionError` (`test_mode_only`).
+
 ## Rules that save debugging
 
 - Reply into a conversation (`event.conversation`, or `flow.conversation("conv_...")`);

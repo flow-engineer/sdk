@@ -12,6 +12,7 @@ import {
   Sandbox,
   Senders,
   Templates,
+  Testing,
   WebhookEndpoints,
 } from "./resources.js";
 import { EventStream, type StreamParams } from "./stream.js";
@@ -73,6 +74,8 @@ export class FlowMessaging {
   readonly device: Device;
   /** Verify deliveries (`constructEvent`), build replies, or get a ready `handler`. */
   readonly webhooks: Webhooks;
+  /** Simulated contacts for tests (test keys only): `createConversation`, `inbound`, `transcript`. */
+  readonly test: Testing;
 
   constructor(options: ClientOptions = {}) {
     this.http = new HttpClient(options);
@@ -89,6 +92,7 @@ export class FlowMessaging {
     this.sandbox = new Sandbox(this.http);
     this.device = new Device(this.http);
     this.webhooks = new Webhooks(this);
+    this.test = new Testing(this.http);
   }
 
   /** A handle to act in a conversation by ID (or from a `ConversationRef`). */

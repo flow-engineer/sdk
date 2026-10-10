@@ -24,6 +24,7 @@ The key is valid but this action is not allowed for it.
 - SMS (US, in pilot): the contact opted out by texting STOP or a variant (`contact_opted_out`; their contact shows `opted_out_at`). Messages already queued to them fail with the same code in `message.failed`.
 - SMS: you started a conversation with someone who has never texted any of your SMS numbers, without recording their consent (`consent_required`).
 - Your account handles health information (`hipaa` on the account in `GET /v1/app`) and the send or sender is on a channel without a business associate agreement: Telegram, WhatsApp or iMessage (`hipaa_channel_not_covered`).
+- A live key called a simulated-contact endpoint under `/v1/test/` (`test_mode_only`): simulated conversations exist only in test mode. Or a test key posted a simulated turn to, or read the transcript of, a conversation with a real contact (`not_simulated`). Or the app already has 500 simulated conversations, the most one app may have (`simulated_conversation_limit`).
 
 ## How to fix it
 
@@ -53,6 +54,8 @@ curl -X POST https://api.flow.engineer/v1/messages \
 ```
 
 In a HIPAA account, send from an SMS sender instead; the other channels cannot carry its messages.
+
+For `test_mode_only`, call `/v1/test/...` with your `fk_test_` key. For `not_simulated`, create a simulated conversation first (`POST /v1/test/conversations`) and use its ID; a real contact can only be written to by the person. For `simulated_conversation_limit`, reuse the simulated conversations you have: keep their `conv_` IDs, or post the same `contact` address again, which returns its conversation.
 
 On an iMessage line that may only reply, wait for the contact to message it, then reply in that conversation (`POST /v1/conversations/{conversation_id}/messages`).
 

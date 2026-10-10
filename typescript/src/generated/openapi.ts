@@ -464,7 +464,10 @@ export interface paths {
         };
         /**
          * List senders
-         * @description Lists the senders your app can use in this mode, newest first. Test keys see the shared sandbox senders; live keys see your dedicated senders.
+         * @description Lists the senders your app can use in this mode, newest first. Test keys see
+         *     the shared sandbox senders; live keys see your dedicated senders. Your app's
+         *     simulated senders (test mode only) are listed only when asked for with
+         *     `kind=simulated`, so code that picks a sender from this list never picks one.
          */
         get: operations["listSenders"];
         put?: never;
@@ -909,6 +912,146 @@ export interface paths {
          *     Polls are also limited per client network, unknown codes included.
          */
         post: operations["pollDeviceToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/test/conversations": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a simulated conversation
+         * @description Test keys only. Creates a conversation with a **simulated contact**, an end
+         *     user that exists only inside Flow, so an agent or a test suite can play the
+         *     person's side with no phone and no real channel. Write as the contact with
+         *     `POST /v1/test/conversations/{conversation_id}/inbound`; your agent receives
+         *     each turn exactly like a real `message.received` and replies with its normal
+         *     send. Read both sides with `GET /v1/test/conversations/{conversation_id}/transcript`.
+         *
+         *     The conversation is on your app's **simulated sender** for the channel
+         *     (`kind` `simulated`), which Flow creates on first use. It never touches a
+         *     network: sends to the simulated contact pass the real send gate and end
+         *     `sent`. Simulated channels: `telegram`, `imessage` and `sms`; `whatsapp`
+         *     answers `501 not_implemented` until WhatsApp ships. The channel's rules
+         *     hold as on a real sender: a simulated iMessage line, like Flow's lines
+         *     today, only replies, so the contact writes first; on SMS and iMessage
+         *     buttons need `fallback` and the contact answers with the button's number.
+         *
+         *     Creating the conversation sends no event. The contact's first turn starts it
+         *     as a real contact's first message does: `conversation.started` (`via`
+         *     `inbound`), then `message.received`.
+         *
+         *     Give `contact` to choose the simulated contact's address; giving an address
+         *     that already has a simulated conversation returns that conversation (`200`).
+         *     Without `contact`, Flow makes a new contact with a made-up address (phone
+         *     numbers start `+1555`), so each call is a fresh conversation, for example one
+         *     per test case. Simulated contacts never match real ones, even with the same
+         *     address.
+         *
+         *     Simulated traffic is free: it does not count against the sandbox allowance.
+         *     An app has at most 500 simulated conversations: past that, a new one answers
+         *     `403 permission` with `channel_code` `simulated_conversation_limit` (an
+         *     address that has one still returns it with `200`), so reuse conversations
+         *     across test runs. The `/v1/test/` endpoints take at most 120 requests a
+         *     minute per key (`429 rate_limited`), on top of the plan's request rate
+         *     limit. A live key answers `403 permission` with `channel_code`
+         *     `test_mode_only`.
+         */
+        post: operations["createTestConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/test/conversations/{conversation_id}/inbound": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write as the simulated contact
+         * @description Test keys only. Posts one inbound turn from the simulated contact of a
+         *     simulated conversation. It goes through the same inbound path as a real
+         *     channel's message: Flow stores it, then delivers it as a `message.received`
+         *     event by webhook, on the stream and in the event log, in order with the
+         *     conversation's other events. A webhook answer's `reply` works as usual. The
+         *     answer comes before delivery; the `message.received` event carries the
+         *     `message` ID given here.
+         *
+         *     `content` is what the contact sends: `text`, `media`, `voice`, `location`,
+         *     `contact_card` or `button_reply` (a tap on buttons your agent sent; a
+         *     numbered answer such as `2` to buttons sent as numbered text comes back as
+         *     `button_reply` too, as on a real channel). Media and voice take the
+         *     `file_id` of a file uploaded with `POST /v1/files` (no `url`); the contact's
+         *     message refers to that same file (its `file_id`, `url`, `mime_type` and
+         *     `size_bytes`): Flow does not copy it again. The channel's rules apply:
+         *     content it cannot carry from a person (a document over SMS, a location over
+         *     SMS, a file larger than the channel fetches from a person) answers
+         *     `422 unsupported_content`, and text over its `max_text_length` answers
+         *     `400 invalid_request`.
+         *
+         *     A conversation that is not simulated answers `403 permission` with
+         *     `channel_code` `not_simulated`; a live key answers `403 permission` with
+         *     `channel_code` `test_mode_only`.
+         */
+        post: operations["simulateInbound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/test/conversations/{conversation_id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a simulated conversation, both ways
+         * @description Test keys only. Lists a simulated conversation's messages, both directions,
+         *     **oldest first**, so a test can page forward with `after` (the last message
+         *     ID it has) to see what your agent sent back to the simulated contact. Each
+         *     entry is a `Message` with, for a sent message, `shown`: what the simulated
+         *     contact's phone shows, after the send gate applied any fallback (numbered
+         *     text for buttons on SMS, for example).
+         *
+         *     A conversation that is not simulated answers `403 permission` with
+         *     `channel_code` `not_simulated`; a live key answers `403 permission` with
+         *     `channel_code` `test_mode_only`.
+         */
+        get: operations["getTestTranscript"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1379,18 +1522,15 @@ export interface components {
         /**
          * @description What your agent talks from: a Telegram bot, a WhatsApp number, an iMessage
          *     line or a US SMS number. `shared` senders are Flow's sandbox, used by many apps in test mode;
-         *     `dedicated` senders are yours alone. Each sender has its own limits and
-         *     warm-up state.
+         *     `dedicated` senders are yours alone; `simulated` senders exist only in test
+         *     mode, for simulated conversations. Each sender has its own limits and warm-up
+         *     state.
          */
         Sender: {
             id: components["schemas"]["SenderId"];
             channel: components["schemas"]["Channel"];
-            /**
-             * @description `shared` (the sandbox) or `dedicated` (yours).
-             * @enum {string}
-             */
-            kind: "shared" | "dedicated";
-            /** @description `false` for sandbox senders, `true` for dedicated senders used in live mode. */
+            kind: components["schemas"]["SenderKind"];
+            /** @description `false` for sandbox and simulated senders, `true` for dedicated senders used in live mode. */
             livemode: boolean;
             /** @description The name contacts see, where the channel shows one. */
             display_name?: string;
@@ -1466,6 +1606,13 @@ export interface components {
              */
             end: string;
         };
+        /**
+         * @description `shared` (the sandbox), `dedicated` (yours) or `simulated` (test mode only:
+         *     your app's stand-in for a channel, used by simulated conversations from
+         *     `POST /v1/test/conversations`; it never touches a network).
+         * @enum {string}
+         */
+        SenderKind: "shared" | "dedicated" | "simulated";
         /**
          * @description - `pending`: requested, being provisioned.
          *     - `active`: sending normally.
@@ -1555,6 +1702,8 @@ export interface components {
              */
             readonly opted_out_via?: "keyword" | "carrier";
             consent?: components["schemas"]["ContactConsent"];
+            /** @description `true` for a simulated contact, who exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise. */
+            readonly simulated?: boolean;
             /**
              * Format: date-time
              * @description When Flow first saw the contact.
@@ -1641,6 +1790,8 @@ export interface components {
             window_open_until?: string;
             /** @description Whether the contact has agreed to receive messages (wrote first, joined the sandbox, or you recorded consent). */
             opted_in: boolean;
+            /** @description `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise. */
+            readonly simulated?: boolean;
             metadata?: components["schemas"]["Metadata"];
             /**
              * Format: date-time
@@ -1659,6 +1810,8 @@ export interface components {
              * @description WhatsApp only. Until when free-form messages may be sent. Absent when closed or not applicable.
              */
             window_open_until?: string;
+            /** @description `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise. */
+            readonly simulated?: boolean;
         };
         /** @description A page of conversations. */
         ConversationList: {
@@ -1693,11 +1846,7 @@ export interface components {
         Message: {
             id: components["schemas"]["MessageId"];
             conversation: components["schemas"]["ConversationId"];
-            /**
-             * @description `in` from the contact, `out` from your app.
-             * @enum {string}
-             */
-            direction: "in" | "out";
+            direction: components["schemas"]["MessageDirection"];
             status: components["schemas"]["MessageStatus"];
             content: components["schemas"]["Content"];
             delivered_as?: components["schemas"]["DeliveredAs"];
@@ -1744,6 +1893,11 @@ export interface components {
              */
             encoding: "gsm7" | "ucs2";
         };
+        /**
+         * @description `in` from the contact, `out` from your app.
+         * @enum {string}
+         */
+        MessageDirection: "in" | "out";
         /**
          * @description - `received`: inbound from the contact.
          *     - `queued`: accepted by the gate, waiting for its turn in the conversation.
@@ -2737,6 +2891,72 @@ export interface components {
             /** @description Whether more items lie beyond this page in the direction you paged. */
             has_more: boolean;
         };
+        /** @description A simulated conversation to create (test keys only). */
+        TestConversationRequest: {
+            /** @description The channel to simulate. `telegram`, `imessage` or `sms`; `whatsapp` answers `501 not_implemented`. */
+            channel: components["schemas"]["Channel"];
+            contact?: components["schemas"]["TestContactAddress"];
+            /** @description The simulated contact's display name, as a channel would report it. */
+            name?: string;
+        };
+        /**
+         * @description The simulated contact's address on the channel. Give one field that fits the
+         *     channel: `phone` on SMS and iMessage, `handle` on iMessage, `telegram_user_id`
+         *     on Telegram. Omit `contact` to get a new contact with a made-up address.
+         */
+        TestContactAddress: {
+            /** @description SMS or iMessage. E.164 phone number; on SMS a US number (`+1` and ten digits). */
+            phone?: string;
+            /** @description iMessage. A phone number or an email address. */
+            handle?: string;
+            /** @description Telegram. A numeric user ID. */
+            telegram_user_id?: string;
+        };
+        /** @description One turn from a simulated contact (test keys only). */
+        SimulatedInboundRequest: {
+            /**
+             * @description What the contact sends: `text`, `media`, `voice`, `location`,
+             *     `contact_card` or `button_reply`. Media and voice take a `file_id` from
+             *     `POST /v1/files`. Other types answer `400 invalid_request`.
+             */
+            content: components["schemas"]["Content"];
+            /** @description A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`. */
+            reply_to?: components["schemas"]["MessageId"];
+        };
+        /** @description A simulated turn Flow accepted. Its `message.received` event follows. */
+        SimulatedInbound: {
+            /** @description The ID the received message will have, in its `message.received` event and in the transcript. */
+            message: components["schemas"]["MessageId"];
+            conversation: components["schemas"]["ConversationId"];
+            /** @description The simulated channel's ID for the message (the received message's `channel_message_id`). */
+            channel_message_id: string;
+            /**
+             * @description Always `queued`; the message is stored and delivered right after.
+             * @enum {string}
+             */
+            status: "queued";
+        };
+        /** @description A page of a simulated conversation, both directions, oldest first. */
+        TestTranscript: {
+            conversation: components["schemas"]["ConversationId"];
+            data: components["schemas"]["TranscriptEntry"][];
+            /** @description Whether more messages follow; page on with `after` set to the last message's ID. */
+            has_more: boolean;
+        };
+        /**
+         * @description One message of a simulated conversation: the `Message`, plus `shown` for a
+         *     sent message.
+         */
+        TranscriptEntry: components["schemas"]["Message"] & {
+            /**
+             * @description Sent messages only: what the simulated contact sees, after the send gate
+             *     applied any fallback (the same as `content` when it was shown as sent).
+             *     Absent for received messages, for messages not sent yet or failed, and
+             *     when nothing was shown (`delivered_as.type` `none`, such as typing on
+             *     SMS).
+             */
+            shown?: components["schemas"]["Content"];
+        };
         /** @description A URL that receives your app's events of the types it subscribes to. */
         WebhookEndpoint: {
             id: components["schemas"]["WebhookEndpointId"];
@@ -3674,6 +3894,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Only senders on this channel. */
                 channel?: components["schemas"]["Channel"];
+                /** @description Only senders of this kind. `simulated` lists your app's simulated senders (test keys only), which are otherwise left out. */
+                kind?: components["schemas"]["SenderKind"];
             };
             header?: {
                 /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
@@ -4322,6 +4544,133 @@ export interface operations {
                 };
             };
             400: components["responses"]["InvalidRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createTestConversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestConversationRequest"];
+            };
+        };
+        responses: {
+            /** @description The contact's simulated conversation already existed; it is returned as is. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            /** @description The simulated conversation was created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    simulateInbound: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimulatedInboundRequest"];
+            };
+        };
+        responses: {
+            /** @description The turn was accepted; `message.received` follows. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimulatedInbound"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getTestTranscript: {
+        parameters: {
+            query?: {
+                /** @description An item ID. Returns the items that come after it in the list's order. */
+                after?: components["parameters"]["After"];
+                /** @description How many items to return, 1 to 100. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the transcript, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestTranscript"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];

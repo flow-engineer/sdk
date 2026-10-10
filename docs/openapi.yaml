@@ -245,6 +245,31 @@ info:
     inbound order is best-effort (arrival order); messages sent within about a second
     of each other may arrive out of order.
 
+    ## Testing with simulated contacts
+
+    A test key can play the end user's side without a phone or a real channel. `POST
+    /v1/test/conversations` creates a conversation on `telegram`, `imessage` or `sms`
+    with a **simulated contact**; `POST /v1/test/conversations/{conversation_id}/inbound`
+    writes as that contact (text, or media uploaded with `POST /v1/files`). Each turn
+    reaches your agent exactly like a real message: a `message.received` event by
+    webhook, on the stream and in the event log, in order. Your agent replies with
+    its normal send, which passes the real send gate (content support, fallbacks,
+    text limits, edit targets) and ends `sent` on your app's simulated sender,
+    without touching a network. `GET /v1/test/conversations/{conversation_id}/transcript`
+    shows both sides, oldest first, with what the contact was shown.
+
+    Simulated traffic is free: it does not count against the sandbox allowance,
+    since nothing leaves Flow and no real person is reached. Two limits bound it
+    instead: an app has at most 500 simulated conversations (a new one past that
+    answers `403 permission` with `channel_code` `simulated_conversation_limit`),
+    and a key makes at most 120 requests a minute to the `/v1/test/` endpoints
+    (`429 rate_limited`), counted on top of its plan's request rate limit. The gate also skips the rules that protect a real number's
+    standing with its channel (pacing, the new-contact budget and warm-up, abuse
+    throttling), so a test suite can run cases in parallel. Simulated conversations,
+    contacts and senders carry `simulated: true` (senders `kind: simulated`), exist
+    only in test mode, are never shown to live keys, and follow your plan's
+    retention like other test data.
+
     ## MCP server
 
     `https://api.flow.engineer/mcp` is a Model Context Protocol server (Streamable
@@ -262,8 +287,9 @@ info:
 
     The key's mode chooses the tools. A `fk_test_` key gets build-time tools to
     integrate and verify an app end to end: `whoami`, `sandbox_join`,
-    `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`,
-    `replay_event`, `capabilities` and `explain_error`. A `fk_live_` key gets
+    `send_test_message`, `simulate_inbound`, `get_test_transcript`,
+    `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`,
+    `capabilities` and `explain_error`. A `fk_live_` key gets
     production tools: `send_message`, `reply`, `react`, `typing`,
     `list_conversations` and `get_conversation_messages`, plus `whoami`,
     `capabilities` and `explain_error`. Every send passes the same send gate as
@@ -303,6 +329,11 @@ tags:
     description: People your app talks with, one per channel.
   - name: App
     description: The app and key making the request.
+  - name: Testing
+    description: |
+      Test keys only. Simulated contacts: create a conversation with an end user who
+      exists only inside Flow, write as them, and read what your agent sent back, with
+      no phone and no real channel.
   - name: Onboarding
     description: |
       Get a test key without an account (`POST /v1/sandbox/keys`), and sign in with
@@ -1027,7 +1058,11 @@ paths:
       operationId: listSenders
       tags: [Senders]
       summary: List senders
-      description: Lists the senders your app can use in this mode, newest first. Test keys see the shared sandbox senders; live keys see your dedicated senders.
+      description: |
+        Lists the senders your app can use in this mode, newest first. Test keys see
+        the shared sandbox senders; live keys see your dedicated senders. Your app's
+        simulated senders (test mode only) are listed only when asked for with
+        `kind=simulated`, so code that picks a sender from this list never picks one.
       parameters:
         - $ref: "#/components/parameters/After"
         - $ref: "#/components/parameters/Before"
@@ -1038,6 +1073,12 @@ paths:
           description: Only senders on this channel.
           schema:
             $ref: "#/components/schemas/Channel"
+        - name: kind
+          in: query
+          required: false
+          description: Only senders of this kind. `simulated` lists your app's simulated senders (test keys only), which are otherwise left out.
+          schema:
+            $ref: "#/components/schemas/SenderKind"
       responses:
         "200":
           description: A page of senders.
@@ -1725,6 +1766,199 @@ paths:
                 $ref: "#/components/schemas/DeviceToken"
         "400":
           $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /v1/test/conversations:
+    parameters:
+      - $ref: "#/components/parameters/FlowVersion"
+    post:
+      operationId: createTestConversation
+      tags: [Testing]
+      summary: Create a simulated conversation
+      description: |
+        Test keys only. Creates a conversation with a **simulated contact**, an end
+        user that exists only inside Flow, so an agent or a test suite can play the
+        person's side with no phone and no real channel. Write as the contact with
+        `POST /v1/test/conversations/{conversation_id}/inbound`; your agent receives
+        each turn exactly like a real `message.received` and replies with its normal
+        send. Read both sides with `GET /v1/test/conversations/{conversation_id}/transcript`.
+
+        The conversation is on your app's **simulated sender** for the channel
+        (`kind` `simulated`), which Flow creates on first use. It never touches a
+        network: sends to the simulated contact pass the real send gate and end
+        `sent`. Simulated channels: `telegram`, `imessage` and `sms`; `whatsapp`
+        answers `501 not_implemented` until WhatsApp ships. The channel's rules
+        hold as on a real sender: a simulated iMessage line, like Flow's lines
+        today, only replies, so the contact writes first; on SMS and iMessage
+        buttons need `fallback` and the contact answers with the button's number.
+
+        Creating the conversation sends no event. The contact's first turn starts it
+        as a real contact's first message does: `conversation.started` (`via`
+        `inbound`), then `message.received`.
+
+        Give `contact` to choose the simulated contact's address; giving an address
+        that already has a simulated conversation returns that conversation (`200`).
+        Without `contact`, Flow makes a new contact with a made-up address (phone
+        numbers start `+1555`), so each call is a fresh conversation, for example one
+        per test case. Simulated contacts never match real ones, even with the same
+        address.
+
+        Simulated traffic is free: it does not count against the sandbox allowance.
+        An app has at most 500 simulated conversations: past that, a new one answers
+        `403 permission` with `channel_code` `simulated_conversation_limit` (an
+        address that has one still returns it with `200`), so reuse conversations
+        across test runs. The `/v1/test/` endpoints take at most 120 requests a
+        minute per key (`429 rate_limited`), on top of the plan's request rate
+        limit. A live key answers `403 permission` with `channel_code`
+        `test_mode_only`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestConversationRequest"
+            examples:
+              sms:
+                summary: A new SMS contact with a made-up number
+                value: {channel: sms, name: "Test contact"}
+              telegram:
+                summary: A Telegram contact with a chosen user ID
+                value: {channel: telegram, contact: {telegram_user_id: "700100200"}, name: Asha}
+      responses:
+        "201":
+          description: The simulated conversation was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "200":
+          description: The contact's simulated conversation already existed; it is returned as is.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/test/conversations/{conversation_id}/inbound:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+      - $ref: "#/components/parameters/FlowVersion"
+    post:
+      operationId: simulateInbound
+      tags: [Testing]
+      summary: Write as the simulated contact
+      description: |
+        Test keys only. Posts one inbound turn from the simulated contact of a
+        simulated conversation. It goes through the same inbound path as a real
+        channel's message: Flow stores it, then delivers it as a `message.received`
+        event by webhook, on the stream and in the event log, in order with the
+        conversation's other events. A webhook answer's `reply` works as usual. The
+        answer comes before delivery; the `message.received` event carries the
+        `message` ID given here.
+
+        `content` is what the contact sends: `text`, `media`, `voice`, `location`,
+        `contact_card` or `button_reply` (a tap on buttons your agent sent; a
+        numbered answer such as `2` to buttons sent as numbered text comes back as
+        `button_reply` too, as on a real channel). Media and voice take the
+        `file_id` of a file uploaded with `POST /v1/files` (no `url`); the contact's
+        message refers to that same file (its `file_id`, `url`, `mime_type` and
+        `size_bytes`): Flow does not copy it again. The channel's rules apply:
+        content it cannot carry from a person (a document over SMS, a location over
+        SMS, a file larger than the channel fetches from a person) answers
+        `422 unsupported_content`, and text over its `max_text_length` answers
+        `400 invalid_request`.
+
+        A conversation that is not simulated answers `403 permission` with
+        `channel_code` `not_simulated`; a live key answers `403 permission` with
+        `channel_code` `test_mode_only`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulatedInboundRequest"
+            examples:
+              text:
+                summary: A text from the contact
+                value:
+                  content: {type: text, text: "Do you deliver on Sundays?"}
+              mms:
+                summary: A photo with a caption (an MMS on SMS)
+                value:
+                  content: {type: media, kind: image, file_id: file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5, caption: "Do you have this in blue?"}
+      responses:
+        "202":
+          description: The turn was accepted; `message.received` follows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatedInbound"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnsupportedContent"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/test/conversations/{conversation_id}/transcript:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+      - $ref: "#/components/parameters/FlowVersion"
+    get:
+      operationId: getTestTranscript
+      tags: [Testing]
+      summary: Read a simulated conversation, both ways
+      description: |
+        Test keys only. Lists a simulated conversation's messages, both directions,
+        **oldest first**, so a test can page forward with `after` (the last message
+        ID it has) to see what your agent sent back to the simulated contact. Each
+        entry is a `Message` with, for a sent message, `shown`: what the simulated
+        contact's phone shows, after the send gate applied any fallback (numbered
+        text for buttons on SMS, for example).
+
+        A conversation that is not simulated answers `403 permission` with
+        `channel_code` `not_simulated`; a live key answers `403 permission` with
+        `channel_code` `test_mode_only`.
+      parameters:
+        - $ref: "#/components/parameters/After"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A page of the transcript, oldest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestTranscript"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
         "404":
           $ref: "#/components/responses/NotFound"
         "429":
@@ -2577,8 +2811,9 @@ components:
       description: |
         What your agent talks from: a Telegram bot, a WhatsApp number, an iMessage
         line or a US SMS number. `shared` senders are Flow's sandbox, used by many apps in test mode;
-        `dedicated` senders are yours alone. Each sender has its own limits and
-        warm-up state.
+        `dedicated` senders are yours alone; `simulated` senders exist only in test
+        mode, for simulated conversations. Each sender has its own limits and warm-up
+        state.
       required: [id, channel, kind, livemode, status, address, limits, created_at]
       properties:
         id:
@@ -2586,12 +2821,10 @@ components:
         channel:
           $ref: "#/components/schemas/Channel"
         kind:
-          type: string
-          description: "`shared` (the sandbox) or `dedicated` (yours)."
-          enum: [shared, dedicated]
+          $ref: "#/components/schemas/SenderKind"
         livemode:
           type: boolean
-          description: "`false` for sandbox senders, `true` for dedicated senders used in live mode."
+          description: "`false` for sandbox and simulated senders, `true` for dedicated senders used in live mode."
         display_name:
           type: string
           description: The name contacts see, where the channel shows one.
@@ -2672,6 +2905,13 @@ components:
           description: When they end, `HH:MM` on a 24-hour clock (earlier than `start` when they span midnight).
           pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
           examples: ["08:00"]
+    SenderKind:
+      type: string
+      description: |
+        `shared` (the sandbox), `dedicated` (yours) or `simulated` (test mode only:
+        your app's stand-in for a channel, used by simulated conversations from
+        `POST /v1/test/conversations`; it never touches a network).
+      enum: [shared, dedicated, simulated]
     SenderStatus:
       type: string
       description: |
@@ -2800,6 +3040,10 @@ components:
           enum: [keyword, carrier]
         consent:
           $ref: "#/components/schemas/ContactConsent"
+        simulated:
+          type: boolean
+          readOnly: true
+          description: "`true` for a simulated contact, who exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise."
         created_at:
           type: string
           format: date-time
@@ -2917,6 +3161,10 @@ components:
         opted_in:
           type: boolean
           description: Whether the contact has agreed to receive messages (wrote first, joined the sandbox, or you recorded consent).
+        simulated:
+          type: boolean
+          readOnly: true
+          description: "`true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise."
         metadata:
           $ref: "#/components/schemas/Metadata"
         created_at:
@@ -2940,6 +3188,10 @@ components:
           type: string
           format: date-time
           description: WhatsApp only. Until when free-form messages may be sent. Absent when closed or not applicable.
+        simulated:
+          type: boolean
+          readOnly: true
+          description: "`true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise."
     ConversationList:
       type: object
       description: A page of conversations.
@@ -2993,9 +3245,7 @@ components:
         conversation:
           $ref: "#/components/schemas/ConversationId"
         direction:
-          type: string
-          description: "`in` from the contact, `out` from your app."
-          enum: [in, out]
+          $ref: "#/components/schemas/MessageDirection"
         status:
           $ref: "#/components/schemas/MessageStatus"
         content:
@@ -3051,6 +3301,10 @@ components:
           type: string
           description: "`gsm7` or `ucs2`."
           enum: [gsm7, ucs2]
+    MessageDirection:
+      type: string
+      description: "`in` from the contact, `out` from your app."
+      enum: [in, out]
     MessageStatus:
       type: string
       description: |
@@ -4350,6 +4604,105 @@ components:
           type: boolean
           description: Whether more items lie beyond this page in the direction you paged.
 
+    # ---------------------------------------------------------------- testing
+    TestConversationRequest:
+      type: object
+      description: A simulated conversation to create (test keys only).
+      required: [channel]
+      properties:
+        channel:
+          $ref: "#/components/schemas/Channel"
+          description: The channel to simulate. `telegram`, `imessage` or `sms`; `whatsapp` answers `501 not_implemented`.
+        contact:
+          $ref: "#/components/schemas/TestContactAddress"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: The simulated contact's display name, as a channel would report it.
+    TestContactAddress:
+      type: object
+      description: |
+        The simulated contact's address on the channel. Give one field that fits the
+        channel: `phone` on SMS and iMessage, `handle` on iMessage, `telegram_user_id`
+        on Telegram. Omit `contact` to get a new contact with a made-up address.
+      minProperties: 1
+      maxProperties: 1
+      properties:
+        phone:
+          type: string
+          description: SMS or iMessage. E.164 phone number; on SMS a US number (`+1` and ten digits).
+          pattern: "^\\+[1-9][0-9]{6,14}$"
+        handle:
+          type: string
+          minLength: 3
+          maxLength: 254
+          description: iMessage. A phone number or an email address.
+        telegram_user_id:
+          type: string
+          description: Telegram. A numeric user ID.
+          pattern: "^[1-9][0-9]{0,15}$"
+    SimulatedInboundRequest:
+      type: object
+      description: One turn from a simulated contact (test keys only).
+      required: [content]
+      properties:
+        content:
+          $ref: "#/components/schemas/Content"
+          description: |
+            What the contact sends: `text`, `media`, `voice`, `location`,
+            `contact_card` or `button_reply`. Media and voice take a `file_id` from
+            `POST /v1/files`. Other types answer `400 invalid_request`.
+        reply_to:
+          $ref: "#/components/schemas/MessageId"
+          description: A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`.
+    SimulatedInbound:
+      type: object
+      description: A simulated turn Flow accepted. Its `message.received` event follows.
+      required: [message, conversation, channel_message_id, status]
+      properties:
+        message:
+          $ref: "#/components/schemas/MessageId"
+          description: The ID the received message will have, in its `message.received` event and in the transcript.
+        conversation:
+          $ref: "#/components/schemas/ConversationId"
+        channel_message_id:
+          type: string
+          description: The simulated channel's ID for the message (the received message's `channel_message_id`).
+        status:
+          type: string
+          description: Always `queued`; the message is stored and delivered right after.
+          enum: [queued]
+    TestTranscript:
+      type: object
+      description: A page of a simulated conversation, both directions, oldest first.
+      required: [conversation, data, has_more]
+      properties:
+        conversation:
+          $ref: "#/components/schemas/ConversationId"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TranscriptEntry"
+        has_more:
+          type: boolean
+          description: Whether more messages follow; page on with `after` set to the last message's ID.
+    TranscriptEntry:
+      description: |
+        One message of a simulated conversation: the `Message`, plus `shown` for a
+        sent message.
+      allOf:
+        - $ref: "#/components/schemas/Message"
+        - type: object
+          properties:
+            shown:
+              $ref: "#/components/schemas/Content"
+              description: |
+                Sent messages only: what the simulated contact sees, after the send gate
+                applied any fallback (the same as `content` when it was shown as sent).
+                Absent for received messages, for messages not sent yet or failed, and
+                when nothing was shown (`delivered_as.type` `none`, such as typing on
+                SMS).
     # ---------------------------------------------------------------- webhook endpoints
     WebhookEndpoint:
       type: object
