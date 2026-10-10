@@ -23,7 +23,7 @@ curl https://api.flow.engineer/v1/app -H "Authorization: Bearer $FLOW_MESSAGING_
 
 - **Nothing in test mode reaches a real contact** unless that person joined the sandbox through your app. Build and test freely.
 - **The modes never mix.** Every object has `livemode`. A test key cannot see live data or use a live sender (`403` [`permission`](/errors/permission)), and webhook endpoints receive only their own mode's events.
-- **A key is shown once**, when it is created, and stored only as a hash. Create and revoke keys in the [dashboard](https://api.flow.engineer/admin).
+- **A key is shown once**, when it is issued, and stored only as a hash. Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (`fk_test_...`), or a live key (`fk_live_...`) when you go live. Ask the Flow team to revoke a key if it leaks.
 - **Keep live keys on your server.** Never ship a key in a web page or a mobile app.
 
 ## Going from test to live

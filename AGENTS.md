@@ -21,11 +21,18 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 
 ## Checks
 
-- **Run `scripts/local-checks.sh` before a PR.** It runs the spec lint and, in
-  `typescript/`: the generated-types check, typecheck (`tsc`, sources and tests),
+- **Run `scripts/local-checks.sh` before a PR.** It runs the spec lint, the spec
+  drift check and, in `typescript/`: typecheck (`tsc`, sources and tests),
   ESLint, the unit tests (vitest), the build (tsup: ESM, CJS, types, the CLI), the
   package contents, and the integration test. `EXAMPLES=1` also typechecks
   `examples/` against their real dependencies.
+- **Spec drift**: `scripts/check-spec-drift.sh` fails when a copy of the spec drifts
+  from `openapi/openapi.yaml`: stale generated types (`npm run check-generated`),
+  `docs/openapi.yaml` no longer the symlink to it, or the SDK's `API_VERSION` (and any
+  `Flow-Version:` date in the READMEs, `llms.txt`, `plugin/`) not the spec's
+  `info.version`. With a service checkout (`FLOW_MESSAGING_DIR`, default
+  `../flow-messaging`) it compares `api/openapi.yaml` there too: a warning, since a spec
+  PR lands before the service regenerates; `STRICT_SERVICE_SPEC=1` makes it fail.
 - **Lint with Redocly CLI**: `scripts/lint.sh` (runs `npx @redocly/cli@2.60.0 lint`
   with `redocly.yaml`, `recommended-strict`, so any warning fails). It must be clean
   before a PR.

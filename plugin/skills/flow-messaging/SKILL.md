@@ -15,12 +15,15 @@ https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml).
 
 ```sh
 npx @flow-engineer/messaging init --key fk_test_...   # writes FLOW_MESSAGING_KEY to .env, prints the sandbox join code
+                                                      # (asks before adding agent files; --yes skips the question)
 npm install @flow-engineer/messaging
 ```
 
-No key yet: the user creates one at https://api.flow.engineer/admin. Test keys
-(`fk_test_`) reach only the shared sandbox: the person messages a sandbox sender and
-sends the app's join code (`join brave-otter`) first. Never invent or hard-code keys.
+No key yet: keys are issued by the Flow team while signup is in preview, so the user
+asks the Flow team for a test key (`fk_test_...`); there is no dashboard or sign-in yet.
+Test keys reach only the shared sandbox: on their phone the person opens the sandbox
+link and taps Start (on iMessage, texts the join code, such as `join wild-otter-04508705`)
+first. Never invent or hard-code keys.
 
 ## An agent in 10 lines
 
@@ -43,7 +46,8 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 Anthropic, the Vercel AI SDK, the OpenAI Agents SDK, the Claude Agent SDK,
 LangChain, Mastra or any `AsyncIterable<string>`. It keeps typing on, splits the text
 into chat bubbles at paragraph and sentence ends, and sends each bubble as it is ready.
-Run with `node --env-file=.env agent.mjs`.
+Run with `node --env-file=.env agent.mjs`. Type handlers with `FlowEvent` (or
+`FlowEventOf<"message.received">`), not `Event`: only `FlowEvent`'s `conversation` can `reply`.
 
 ## Webhooks instead of the stream (servers, serverless)
 

@@ -21,8 +21,8 @@ curl https://api.flow.engineer/v1/senders \
       "kind": "shared",
       "livemode": false,
       "status": "active",
-      "address": { "username": "flow_sandbox_bot", "link": "https://t.me/flow_sandbox_bot" },
-      "join_code": "join brave-otter",
+      "address": { "username": "flow_sandbox_bot", "link": "https://t.me/flow_sandbox_bot?start=wild-otter-04508705" },
+      "join_code": "join wild-otter-04508705",
       "limits": { "new_contacts_per_day": 50, "new_contacts_per_hour": 10 },
       "created_at": "2026-11-01T09:00:00Z"
     }
@@ -31,7 +31,7 @@ curl https://api.flow.engineer/v1/senders \
 }
 ```
 
-`address.link` opens a chat with the sender: `https://t.me/...` for a Telegram bot, `https://wa.me/...` for a WhatsApp number. For an iMessage line it is the line's opt-in link, which opens Messages with the line and a prefilled text the person sends to start the conversation; it is set only when the line has one configured.
+`address.link` opens a chat with the sender: `https://t.me/...` for a Telegram bot, `https://wa.me/...` for a WhatsApp number. On the Telegram sandbox bot the link carries your join code (`https://t.me/<bot>?start=<code>`), so opening it and tapping **Start** joins your app. For an iMessage line it is the line's opt-in link, which opens Messages with the line and a prefilled text the person sends to start the conversation; it is set only when the line has one configured.
 
 ## Two kinds of sender
 
@@ -45,9 +45,9 @@ curl https://api.flow.engineer/v1/senders \
 
 ## The sandbox and join codes
 
-A shared sender serves many apps at once. A person joins **your** app by sending its join code, such as `join brave-otter`, to the sandbox sender. From then on their messages reach your app, and your app can message them.
+A shared sender serves many apps at once. A person joins **your** app by sending its join code, such as `join wild-otter-04508705`, to the sandbox sender. On Telegram, opening the sender's `address.link` and tapping **Start** does the same; typing `join <code>` is the fallback when the link can't be used. From then on their messages reach your app, and your app can message them.
 
-- Your app's code is `sandbox_join_code` in `GET /v1/app`; each shared sender shows it as `join_code`.
+- A join code is two words and eight digits. Your app's code is `sandbox_join_code` in `GET /v1/app` (the bare code, for example `wild-otter-04508705`); each shared sender shows what a person sends as `join_code` (`join wild-otter-04508705`).
 - A join starts a conversation and sends you `conversation.started` with `via: "sandbox_join"`.
 - Your test key cannot message anyone who has not joined. That is what keeps the sandbox safe for everyone.
 
@@ -61,8 +61,8 @@ Each sender has its own status and budget for starting conversations:
 | `active` | Sending normally. |
 | `warming_up` | Active, with a new-contact budget that grows day by day. |
 | `throttled` | Slowed after an abuse signal; recovers by itself at `throttled_until`. Replies still go. |
-| `flagged` | Flagged by the channel or by Flow; starting conversations is paused. |
-| `banned` | Banned by the channel; it cannot send. |
+| `flagged` | Flagged by the channel or by Flow; starting conversations is paused. A Telegram bot whose token Telegram rejected is `flagged` and holds its queued messages until you send the new token (`POST /v1/senders`); held messages fail with `outside_window` (`channel_code` `queued_too_long`) after 72 hours. |
+| `banned` | It cannot send or receive: the channel banned it, you disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was connected to another app. |
 
 `limits.new_contacts_per_day` and `limits.new_contacts_per_hour` are the sender's current budget for starting conversations; WhatsApp senders also show `quality_rating` and `limits.whatsapp_tier`. Every change arrives as a `sender.status_changed` event. The rules behind them are on [The send gate](/concepts/send-gate).
 

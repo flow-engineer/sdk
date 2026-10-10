@@ -30,7 +30,7 @@ export class FlowError extends Error {
   readonly channelCode: string | undefined;
   /** Flow's ID for the request. Quote it when asking for help. */
   readonly requestId: string | undefined;
-  /** A link to the documentation of this error, when the API gives one. */
+  /** The page for this error type, `https://api.flow.engineer/docs/errors/<type>`, when the API gives one. */
   readonly docUrl: string | undefined;
   /** A short hint on what to do next, when the API gives one. */
   readonly hint: string | undefined;

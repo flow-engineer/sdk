@@ -11,12 +11,34 @@ import type { ErrorBody, Event, EventOf, EventType } from "./types.js";
 type NoConversation = "sender.status_changed" | "template.status_changed";
 
 /**
- * An event as the SDK hands it to you: the API's event, with `conversation` turned
- * into a `ConversationHandle` you can `reply`, `send`, `typing` and `markRead` on.
+ * **The event type to write handlers against.** It is what `flow.events.stream()`,
+ * `flow.webhooks.constructEvent()` and `flow.webhooks.handler({ onEvent })` give you:
+ * the API's {@link Event}, with `conversation` turned into a {@link ConversationHandle}
+ * you can `reply`, `send`, `typing`, `markRead` and `react` on. (`Event` is the plain
+ * JSON shape, as `flow.events.list()` returns it; `toFlowEvent(flow, event)` turns one
+ * into a `FlowEvent`.)
+ *
+ * It is a discriminated union on `type`: narrow it before using `conversation`, since
+ * `sender.status_changed` and `template.status_changed` have none. For one type, use
+ * {@link FlowEventOf}.
+ *
+ * ```ts
+ * import type { FlowEvent, FlowEventOf } from "@flow-engineer/messaging";
+ *
+ * async function onEvent(event: FlowEvent) {
+ *   if (event.type === "message.received") await event.conversation.reply("Got it!");
+ * }
+ * async function onMessage(event: FlowEventOf<"message.received">) {
+ *   await event.conversation.reply(`You said: ${contentText(event.data.message.content)}`);
+ * }
+ * ```
  */
 export type FlowEvent<E extends Event = Event> = E extends { type: NoConversation }
   ? E
   : Omit<E, "conversation"> & { conversation: ConversationHandle };
+
+/** The {@link FlowEvent} whose `type` is `T`, e.g. `FlowEventOf<"message.received">`. */
+export type FlowEventOf<T extends EventType> = FlowEvent<EventOf<T>>;
 
 export interface StreamParams<T extends EventType = EventType> {
   /** Only these event types (default: all). */

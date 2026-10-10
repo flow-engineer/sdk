@@ -20,12 +20,12 @@ The request carried no API key Flow recognises, so nothing was done.
 
 ## How to fix it
 
-Send `Authorization: Bearer fk_test_...` (or `fk_live_...`) with a current key from the dashboard. Print the first characters of the key your process actually uses to check it is set.
+Send `Authorization: Bearer fk_test_...` (or `fk_live_...`) with a current key. Keys are issued by the Flow team while signup is in preview; ask them for a new one if yours was revoked. Print the first characters of the key your process actually uses to check it is set.
 
 ```bash
 curl https://api.flow.engineer/v1/app -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
 ```
 
 Every error also carries `hint`, one sentence specific to your request, and
-`doc_url`, this page. Coding agents connected to the [MCP server](../mcp.md) can
-call `explain_error` with the type to read this page.
+`doc_url`, this page. Coding agents connected to Flow's MCP server
+(`https://api.flow.engineer/mcp`) can call `explain_error` with the type to read this page.

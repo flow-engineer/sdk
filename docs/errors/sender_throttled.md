@@ -27,5 +27,5 @@ Wait `retry_after` seconds; the sender recovers by itself. Personalise first mes
 ```
 
 Every error also carries `hint`, one sentence specific to your request, and
-`doc_url`, this page. Coding agents connected to the [MCP server](../mcp.md) can
-call `explain_error` with the type to read this page.
+`doc_url`, this page. Coding agents connected to Flow's MCP server
+(`https://api.flow.engineer/mcp`) can call `explain_error` with the type to read this page.

@@ -221,13 +221,13 @@ describe.skipIf(!available)("against the local Flow Messaging service", () => {
     const cli = path.join(here, "../../dist/cli.js");
     const dir = mkdtempSync(path.join(os.tmpdir(), "flow-init-"));
     const env = { ...process.env, FLOW_MESSAGING_KEY: "", FLOW_MESSAGING_BASE_URL: h.base_url };
-    const out = execFileSync("node", [cli, "init", "--key", h.test_key, "--dir", dir, "--no-codex"], { env, encoding: "utf8" });
+    const out = execFileSync("node", [cli, "init", "--key", h.test_key, "--dir", dir, "--no-codex", "--yes"], { env, encoding: "utf8" });
     expect(out).toContain("Key works");
-    expect(out).toMatch(/telegram\s+https:\/\/t\.me\/\S+\?start=\S+\s+send: join /);
+    expect(out).toMatch(/telegram\s+https:\/\/t\.me\/\S+\?start=\S+\s+open it and tap Start \(or send: join /);
     expect(readFileSync(path.join(dir, ".env"), "utf8")).toContain(`FLOW_MESSAGING_KEY=${h.test_key}`);
     expect(existsSync(path.join(dir, ".claude/skills/flow-messaging/SKILL.md"))).toBe(true);
     expect(readFileSync(path.join(dir, "AGENTS.md"), "utf8")).toContain("flow-messaging:start");
-    expect(JSON.parse(readFileSync(path.join(dir, ".mcp.json"), "utf8")).mcpServers["flow-messaging"].args).toContain("mcp");
+    expect(JSON.parse(readFileSync(path.join(dir, ".mcp.json"), "utf8")).mcpServers.flow.args).toContain("mcp");
 
     const before = (await simCalls("sendMessage", 0)).length;
     const sent = execFileSync("node", [cli, "send", "Hello from the CLI"], { env, cwd: dir, encoding: "utf8" });

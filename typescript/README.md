@@ -18,7 +18,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ```sh
 npm install @flow-engineer/messaging
-npx @flow-engineer/messaging init --key fk_test_...   # .env, agent files, sandbox join code
+npx @flow-engineer/messaging init --key fk_test_...   # .env and the sandbox join code; asks before adding agent files
 node --env-file=.env agent.mjs
 ```
 
@@ -48,11 +48,15 @@ dependencies. ESM and CommonJS.
 
 ## Getting a key and testing
 
+Keys are issued by the Flow team while signup is in preview: ask the Flow team for a
+test key (`fk_test_...`). There is no dashboard or browser sign-in yet.
+
 `npx @flow-engineer/messaging init --key fk_test_...` checks the key, writes
-`FLOW_MESSAGING_KEY` to `.env`, installs the agent files (below) and prints the shared
-sandbox senders with your app's join code. Test keys (`fk_test_`) reach only people who
-joined the sandbox: open the sandbox link on your phone and send `join <your-code>`.
-Live keys (`fk_live_`) use your dedicated senders.
+`FLOW_MESSAGING_KEY` to `.env` and prints the shared sandbox senders with your app's
+join code. It then asks before installing the agent files (below); `--yes` installs
+them without asking. Test keys (`fk_test_`) reach only people who joined the sandbox:
+on your phone, open the sandbox link and tap Start (on iMessage, text the join code,
+such as `join wild-otter-04508705`). Live keys (`fk_live_`) use your dedicated senders.
 
 ## Receiving events
 
@@ -98,6 +102,24 @@ Events are a discriminated union on `type` (`message.received`, `message.sent`,
 Each event in a conversation carries `event.conversation`, a handle with `reply`,
 `send`, `typing`, `markRead`, `react`, `responding` and `messages`.
 
+**Which event type to use.** Type your handlers with `FlowEvent` (or
+`FlowEventOf<"message.received">` for one type): it is what the stream,
+`constructEvent` and `handler({ onEvent })` give you, with `event.conversation` a
+handle you can `reply` on. `Event` is the plain JSON shape from the API, as
+`flow.events.list()` returns it; its `conversation` is only `{ id, channel, ... }`.
+`toFlowEvent(flow, event)` turns an `Event` into a `FlowEvent`.
+
+```ts
+import type { FlowEvent, FlowEventOf } from "@flow-engineer/messaging";
+
+async function onMessage(event: FlowEventOf<"message.received">) {
+  await event.conversation.reply(`You said: ${contentText(event.data.message.content)}`);
+}
+async function onEvent(event: FlowEvent) {
+  if (event.type === "message.received") await onMessage(event);
+}
+```
+
 ## Replying
 
 `event.conversation.reply(input)` (or `flow.conversation("conv_...").reply(input)`) takes:
@@ -123,13 +145,30 @@ whole reply safe. `splitIntoBubbles(text, "whatsapp")` gives the same split.
 ## Sending and the rest of the API
 
 ```ts
-import { buttons, image, template } from "@flow-engineer/messaging";
+import { buttons, image, template, text } from "@flow-engineer/messaging";
 
 await flow.messages.send("conv_...", "Your order shipped.");
 await flow.messages.send("conv_...", { content: buttons("Which size?", ["S", "M", "L"]), fallback: "auto" });
 await flow.messages.send("conv_...", image("https://example.com/receipt.png", { caption: "Receipt" }));
+await flow.messages.send("conv_...", { content: text("Yes, that one."), reply_to: "msg_..." }); // inline reply
 await flow.messages.start({ sender: "snd_...", to: { phone: "+919812345678" }, content: template("tpl_...", "en", { body: ["Asha"] }) });
 const caps = await flow.capabilities.retrieve("conv_..."); // what the channel can show, window state
+```
+
+**Files.** `flow.files.upload({ file, filename?, channel? })` takes the bytes as a
+`Blob`/`File`, a `Uint8Array` (a Node `Buffer` is one) or an `ArrayBuffer` (read a
+stream into one first), and returns the stored `File`. Its `id` (`file_...`) is the
+`file_id` to send in `media` or `voice` content; `channel` checks that channel's size
+limit at upload. Inbound media arrives with a `url`; `flow.files.download(idOrUrl)`
+gives its bytes as a `Blob`.
+
+```ts
+import { readFile } from "node:fs/promises";
+import { document } from "@flow-engineer/messaging";
+
+const file = await flow.files.upload({ file: await readFile("receipt.pdf"), filename: "receipt.pdf" });
+await flow.messages.send("conv_...", document(file.id, { caption: "Your receipt" }));
+// the same content by hand: { type: "media", kind: "document", file_id: file.id, caption: "Your receipt" }
 ```
 
 Resources mirror the endpoints: `messages`, `conversations`, `events`,
@@ -146,7 +185,8 @@ Errors are classes per API error type: `InvalidRequestError`, `AuthenticationErr
 `FileBlockedError`, `RateLimitError`, `ChannelError`, `NotImplementedError`,
 `APIError`, plus `APIConnectionError`, `APITimeoutError` and
 `WebhookSignatureError`. All extend `FlowError` with `type`, `status`, `param`,
-`retryAfter`, `requestId` and, when the API sends them, `docUrl` and `hint`.
+`retryAfter`, `requestId` and, when the API sends them, `docUrl` (the error type's
+page, `https://api.flow.engineer/docs/errors/<type>`) and `hint`.
 
 Every POST carries an `Idempotency-Key` (yours via `{ idempotencyKey }`, else a
 random one), reused across retries. Connection errors, timeouts, `rate_limited` and
@@ -161,7 +201,7 @@ version pinned to your app instead.
 ## CLI
 
 ```
-npx @flow-engineer/messaging init [--key fk_test_...] [--device]   key, .env, agent files, sandbox code
+npx @flow-engineer/messaging init [--key fk_test_...] [--yes]      key, .env, sandbox code, agent files (asks)
 npx @flow-engineer/messaging listen [--forward-to <url>] [--events a,b]
 npx @flow-engineer/messaging send [--conversation conv_...] "Hello"
 npx @flow-engineer/messaging mcp
@@ -172,9 +212,14 @@ npx @flow-engineer/messaging mcp
   a `{"reply": ...}` answer into the conversation, as the API does for webhooks.
 - `mcp` is a stdio bridge to the hosted MCP server `https://api.flow.engineer/mcp`
   (Streamable HTTP), sending `FLOW_MESSAGING_KEY` from the environment or `.env`.
-- `init --device` signs in through the browser with the OAuth 2.0 device flow
-  (RFC 8628). **Preview:** the endpoint is not live yet. The CLI uses
-  `https://flow.engineer/api/cli/device` (override with `--auth-url` or
+- `init` writes `FLOW_MESSAGING_KEY` to `.env` without asking (that is its job), then
+  asks one yes/no question before installing the agent files and registering the MCP
+  server. Without a terminal, or with no answer, it skips them and prints the commands
+  to run by hand. `--yes` (`-y`) installs them without asking; `--no-agent-files`,
+  `--no-mcp` and `--no-codex` leave parts out.
+- `init --device` (browser sign-in, OAuth 2.0 device flow, RFC 8628) is **not
+  available yet**: keys are issued by the Flow team while signup is in preview. The
+  CLI would use `https://flow.engineer/api/cli/device` (override with `--auth-url` or
   `FLOW_AUTH_URL`): `POST /code` returns `device_code`, `user_code`,
   `verification_uri`, `interval`; `POST /token` with
   `grant_type=urn:ietf:params:oauth:grant-type:device_code` returns `{"api_key"}` or
@@ -183,12 +228,13 @@ npx @flow-engineer/messaging mcp
 
 ## Agent files
 
-`init` installs, and the repo publishes (`plugin/`):
+`init` installs these once you say yes (or pass `--yes`), and the repo publishes them (`plugin/`):
 
 - a Claude Code skill, `.claude/skills/flow-messaging/` (`SKILL.md` and short references);
 - a section in `AGENTS.md` for Codex and other agents;
-- the MCP server for Claude Code in `.mcp.json`, and for Codex through
-  `codex mcp add flow-messaging -- npx -y @flow-engineer/messaging mcp`.
+- the MCP server, named `flow`, for Claude Code in `.mcp.json` (the same as
+  `claude mcp add --scope project flow -- npx -y @flow-engineer/messaging mcp`), and for
+  Codex through `codex mcp add flow -- npx -y @flow-engineer/messaging mcp`.
 
 The repo is also a Claude Code plugin marketplace:
 `claude plugin marketplace add flow-engineer/sdk`, then

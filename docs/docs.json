@@ -27,7 +27,7 @@
     "primary": {
       "type": "button",
       "label": "Get a test key",
-      "href": "https://api.flow.engineer/admin"
+      "href": "/quickstart"
     }
   },
   "navigation": {
@@ -198,7 +198,7 @@
     "instructions": [
       "Flow Messaging is one HTTP API (https://api.flow.engineer) for AI agents to hold two-way conversations on WhatsApp, Telegram and iMessage.",
       "In TypeScript or JavaScript, use the SDK: npm install @flow-engineer/messaging, then `new FlowMessaging()` (reads FLOW_MESSAGING_KEY). Python (flow-messaging) and Go (github.com/flow-engineer/sdk/go) SDKs are coming; until then call the HTTP API directly.",
-      "Run `npx @flow-engineer/messaging init` to get a test key, write FLOW_MESSAGING_KEY to .env and register the MCP server for Claude Code and Codex.",
+      "Keys are issued by the Flow team while signup is in preview: ask for a test key (fk_test_...), or a live key (fk_live_...) when going live. Keep it in FLOW_MESSAGING_KEY. Register the hosted MCP server as `flow`: claude mcp add --transport http flow https://api.flow.engineer/mcp --header \"Authorization: Bearer $FLOW_MESSAGING_KEY\". `npx @flow-engineer/messaging init` will do this once the npm package ships.",
       "Authenticate with `Authorization: Bearer fk_test_...` (sandbox) or `fk_live_...` (real contacts). Never put a live key in client-side code.",
       "Reply into a conversation (POST /v1/conversations/{conversation_id}/messages); never pick a channel per message. Switch on `error.type`, not the message text.",
       "Full documentation for agents: https://docs.flow.engineer/llms-full.txt. OpenAPI spec: https://raw.githubusercontent.com/flow-engineer/sdk/main/openapi/openapi.yaml."

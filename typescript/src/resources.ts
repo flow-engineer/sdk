@@ -53,6 +53,7 @@ export class Messages {
    * ```ts
    * await flow.messages.send("conv_...", "Your order shipped.");
    * await flow.messages.send("conv_...", { content: buttons("Size?", ["S", "M", "L"]), fallback: "auto" });
+   * await flow.messages.send("conv_...", { content: text("Yes, that one."), reply_to: "msg_..." }); // an inline reply
    * ```
    */
   send(conversationId: string, input: SendInput, options?: RequestOptions): Promise<Message> {
@@ -134,7 +135,7 @@ export class Capabilities_ {
 }
 
 export interface UploadParams {
-  /** The bytes: a Blob/File, a Uint8Array or an ArrayBuffer. */
+  /** The bytes: a Blob/File, a Uint8Array (a Node `Buffer` is one) or an ArrayBuffer. Read a stream into one of these first. */
   file: Blob | Uint8Array | ArrayBuffer;
   /** The name to show; required unless `file` is a File with a name. */
   filename?: string;
@@ -145,7 +146,15 @@ export interface UploadParams {
 export class Files {
   constructor(private readonly http: HttpClient) {}
 
-  /** Uploads media to send later as `media` or `voice` content by `file_id`. */
+  /**
+   * Uploads media to send later as `media` or `voice` content by `file_id`. The answer
+   * is the stored `File`; its `id` (`file_...`) is the `file_id`.
+   *
+   * ```ts
+   * const file = await flow.files.upload({ file: await readFile("receipt.pdf"), filename: "receipt.pdf" });
+   * await flow.messages.send("conv_...", document(file.id, { caption: "Your receipt" }));
+   * ```
+   */
   upload(params: UploadParams, options?: RequestOptions): Promise<File> {
     const form = new FormData();
     const blob = params.file instanceof Blob ? params.file : new Blob([params.file as BlobPart]);
@@ -180,6 +189,11 @@ export class Senders {
   /** Requests a dedicated sender (live keys). A Telegram bot connects at once with `telegram_bot_token`. */
   request(params: SenderRequest, options?: RequestOptions): Promise<Sender> {
     return this.http.request({ method: "POST", path: "/v1/senders", body: params, options });
+  }
+
+  /** Disconnects one of your Telegram bots (live keys): removes its webhook and token and retires the sender (status `banned`). */
+  disconnect(senderId: string, options?: RequestOptions): Promise<Sender> {
+    return this.http.request({ method: "DELETE", path: `/v1/senders/${enc(senderId)}`, options });
   }
 }
 

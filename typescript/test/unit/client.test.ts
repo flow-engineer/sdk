@@ -7,8 +7,11 @@ import {
   OutsideWindowError,
   UnsupportedContentError,
   buttons,
+  toFlowEvent,
+  type FlowEventOf,
+  type Message,
 } from "../../src/index.js";
-import { ids, json, message, mockFetch } from "../helpers.js";
+import { ids, json, message, mockFetch, receivedEvent } from "../helpers.js";
 
 const key = "fk_test_unit";
 
@@ -96,7 +99,7 @@ describe("client", () => {
     ] as const;
     for (const [status, type, Cls] of cases) {
       const { fetch } = mockFetch(() =>
-        json(status, { error: { type, message: "m", conversation: ids.conv, param: "content.type", request_id: "req_1", doc_url: "https://docs.flow.engineer/errors/x", hint: "h" } }),
+        json(status, { error: { type, message: "m", conversation: ids.conv, param: "content.type", request_id: "req_1", doc_url: "https://api.flow.engineer/docs/errors/x", hint: "h" } }),
       );
       const err = await new FlowMessaging({ apiKey: key, fetch }).messages.send(ids.conv, "x").catch((e) => e);
       expect(err).toBeInstanceOf(Cls);
@@ -104,7 +107,7 @@ describe("client", () => {
       expect(err.status).toBe(status);
       expect(err.param).toBe("content.type");
       expect(err.requestId).toBe("req_1");
-      expect(err.docUrl).toBe("https://docs.flow.engineer/errors/x");
+      expect(err.docUrl).toBe("https://api.flow.engineer/docs/errors/x");
       expect(err.hint).toBe("h");
     }
   });
@@ -158,5 +161,44 @@ describe("client", () => {
     expect(calls[0]!.body).toEqual({ overlap_seconds: 3600 });
     expect(calls[0]!.headers["idempotency-key"]).toMatch(/.{16,}/);
     expect(calls[1]!.body).toEqual({});
+  });
+
+  it("disconnects a sender with DELETE", async () => {
+    const sender = {
+      id: "snd_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+      channel: "telegram",
+      kind: "dedicated",
+      livemode: true,
+      status: "banned",
+      address: { username: "example_bot" },
+      limits: { new_contacts_per_day: 0, new_contacts_per_hour: 0 },
+      created_at: "2026-10-01T00:00:00Z",
+    };
+    const { fetch, calls } = mockFetch(() => json(200, sender));
+    const flow = new FlowMessaging({ apiKey: "fk_live_unit", fetch, baseURL: "https://example.test" });
+    const got = await flow.senders.disconnect(sender.id);
+    expect(got.status).toBe("banned");
+    expect(calls[0]!.method).toBe("DELETE");
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/senders/${sender.id}`);
+  });
+
+  it("sends reply_to and reads it back on the message", async () => {
+    const target = ids.msg(1);
+    const { fetch, calls } = mockFetch(() => json(202, { ...message(2, "Yes, that one."), reply_to: target }));
+    const flow = new FlowMessaging({ apiKey: key, fetch, baseURL: "https://example.test" });
+    const m: Message = await flow.messages.send(ids.conv, { content: { type: "text", text: "Yes, that one." }, reply_to: target });
+    const replyTo: string | undefined = m.reply_to;
+    expect(replyTo).toBe(target);
+    expect(calls[0]!.url.pathname).toBe(`/v1/conversations/${ids.conv}/messages`);
+    expect(calls[0]!.body).toEqual({ content: { type: "text", text: "Yes, that one." }, reply_to: target });
+  });
+
+  it("FlowEventOf types a handler whose event can reply", async () => {
+    const { fetch, calls } = mockFetch(() => json(202, message(3, "Got it")));
+    const flow = new FlowMessaging({ apiKey: key, fetch, baseURL: "https://example.test" });
+    const onMessage = (event: FlowEventOf<"message.received">) => event.conversation.reply("Got it", { split: false, typing: false });
+    const event = toFlowEvent(flow, receivedEvent(1, "hi") as never) as FlowEventOf<"message.received">;
+    await onMessage(event);
+    expect(calls[0]!.url.pathname).toBe(`/v1/conversations/${ids.conv}/messages`);
   });
 });

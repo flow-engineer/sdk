@@ -7,15 +7,19 @@ keywords: ["send WhatsApp message from LLM agent", "AI agent WhatsApp quickstart
 
 This page gets an agent answering messages on your phone in about 5 minutes: get a test key, join the shared sandbox, receive a message, and reply.
 
+<Note>
+`npx @flow-engineer/messaging init` is available once the npm package ships; until then use the API (curl) or the hosted MCP server with `claude mcp add`, as the steps below do.
+</Note>
+
 ```bash
 npx @flow-engineer/messaging init
 ```
 
-That one command gets a test key, saves it to `.env` as `FLOW_MESSAGING_KEY`, sets up your coding agent (skill, `AGENTS.md`, MCP server), and prints the sandbox link and join code. The steps below do the same by hand and then build the agent.
+That one command will save your test key to `.env` as `FLOW_MESSAGING_KEY`, set up your coding agent (skill, `AGENTS.md`, MCP server), and print the sandbox link and join code. It asks before writing anything; `--yes` skips the questions. The steps below do the same by hand and then build the agent.
 
 <Steps>
   <Step title="Get a test key">
-    Create a test key (`fk_test_...`) in the [dashboard](https://api.flow.engineer/admin), or run `npx @flow-engineer/messaging init`. Test keys reach only the shared sandbox, so nothing reaches anyone who has not joined it.
+    Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (`fk_test_...`), or a live key (`fk_live_...`) when you go live. Test keys reach only the shared sandbox, so nothing reaches anyone who has not joined it.
 
     ```bash
     export FLOW_MESSAGING_KEY=fk_test_...
@@ -28,7 +32,7 @@ That one command gets a test key, saves it to `.env` as `FLOW_MESSAGING_KEY`, se
       -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
     ```
 
-    The answer includes `app.sandbox_join_code`, for example `brave-otter`.
+    The answer includes `app.sandbox_join_code`, for example `wild-otter-04508705`.
   </Step>
 
   <Step title="Join the sandbox from your phone">
@@ -39,10 +43,13 @@ That one command gets a test key, saves it to `.env` as `FLOW_MESSAGING_KEY`, se
       -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
     ```
 
-    Each shared sender has an `address.link` (for example a `https://t.me/...` link) and a `join_code`. Open the link on your phone and send the join code, for example:
+    Each shared sender has an `address.link` and a `join_code`. Open the link on your phone:
+
+    - **Telegram:** the link is `https://t.me/<bot>?start=<code>`. Open it and tap **Start**. That's it, you've joined.
+    - **Other channels**, or if the link can't be used: send the sender's `join_code` to it, for example:
 
     ```text
-    join brave-otter
+    join wild-otter-04508705
     ```
 
     Your app now has a conversation with you, and you receive a `conversation.started` event. The join code is how a shared sandbox sender knows which app a person belongs to, so no stranger is ever messaged. See [Senders](/concepts/senders).
@@ -206,7 +213,7 @@ That one command gets a test key, saves it to `.env` as `FLOW_MESSAGING_KEY`, se
     ```
     </CodeGroup>
 
-    The send answers `202` with the queued message. Its progress arrives as `message.sent`, `message.delivered` and `message.read` events.
+    The send answers `202` with the queued message. Its progress may arrive as `message.sent`, `message.delivered` and `message.read` events, depending on what the channel reports. To know how a send ended, wait for `message.sent` or `message.failed`: every channel reports one of them.
   </Step>
 
   <Step title="Answer with your model">
@@ -246,7 +253,7 @@ That one command gets a test key, saves it to `.env` as `FLOW_MESSAGING_KEY`, se
     Signed deliveries, retries, ordering, and replying in the response.
   </Card>
   <Card title="Local development" icon="laptop-code" href="/guides/local-development">
-    Forward live events to a handler on your laptop with `listen`.
+    Receive events on your laptop with no public URL through the live stream.
   </Card>
   <Card title="Content types" icon="shapes" href="/concepts/content-types">
     Media, voice notes, buttons, reactions and what each channel shows.

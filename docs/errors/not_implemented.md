@@ -21,9 +21,9 @@ Flow Messaging is in beta. Some endpoints and channels are in the spec before th
 Build on what is live now (Telegram, iMessage, and the endpoints that answer). The changelog announces each endpoint and channel as it goes live.
 
 ```bash
-curl https://api.flow.engineer/v1/senders -H "Authorization: Bearer $FLOW_TEST_KEY"   # what you can send from today
+curl https://api.flow.engineer/v1/senders -H "Authorization: Bearer $FLOW_MESSAGING_KEY"   # what you can send from today
 ```
 
 Every error also carries `hint`, one sentence specific to your request, and
-`doc_url`, this page. Coding agents connected to the [MCP server](../mcp.md) can
-call `explain_error` with the type to read this page.
+`doc_url`, this page. Coding agents connected to Flow's MCP server
+(`https://api.flow.engineer/mcp`) can call `explain_error` with the type to read this page.

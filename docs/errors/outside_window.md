@@ -37,5 +37,5 @@ On iMessage, ask the contact to message the line first (share its handle, or its
 From typing or a read receipt, ignore it and send your reply: the indicator is a courtesy, and the reply itself is not affected.
 
 Every error also carries `hint`, one sentence specific to your request, and
-`doc_url`, this page. Coding agents connected to the [MCP server](../mcp.md) can
-call `explain_error` with the type to read this page.
+`doc_url`, this page. Coding agents connected to Flow's MCP server
+(`https://api.flow.engineer/mcp`) can call `explain_error` with the type to read this page.

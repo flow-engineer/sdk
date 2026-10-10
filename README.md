@@ -5,6 +5,7 @@ at `api.flow.engineer`.
 
 ```ts
 // npm install @flow-engineer/messaging   ·   npx @flow-engineer/messaging init --key fk_test_...
+// Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (fk_test_...).
 import { FlowMessaging, contentText } from "@flow-engineer/messaging";
 
 const flow = new FlowMessaging(); // reads FLOW_MESSAGING_KEY
@@ -44,7 +45,8 @@ gives coding agents and assistants the same actions.
 - [`plugin/`](plugin): agent files: a Claude Code plugin (skill and MCP server) and the
   `AGENTS.md` section for Codex. Install with
   `claude plugin marketplace add flow-engineer/sdk` and
-  `claude plugin install flow-messaging@flow-engineer`, or let `npx @flow-engineer/messaging init` copy them.
+  `claude plugin install flow-messaging@flow-engineer`, or let `npx @flow-engineer/messaging init` copy them
+  (it asks first; `--yes` skips the question). The MCP server is named `flow`.
 - [`llms.txt`](llms.txt): a summary for language models.
 - `python/`, `go/`: SDKs (coming). `docs/`: documentation source (coming, docs.flow.engineer).
 
