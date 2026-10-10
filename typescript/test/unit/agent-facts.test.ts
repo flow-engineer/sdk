@@ -1,7 +1,7 @@
 // The facts the agent docs state (agents/facts.json) match the SDK and CLI: the base
 // URL, the MCP server's URL and name, every environment variable the code reads or
 // writes, the SDK version, and what the CLI says it is for and how a person signs in. The service checks the rest (text caps, allowances, MCP tool names)
-// against its own code in docs/context/customer/facts_test.go.
+// against its own code in its own tests.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

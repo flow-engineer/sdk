@@ -8,7 +8,7 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 ## The contract
 
 - `openapi/openapi.yaml` (OpenAPI 3.1) **is the contract.** The service
-  (flow-engineer/messaging, private) generates its server stubs from it, and the
+  (Flow Messaging's server, a separate repository) generates its server stubs from it, and the
   TypeScript, Python and Go SDKs are generated from it. An API change starts here.
 - Descriptions in the spec become the docs (Mintlify, `docs/`) and are read by
   developers and by LLMs: write every description as a plain sentence that says what
@@ -47,34 +47,37 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   `info.version`. With a service checkout (`FLOW_MESSAGING_DIR`, default
   `../flow-messaging`) it compares `api/openapi.yaml` there too: a warning, since a spec
   PR lands before the service regenerates; `STRICT_SERVICE_SPEC=1` makes it fail.
-- **Comparison pages** (`docs/compare/`): every claim about another product is an entry in `docs/compare/claims.yaml` (claim, source URL, date checked, pages), marked on its page with `{/* claim: <id> */}` and linked to its source. `scripts/check-compare.sh` (part of local checks) fails when a claim is older than 90 days (and warns 14 days before) or a marker, link or entry is missing; `--fetch` also flags dead sources. Never name the provider behind Flow's iMessage line there.
+- **Comparison pages** (`docs/compare/`): every claim about another product is an entry in `docs/compare/claims.yaml` (claim, source URL, date checked, pages), marked on its page with `{/* claim: <id> */}` and linked to its source. `scripts/check-compare.sh` (part of local checks) fails when a claim is older than 90 days (and warns 14 days before) or a marker, link or entry is missing; `--fetch` also flags dead sources.
 - **Public content**: `scripts/check-public.sh` (part of local checks) fails when a
-  tracked file holds a founder-only marker (listed in the script) or a name on the private denylist (`scripts/public-denylist.txt` in the
-  service checkout, `FLOW_MESSAGING_DIR`; skipped with a warning without one).
+  tracked file, or the npm package about to be published, holds text that does not
+  belong in a public repo: internal-only markers, local paths, cloud project IDs,
+  key-shaped strings, source maps with embedded sources (all listed in the script), or a
+  phrase on the denylist kept with the service checkout (`FLOW_MESSAGING_DIR`; skipped
+  with a warning without one, `REQUIRE_PUBLIC_DENYLIST=1` makes that fail).
 - **Lint with Redocly CLI**: `scripts/lint.sh` (runs `npx @redocly/cli@2.60.0 lint`
   with `redocly.yaml`, `recommended-strict`, so any warning fails). It must be clean
   before a PR.
 - **The integration test runs the real service locally**: it copies
   `typescript/test/integration/harness/harness_test.go.tmpl` into a checkout of
-  flow-engineer/messaging (`FLOW_MESSAGING_DIR`, default `../flow-messaging`) and runs it
+  the service (`FLOW_MESSAGING_DIR`, default `../flow-messaging`) and runs it
   with `go test`, which starts a throwaway Postgres, the API and the Telegram
   simulator; the copy is removed afterwards. Without a checkout or Go it is skipped
   (`REQUIRE_INTEGRATION=1` makes that fail).
-- After a spec, error page or agent docs change, regenerate the service in flow-engineer/messaging
-  (`make generate` there, with this repo checked out beside it as `../flow-sdk`) and
-  run its `scripts/local-checks.sh`.
+- After a spec, error page or agent docs change, regenerate the service (`make
+  generate` in its checkout, with this repo checked out beside it as `../flow-sdk`)
+  and run its checks.
 
 ## Working rules
 
 - **Feature branches and PRs, never commits straight to main.**
 - **Checks run locally; never add GitHub Actions jobs** (minutes are paid).
-- **This repo is public: internal notes belong in the private repo
-  `flow-engineer/messaging` under `docs/context/`**, never here (go-to-market,
-  customers, providers, plans).
+- **This repo is public.** Everything here, including code comments, commit
+  messages, PR descriptions and the published packages, is read by customers and
+  their coding agents: write it for them. Notes, plans and review discussion belong
+  elsewhere.
 - **No secrets in the repo**, including example keys that look real: examples use
   `fk_test_...` / `fk_live_...` and `whsec_...` with the secret left out.
-- Any production breakage gets one GitHub issue labelled `incident` in
-  flow-engineer/messaging, never a file here.
+- Production incidents are tracked with the service, never as a file here.
 
 ## TypeScript SDK
 
@@ -89,6 +92,9 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 - No runtime dependencies: `fetch`, Web Crypto and the runtime's WebSocket (`ws` is an
   optional peer for Node 18 and 20). Keep it working in Node 18+, Bun, Deno and edge
   runtimes; Node-only code belongs in the CLI.
+- The build ships no source maps (`sourcemap: false` in `tsup.config.ts`);
+  `scripts/check-public.sh --package`, run by local checks after the build, fails on
+  any, and on any packaged file that fails the public-content check.
 - The bubble rule is documented in `bubbles.ts`, the package README and the skill's
   API reference; change all three together.
 - Tests wait on explicit gates (promises resolved by the event they wait for), never
@@ -115,8 +121,8 @@ spec and the error pages. Edit the source, regenerate, commit both:
   `docs/coding-agents.mdx` and `plugin/skills/flow-messaging/reference/cli-mcp.md`.
   Text outside the regions in those pages is hand-written.
 - **Copied into the service:** its `make generate` copies every top-level file of
-  `agents/` (with `facts.json`) into `docs/context/customer/`, as it copies
-  `docs/errors/`; the service embeds and serves them (`/llms.txt`,
+  `agents/` (with `facts.json`), as it copies `docs/errors/`; the service embeds and
+  serves them (`/llms.txt`,
   `/docs/quickstart.md`, `GET /`, the MCP instructions).
 - **Checks that fail on drift:** `node scripts/agent-docs.mjs --check` (in
   `scripts/local-checks.sh`) fails when a generated file or region is stale, when a
@@ -124,11 +130,10 @@ spec and the error pages. Edit the source, regenerate, commit both:
   when an agent page does not state the MCP rules (`mcp.owner_rule`, `mcp.runtime_rule`).
   `typescript/test/unit/agent-facts.test.ts` fails when the facts differ from the SDK
   and CLI (base URL, MCP URL and name, every `FLOW_*` variable). In the service,
-  `scripts/check-generated.sh` fails when its copies are stale, and
-  `docs/context/customer/facts_test.go` fails when the facts differ from its code
-  (text caps from channel Capabilities, allowance defaults from internal/config, env
-  var names, MCP tool names).
-- **MCP rule (founders' decision):** apps use the REST API (or the SDK once
+  a generated-code check fails when its copies are stale, and a facts test fails when
+  the facts differ from its code (text caps per channel, allowance defaults, env var
+  names, MCP tool names).
+- **MCP rule:** apps use the REST API (or the SDK once
   published) at runtime; the hosted MCP server is an optional development tool.
   Adding it to a developer's coding tools is the project owner's decision: agent docs
   tell agents to suggest it and show the owner the command, never to add it
@@ -157,4 +162,4 @@ spec and the error pages. Edit the source, regenerate, commit both:
   `own-telegram-bot`) have one `main.ts` and/or `main.py` each and no Flow SDK; the
   others use the TypeScript SDK.
 - `plugin/`, `.claude-plugin/`: the agent files and the plugin marketplace.
-- `python/`, `go/`: the SDKs, not written yet (Python, then Go; design-v1, section 12).
+- `python/`, `go/`: the SDKs, not written yet (Python first, then Go).
