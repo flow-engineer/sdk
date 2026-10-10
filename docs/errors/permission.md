@@ -21,6 +21,9 @@ The key is valid but this action is not allowed for it.
 - The app's sandbox allowance is used up (`channel_code` `sandbox_allowance_used`). Apps made with `POST /v1/sandbox/keys` may send 50 messages in total to 1 contact; people who signed in, 100 messages to each of 3 contacts, one allowance per person shared by every app they own or claim. Only messages your agent sends count.
 - The allowance has no room for this contact (`sandbox_contact_limit`), or the send used a sandbox channel the allowance does not cover, such as iMessage (`sandbox_channel_not_included`; iMessage lines are arranged with the Flow team and used with a live key).
 - An app made without an account tried something that needs a person signed in, such as connecting its own Telegram bot, or uploading more than 20 files in a day (`sign_in_required`).
+- SMS (US, in pilot): the contact opted out by texting STOP or a variant (`contact_opted_out`; their contact shows `opted_out_at`). Messages already queued to them fail with the same code in `message.failed`.
+- SMS: you started a conversation with someone who has never texted any of your SMS numbers, without recording their consent (`consent_required`).
+- Your account handles health information (`hipaa` on the account in `GET /v1/app`) and the send or sender is on a channel without a business associate agreement: Telegram, WhatsApp or iMessage (`hipaa_channel_not_covered`).
 
 ## How to fix it
 
@@ -37,6 +40,19 @@ curl -X POST https://api.flow.engineer/v1/device/authorizations \
 curl -X POST https://api.flow.engineer/v1/device/token \
   -H "Content-Type: application/json" -d '{"device_code": "fdc_..."}'
 ```
+
+On SMS, a contact who opted out gets nothing more until they text START (or UNSTOP, YES) to one of your numbers; do not ask them to by other means unless they want it. To start a conversation with someone who has not texted you, record the consent they gave you (for example on your sign-up form) with the start:
+
+```bash
+curl -X POST https://api.flow.engineer/v1/messages \
+  -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"sender": "snd_...", "to": {"phone": "+14155550100"},
+       "content": {"type": "text", "text": "Hi Sam, this is Berry from Acme. Reply STOP to opt out."},
+       "consent": {"obtained_at": "2026-10-01T15:04:05Z", "method": "web_form", "proof": "signup-8812"}}'
+```
+
+In a HIPAA account, send from an SMS sender instead; the other channels cannot carry its messages.
 
 On an iMessage line that may only reply, wait for the contact to message it, then reply in that conversation (`POST /v1/conversations/{conversation_id}/messages`).
 

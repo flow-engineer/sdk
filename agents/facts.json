@@ -14,9 +14,10 @@
     "cli_device_code": "FLOW_DEVICE_CODE",
     "cli_device_url": "FLOW_DEVICE_URL"
   },
-  "text_caps": { "telegram": 4096, "imessage": 9999, "whatsapp": 4096 },
-  "text_counting": { "telegram": "UTF-16 code units", "imessage": "characters", "whatsapp": "characters" },
+  "text_caps": { "telegram": 4096, "imessage": 9999, "whatsapp": 4096, "sms": 1530 },
+  "text_counting": { "telegram": "UTF-16 code units", "imessage": "characters", "whatsapp": "characters", "sms": "characters" },
   "caption_cap": 1024,
+  "sms_max_segments": 10,
   "sign_in": "GitHub",
   "sdk_version": "0.1.1",
   "cli_tagline": "Telegram and iMessage (WhatsApp coming) for AI agents.",
