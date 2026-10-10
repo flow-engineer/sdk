@@ -95,7 +95,7 @@ In TypeScript: `(await flow.app.retrieve()).allowance`.
 
 ## 3. Sign in to keep the app
 
-A person signs in with GitHub or Google through the device flow (OAuth 2.0 device authorization, RFC 8628). It **claims** the app: its data and keys are kept, the expiry is removed, and the app moves under the person's signed-in allowance of 3 contacts with 100 messages each. That allowance is **one per person**, shared by every app they own or claim (`allowance.scope` is `person`), and a person may claim up to 10 apps. The new key replaces the sandbox key, which **stops working** as soon as the new key is handed out. A claim through `claim_url` in a browser hands out no key: there the sandbox key keeps working with its expiry removed (an expired one works again when the app is claimed within 30 days of its expiry).
+A person signs in with GitHub or Google through the device flow (OAuth 2.0 device authorization, RFC 8628). It **claims** the app: its data and keys are kept, the expiry is removed, and the app moves under the person's signed-in allowance of 3 contacts with 100 messages each. That allowance is **one per person**, shared by every app they own or claim (`allowance.scope` is `person`), and a person may claim up to 10 apps. The new key replaces the sandbox key, which **stops working** as soon as the new key is handed out. A claim through `claim_url` in a browser hands out no key, and it **revokes the sandbox key** unless the person ticks "Keep my agent's current key working" (so whoever sent a person someone else's claim link is left with no working key on their allowance). Kept, the key works with its expiry removed (an expired one works again when the app is claimed within 30 days of its expiry); revoked, the person makes a new key on the dashboard's Keys page.
 
 ### With the CLI
 
@@ -130,7 +130,7 @@ It reads `FLOW_CLAIM_TOKEN` from `.env`, prints a link and a short code (for exa
 
    Without a claim token, send the app's test key instead (`-H "Authorization: Bearer $FLOW_MESSAGING_KEY"`).
 
-2. Show the person `verification_uri_complete` and `user_code`. The page asks them to type the code, so always show it. Never show `device_code`.
+2. Show the person `verification_uri` and `user_code`: they open the page, sign in and type the code you show them (a link alone never approves; `verification_uri_complete` opens the same page). Never show `device_code`.
 
 3. Poll every `interval` seconds:
 

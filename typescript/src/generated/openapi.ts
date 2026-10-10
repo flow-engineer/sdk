@@ -597,6 +597,12 @@ export interface paths {
          *     answer includes the endpoint's signing `secret`, shown only this once.
          *     Status events (`message.sent`, `message.delivered`, ...) are high volume;
          *     subscribe only to the types you use.
+         *
+         *     A URL is registered once per app and mode: a URL another endpoint already
+         *     has (scheme and host compared in any case) answers `400 invalid_request`
+         *     with `param` `url`, naming that endpoint. Change its event types with
+         *     `PATCH /v1/webhook_endpoints/{webhook_endpoint_id}` instead; one endpoint
+         *     can receive every event type.
          */
         post: operations["createWebhookEndpoint"];
         delete?: never;
@@ -634,7 +640,7 @@ export interface paths {
         head?: never;
         /**
          * Update a webhook endpoint
-         * @description Changes an endpoint's URL, event types, description, or whether it is enabled. Fields you leave out are kept.
+         * @description Changes an endpoint's URL, event types, description, or whether it is enabled. Fields you leave out are kept. A `url` another endpoint of the app already has in this mode answers `400 invalid_request` with `param` `url`.
          */
         patch: operations["updateWebhookEndpoint"];
         trace?: never;
@@ -774,7 +780,10 @@ export interface paths {
          *     To keep the app, a person signs in through the device flow with the
          *     `claim_token` (`POST /v1/device/authorizations`), or opens `claim_url` in a
          *     browser. The app then shares the person's signed-in allowance (3 contacts
-         *     and 100 messages each, one allowance per person over all their apps).
+         *     and 100 messages each, one allowance per person over all their apps). A
+         *     claim through `claim_url` revokes this key unless the person chooses to
+         *     keep their agent's key working; a device sign-in replaces it with a new
+         *     key.
          *
          *     Calls are limited per client address, per network (/24, /64) and wider
          *     network (/16, /48), and service-wide per day; going over answers `429
@@ -801,9 +810,9 @@ export interface paths {
          * Start a sign-in from an agent or CLI (device flow)
          * @description Starts a sign-in that a person finishes in a browser with GitHub or Google
          *     (the OAuth 2.0 device authorization grant, RFC 8628, in Flow's JSON shape).
-         *     Show the person `verification_uri_complete` (or `verification_uri` and
-         *     `user_code`), then poll `POST /v1/device/token` with `device_code` every
-         *     `interval` seconds until it returns a key.
+         *     Show the person `verification_uri` and `user_code`: they open the page,
+         *     sign in and type the code you show them. Then poll `POST /v1/device/token`
+         *     with `device_code` every `interval` seconds until it returns a key.
          *
          *     To claim an app made with `POST /v1/sandbox/keys`, pass its `claim_token`,
          *     or send that app's test key as `Authorization: Bearer fk_test_...` (a key
@@ -849,7 +858,8 @@ export interface paths {
          *     and later polls answer `expired`. If the sign-in claimed a sandbox app,
          *     that app's sandbox keys stop working when this key is handed out: replace
          *     `FLOW_MESSAGING_KEY` with it. (A claim through `claim_url` in a browser
-         *     hands out no key and keeps the sandbox key working.) `denied` means the person refused, and
+         *     hands out no key, and revokes the sandbox key unless the person chooses to
+         *     keep their agent's key working.) `denied` means the person refused, and
          *     `expired` that the code ran out (after `expires_in` seconds): start again.
          *     Polls are also limited per client network, unknown codes included.
          */
@@ -1208,7 +1218,7 @@ export interface components {
             claim_token: string;
             /**
              * Format: uri
-             * @description A page where a person signs in with GitHub or Google and claims the app in the browser, without the CLI. It holds the claim token, so treat it like one.
+             * @description A page where a person signs in with GitHub or Google and claims the app in the browser, without the CLI. It holds the claim token, so treat it like one. The claim hands out no key and revokes the app's keys unless the person ticks "Keep my agent's current key working"; afterwards they make keys on the dashboard's Keys page.
              * @example https://api.flow.engineer/admin/claim#token=fct_...
              */
             claim_url: string;
