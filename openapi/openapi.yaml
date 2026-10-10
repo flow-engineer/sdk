@@ -49,6 +49,32 @@ info:
     key as a WebSocket subprotocol, for browsers, which cannot set headers on a
     WebSocket (see that endpoint).
 
+    ### No key yet? Get one in one call
+
+    Anyone, including an AI coding agent, can get a test key without signing up:
+
+    ```
+    curl -X POST https://api.flow.engineer/v1/sandbox/keys
+    ```
+
+    The answer (`SandboxKey`) holds a `fk_test_` key for a new app of its own, shown
+    once, and the sandbox senders with the links and join code a person uses to
+    join it. Save the key (for example as `FLOW_MESSAGING_KEY`) and the
+    `claim_token`. This key needs no account and has a **sandbox allowance**: 1
+    contact and 50 messages sent in total on the Telegram and WhatsApp sandboxes,
+    and it **expires after 7 days**. Only messages your agent sends count; inbound
+    messages are free. iMessage is not part of the allowance.
+
+    To keep the app and lift the allowance to 3 contacts and 100 messages each,
+    a person signs in with GitHub or Google through the device flow: the agent or
+    the CLI (`npx @flow-engineer/messaging login`) calls `POST
+    /v1/device/authorizations` with the `claim_token`, shows the person the
+    `verification_uri_complete` and `user_code`, and polls `POST /v1/device/token`
+    until it returns a key. The app is claimed: its data and keys are kept and
+    its keys no longer expire. `GET /v1/app` shows what is left of the allowance
+    (`allowance`). When it runs out, sends answer `403 permission` with
+    `channel_code` `sandbox_allowance_used`.
+
     ## Versioning
 
     The API is versioned by date. Send `Flow-Version: 2026-11-01` to choose a version;
@@ -191,6 +217,9 @@ info:
     claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"
     ```
 
+    Without a key, `/mcp` answers `401` and its `hint` gives the one call that gets
+    a test key (`curl -X POST https://api.flow.engineer/v1/sandbox/keys`).
+
     The key's mode chooses the tools. A `fk_test_` key gets build-time tools to
     integrate and verify an app end to end: `whoami`, `sandbox_join`,
     `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`,
@@ -234,6 +263,11 @@ tags:
     description: People your app talks with, one per channel.
   - name: App
     description: The app and key making the request.
+  - name: Onboarding
+    description: |
+      Get a test key without an account (`POST /v1/sandbox/keys`), and sign in with
+      GitHub or Google through the device flow to claim the app and lift its
+      sandbox allowance. These endpoints take no API key.
 
 paths:
   /v1/conversations/{conversation_id}/messages:
@@ -1460,6 +1494,132 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /v1/sandbox/keys:
+    post:
+      operationId: createSandboxKey
+      tags: [Onboarding]
+      security: []
+      summary: Get a test key without an account
+      description: |
+        Creates a new app with a `fk_test_` key, without an account or sign-in. This
+        is the first call for an AI coding agent that has no key: no API key is
+        sent, and the answer holds everything needed to start (the key, the
+        sandbox senders with their links and the app's join code).
+
+        The key and the `claim_token` are shown **once**: save both. The app has a
+        sandbox allowance of 1 contact and 50 messages sent in total on the
+        Telegram and WhatsApp sandboxes (inbound messages are free; iMessage is
+        not included), and its keys **expire after 7 days**. After expiry the keys
+        stop working and the contact is removed from the sandbox; a person can
+        still claim the app.
+
+        To keep the app and lift the allowance to 3 contacts and 100 messages
+        each, a person signs in through the device flow with the `claim_token`
+        (`POST /v1/device/authorizations`), or opens `claim_url` in a browser.
+
+        Calls are limited per client address and network; going over answers
+        `429 rate_limited` with `retry_after`. Do not call this when you already
+        have a key: check `FLOW_MESSAGING_KEY` first, and reuse the key you saved.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SandboxKeyRequest"
+      responses:
+        "201":
+          description: The new app and its key. The key and the claim token are not shown again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxKey"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/device/authorizations:
+    post:
+      operationId: createDeviceAuthorization
+      tags: [Onboarding]
+      security:
+        - {}
+        - bearerAuth: []
+      summary: Start a sign-in from an agent or CLI (device flow)
+      description: |
+        Starts a sign-in that a person finishes in a browser with GitHub or Google
+        (the OAuth 2.0 device authorization grant, RFC 8628, in Flow's JSON shape).
+        Show the person `verification_uri_complete` (or `verification_uri` and
+        `user_code`), then poll `POST /v1/device/token` with `device_code` every
+        `interval` seconds until it returns a key.
+
+        To claim an app made with `POST /v1/sandbox/keys`, pass its `claim_token`,
+        or send that app's test key as `Authorization: Bearer fk_test_...` (a key
+        of an app that is already claimed is ignored). When
+        the person approves, the app joins their account: its data and keys are
+        kept, its keys no longer expire, and its sandbox allowance becomes 3
+        contacts and 100 messages each. Without either, approving gives a new test
+        key for the person's own app (made at their first sign-in).
+
+        No API key is needed. Calls are limited per client address.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceAuthorizationRequest"
+      responses:
+        "201":
+          description: The sign-in was started. Show the person the link and code, then poll for the key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceAuthorization"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/device/token:
+    post:
+      operationId: pollDeviceToken
+      tags: [Onboarding]
+      security: []
+      summary: Poll a device sign-in for its key
+      description: |
+        Answers the state of a sign-in started with `POST /v1/device/authorizations`.
+        While the person has not finished, `status` is `pending`: wait `interval`
+        seconds and poll again. Polling faster answers `429 rate_limited` with
+        `retry_after`. Once they approve, `status` is `approved` and the answer
+        holds a new `fk_test_` key, shown once; the device code is then used up,
+        and later polls answer `expired`. `denied` means the person refused, and
+        `expired` that the code ran out (after `expires_in` seconds): start again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceTokenRequest"
+      responses:
+        "200":
+          description: The sign-in's state, with the key once it is approved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceToken"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
 webhooks:
   event:
     post:
@@ -1695,13 +1855,13 @@ components:
           example:
             error: {type: invalid_request, message: "limit must be between 1 and 100.", hint: "Pass limit between 1 and 100 (default 20), and page with after or before.", doc_url: "https://api.flow.engineer/docs/errors/invalid_request", param: limit}
     Unauthenticated:
-      description: The API key is missing, malformed, unknown or revoked (`authentication`).
+      description: The API key is missing, malformed, unknown, revoked or expired (`authentication`).
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            error: {type: authentication, message: "No valid API key was given.", hint: "Send the header Authorization: Bearer fk_test_... (or fk_live_...) with your app's API key; the Flow team issues keys.", doc_url: "https://api.flow.engineer/docs/errors/authentication"}
+            error: {type: authentication, message: "No valid API key was given.", hint: "Send the header Authorization: Bearer fk_test_... (or fk_live_...); no key yet? Get a test key with curl -X POST https://api.flow.engineer/v1/sandbox/keys", doc_url: "https://api.flow.engineer/docs/errors/authentication"}
     PermissionDenied:
       description: The key may not do this, for example a test key using a live sender (`permission`).
       content:
@@ -1864,8 +2024,8 @@ components:
         the error's `doc_url`; the error's `hint` says what to change for the case.
 
         - `invalid_request` (400): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like.
-        - `authentication` (401): the API key is missing, malformed, unknown or revoked. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key.
-        - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, or a new conversation from an iMessage line that may only reply. Use the key of the right mode, have the contact send your join code, or wait for the contact to message the line first.
+        - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
+        - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance.
         - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
         - `idempotency_conflict` (409): the idempotency key was used for a different request, or that request is still running, or it already created a secret that is shown only once (creating a webhook endpoint, rotating its secret). Use a new key for a new request, or retry the same request after it finishes; a secret that was lost must be rotated again.
         - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window is closed (iMessage typing works only within 5 minutes of the contact's last message); ignore it and send your reply.
@@ -1928,7 +2088,16 @@ components:
           $ref: "#/components/schemas/SenderId"
         channel_code:
           type: string
-          description: For `channel_error`, the channel's own error code, as given by the channel.
+          description: |
+            For `channel_error`, the channel's own error code, as given by the
+            channel. For some other errors, Flow's own code naming the case, for
+            example `sandbox_allowance_used` (`permission`: the sandbox allowance is
+            used up), `sandbox_contact_limit` (`permission`: the allowance has no
+            room for another contact), `sandbox_channel_not_included` (`permission`:
+            the allowance does not cover this sandbox channel), `sign_in_required`
+            (`permission`: an app made without an account cannot do this) or
+            `sandbox_key_expired` (`authentication`: a key from `POST
+            /v1/sandbox/keys` passed its `expires_at`).
         request_id:
           type: string
           description: Flow's ID for this request. Quote it when asking for help.
@@ -2015,6 +2184,13 @@ components:
           type: string
           format: date-time
           description: When the key was created.
+        expires_at:
+          type: string
+          format: date-time
+          description: |
+            When the key stops working. Set only on keys of an unclaimed app made with
+            `POST /v1/sandbox/keys` (7 days after it was made); signing in through the
+            device flow claims the app and removes it.
     AppContext:
       type: object
       description: Who is calling, as worked out from the API key.
@@ -2029,6 +2205,224 @@ components:
         livemode:
           type: boolean
           description: "`true` for a live key, `false` for a test key."
+        allowance:
+          $ref: "#/components/schemas/SandboxAllowance"
+
+    # ---------------------------------------------------------------- onboarding
+    SandboxAllowance:
+      type: object
+      description: |
+        What the app may still send on the shared sandbox senders for free. Present
+        only on apps that have one: apps made with `POST /v1/sandbox/keys`
+        (`anonymous`), and apps of people who signed in (`signed_in`). Only messages
+        your agent sends count, on the channels in `channels`; inbound messages are
+        free. A contact counts once it joins the app on a sandbox sender, and keeps
+        counting after it leaves. Sends past the allowance answer `403 permission`
+        with `channel_code` `sandbox_allowance_used`; a join past `contacts.limit`
+        is refused in the chat.
+      required: [tier, channels, contacts, messages_per_contact, messages, upgrade]
+      properties:
+        tier:
+          type: string
+          description: "`anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in with GitHub or Google."
+          enum: [anonymous, signed_in]
+        channels:
+          type: array
+          description: The sandbox channels the allowance covers (Telegram and WhatsApp). Shared senders of other channels (iMessage) are not part of it and refuse its sends.
+          items:
+            $ref: "#/components/schemas/Channel"
+        contacts:
+          $ref: "#/components/schemas/AllowanceCount"
+        messages_per_contact:
+          type: integer
+          minimum: 0
+          description: How many messages may be sent to each contact (50 anonymous, so 50 in total; 100 signed in).
+        messages:
+          $ref: "#/components/schemas/AllowanceMessages"
+        expires_at:
+          type: string
+          format: date-time
+          description: "`anonymous` only: when the app's keys expire. Signing in removes it."
+        upgrade:
+          type: string
+          description: One sentence saying how to raise the allowance, for example by signing in with `npx @flow-engineer/messaging login`.
+    AllowanceCount:
+      type: object
+      description: Contacts the allowance has room for, and how many have joined.
+      required: [limit, used]
+      properties:
+        limit:
+          type: integer
+          minimum: 0
+          description: How many contacts may join the app on the sandbox (1 anonymous, 3 signed in).
+        used:
+          type: integer
+          minimum: 0
+          description: How many have joined so far.
+    AllowanceMessages:
+      type: object
+      description: Messages sent against the allowance, over all its contacts.
+      required: [limit, used, remaining]
+      properties:
+        limit:
+          type: integer
+          minimum: 0
+          description: "`contacts.limit` times `messages_per_contact`."
+        used:
+          type: integer
+          minimum: 0
+          description: Messages sent so far on the allowance's sandbox senders.
+        remaining:
+          type: integer
+          minimum: 0
+          description: Messages still allowed, counting each contact's own cap and the contacts that may still join.
+    SandboxKeyRequest:
+      type: object
+      description: Optional details for a new sandbox app.
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          description: The app's name, shown in the dashboard once it is claimed. Defaults to "Sandbox app".
+    SandboxKey:
+      type: object
+      description: A new app made without an account, with its test key. `key` and `claim_token` are shown only here.
+      required: [key, api_key, account, app, allowance, claim_token, claim_url, senders]
+      properties:
+        key:
+          type: string
+          description: The API key itself (`fk_test_...`). Shown once; store it as `FLOW_MESSAGING_KEY`.
+          examples: ["fk_test_..."]
+        api_key:
+          $ref: "#/components/schemas/ApiKey"
+        account:
+          $ref: "#/components/schemas/Account"
+        app:
+          $ref: "#/components/schemas/App"
+        allowance:
+          $ref: "#/components/schemas/SandboxAllowance"
+        claim_token:
+          type: string
+          description: |
+            Proves you hold this app when a person signs in to claim it: pass it to
+            `POST /v1/device/authorizations`. Shown once; keep it with the key. It
+            stops working once the app is claimed.
+          examples: ["fct_..."]
+        claim_url:
+          type: string
+          format: uri
+          description: A page where a person signs in with GitHub or Google and claims the app in the browser, without the CLI. It holds the claim token, so treat it like one.
+          examples: ["https://api.flow.engineer/admin/claim#token=fct_..."]
+        senders:
+          type: array
+          description: The shared sandbox senders the key can use, each with the link a person opens to join the app (`address.link`) and the join message (`join_code`).
+          items:
+            $ref: "#/components/schemas/Sender"
+    DeviceAuthorizationRequest:
+      type: object
+      description: Optional details for a device sign-in.
+      properties:
+        claim_token:
+          type: string
+          description: The `claim_token` from `POST /v1/sandbox/keys`, to claim that app when the person approves.
+        client_name:
+          type: string
+          maxLength: 80
+          description: What is asking, shown to the person on the approval page, for example "flow CLI" or "Claude Code".
+    DeviceAuthorization:
+      type: object
+      description: A device sign-in waiting for a person to approve it in a browser.
+      required: [device_code, user_code, verification_uri, verification_uri_complete, expires_in, expires_at, interval]
+      properties:
+        device_code:
+          type: string
+          description: The secret you poll `POST /v1/device/token` with. Never show it to the person.
+          examples: ["fdc_..."]
+        user_code:
+          type: string
+          description: The code the person checks on the approval page, eight letters in two groups.
+          examples: ["WDJB-MJHT"]
+        verification_uri:
+          type: string
+          format: uri
+          description: The page where the person signs in and enters `user_code`.
+          examples: ["https://api.flow.engineer/admin/device"]
+        verification_uri_complete:
+          type: string
+          format: uri
+          description: The same page with the code filled in. Show this link (or a QR code of it) to the person.
+          examples: ["https://api.flow.engineer/admin/device?code=WDJB-MJHT"]
+        expires_in:
+          type: integer
+          minimum: 0
+          description: Seconds until the codes expire (15 minutes).
+        expires_at:
+          type: string
+          format: date-time
+          description: When the codes expire.
+        interval:
+          type: integer
+          minimum: 1
+          description: Seconds to wait between polls of `POST /v1/device/token`.
+    DeviceTokenRequest:
+      type: object
+      description: The device sign-in to poll.
+      required: [device_code]
+      properties:
+        device_code:
+          type: string
+          description: The `device_code` from `POST /v1/device/authorizations`.
+    DeviceToken:
+      type: object
+      description: |
+        A device sign-in's state. With `approved`, it carries a new test key (shown
+        once), the app it belongs to and whether a sandbox app was claimed.
+      required: [status, interval]
+      properties:
+        status:
+          type: string
+          description: |
+            - `pending`: the person has not finished; poll again after `interval` seconds.
+            - `approved`: signed in; `key` is set. The device code is now used up.
+            - `denied`: the person refused. Stop polling.
+            - `expired`: the codes ran out or were already used. Start again.
+          enum: [pending, approved, denied, expired]
+        interval:
+          type: integer
+          minimum: 1
+          description: Seconds to wait before the next poll.
+        key:
+          type: string
+          description: "`approved` only. A new API key (`fk_test_...`), shown once; store it as `FLOW_MESSAGING_KEY` in place of the sandbox key."
+        api_key:
+          $ref: "#/components/schemas/ApiKey"
+        account:
+          $ref: "#/components/schemas/Account"
+        app:
+          $ref: "#/components/schemas/App"
+        claimed:
+          type: boolean
+          description: "`approved` only. `true` when the sign-in claimed the app of the `claim_token` or key it was started with."
+        allowance:
+          $ref: "#/components/schemas/SandboxAllowance"
+        user:
+          $ref: "#/components/schemas/SignedInUser"
+    SignedInUser:
+      type: object
+      description: The person who approved a device sign-in.
+      required: [name, provider]
+      properties:
+        name:
+          type: string
+          description: Their name or login at the provider.
+        email:
+          type: string
+          format: email
+          description: Their verified email address, where the provider gave one.
+        provider:
+          type: string
+          description: Where they signed in.
+          enum: [github, google]
 
     # ---------------------------------------------------------------- senders
     Sender:
