@@ -61,8 +61,9 @@ With no key in the environment or `.env`, `init` gets one itself, writes
 join code, the allowance and the expiry. `init --key fk_test_...` uses a key you have.
 It then asks before installing the agent files (below); `--yes` installs them without
 asking. Test keys (`fk_test_`) reach only people who joined the sandbox: on your phone,
-open the sandbox link and tap Start. Live keys (`fk_live_`, your dedicated senders) are
-arranged with the Flow team.
+open the sandbox link and tap Start. Live keys (`fk_live_`) are made in the dashboard once
+you sign in, for your own Telegram bot; iMessage and WhatsApp senders are arranged with
+the Flow team.
 
 The same from code; these calls need no key:
 

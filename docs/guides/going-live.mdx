@@ -18,7 +18,7 @@ curl https://api.flow.engineer/v1/senders \
 
 <Steps>
   <Step title="Get a live key">
-    Live keys (`fk_live_...`) are arranged with the Flow team (test keys take one call, see [Keys and sign-in](/get-a-key)). Ask the Flow team for an `fk_live_...` key and keep it on your server only.
+    Sign in to the [dashboard](https://api.flow.engineer/admin) with GitHub or Google and make an `fk_live_...` key on the Keys page (test keys take one call, see [Keys and sign-in](/get-a-key)). Keep it on your server only, in its own variable (for example `FLOW_MESSAGING_LIVE_KEY`) so it does not replace your test key. Live Telegram with your own bot is self-serve; iMessage lines and WhatsApp numbers are arranged with the Flow team.
   </Step>
   <Step title="Request a dedicated sender">
     `POST /v1/senders` with the channel (see each channel below). WhatsApp numbers and iMessage lines start `pending` while Flow provisions them; you receive `sender.status_changed` when they are ready. A Telegram bot is `active` at once.

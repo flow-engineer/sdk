@@ -69,7 +69,7 @@ Test keys send only on Flow's shared sandbox senders, and only to people who joi
 - The iMessage sandbox is not part of either allowance.
 - The WhatsApp sandbox is not open yet; when it opens, the allowance covers it.
 - When a key from `POST /v1/sandbox/keys` expires, its keys stop working and its contact is removed from the sandbox. A person can still sign in and claim the app.
-- Going live (`fk_live_` keys, your own dedicated senders, real contacts) is arranged with the Flow team. See [Going live](/guides/going-live).
+- Going live: signed in, you make `fk_live_` keys in the dashboard and connect your own Telegram bot; iMessage lines and WhatsApp numbers are arranged with the Flow team. See [Going live](/guides/going-live).
 
 See what is left with `GET /v1/app` (shortened):
 
@@ -95,7 +95,7 @@ In TypeScript: `(await flow.app.retrieve()).allowance`.
 
 ## 3. Sign in to keep the app
 
-A person signs in with GitHub or Google through the device flow (OAuth 2.0 device authorization, RFC 8628). It **claims** the app: its data and keys are kept, the expiry is removed, and the allowance becomes 3 contacts with 100 messages each. The new key replaces the sandbox key.
+A person signs in with GitHub or Google through the device flow (OAuth 2.0 device authorization, RFC 8628). It **claims** the app: its data and keys are kept, the expiry is removed, and the app moves under the person's signed-in allowance of 3 contacts with 100 messages each. That allowance is **one per person**, shared by every app they own or claim (`allowance.scope` is `person`), and a person may claim up to 10 apps. The new key replaces the sandbox key, which **stops working** as soon as the new key is handed out. A claim through `claim_url` in a browser hands out no key: there the sandbox key keeps working with its expiry removed (an expired one works again when the app is claimed within 30 days of its expiry).
 
 ### With the CLI
 
@@ -130,7 +130,7 @@ It reads `FLOW_CLAIM_TOKEN` from `.env`, prints a link and a short code (for exa
 
    Without a claim token, send the app's test key instead (`-H "Authorization: Bearer $FLOW_MESSAGING_KEY"`).
 
-2. Show the person `verification_uri_complete` and `user_code`. Never show `device_code`.
+2. Show the person `verification_uri_complete` and `user_code`. The page asks them to type the code, so always show it. Never show `device_code`.
 
 3. Poll every `interval` seconds:
 
@@ -177,10 +177,10 @@ Signed-in people manage their apps and keys at [api.flow.engineer/admin](https:/
 
 | Error | `channel_code` | What it means | What to do |
 |---|---|---|---|
-| `403 permission` | `sandbox_allowance_used` | The app sent all the messages its allowance allows. | Sign in (`login`) to lift it to 100 per contact for 3 contacts. Signed in already: go live. |
+| `403 permission` | `sandbox_allowance_used` | The app sent all the messages its allowance allows. | Sign in (`login`) for 100 per contact for 3 contacts, shared by all your apps. Signed in already: go live. |
 | `403 permission` | `sandbox_contact_limit` | The allowance has no room for another contact. | Sign in for 3 contacts, or keep testing with the contact who joined. |
 | `403 permission` | `sandbox_channel_not_included` | The send used a sandbox channel the allowance does not cover, such as iMessage. | Use the Telegram sandbox sender. |
 | `403 permission` | `sign_in_required` | An app made without an account tried something that needs a person signed in, such as connecting its own Telegram bot. | Sign in (`login`), then retry. |
-| `401 authentication` | `sandbox_key_expired` | The key from `POST /v1/sandbox/keys` is past its `expires_at` (7 days). | Sign in to claim the app and get a new key, or get a new key with `POST /v1/sandbox/keys`. |
+| `401 authentication` | `sandbox_key_expired` | The key from `POST /v1/sandbox/keys` is past its `expires_at` (7 days). | Sign in to claim the app within 30 days of the expiry (the key works again, and you get a new one), or get a new key with `POST /v1/sandbox/keys`. |
 
 Switch on `error.type` and read `error.channel_code`; each error also carries a `hint` and a `doc_url` ([permission](/errors/permission), [authentication](/errors/authentication), [rate_limited](/errors/rate_limited)).

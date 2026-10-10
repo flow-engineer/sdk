@@ -771,12 +771,14 @@ export interface paths {
          *     stop working and the contact is removed from the sandbox; a person can
          *     still claim the app.
          *
-         *     To keep the app and lift the allowance to 3 contacts and 100 messages
-         *     each, a person signs in through the device flow with the `claim_token`
-         *     (`POST /v1/device/authorizations`), or opens `claim_url` in a browser.
+         *     To keep the app, a person signs in through the device flow with the
+         *     `claim_token` (`POST /v1/device/authorizations`), or opens `claim_url` in a
+         *     browser. The app then shares the person's signed-in allowance (3 contacts
+         *     and 100 messages each, one allowance per person over all their apps).
          *
-         *     Calls are limited per client address and network; going over answers
-         *     `429 rate_limited` with `retry_after`. Do not call this when you already
+         *     Calls are limited per client address, per network (/24, /64) and wider
+         *     network (/16, /48), and service-wide per day; going over answers `429
+         *     rate_limited` with `retry_after`. Do not call this when you already
          *     have a key: check `FLOW_MESSAGING_KEY` first, and reuse the key you saved.
          */
         post: operations["createSandboxKey"];
@@ -807,11 +809,19 @@ export interface paths {
          *     or send that app's test key as `Authorization: Bearer fk_test_...` (a key
          *     of an app that is already claimed is ignored). When
          *     the person approves, the app joins their account: its data and keys are
-         *     kept, its keys no longer expire, and its sandbox allowance becomes 3
-         *     contacts and 100 messages each. Without either, approving gives a new test
-         *     key for the person's own app (made at their first sign-in).
+         *     kept, its keys no longer expire (a key that expired less than 30 days ago
+         *     works again), and the app moves under the person's signed-in allowance: 3
+         *     contacts and 100 messages each, one allowance per person, shared by every
+         *     app they own or claim. A person may claim up to 10 apps; past that the
+         *     approval page refuses the claim. An expired key claims its app only for 30
+         *     days after its `expires_at`; after that, use the `claim_token`. Without
+         *     either, approving gives a new test key for the person's own app (made at
+         *     their first sign-in).
          *
-         *     No API key is needed. Calls are limited per client address.
+         *     The approval page asks the person to type `user_code` as the agent or CLI
+         *     shows it, so a link alone cannot approve a sign-in someone else started.
+         *
+         *     No API key is needed. Calls are limited per client address and network.
          */
         post: operations["createDeviceAuthorization"];
         delete?: never;
@@ -836,8 +846,12 @@ export interface paths {
          *     seconds and poll again. Polling faster answers `429 rate_limited` with
          *     `retry_after`. Once they approve, `status` is `approved` and the answer
          *     holds a new `fk_test_` key, shown once; the device code is then used up,
-         *     and later polls answer `expired`. `denied` means the person refused, and
+         *     and later polls answer `expired`. If the sign-in claimed a sandbox app,
+         *     that app's sandbox keys stop working when this key is handed out: replace
+         *     `FLOW_MESSAGING_KEY` with it. (A claim through `claim_url` in a browser
+         *     hands out no key and keeps the sandbox key working.) `denied` means the person refused, and
          *     `expired` that the code ran out (after `expires_in` seconds): start again.
+         *     Polls are also limited per client network, unknown codes included.
          */
         post: operations["pollDeviceToken"];
         delete?: never;
@@ -1098,7 +1112,9 @@ export interface components {
              * Format: date-time
              * @description When the key stops working. Set only on keys of an unclaimed app made with
              *     `POST /v1/sandbox/keys` (7 days after it was made); signing in through the
-             *     device flow claims the app and removes it.
+             *     device flow claims the app and removes it. An expired key can still start
+             *     that sign-in for 30 days after this time, and claiming the app within those
+             *     30 days makes the key work again.
              */
             expires_at?: string;
         };
@@ -1114,12 +1130,15 @@ export interface components {
         /**
          * @description What the app may still send on the shared sandbox senders for free. Present
          *     only on apps that have one: apps made with `POST /v1/sandbox/keys`
-         *     (`anonymous`), and apps of people who signed in (`signed_in`). Only messages
-         *     your agent sends count, on the channels in `channels`; inbound messages are
-         *     free. A contact counts once it joins the app on a sandbox sender, and keeps
-         *     counting after it leaves. Sends past the allowance answer `403 permission`
-         *     with `channel_code` `sandbox_allowance_used`; a join past `contacts.limit`
-         *     is refused in the chat.
+         *     (`anonymous`, one allowance per app), and apps of people who signed in
+         *     (`signed_in`, one allowance per person: every app the person owns or claimed
+         *     draws on the same contacts and messages, so the counts here are the
+         *     person's, over all those apps). Only messages your agent sends count, on the
+         *     channels in `channels`; inbound messages are free. A contact counts once it
+         *     joins an app on a sandbox sender, and keeps counting after it leaves. Sends
+         *     past the allowance answer `403 permission` with `channel_code`
+         *     `sandbox_allowance_used`; a join past `contacts.limit` is refused in the
+         *     chat.
          */
         SandboxAllowance: {
             /**
@@ -1127,7 +1146,14 @@ export interface components {
              * @enum {string}
              */
             tier: "anonymous" | "signed_in";
-            /** @description The sandbox channels the allowance covers (Telegram and WhatsApp). Shared senders of other channels (iMessage) are not part of it and refuse its sends. */
+            /**
+             * @description Who the counts belong to. `app`: this app alone (`anonymous`). `person`:
+             *     the signed-in person, shared by every app they own or claimed, so sends
+             *     from their other apps use the same contacts and messages.
+             * @enum {string}
+             */
+            scope: "app" | "person";
+            /** @description The sandbox channels the allowance covers whose shared sandbox is open now (Telegram today; WhatsApp when its sandbox opens). Shared senders of other channels (iMessage) are not part of it and refuse its sends. */
             channels: components["schemas"]["Channel"][];
             contacts: components["schemas"]["AllowanceCount"];
             /** @description How many messages may be sent to each contact (50 anonymous, so 50 in total; 100 signed in). */
@@ -1141,14 +1167,14 @@ export interface components {
             /** @description One sentence saying how to raise the allowance, for example by signing in with `npx @flow-engineer/messaging login`. */
             upgrade: string;
         };
-        /** @description Contacts the allowance has room for, and how many have joined. */
+        /** @description Contacts the allowance has room for, and how many have joined (with `scope` `person`, over all the person's apps). */
         AllowanceCount: {
-            /** @description How many contacts may join the app on the sandbox (1 anonymous, 3 signed in). */
+            /** @description How many contacts may join on the sandbox (1 for an anonymous app; 3 for a signed-in person, over all their apps). */
             limit: number;
             /** @description How many have joined so far. */
             used: number;
         };
-        /** @description Messages sent against the allowance, over all its contacts. */
+        /** @description Messages sent against the allowance, over all its contacts (with `scope` `person`, from all the person's apps). */
         AllowanceMessages: {
             /** @description `contacts.limit` times `messages_per_contact`. */
             limit: number;
@@ -1204,7 +1230,7 @@ export interface components {
              */
             device_code: string;
             /**
-             * @description The code the person checks on the approval page, eight letters in two groups.
+             * @description The code the person types on the approval page, eight letters in two groups. Always show it to the person, also when you show `verification_uri_complete`.
              * @example WDJB-MJHT
              */
             user_code: string;
@@ -1216,7 +1242,7 @@ export interface components {
             verification_uri: string;
             /**
              * Format: uri
-             * @description The same page with the code filled in. Show this link (or a QR code of it) to the person.
+             * @description The same page for this sign-in. Show this link (or a QR code of it) to the person together with `user_code`; the page asks them to type the code they see from you and checks it against the link, so a link on its own cannot approve a sign-in.
              * @example https://api.flow.engineer/admin/device?code=WDJB-MJHT
              */
             verification_uri_complete: string;
@@ -1250,7 +1276,7 @@ export interface components {
             status: "pending" | "approved" | "denied" | "expired";
             /** @description Seconds to wait before the next poll. */
             interval: number;
-            /** @description `approved` only. A new API key (`fk_test_...`), shown once; store it as `FLOW_MESSAGING_KEY` in place of the sandbox key. */
+            /** @description `approved` only. A new API key (`fk_test_...`), shown once; store it as `FLOW_MESSAGING_KEY` in place of the sandbox key. When the sign-in claimed a sandbox app, that app's sandbox keys stop working as this key is handed out. */
             key?: string;
             api_key?: components["schemas"]["ApiKey"];
             account?: components["schemas"]["Account"];

@@ -76,6 +76,7 @@ export function allowance(tier: "anonymous" | "signed_in") {
   const anon = tier === "anonymous";
   return {
     tier,
+    scope: anon ? "app" : "person",
     channels: ["telegram", "whatsapp"],
     contacts: { limit: anon ? 1 : 3, used: 0 },
     messages_per_contact: anon ? 50 : 100,

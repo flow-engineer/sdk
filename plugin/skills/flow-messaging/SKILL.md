@@ -38,8 +38,9 @@ the user the link and code, and after they approve run `npx @flow-engineer/messa
 `PermissionError` with `channelCode` `sandbox_allowance_used` (also
 `sandbox_contact_limit`, `sandbox_channel_not_included`, `sign_in_required`); an expired
 key throws `AuthenticationError` with `sandbox_key_expired`. Do not retry or get more
-keys: ask the user to sign in. Dashboard: https://api.flow.engineer/admin. Going live
-(`fk_live_` keys, dedicated senders) is arranged with the Flow team. Details:
+keys: ask the user to sign in. Dashboard: https://api.flow.engineer/admin. Going live: signed-in
+users make `fk_live_` keys in the dashboard and connect their own Telegram bot; iMessage
+and WhatsApp senders are arranged with the Flow team. Details:
 [CLI and MCP](reference/cli-mcp.md).
 
 ## An agent in 10 lines
