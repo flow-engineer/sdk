@@ -316,16 +316,45 @@ export interface paths {
          *     frame; reconnect with `after` set to the last event you received.
          *
          *     Authenticate with the `Authorization` header where your WebSocket client can
-         *     set headers. A browser's `WebSocket` cannot, so the key may instead be
-         *     offered as a WebSocket subprotocol: offer both `flow` and
-         *     `flow.key.<api key>`, for example
+         *     set headers. Where it cannot (a browser's `WebSocket`, and Node's global
+         *     `WebSocket` on the server), offer the key as a WebSocket subprotocol instead:
+         *     offer both `flow` and `flow.key.<api key>`, for example
          *     `new WebSocket("wss://api.flow.engineer/v1/stream", ["flow", "flow.key." + key])`.
-         *     The server selects `flow` and never echoes the key. Offering the key
-         *     protocol without `flow` is refused with `400 invalid_request`. When an
-         *     `Authorization` header is present it takes precedence. Keys are never
-         *     accepted in the query string, since URLs end up in logs. A key used in a
-         *     browser is visible to whoever uses that page: do this only for internal
-         *     tools or with test keys (`fk_test_`).
+         *     This works from server-side clients as well as browsers. The server selects
+         *     `flow` and never echoes the key. Offering the key protocol without `flow` is
+         *     refused with a plain `400 invalid_request` answer, without an upgrade. When an `Authorization` header is present it
+         *     takes precedence. Keys are never accepted in the query string, since URLs end
+         *     up in logs. A key used in a browser is visible to whoever uses that page: do
+         *     this only for internal tools or with test keys (`fk_test_`).
+         *
+         *     **Refusals arrive on the socket.** Many WebSocket clients (Node's and
+         *     browsers' among them) cannot read the HTTP status of a refused upgrade, so
+         *     a WebSocket request that Flow refuses (a missing, unknown, revoked or
+         *     expired key, a bad parameter, too many streams for the key, a restart) is
+         *     still upgraded: the server sends one `error` frame with the usual error
+         *     body (`type`, `message`, `hint`, `retry_after`, `channel_code`, ...), then
+         *     closes with an application close code of 4000 plus the HTTP status the
+         *     error has elsewhere, and a short reason:
+         *
+         *     - `4401`: `authentication`. The key is missing, malformed, unknown, revoked
+         *       or expired (`channel_code` `sandbox_key_expired`). Stop reconnecting
+         *       until you have a working key.
+         *     - `4403`: `permission`. The key may not open this stream. Stop
+         *       reconnecting.
+         *     - `4400`: `invalid_request`, for example a bad `after` or `type`. Fix the
+         *       request; reconnecting unchanged fails again.
+         *     - `4429`: `rate_limited`, for example more open streams than the key may
+         *       hold. Reconnect after `retry_after` seconds.
+         *     - `4500`, `4503`: Flow could not open the stream just now, or is
+         *       restarting. Reconnect after `retry_after` seconds with the same `after`.
+         *
+         *     An open stream re-checks its key about once a minute: when the key is
+         *     revoked, the stream sends an `authentication` error frame and closes with
+         *     `4401` too. Other closes: `1012` after a `reconnect` frame (reconnect at
+         *     once with `after`), `1008` after too many rate-limited `send` frames in a
+         *     row, `1001` when pings go unanswered, `1011` when the event log is
+         *     unavailable; reconnect with `after` after any of these. A request without
+         *     a WebSocket upgrade gets the same errors as plain HTTP answers.
          */
         get: operations["openStream"];
         put?: never;
@@ -445,6 +474,15 @@ export interface paths {
          *     receive `sender.status_changed` when it is ready. WhatsApp numbers also need
          *     your business verified through Meta's Embedded Signup; the Flow team sends
          *     you the link. Live keys only.
+         *
+         *     To get a live key (`fk_live_...`), a person signs in to the dashboard at
+         *     `https://api.flow.engineer/admin` (GitHub or Google), switches to **Live**,
+         *     and clicks **Create live key** on the Keys page
+         *     (`https://api.flow.engineer/admin/keys?mode=live`). An app made without an
+         *     account (`POST /v1/sandbox/keys`) is claimed first, by signing in through the
+         *     device flow or its `claim_url`. A test key gets `403 permission` here, with
+         *     a `hint` naming these steps. Telegram bots are self-serve; iMessage lines and
+         *     WhatsApp numbers are arranged with the Flow team.
          *
          *     A Telegram bot is connected at once: give the token BotFather issued as
          *     `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
@@ -1002,7 +1040,7 @@ export interface components {
          *     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
          *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance.
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
-         *     - `idempotency_conflict` (409): the idempotency key was used for a different request, or that request is still running, or it already created a secret that is shown only once (creating a webhook endpoint, rotating its secret). Use a new key for a new request, or retry the same request after it finishes; a secret that was lost must be rotated again.
+         *     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret; a secret that was lost must be rotated again).
          *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window is closed (iMessage typing works only within 5 minutes of the contact's last message); ignore it and send your reply.
          *     - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first.
          *     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
@@ -1051,7 +1089,10 @@ export interface components {
              *     `sandbox_key_expired` (`authentication`: a key from `POST
              *     /v1/sandbox/keys` passed its `expires_at`; `permission`, for a send
              *     that carries no key, such as a reply in a webhook answer, from such an
-             *     app).
+             *     app). For `idempotency_conflict`, always one of `body_mismatch` (the
+             *     key was used for a different request), `in_progress` (the first
+             *     request is still running; `retry_after` says when to repeat it) or
+             *     `secret_not_kept` (its answer carried a secret shown only once).
              */
             channel_code?: string;
             /** @description Flow's ID for this request. Quote it when asking for help. */
@@ -1788,7 +1829,14 @@ export interface components {
              * @enum {string}
              */
             type: "buttons";
-            /** @description The text above the buttons. */
+            /**
+             * @description The text above the buttons: at most 4096 characters on Telegram (the same
+             *     as a text message; Telegram's 1024 limit is for media captions only) and
+             *     1024 on WhatsApp (its limit for messages with buttons). On iMessage,
+             *     `fallback: auto` sends the text and the numbered choices as one text
+             *     message, which must fit the channel's `max_text_length`. Longer text is
+             *     refused with `invalid_request`.
+             */
             text: string;
             /** @description 1 to 10 buttons, in order. */
             buttons: components["schemas"]["Button"][];
@@ -2014,7 +2062,7 @@ export interface components {
          *     - `message.sent`, `message.delivered`, `message.read`, `message.failed`: the status of your outbound messages. `message.failed` carries the error in `data.message.error`.
          *     - `reaction.added`, `reaction.removed`: the contact reacted to a message.
          *     - `typing.started`, `typing.stopped`: the contact is typing, where the channel reports it.
-         *     - `conversation.started`: the first inbound message from a new contact, or a sandbox join.
+         *     - `conversation.started`: the first inbound message from a new contact, or a sandbox join (Flow itself answers the join; the join message is not a `message.received`).
          *     - `conversation.window_closing`: WhatsApp only, opt-in. The 24-hour window closes in 1 hour.
          *     - `sender.status_changed`: a sender was throttled, flagged, banned or restored, or its WhatsApp quality rating changed.
          *     - `template.status_changed`: Meta approved, rejected or paused a template.
@@ -2220,7 +2268,14 @@ export interface components {
              */
             via: "inbound" | "sandbox_join" | "outbound";
         };
-        /** @description A new conversation began. Sent before the first `message.received` of a new contact. */
+        /**
+         * @description A new conversation began. Sent before the first `message.received` of a new
+         *     contact. A sandbox join (`data.via` `sandbox_join`) also starts one: the join
+         *     message itself is not delivered as `message.received`, and the sandbox bot's
+         *     confirmation ("You're connected to <your app>") is sent by Flow itself, not
+         *     by your app, and counts against no allowance. Joining again in a
+         *     conversation that already exists sends no new `conversation.started`.
+         */
         ConversationStartedEvent: components["schemas"]["EventBase"] & {
             /**
              * @description Always `conversation.started`.
@@ -2333,7 +2388,7 @@ export interface components {
             ref: string;
             message: components["schemas"]["Message"];
         };
-        /** @description Server to client. A `send` or `start` frame was refused (with its `ref`), or the stream itself failed (without). */
+        /** @description Server to client. A `send` or `start` frame was refused (with its `ref`), or the stream itself was refused or failed (without `ref`; the server then closes the socket with a 4000-range close code, `4401` for `authentication`, see `GET /v1/stream`). */
         StreamErrorFrame: {
             /**
              * @description Always `error`. (enum property replaced by openapi-typescript)
@@ -3331,7 +3386,10 @@ export interface operations {
         responses: {
             /**
              * @description Switching to the WebSocket protocol. The schema below describes each JSON
-             *     frame on the socket, in either direction.
+             *     frame on the socket, in either direction. A refused WebSocket request is
+             *     upgraded too, then answered with one `error` frame and a 4000-range close
+             *     code (see the description); the 4xx answers below are what a request
+             *     without an upgrade gets.
              */
             101: {
                 headers: {

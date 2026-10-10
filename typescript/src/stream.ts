@@ -241,6 +241,10 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
       });
       ws.addEventListener("close", (ev) => {
         this.socket = undefined;
+        // A refused stream opens, sends an error frame, then closes with 4000 + the
+        // HTTP status. 4400, 4401 and 4403 do not clear by reconnecting.
+        const refused = REFUSED[ev.code ?? 0];
+        if (!fatal && refused) fatal = errorFromBody(ev.code! - 4000, { type: refused, message: ev.reason || `The stream was refused (close ${ev.code}).` } as ErrorBody);
         resolve({ opened, immediate, fatal, reason: `closed ${ev.code ?? ""} ${ev.reason ?? ""}`.trim() });
       });
     }).then(async (r) => {
@@ -282,5 +286,12 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
     }
   }
 }
+
+/** Close codes of a refused stream that reconnecting does not fix, and their error types. */
+const REFUSED: Record<number, "invalid_request" | "authentication" | "permission"> = {
+  4400: "invalid_request",
+  4401: "authentication",
+  4403: "permission",
+};
 
 export type StreamOf<T extends EventType> = EventStream<EventOf<T>>;

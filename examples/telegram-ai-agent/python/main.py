@@ -150,6 +150,9 @@ async def main() -> None:
                     if frame["type"] == "reconnect":
                         last_event_id = frame.get("after") or last_event_id
                         break
+                    if frame["type"] == "error":
+                        err = frame["error"]
+                        print(f"{err['type']}: {err['message']} ({err['hint']})", flush=True)
                     if frame["type"] != "event":
                         continue
                     event = frame["event"]
@@ -160,6 +163,12 @@ async def main() -> None:
                     task = asyncio.create_task(run(event))
                     tasks.add(task)
                     task.add_done_callback(tasks.discard)
+        except websockets.ConnectionClosed as e:
+            # A refused stream (bad, revoked or expired key; a bad request) sends an
+            # error frame, then closes with 4401, 4403 or 4400: reconnecting will not help.
+            if e.rcvd is not None and e.rcvd.code in (4400, 4401, 4403):
+                sys.exit(f"Stream refused ({e.rcvd.code}): {e.rcvd.reason}")
+            print(f"Stream closed ({e}); reconnecting.", flush=True)
         except websockets.InvalidStatus as e:
             if 400 <= e.response.status_code < 500:  # a bad or expired key: retrying will not help
                 sys.exit(f"Stream refused: {e.response.body.decode(errors='replace')}")

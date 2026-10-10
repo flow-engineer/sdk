@@ -68,5 +68,9 @@ and the bot answers `You said: hello` in Telegram.
 - Events arrive at least once: the agent skips event IDs it has seen. On a
   `reconnect` frame or a dropped socket it reconnects with `after=<last event id>`
   and misses nothing.
+- A refused stream still opens: Flow sends an `error` frame, then closes with
+  `4401` (bad, revoked or expired key), `4403` (not allowed) or `4400` (bad
+  request), and the agent stops instead of reconnecting forever. `4429` and `4503`
+  mean try again after `retry_after`.
 - With a live key the same code answers on your own bot: see
   [own-telegram-bot](../own-telegram-bot).

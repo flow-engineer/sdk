@@ -117,8 +117,10 @@ async iterator over the WebSocket `GET /v1/stream`. It reconnects by itself and 
 with `after` set to the last event it gave you, so a dropped connection or a server
 restart loses nothing; duplicates are dropped. Pass `after: "evt_..."` to replay from
 an event first; `stream.lastEventId` is where to resume after a restart. Where the
-WebSocket cannot send headers (browsers) it offers the key as the subprotocol
-`flow.key.<key>` next to `flow`; a key in a browser is visible to whoever uses the page,
+WebSocket cannot send headers (browsers, Node's global WebSocket) it offers the key as
+the subprotocol `flow.key.<key>` next to `flow`. A refused stream (close `4401`,
+`4403` or `4400`, after an `error` frame) ends the iterator with the typed error
+instead of reconnecting. A key in a browser is visible to whoever uses the page,
 so do that only for internal tools or with test keys. Where there is no WebSocket at
 all it polls `GET /v1/events`.
 On Node 18 and 20, install `ws` for the WebSocket (Node 22+ has one built in).

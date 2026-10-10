@@ -1,7 +1,7 @@
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketServer, type WebSocket } from "ws";
-import { AuthenticationError, ConversationHandle, FlowMessaging } from "../../src/index.js";
+import { AuthenticationError, ConversationHandle, FlowMessaging, PermissionError } from "../../src/index.js";
 import { ids, json, mockFetch, receivedEvent } from "../helpers.js";
 
 interface Conn {
@@ -99,6 +99,32 @@ describe("events.stream", () => {
       for await (const _ of flow.events.stream()) void _;
     })().catch((e) => e);
     expect(err).toBeInstanceOf(AuthenticationError);
+  });
+
+  it("stops on an error frame and close 4401, without reconnecting", async () => {
+    const srv = await fakeStream();
+    const flow = new FlowMessaging({ apiKey: "fk_test_revoked", baseURL: srv.baseURL });
+    const done = (async () => {
+      for await (const _ of flow.events.stream()) void _;
+    })().catch((e) => e);
+    const conn = await srv.next();
+    send(conn, { type: "error", error: { type: "authentication", message: "This API key is unknown or has been revoked.", hint: "Use your current key." } });
+    conn.socket.close(4401, "authentication: api key unknown or revoked");
+    const err = await done;
+    expect(err).toBeInstanceOf(AuthenticationError);
+    expect(err.message).toMatch(/revoked/);
+  });
+
+  it("treats close 4403 without an error frame as a permission error", async () => {
+    const srv = await fakeStream();
+    const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL });
+    const done = (async () => {
+      for await (const _ of flow.events.stream()) void _;
+    })().catch((e) => e);
+    (await srv.next()).socket.close(4403, "permission: not allowed");
+    const err = await done;
+    expect(err).toBeInstanceOf(PermissionError);
+    expect(err.message).toBe("permission: not allowed");
   });
 
   it("polls GET /v1/events when asked to", async () => {
