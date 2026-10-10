@@ -21,7 +21,8 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 
 ## Checks
 
-- **Run `scripts/local-checks.sh` before a PR.** It runs the spec lint, the spec
+- **Run `scripts/local-checks.sh` before a PR.** It runs the public-content check,
+  the spec lint, the spec
   drift check, the agent docs check (`node scripts/agent-docs.mjs --check`, see
   "Agent-facing docs") and, in `typescript/`: typecheck (`tsc`, sources and tests),
   ESLint, the unit tests (vitest), the build (tsup: ESM, CJS, types, the CLI), the
@@ -47,6 +48,9 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   `../flow-messaging`) it compares `api/openapi.yaml` there too: a warning, since a spec
   PR lands before the service regenerates; `STRICT_SERVICE_SPEC=1` makes it fail.
 - **Comparison pages** (`docs/compare/`): every claim about another product is an entry in `docs/compare/claims.yaml` (claim, source URL, date checked, pages), marked on its page with `{/* claim: <id> */}` and linked to its source. `scripts/check-compare.sh` (part of local checks) fails when a claim is older than 90 days (and warns 14 days before) or a marker, link or entry is missing; `--fetch` also flags dead sources. Never name the provider behind Flow's iMessage line there.
+- **Public content**: `scripts/check-public.sh` (part of local checks) fails when a
+  tracked file holds a founder-only marker (listed in the script) or a name on the private denylist (`scripts/public-denylist.txt` in the
+  service checkout, `FLOW_MESSAGING_DIR`; skipped with a warning without one).
 - **Lint with Redocly CLI**: `scripts/lint.sh` (runs `npx @redocly/cli@2.60.0 lint`
   with `redocly.yaml`, `recommended-strict`, so any warning fails). It must be clean
   before a PR.
@@ -64,6 +68,9 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 
 - **Feature branches and PRs, never commits straight to main.**
 - **Checks run locally; never add GitHub Actions jobs** (minutes are paid).
+- **This repo is public: internal notes belong in the private repo
+  `flow-engineer/messaging` under `docs/context/`**, never here (go-to-market,
+  customers, providers, plans).
 - **No secrets in the repo**, including example keys that look real: examples use
   `fk_test_...` / `fk_live_...` and `whsec_...` with the secret left out.
 - Any production breakage gets one GitHub issue labelled `incident` in

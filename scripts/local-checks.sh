@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Every check, run locally before a PR (no CI jobs: minutes are paid).
-#   scripts/local-checks.sh             spec lint, comparison claims (scripts/check-compare.sh),
+#   scripts/local-checks.sh             public-repo content (scripts/check-public.sh), spec lint,
+#                                       comparison claims (scripts/check-compare.sh),
 #                                       spec drift (scripts/check-spec-drift.sh), agent docs
 #                                       (scripts/agent-docs.mjs --check) +
 #                                       TypeScript (typecheck, lint, unit tests, build,
@@ -17,6 +18,9 @@ cd "$(dirname "$0")/.."
 root=$(pwd)
 
 step() { printf '\n== %s\n' "$*"; }
+
+step "public repo: no founder-only content or private names (scripts/check-public.sh)"
+scripts/check-public.sh
 
 step "spec lint (Redocly)"
 scripts/lint.sh
