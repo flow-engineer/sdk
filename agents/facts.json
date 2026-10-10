@@ -1,5 +1,5 @@
 {
-  "$comment": "The facts the agent-facing docs state, in one place. scripts/agent-docs.mjs fills them into agents/src/ templates; the service's facts test (flow-engineer/messaging, docs/context/customer/facts_test.go) fails when one differs from its code. The API version is read from openapi/openapi.yaml, never written here. sdk_version, cli_tagline and sign_in are checked against the TypeScript SDK and CLI by typescript/test/unit/agent-facts.test.ts.",
+  "$comment": "The facts the agent-facing docs state, in one place. scripts/agent-docs.mjs fills them into agents/src/ templates; the service's own facts test fails when one differs from its code. The API version is read from openapi/openapi.yaml, never written here. sdk_version, cli_tagline and sign_in are checked against the TypeScript SDK and CLI by typescript/test/unit/agent-facts.test.ts.",
   "base_url": "https://api.flow.engineer",
   "docs_url": "https://docs.flow.engineer",
   "dashboard_url": "https://api.flow.engineer/admin",

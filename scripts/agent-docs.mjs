@@ -16,8 +16,8 @@
 // Mintlify parses every page under docs/ as MDX, where an HTML comment fails the build.
 // docs/docs.json's markdown.instructions come from agents/src/docs-instructions.md.
 // Every output must state the MCP owner and runtime rules (facts mcp.owner_rule and
-// mcp.runtime_rule) and name only env vars listed in facts.env. (The service's tests
-// check that its copies never name the iMessage provider.)
+// mcp.runtime_rule) and name only env vars listed in facts.env. scripts/check-public.sh
+// checks every output for text that does not belong in public.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -28,7 +28,7 @@ const check = process.argv.includes("--check");
 const yaml = createRequire(path.join(root, "typescript", "package.json"))("js-yaml");
 
 // Whole files: template -> outputs. agents/<file> (top level) is what the service's
-// `make generate` copies into docs/context/customer/.
+// `make generate` copies and serves.
 const FILES = [
   ["agents/src/llms.txt", ["agents/llms.txt", "llms.txt"]],
   ["agents/src/quickstart.md", ["agents/quickstart.md"]],

@@ -12,7 +12,6 @@
 #   Each page marks the spot with {/* claim: <id> */} and links `source`.
 # - Keep this file in the small YAML subset the check script reads: each entry starts
 #   with "- id:", then one "  key: value" per line; `pages` is a flow list.
-# - Never name the provider behind Flow's own iMessage line here or on the pages.
 
 # --- Photon (Spectrum, spectrum-ts) ---
 
