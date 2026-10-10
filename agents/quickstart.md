@@ -207,8 +207,9 @@ the device flow above.
 
 Signed-in people see their apps and keys in the dashboard,
 https://api.flow.engineer/admin (sign in with GitHub or Google). There they can make
-**live keys** (`fk_live_...`) themselves and go live on Telegram with their own bot
-(section 7). iMessage lines and WhatsApp numbers are arranged with the Flow team.
+**live keys** (`fk_live_...`) themselves (switch to **Live**, then Keys > **Create
+live key**: https://api.flow.engineer/admin/keys?mode=live) and go live on Telegram
+with their own bot (section 7). iMessage lines and WhatsApp numbers are arranged with the Flow team.
 
 ## 1. Authenticate
 
@@ -301,8 +302,9 @@ app has its own.
 1. Open `address.link` on your phone (or make it a QR code) and tap **Start** in
    Telegram. That alone joins: Telegram sends `/start wild-otter-04508705` for you.
    Typing the `join_code` text (`join wild-otter-04508705`) to the bot works too.
-2. The bot answers "You're connected to <your app name>." and your app gets
-   `conversation.started` (`data.via` = `sandbox_join`) with the new `conv_...`.
+2. The bot answers "You're connected to <your app name>." (Flow sends that itself;
+   your app sends nothing) and your app gets `conversation.started` (`data.via` =
+   `sandbox_join`) with the new `conv_...`. The join message is not a `message.received`.
 3. Now write anything (say "hi"): that arrives as `message.received` (section 5).
 
 Good to know:
@@ -326,7 +328,9 @@ frames in log order, and you can send on the same socket. Authenticate with the
 `Authorization` header, or, where a client cannot set headers (browsers, Node's
 global `WebSocket`), offer the subprotocols `["flow", "flow.key." + key]`. Never put
 the key in the URL. Repeat `type=` to filter; `?after=evt_...` replays from there
-first.
+first. A refused stream (bad, revoked or expired key) still opens, sends one `error`
+frame, and closes with code `4401` (`4403` forbidden, `4400` bad request; `4429` and
+`4503` mean retry after `retry_after`): stop reconnecting on `4401`, `4403` and `4400`.
 
 ```bash
 # brew install websocat (or cargo install websocat). Prints each frame as one JSON line.
@@ -359,7 +363,10 @@ function connect() {
     } else if (f.type === "error") console.error(f.ref, f.error);  // f.type "ack": the send was queued
     else if (f.type === "reconnect") { if (f.after) lastEventId = f.after; ws.close(); }
   };
-  ws.onclose = () => setTimeout(connect, 1000);  // resumes from lastEventId
+  ws.onclose = (e) => {
+    if (e.code === 4401 || e.code === 4403 || e.code === 4400) return console.error("stream refused:", e.reason);
+    setTimeout(connect, 1000);  // resumes from lastEventId
+  };
 }
 connect();
 ```
@@ -391,7 +398,9 @@ async def main():
                     elif f["type"] == "reconnect":
                         last = f.get("after") or last
                         break
-        except websockets.ConnectionClosed:
+        except websockets.ConnectionClosed as e:
+            if e.rcvd and e.rcvd.code in (4400, 4401, 4403):
+                raise SystemExit(f"stream refused: {e.rcvd.reason}")
             await asyncio.sleep(1)  # reconnect, resuming after the last event
 
 asyncio.run(main())
@@ -706,7 +715,8 @@ actions: `POST /v1/conversations/{id}/read` (body optional, `{"up_to": "msg_..."
 2. Put the token in an environment variable or your secret store. **Never paste it
    into a chat (including with your coding agent) and never commit it.** Anyone with
    the token controls the bot.
-3. With your **live** key, connect it once:
+3. With your **live** key (signed in at https://api.flow.engineer/admin/keys?mode=live,
+   **Create live key**), connect it once:
 
 ```bash
 export FLOW_MESSAGING_LIVE_KEY=fk_live_...       # made in the dashboard; kept apart from your test key
@@ -760,9 +770,9 @@ connect it with `POST /v1/senders`; it becomes a new sender.
   caused the send (`reply-to-msg_...`) so a crash and retry cannot double-send.
 - For 24 hours a repeat returns the first answer with `Idempotent-Replayed: true` and
   does nothing again.
-- `409 idempotency_conflict`: the key was used for a different method, path or body
-  (a bug: make a new key), or the first request is still running (wait, then retry
-  with the same key).
+- `409 idempotency_conflict`: `channel_code` `body_mismatch`, the key was used for a
+  different method, path or body (a bug: make a new key); `in_progress`, the first
+  request is still running (wait `retry_after` seconds, then retry with the same key).
 - `429` and `5xx` answers are not stored: retrying with the same key runs again.
 - Webhook-answer replies use the event `id`; stream frames use `ref`.
 

@@ -3,6 +3,7 @@ import {
   API_VERSION,
   AuthenticationError,
   FlowMessaging,
+  IdempotencyConflictError,
   NewContactLimitError,
   OutsideWindowError,
   UnsupportedContentError,
@@ -89,6 +90,24 @@ describe("client", () => {
     expect(err.retryAfter).toBe(3600);
     expect(err.sender).toBe("snd_x");
     expect(calls).toHaveLength(2);
+  });
+
+  it("retries an idempotency conflict only while the first request is still running", async () => {
+    let n = 0;
+    const { fetch, calls } = mockFetch(() => {
+      n++;
+      if (n === 1) return json(409, { error: { type: "idempotency_conflict", message: "running", channel_code: "in_progress", retry_after: 0 } });
+      if (n === 2) return json(202, message(1, "ok"));
+      return json(409, { error: { type: "idempotency_conflict", message: "other body", channel_code: "body_mismatch" } });
+    });
+    const flow = new FlowMessaging({ apiKey: key, fetch, maxRetries: 2 });
+    await flow.messages.send(ids.conv, "ok", { idempotencyKey: "k1" });
+    expect(calls).toHaveLength(2);
+    expect(new Set(calls.map((c) => c.headers["idempotency-key"])).size).toBe(1);
+    const err = await flow.messages.send(ids.conv, "other", { idempotencyKey: "k1" }).catch((e) => e);
+    expect(err).toBeInstanceOf(IdempotencyConflictError);
+    expect(err.channelCode).toBe("body_mismatch");
+    expect(calls).toHaveLength(3);
   });
 
   it("maps every error type to its class and keeps the details", async () => {

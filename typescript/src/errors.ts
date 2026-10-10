@@ -92,7 +92,12 @@ export class PermissionError extends FlowError {
 export class NotFoundError extends FlowError {
   override name = "NotFoundError";
 }
-/** 409 `idempotency_conflict`: the idempotency key was used for a different request, or that request is still running. */
+/**
+ * 409 `idempotency_conflict`: the idempotency key was used for a different request
+ * (`channelCode` `body_mismatch`), that request is still running (`in_progress`; the
+ * client retries it after `retryAfter`), or its answer carried a secret shown only
+ * once (`secret_not_kept`).
+ */
 export class IdempotencyConflictError extends FlowError {
   override name = "IdempotencyConflictError";
 }
