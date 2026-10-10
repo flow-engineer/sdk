@@ -13,14 +13,12 @@ Flow Messaging is in beta. Some endpoints and channels are in the spec before th
 
 ## Why it happens
 
-- Using WhatsApp before it is live (it waits on Meta's approval; Telegram and iMessage are live).
-- Asking for an iMessage line with `POST /v1/senders`: iMessage lines are connected by the Flow team, not by API.
-- A simulated conversation on WhatsApp (`POST /v1/test/conversations` with `channel: "whatsapp"`): simulated contacts are on Telegram, iMessage and SMS until WhatsApp ships.
+- Asking for an iMessage line, a WhatsApp number or a US SMS number with `POST /v1/senders`: these are connected by the Flow team, not by API.
 - An endpoint that arrives in a later release.
 
 ## How to fix it
 
-Build on what is live now (Telegram, iMessage replies, and the endpoints that answer). For an iMessage line, ask the Flow team; it then appears in `GET /v1/senders` with your live key.
+Build on what is live now (Telegram, iMessage replies, and the endpoints that answer). For an iMessage line, a WhatsApp number or a US SMS number, ask the Flow team; it then appears in `GET /v1/senders` with your live key.
 
 ```bash
 curl https://api.flow.engineer/v1/senders -H "Authorization: Bearer $FLOW_MESSAGING_KEY"   # what you can send from today

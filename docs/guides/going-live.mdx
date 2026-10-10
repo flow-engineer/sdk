@@ -1,7 +1,7 @@
 ---
-title: "Going live: your own Telegram bot, iMessage lines and live keys"
+title: "Going live: your own Telegram bot, iMessage lines, WhatsApp numbers and live keys"
 sidebarTitle: "Going live"
-description: "Move your AI agent from the sandbox to production: make a live key, connect your own Telegram bot, get an iMessage line from the Flow team, and switch your key. WhatsApp numbers and templates are coming."
+description: "Move your AI agent from the sandbox to production: make a live key, connect your own Telegram bot, get an iMessage line or a WhatsApp number from the Flow team, and switch your key."
 keywords: ["dedicated WhatsApp number for AI agent", "WhatsApp business verification API", "WhatsApp message templates API", "iMessage dedicated line", "go live WhatsApp API"]
 ---
 
@@ -20,16 +20,16 @@ curl https://api.flow.engineer/v1/senders \
 |---|---|
 | Telegram | Self-serve: connect your own bot with a live key (below). |
 | iMessage | Ask the Flow team: they connect a line to your app. Replies only. |
-| WhatsApp | Not available yet (waiting on Meta's approval). |
+| WhatsApp | Ask the Flow team: they connect a number to your app, one Flow provides or one in your business's own WhatsApp Business Account. |
 
 ## Checklist
 
 <Steps>
   <Step title="Get a live key">
-    Sign in to the [dashboard](https://api.flow.engineer/admin) with GitHub, switch to **Live**, and make an `fk_live_...` key on the [Keys page](https://api.flow.engineer/admin/keys?mode=live) (test keys take one call, see [Keys and sign-in](/get-a-key)). Keep it on your server only, in its own variable (for example `FLOW_MESSAGING_LIVE_KEY`) so it does not replace your test key. Live Telegram with your own bot is self-serve; iMessage lines are arranged with the Flow team.
+    Sign in to the [dashboard](https://api.flow.engineer/admin) with GitHub, switch to **Live**, and make an `fk_live_...` key on the [Keys page](https://api.flow.engineer/admin/keys?mode=live) (test keys take one call, see [Keys and sign-in](/get-a-key)). Keep it on your server only, in its own variable (for example `FLOW_MESSAGING_LIVE_KEY`) so it does not replace your test key. Live Telegram with your own bot is self-serve; iMessage lines and WhatsApp numbers are arranged with the Flow team.
   </Step>
   <Step title="Get a dedicated sender">
-    Telegram: `POST /v1/senders` with your bot's token; it is `active` at once. iMessage: the Flow team connects a line to your app, and it then appears in `GET /v1/senders` with your live key (`POST /v1/senders` with `"channel": "imessage"` answers `501 not_implemented`).
+    Telegram: `POST /v1/senders` with your bot's token; it is `active` at once. iMessage and WhatsApp: the Flow team connects a line or number to your app, and it then appears in `GET /v1/senders` with your live key (`POST /v1/senders` with `"channel": "imessage"` or `"whatsapp"` answers `501 not_implemented`).
   </Step>
   <Step title="Register your webhook with the live key">
     Webhook endpoints belong to one mode. `POST /v1/webhook_endpoints` again with the live key and store the new `whsec_...` secret.
@@ -39,18 +39,17 @@ curl https://api.flow.engineer/v1/senders \
   </Step>
 </Steps>
 
-## WhatsApp: coming
+## WhatsApp
 
-WhatsApp is not available yet: Flow is waiting on Meta's approval, and `POST /v1/senders` with `"channel": "whatsapp"` answers `501 not_implemented`. When it ships:
+WhatsApp numbers are connected by the Flow team, not by API: `POST /v1/senders` with `"channel": "whatsapp"` answers `501 not_implemented`, and the number appears in `GET /v1/senders` once it is connected. The Flow team also disconnects it (`DELETE /v1/senders/{sender_id}` answers `501 not_implemented`).
 
-- **Numbers:** Flow buys and hosts a dedicated number for you.
-- **Verify your business:** WhatsApp requires the business behind a number to be verified through Meta; the Flow team will send you the link.
+- **Numbers:** either a number Flow provides, or a number in your business's own WhatsApp Business Account.
 - **Quality and tiers:** the sender shows WhatsApp's `quality_rating` (`green`, `yellow`, `red`) and its messaging tier in `limits.whatsapp_tier`. Replies to people who wrote first are not limited by the tier.
-- **Fees:** WhatsApp's own per-message fees (charged by Meta) are passed through. See [Pricing](/pricing).
+- **Fees:** on a number Flow provides, WhatsApp's own per-message fees (charged by Meta) are passed through. With your own WhatsApp Business Account, Meta bills its fees to your business directly, so add a payment method in WhatsApp Manager. See [Pricing](/pricing).
 
 ### WhatsApp templates
 
-A template is a message WhatsApp approved in advance. On WhatsApp you need one to message someone first, or to write more than 24 hours after their last message. Templates need a WhatsApp number, so this is how it will work once WhatsApp ships:
+A template is a message WhatsApp approved in advance. On WhatsApp you need one to message someone first, or to write more than 24 hours after their last message. Templates are created on your WhatsApp number:
 
 ```bash curl
 curl https://api.flow.engineer/v1/templates \

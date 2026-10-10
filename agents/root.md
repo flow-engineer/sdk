@@ -1,6 +1,6 @@
 # Flow Messaging API
 
-Two-way messaging for AI agents on Telegram and iMessage (WhatsApp coming).
+Two-way messaging for AI agents on Telegram, iMessage and WhatsApp.
 
 Agents: read /llms.txt. No key? POST /v1/sandbox/keys (no account needed):
 

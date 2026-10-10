@@ -34,9 +34,9 @@ await conversation.send({
 
 ## What each channel shows
 
-WhatsApp is not available yet; its column shows what it will support.
+The WhatsApp column applies on WhatsApp numbers the Flow team connects to your app.
 
-| `type` | Telegram | WhatsApp (coming) | iMessage | `fallback: "auto"` sends |
+| `type` | Telegram | WhatsApp | iMessage | `fallback: "auto"` sends |
 |---|---|---|---|---|
 | `text` | yes | yes | yes | markdown becomes plain text |
 | `media` | yes | yes | yes | none |
@@ -47,7 +47,7 @@ WhatsApp is not available yet; its column shows what it will support.
 | `location` | yes | yes | no | a maps link as text |
 | `contact_card` | yes | yes | no | text |
 | `effect` | no | no | yes | plain text |
-| `typing` | yes | yes | yes, within 5 minutes of the contact's last message | skipped |
+| `typing` | yes | yes, within 24 hours of the contact's last message (once they have written) | yes, within 5 minutes of the contact's last message | skipped |
 | `read` | no (bots) | yes | yes, the whole conversation | skipped |
 | `edit` | yes | no | yes, within 15 minutes | none |
 | `unsend` | yes, within 48 hours | no | yes, within 2 minutes | none |
@@ -118,7 +118,7 @@ Typing and read receipts go to the channel at once, not behind queued messages, 
 |---|---|
 | Telegram | `parse_mode`, `entities`, `caption_entities`, `link_preview_options`, `disable_web_page_preview`, `show_caption_above_media`, `disable_notification`, `protect_content`, `allow_paid_broadcast`, `message_effect_id`, `has_spoiler`, `supports_streaming`, `duration`, `width`, `height`, `performer`, `horizontal_accuracy`, `foursquare_id`, `foursquare_type`, `google_place_id`, `google_place_type`, `vcard`, `is_big` (reactions) |
 | iMessage | messages: `subject`, `effect`, `preview`, `reply_to_id`, `contact_file`; `typing` content: `typing` (1 to 60 seconds). Reactions, read receipts, edits and unsends take none. |
-| WhatsApp | none yet (not live) |
+| WhatsApp | `text` content: `preview_url` (show a link preview; on by default when the text holds an http(s) link) |
 
 ## Related
 

@@ -1,7 +1,7 @@
 ---
 title: "The send gate: channel rules, new-contact limits and warm-up"
 sidebarTitle: "The send gate"
-description: "Every send passes one gate that applies each channel's rules: who may be messaged first on Telegram and iMessage, WhatsApp's 24-hour window and templates (once WhatsApp is available), new-contact budgets, warm-up, pacing and abuse protection."
+description: "Every send passes one gate that applies each channel's rules: who may be messaged first on Telegram and iMessage, WhatsApp's 24-hour window and templates, new-contact budgets, warm-up, pacing and abuse protection."
 keywords: ["WhatsApp 24 hour window API", "WhatsApp template message API", "iMessage rate limits", "WhatsApp messaging limits", "avoid WhatsApp number ban", "iMessage spam limits"]
 ---
 
@@ -10,7 +10,7 @@ Every send, whether over HTTP, the live stream or a webhook reply, passes one **
 ```ts TypeScript
 import { OutsideWindowError, template } from "@flow-engineer/messaging";
 
-// WhatsApp (not available yet; shown for when it is):
+// WhatsApp:
 try {
   await conversation.send("Your table is ready.");
 } catch (err) {
@@ -25,7 +25,7 @@ try {
 
 | Channel | You may send free-form content when... | Otherwise |
 |---|---|---|
-| WhatsApp (not available yet) | the contact's last message is less than 24 hours old (the **window**) | only an approved `template`; anything else gets `409` [`outside_window`](/errors/outside_window) |
+| WhatsApp | the contact's last message is less than 24 hours old (the **window**) | only an approved `template`; anything else gets `409` [`outside_window`](/errors/outside_window) |
 | iMessage | the contact has written to this line before | a new contact is refused with `403` [`permission`](/errors/permission): Flow's iMessage lines are reply-only today |
 | Telegram | the contact has started your bot | Telegram refuses the message itself |
 | Sandbox senders | the contact joined through your app with its join code | refused |
@@ -38,7 +38,7 @@ Writing to someone first (`POST /v1/messages`) spends the sender's **new-contact
 
 - **Per sender**: a number of new contacts per day and per hour, in `sender.limits`.
 - **Warm-up**: a new sender that writes first starts with a small daily budget that grows day by day while it is `warming_up`.
-- **WhatsApp** (once available): also the number's messaging tier (`sender.limits.whatsapp_tier`).
+- **WhatsApp**: also the number's messaging tier (`sender.limits.whatsapp_tier`).
 - **Telegram**: a bot can write only to people who started it, so in practice its budget is not the limit.
 - **iMessage**: Flow's lines are reply-only today, so writing first gets `403` [`permission`](/errors/permission).
 
@@ -51,7 +51,7 @@ The gate watches for signs that a sender is being used for unwanted messages:
 - the same text going to many new contacts;
 - a high share of new conversations that get no reply;
 - people blocking the sender;
-- a drop in WhatsApp's quality rating (once WhatsApp is available).
+- a drop in WhatsApp's quality rating.
 
 When one trips, the sender is **throttled**: until `throttled_until`, starting conversations fails with `429` [`sender_throttled`](/errors/sender_throttled), while replies into existing conversations still go. You receive `sender.status_changed` with a one-sentence `reason`, and another when the sender recovers by itself.
 
@@ -64,7 +64,7 @@ When one trips, the sender is **throttled**: until `throttled_until`, starting c
 
 - **Reply, don't broadcast.** Agents that answer people who wrote first never meet rules 2 and 3.
 - **Check before you send.** `GET /v1/capabilities?conversation=conv_...` returns `window.open` and what each content type would do.
-- **Retry only what clears by itself.** `new_contact_limit`, `sender_throttled` and `rate_limited` carry `retry_after`; `outside_window` will not clear until the person writes again, so wait for them to message the line (iMessage), or send a template instead (WhatsApp, once available).
+- **Retry only what clears by itself.** `new_contact_limit`, `sender_throttled` and `rate_limited` carry `retry_after`; `outside_window` will not clear until the person writes again, so wait for them to message the line (iMessage), or send a template instead (WhatsApp).
 - **Watch `sender.status_changed`.** It is the early warning before a channel acts against a number.
 
 ## Related

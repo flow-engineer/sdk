@@ -7,7 +7,7 @@ keywords: ["add WhatsApp to AI agent", "Claude Code WhatsApp", "Codex WhatsApp i
 
 This page is written for AI coding agents: follow it step by step to give the user's AI agent Telegram or iMessage with Flow Messaging.
 
-What exists today: Telegram is live (the shared sandbox bot with a test key, the user's own bot with a live key). iMessage is live for replies only, on lines the Flow team connects to the user's app; it is not in the sandbox. WhatsApp is not available yet (it waits on Meta's approval). SMS (US) is in pilot only, on numbers the Flow team registers; it is not generally available. If the user asks for WhatsApp, say so and build on Telegram: the code does not change per channel.
+What exists today: Telegram is live (the shared sandbox bot with a test key, the user's own bot with a live key). iMessage is live for replies only, on lines the Flow team connects to the user's app; it is not in the sandbox. WhatsApp numbers are connected by the Flow team too (a number Flow provides, or one in the business's own WhatsApp Business Account); the shared WhatsApp sandbox is not open yet. SMS (US) is in pilot only, on numbers the Flow team registers; it is not generally available. If the user asks for WhatsApp, tell them WhatsApp numbers are arranged with the Flow team, and build and test on Telegram meanwhile: the code does not change per channel.
 
 <Prompt description="Paste this into Claude Code, Codex or Cursor to have it do the integration." actions={["copy", "cursor"]}>
 Add two-way Telegram messaging (and iMessage replies, if the Flow team has connected a line) to my AI agent using Flow Messaging. Follow https://docs.flow.engineer/coding-agents.md exactly: use FLOW_MESSAGING_KEY if it is set, otherwise get a test key yourself with `npx @flow-engineer/messaging init` (or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`), use the TypeScript SDK `@flow-engineer/messaging` (or the HTTP API at https://api.flow.engineer in other languages), receive `message.received` events, reply with my agent's answer through `event.conversation.reply(...)`, and verify it end to end in the sandbox before you finish. Build on the REST API; the Flow MCP server is an optional development tool that I add myself if I want it.
@@ -139,7 +139,7 @@ Do not finish until this works:
 - **Verify webhook signatures** on the raw body before trusting it; deduplicate on the event `id`.
 - **Answer webhooks within 10 seconds.** Run slow agents after the response (`after()`, `waitUntil()`, a queue) or use the event stream.
 - **Do not send unsupported content blindly.** Set `fallback: "auto"` or check `GET /v1/capabilities`. `reply()` already sets it.
-- **Never message first on iMessage:** the person writes first; on `outside_window`, wait for them to write, do not retry the same content. (WhatsApp, once available: send an approved `template` instead.)
+- **Never message first on iMessage:** the person writes first; on `outside_window`, wait for them to write, do not retry the same content. (On WhatsApp: send an approved `template` instead.)
 - **Test keys only while building.** Do not switch to `fk_live_` unless the user asks.
 - **Do not work around the sandbox allowance.** On `403 permission` with `channel_code` `sandbox_allowance_used` or `sandbox_contact_limit`, or `401 authentication` with `sandbox_key_expired`, do not retry and do not get more keys: ask the user to sign in (`npx @flow-engineer/messaging login --no-wait`, then `login` once they approve).
 

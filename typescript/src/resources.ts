@@ -457,7 +457,7 @@ export class Testing {
   constructor(private readonly http: HttpClient) {}
 
   /**
-   * A conversation with a simulated contact on `telegram`, `imessage` or `sms`. Without
+   * A conversation with a simulated contact on `telegram`, `whatsapp`, `imessage` or `sms`. Without
    * `contact`, the contact gets a new made-up address, so each call is a fresh conversation.
    */
   createConversation(params: TestConversationRequest, options?: RequestOptions): Promise<Conversation> {

@@ -26,7 +26,7 @@ curl https://api.flow.engineer/v1/conversations/conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1/
 
 | Object | ID | What it is |
 |---|---|---|
-| Sender | `snd_` | What your agent talks from: a Telegram bot or an iMessage line (a WhatsApp number once WhatsApp is available). See [Senders](/concepts/senders). |
+| Sender | `snd_` | What your agent talks from: a Telegram bot, an iMessage line or a WhatsApp number. See [Senders](/concepts/senders). |
 | Contact | `ct_` | A person on **one** channel: a phone number, a WhatsApp username, a Telegram user or an iMessage handle. |
 | Conversation | `conv_` | One sender with one contact. Holds the window state and whether the contact opted in. |
 | Message | `msg_` | One message in or out, with typed [content](/concepts/content-types) and a status. |
@@ -55,7 +55,7 @@ IDs are a prefix plus a ULID, so they sort by creation time.
 }
 ```
 
-- `window_open_until` (WhatsApp only, once available; absent on Telegram and iMessage): until when free-form messages may be sent. After it, only a template. Every event repeats it in `conversation.window_open_until`.
+- `window_open_until` (WhatsApp only; absent on Telegram and iMessage): until when free-form messages may be sent. After it, only a template. Every event repeats it in `conversation.window_open_until`.
 - `opted_in`: the contact wrote first, joined the sandbox, or you recorded their consent.
 - `metadata`: up to 20 string pairs of your own (for example your user ID), kept with the conversation.
 

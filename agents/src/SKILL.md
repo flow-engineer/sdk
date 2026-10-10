@@ -6,7 +6,8 @@ description: Use when code must let an AI agent, bot or LLM app send or receive 
 # Flow Messaging
 
 One API for an AI agent to talk with people on **Telegram and iMessage** (iMessage:
-replies only, on lines the Flow team connects; WhatsApp is coming, not available yet).
+replies only, on lines the Flow team connects; WhatsApp numbers are connected by the
+Flow team too).
 Flow hosts the senders (bots, lines); you get typed events in and send typed
 content out. TypeScript SDK: `@flow-engineer/messaging` (Node 18+, Bun, Deno, edge).
 Other languages: the HTTP API at `https://api.flow.engineer` (spec:
@@ -30,7 +31,8 @@ person opens the sandbox link and taps Start first.
 {{> sign-in}} {{> allowance-errors}} In the SDK these are `PermissionError` (with
 `channelCode`) and `AuthenticationError`. Dashboard: {{dashboard_url}}. Going live:
 signed-in users make `fk_live_` keys in the dashboard and connect their own Telegram
-bot; iMessage lines are arranged with the Flow team, and WhatsApp is not available yet. Details:
+bot; iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team.
+If the user asks for WhatsApp, tell them WhatsApp numbers are arranged with the Flow team, and build and test on Telegram meanwhile: the code does not change per channel. Details:
 [CLI and MCP](reference/cli-mcp.md).
 
 ## An agent in 10 lines
@@ -79,7 +81,7 @@ it is async and needs the **raw** body. Local development: `npx @flow-engineer/m
 ## Test without a phone (test keys)
 
 ```ts
-const conv = await flow.test.createConversation({ channel: "sms" }); // a simulated contact; also telegram, imessage
+const conv = await flow.test.createConversation({ channel: "sms" }); // a simulated contact; also telegram, whatsapp, imessage
 await flow.test.inbound(conv.id, { type: "text", text: "Do you deliver on Sundays?" });
 // your agent gets a real message.received and replies as usual; then:
 for await (const m of flow.test.transcript(conv.id)) console.log(m.direction, m.shown ?? m.content);
@@ -89,8 +91,10 @@ Free (not in the sandbox allowance); sends pass the real gate and end `message.s
 without touching a network. Live keys get `PermissionError` (`test_mode_only`).
 Simulated SMS keeps the contact's rules: a send before the contact's first turn
 needs `consent` (`consent_required`), a STOP turn opts them out until START (no
-keyword reply in the transcript); no quiet hours, media goes as MMS. A HIPAA account
-can simulate only SMS (`hipaa_channel_not_covered`).
+keyword reply in the transcript); no quiet hours, media goes as MMS. Simulated
+WhatsApp keeps WhatsApp's rules: the contact's turns open the 24-hour window, and
+outside it only a `template` goes (`OutsideWindowError`). A HIPAA account can
+simulate only SMS (`hipaa_channel_not_covered`).
 
 ## Rules that save debugging
 

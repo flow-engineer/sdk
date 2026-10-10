@@ -142,7 +142,8 @@ export interface paths {
          *     The call goes to the channel at once, not behind the conversation's queued
          *     messages, so the channel's answer is the call's answer. It fails with
          *     `409 outside_window` when the channel allows typing only inside a window
-         *     (iMessage: within 5 minutes of the contact's last message), and with
+         *     (iMessage: within 5 minutes of the contact's last message; WhatsApp: within
+         *     24 hours of it, and only after the contact wrote at least once), and with
          *     `502 channel_error` when the channel failed or timed out. Both are safe to
          *     ignore: typing is a courtesy, so never hold back a reply because of it.
          */
@@ -479,11 +480,12 @@ export interface paths {
          *     and the line then appears in `GET /v1/senders`. US SMS numbers (in pilot)
          *     are registered and connected by the Flow team too: `channel: "sms"` answers
          *     `501 not_implemented`, and the number appears in `GET /v1/senders` once it is
-         *     connected. WhatsApp is not available
-         *     yet (it waits on Meta's approval), so `channel: "whatsapp"` answers `501
-         *     not_implemented`; once it ships, a WhatsApp number starts as `pending`, you
-         *     receive `sender.status_changed` when it is ready, and your business is
-         *     verified through Meta's Embedded Signup. Live keys only.
+         *     connected. WhatsApp numbers are connected by the Flow team as well, either a
+         *     number Flow provides or a number in your business's own WhatsApp Business
+         *     Account: `channel: "whatsapp"` answers `501 not_implemented`, and the number
+         *     appears in `GET /v1/senders` once it is connected. A number in your own
+         *     WhatsApp Business Account needs a payment method in WhatsApp Manager, since
+         *     Meta bills its fees to you directly. Live keys only.
          *
          *     To get a live key (`fk_live_...`), a person signs in to the dashboard at
          *     `https://api.flow.engineer/admin` (GitHub), switches to **Live**,
@@ -491,8 +493,8 @@ export interface paths {
          *     (`https://api.flow.engineer/admin/keys?mode=live`). An app made without an
          *     account (`POST /v1/sandbox/keys`) is claimed first, by signing in through the
          *     device flow or its `claim_url`. A test key gets `403 permission` here, with
-         *     a `hint` naming these steps. Telegram bots are self-serve; iMessage lines are
-         *     arranged with the Flow team.
+         *     a `hint` naming these steps. Telegram bots are self-serve; iMessage lines,
+         *     SMS numbers and WhatsApp numbers are arranged with the Flow team.
          *
          *     A Telegram bot is connected at once: give the token BotFather issued as
          *     `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
@@ -942,11 +944,17 @@ export interface paths {
          *     The conversation is on your app's **simulated sender** for the channel
          *     (`kind` `simulated`), which Flow creates on first use. It never touches a
          *     network: sends to the simulated contact pass the real send gate and end
-         *     `sent`. Simulated channels: `telegram`, `imessage` and `sms`; `whatsapp`
-         *     answers `501 not_implemented` until WhatsApp ships. The channel's rules
-         *     hold as on a real sender: a simulated iMessage line, like Flow's lines
-         *     today, only replies, so the contact writes first; on SMS and iMessage
-         *     buttons need `fallback` and the contact answers with the button's number.
+         *     `sent`. Simulated channels: `telegram`, `whatsapp`, `imessage` and `sms`.
+         *     The channel's rules hold as on a real sender: a simulated iMessage line,
+         *     like Flow's lines today, only replies, so the contact writes first; on SMS
+         *     and iMessage buttons need `fallback` and the contact answers with the
+         *     button's number.
+         *
+         *     On WhatsApp, the contact's turns go through the real WhatsApp inbound path,
+         *     so each turn opens the 24-hour window. Outside it, including before the
+         *     contact's first turn, only a `template` can be sent (`409 outside_window`).
+         *     Buttons go as up to 3 reply buttons, or a list for 4 to 10; reactions and
+         *     `reply_to` work; edits and unsends answer `422 unsupported_content`.
          *
          *     On SMS, the rules that concern the contact hold too. Before the contact's
          *     first turn, a send to them is a start that needs their recorded consent:
@@ -979,8 +987,8 @@ export interface paths {
          *
          *     A HIPAA account (`Account.hipaa`) can simulate only the channels its
          *     business associate agreement covers (SMS), as it can connect senders only
-         *     there: `telegram` or `imessage` answers `403 permission` with `channel_code`
-         *     `hipaa_channel_not_covered` (`param` `channel`).
+         *     there: `telegram`, `whatsapp` or `imessage` answers `403 permission` with
+         *     `channel_code` `hipaa_channel_not_covered` (`param` `channel`).
          */
         post: operations["createTestConversation"];
         delete?: never;
@@ -1035,10 +1043,13 @@ export interface paths {
          *     `message.received`. A keyword reply is never recorded as a message, so the
          *     transcript shows no automatic reply to STOP, START or HELP.
          *
+         *     On WhatsApp, each turn opens the conversation's 24-hour window, as a real
+         *     contact's message does.
+         *
          *     A conversation that is not simulated answers `403 permission` with
          *     `channel_code` `not_simulated`; a live key answers `403 permission` with
          *     `channel_code` `test_mode_only`. In a HIPAA account (`Account.hipaa`), a
-         *     turn on a simulated `telegram` or `imessage` conversation (one made before
+         *     turn on a simulated `telegram`, `whatsapp` or `imessage` conversation (one made before
          *     the flag was set) answers `403 permission` with `channel_code`
          *     `hipaa_channel_not_covered` (`param` `conversation_id`).
          */
@@ -1069,7 +1080,8 @@ export interface paths {
          *     ID it has) to see what your agent sent back to the simulated contact. Each
          *     entry is a `Message` with, for a sent message, `shown`: what the simulated
          *     contact's phone shows, after the send gate applied any fallback (numbered
-         *     text for buttons on SMS, for example).
+         *     text for buttons on SMS, or a list for 4 to 10 buttons on WhatsApp, for
+         *     example).
          *
          *     A conversation that is not simulated answers `403 permission` with
          *     `channel_code` `not_simulated`; a live key answers `403 permission` with
@@ -1303,7 +1315,7 @@ export interface components {
              *     senders answer the account's contacts with a fixed refusal and store
              *     and deliver nothing they send; turning the flag on ends the account's
              *     sandbox joins. Only SMS can be simulated (`POST /v1/test/conversations`):
-             *     creating a simulated Telegram or iMessage conversation, or posting a
+             *     creating a simulated Telegram, WhatsApp or iMessage conversation, or posting a
              *     turn to one made before the flag was set, answers the same refusal.
              *     Set by the Flow team.
              */
@@ -1999,7 +2011,9 @@ export interface components {
          *       `reply_to_id` and `contact_file`; on `typing` content, `typing` (how long
          *       to show it, 1 to 60 seconds). Reactions, read receipts, edits and unsends
          *       take none.
-         *     - **WhatsApp**: none yet; the channel is not live.
+         *     - **WhatsApp**: on `text` content, `preview_url` (show a link preview;
+         *       by default on when the text holds an http(s) link). Everything else
+         *       (recipient, message type, reply context) comes from the typed fields.
          * @example {
          *       "parse_mode": "HTML",
          *       "disable_notification": true
@@ -2922,7 +2936,7 @@ export interface components {
         };
         /** @description A simulated conversation to create (test keys only). */
         TestConversationRequest: {
-            /** @description The channel to simulate. `telegram`, `imessage` or `sms`; `whatsapp` answers `501 not_implemented`. */
+            /** @description The channel to simulate. `telegram`, `whatsapp`, `imessage` or `sms`. */
             channel: components["schemas"]["Channel"];
             contact?: components["schemas"]["TestContactAddress"];
             /** @description The simulated contact's display name, as a channel would report it. */
@@ -2930,11 +2944,11 @@ export interface components {
         };
         /**
          * @description The simulated contact's address on the channel. Give one field that fits the
-         *     channel: `phone` on SMS and iMessage, `handle` on iMessage, `telegram_user_id`
-         *     on Telegram. Omit `contact` to get a new contact with a made-up address.
+         *     channel: `phone` on SMS, iMessage and WhatsApp, `handle` on iMessage,
+         *     `telegram_user_id` on Telegram. Omit `contact` to get a new contact with a made-up address.
          */
         TestContactAddress: {
-            /** @description SMS or iMessage. E.164 phone number; on SMS a US number (`+1` and ten digits). */
+            /** @description SMS, iMessage or WhatsApp. E.164 phone number; on SMS a US number (`+1` and ten digits). */
             phone?: string;
             /** @description iMessage. A phone number or an email address. */
             handle?: string;
@@ -3981,7 +3995,7 @@ export interface operations {
                     "application/json": components["schemas"]["Sender"];
                 };
             };
-            /** @description The request was accepted. The sender is `pending` (WhatsApp numbers, once WhatsApp is available); you receive `sender.status_changed` when it is ready. */
+            /** @description The request was accepted. The sender is `pending`, and you receive `sender.status_changed` when it is ready. No request answers this way today: Telegram bots answer `200`, and senders of other channels are connected by the Flow team. */
             202: {
                 headers: {
                     [name: string]: unknown;

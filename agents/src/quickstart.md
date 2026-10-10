@@ -20,7 +20,7 @@ section 3 (receive over a WebSocket), section 6 (reply).
 
 ```yaml
 # Machine-readable summary
-api: Flow Messaging (two-way messaging for AI agents on Telegram and iMessage; WhatsApp coming)
+api: Flow Messaging (two-way messaging for AI agents on Telegram, iMessage and WhatsApp)
 base_url: https://api.flow.engineer
 spec: https://api.flow.engineer/openapi.yaml   # OpenAPI 3.1, version {{api_version}}
 llms_txt: https://api.flow.engineer/llms.txt
@@ -62,7 +62,7 @@ send_outcome: every send ends message.sent or message.failed (Telegram never sen
 rate_limit_headers: [RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After]
 id_prefixes: {app: app_, sender: snd_, contact: ct_, conversation: conv_, message: msg_,
               event: evt_, file: file_, webhook_endpoint: we_}
-channels_live: [telegram, imessage]   # whatsapp is coming (POST /v1/senders answers 501 not_implemented)
+channels_live: [telegram, imessage]   # WhatsApp and US SMS (pilot) numbers are connected by the Flow team, like iMessage lines (POST /v1/senders answers 501 not_implemented)
 ```
 
 ## Rules for the agent writing the integration
@@ -210,7 +210,7 @@ Signed-in people see their apps and keys in the dashboard,
 https://api.flow.engineer/admin (sign in with GitHub). There they can make
 **live keys** (`fk_live_...`) themselves (switch to **Live**, then Keys > **Create
 live key**: https://api.flow.engineer/admin/keys?mode=live) and go live on Telegram
-with their own bot (section 7). iMessage lines are arranged with the Flow team; WhatsApp is not available yet.
+with their own bot (section 7). iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team.
 
 ## 1. Authenticate
 
@@ -324,7 +324,7 @@ Good to know:
 
 A test key can also play the person's side itself, for automated tests or when no
 phone is at hand. A **simulated contact** exists only inside Flow, on `telegram`,
-`imessage` or `sms`:
+`whatsapp`, `imessage` or `sms`:
 
 ```bash
 # 1. A conversation with a new simulated contact (201; made-up address, so each call is fresh)
@@ -361,6 +361,12 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   digits). On SMS and iMessage the contact answers buttons with their number (`"2"`).
   A simulated iMessage line, like Flow's real lines, only replies: post a turn
   before your agent sends.
+- Simulated WhatsApp keeps WhatsApp's rules. The contact's turns go through the
+  real WhatsApp inbound path, so each turn opens the 24-hour window; outside it
+  (also before the contact's first turn) only a `template` can be sent (`409
+  outside_window`). Buttons go as up to 3 reply buttons, or a list for 4 to 10;
+  reactions and `reply_to` work; edits and unsends answer `422
+  unsupported_content`. The contact's address is a `phone`.
 - Simulated SMS keeps the rules that concern the contact. Before the contact's
   first turn, a send to them is a start that needs their consent: without
   `consent` on `POST /v1/messages` (`to.contact`), it answers `403 permission`
@@ -370,7 +376,7 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   the transcript shows no automatic keyword reply. A simulated SMS sender keeps no
   quiet hours (a test never depends on the time of day) and sends media as MMS.
 - A HIPAA account (`hipaa` on the account in `GET /v1/app`) can simulate only SMS:
-  a simulated `telegram` or `imessage` conversation, or a turn in one made before
+  a simulated `telegram`, `whatsapp` or `imessage` conversation, or a turn in one made before
   the flag was set, answers `403 permission` (`hipaa_channel_not_covered`).
 - Free: simulated traffic is not in the sandbox allowance. An app has at most 500
   simulated conversations (then `403 permission`, `simulated_conversation_limit`:
@@ -879,7 +885,7 @@ the same error shape in `data.message.error`).
 | `sender_throttled` | 429 | Abuse signals tripped; new conversations wait until `retry_after` (can be long). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |
 | `channel_error` | in `message.failed` (502 from typing/read/file download) | The channel refused or failed it; `channel_code` is its code. A 502 may be retried; a failed message needs a new send. |
-| `not_implemented` | 501 | Not live yet (for example WhatsApp senders). |
+| `not_implemented` | 501 | Not available through the API (for example requesting an iMessage, SMS or WhatsApp sender: the Flow team connects those). |
 | `api_error` | 500, 503 | Our side. Retry with backoff and the same key. |
 
 Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code`:
@@ -1013,8 +1019,21 @@ and new conversations per hour and per day, growing during a new sender's warm-u
 
 ### WhatsApp
 
-Coming (it waits on Meta's approval). `POST /v1/senders` with `"channel": "whatsapp"`
-answers `501 not_implemented` for now.
+- **WhatsApp numbers are connected by the Flow team**, not through the API: a number
+  Flow provides, or a number in your business's own WhatsApp Business Account.
+  `POST /v1/senders` with `"channel": "whatsapp"` answers `501 not_implemented`; the
+  number appears in `GET /v1/senders` once it is connected. With your own WhatsApp
+  Business Account, add a payment method in WhatsApp Manager: Meta bills its fees to
+  the business directly. On a number Flow provides, Meta's per-message fees are
+  passed through. The shared WhatsApp sandbox is not open yet.
+- **24-hour window**: free-form content only within 24 hours of the contact's last
+  message; outside it, and to write first, only an approved `template` (else `409
+  outside_window`).
+- **Typing** only within 24 hours of the contact's last message, and only after they
+  wrote at least once.
+- **Text** up to {{text_caps.whatsapp}} characters; `channel_options.preview_url` turns
+  the link preview on or off. Edits and unsends are refused (`422
+  unsupported_content`).
 
 ## 12. MCP server (optional, for development)
 

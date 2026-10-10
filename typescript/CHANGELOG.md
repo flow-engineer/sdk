@@ -4,6 +4,10 @@
 
 - The package no longer ships source maps; `dist/` is readable JavaScript with
   JSDoc types.
+- CLI: `--help` says Telegram, iMessage and WhatsApp. Types regenerated from the
+  spec: the WhatsApp `preview_url` channel option, the typing window on WhatsApp,
+  how WhatsApp numbers are connected, and `whatsapp` as a simulated channel for
+  `flow.test.createConversation`.
 
 ## 0.1.1
 

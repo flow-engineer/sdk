@@ -1,4 +1,4 @@
-Flow Messaging is one HTTP API ({{base_url}}) for AI agents to hold two-way conversations on Telegram and iMessage (replies only, on lines the Flow team connects). WhatsApp is coming and not available yet.
+Flow Messaging is one HTTP API ({{base_url}}) for AI agents to hold two-way conversations on Telegram and iMessage (replies only, on lines the Flow team connects), and on WhatsApp numbers the Flow team connects. If the user asks for WhatsApp, tell them WhatsApp numbers are arranged with the Flow team, and build and test on Telegram meanwhile: the code does not change per channel.
 
 Build the app on the REST API. {{mcp.runtime_rule}} In TypeScript or JavaScript, the SDK is `npm install {{package}}`, then `new FlowMessaging()` (reads {{env.api_key}}). Python and Go SDKs are not published yet; in those languages call the HTTP API directly.
 
