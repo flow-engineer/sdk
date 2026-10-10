@@ -23,8 +23,12 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ## 1. Try it on the sandbox line
 
-1. Get a test key (`fk_test_...`): keys are issued by the Flow team while signup is in preview. Set it as `FLOW_MESSAGING_KEY`.
-2. `GET /v1/senders?channel=imessage` lists the iMessage sandbox line with its `join_code`. (`npx @flow-engineer/messaging init` will print it once the npm package ships.)
+<Note>
+The iMessage sandbox line is not part of the sandbox allowance: a key from `POST /v1/sandbox/keys`, or a signed-in app, cannot send on it (`403 permission`, `channel_code` `sandbox_channel_not_included`). To try iMessage, ask the Flow team. The same code works on the [Telegram sandbox bot](/guides/telegram-agent) in the meantime.
+</Note>
+
+1. Get a test key with iMessage sandbox access from the Flow team. Set it as `FLOW_MESSAGING_KEY`.
+2. `GET /v1/senders?channel=imessage` lists the iMessage sandbox line with its `join_code`. (`npx @flow-engineer/messaging init` prints it too.)
 3. From an iPhone or Mac, text the join code (for example `join wild-otter-04508705`) to the line.
 4. Run the code above and send a message.
 

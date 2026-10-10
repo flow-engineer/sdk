@@ -18,7 +18,7 @@ curl https://api.flow.engineer/v1/app \
 | | |
 |---|---|
 | Base URL | `https://api.flow.engineer` |
-| Authentication | `Authorization: Bearer fk_test_...` or `fk_live_...` ([test and live mode](/concepts/test-and-live-mode)); never in the query string. In a browser, the live stream takes the key as a WebSocket subprotocol ([Events and webhooks](/concepts/events-and-webhooks#the-live-stream)) |
+| Authentication | `Authorization: Bearer fk_test_...` or `fk_live_...` ([test and live mode](/concepts/test-and-live-mode)); never in the query string. No key yet: `POST /v1/sandbox/keys` needs none and returns a test key ([keys and sign-in](/get-a-key)). In a browser, the live stream takes the key as a WebSocket subprotocol ([Events and webhooks](/concepts/events-and-webhooks#the-live-stream)) |
 | Version | `Flow-Version: 2026-11-01` ([versioning](/concepts/versioning)) |
 | Bodies | JSON (`Content-Type: application/json`), except `POST /v1/files` (multipart) |
 | Retries | `Idempotency-Key` on every `POST` ([idempotency](/concepts/idempotency)) |

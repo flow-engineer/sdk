@@ -18,7 +18,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ```sh
 npm install @flow-engineer/messaging
-npx @flow-engineer/messaging init --key fk_test_...   # .env and the sandbox join code; asks before adding agent files
+npx @flow-engineer/messaging init   # gets a test key (no account), writes .env, prints the sandbox link; asks before adding agent files
 node --env-file=.env agent.mjs
 ```
 
@@ -48,15 +48,67 @@ dependencies. ESM and CommonJS.
 
 ## Getting a key and testing
 
-Keys are issued by the Flow team while signup is in preview: ask the Flow team for a
-test key (`fk_test_...`). There is no dashboard or browser sign-in yet.
+No key yet? Get a test key in one call, with no account. Check `FLOW_MESSAGING_KEY`
+first and reuse a key you already have.
 
-`npx @flow-engineer/messaging init --key fk_test_...` checks the key, writes
-`FLOW_MESSAGING_KEY` to `.env` and prints the shared sandbox senders with your app's
-join code. It then asks before installing the agent files (below); `--yes` installs
-them without asking. Test keys (`fk_test_`) reach only people who joined the sandbox:
-on your phone, open the sandbox link and tap Start (on iMessage, text the join code,
-such as `join wild-otter-04508705`). Live keys (`fk_live_`) use your dedicated senders.
+```sh
+npx @flow-engineer/messaging init                       # or by HTTP:
+curl -X POST https://api.flow.engineer/v1/sandbox/keys
+```
+
+With no key in the environment or `.env`, `init` gets one itself, writes
+`FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env`, and prints the sandbox link and
+join code, the allowance and the expiry. `init --key fk_test_...` uses a key you have.
+It then asks before installing the agent files (below); `--yes` installs them without
+asking. Test keys (`fk_test_`) reach only people who joined the sandbox: on your phone,
+open the sandbox link and tap Start. Live keys (`fk_live_`) are made in the dashboard once
+you sign in, for your own Telegram bot; iMessage and WhatsApp senders are arranged with
+the Flow team.
+
+The same from code; these calls need no key:
+
+```ts
+const flow = new FlowMessaging(); // no key needed for these
+const sandbox = await flow.sandbox.createKey({ name: "Support agent" });
+// save sandbox.key as FLOW_MESSAGING_KEY and sandbox.claim_token as FLOW_CLAIM_TOKEN (both shown once)
+```
+
+**Sandbox allowance.** What an app may send on the sandbox for free
+(`(await flow.app.retrieve()).allowance` shows what is left):
+
+| | No account | Signed in (GitHub or Google) |
+|---|---|---|
+| Contacts | 1 | 3 |
+| Messages | 50 in total | 100 per contact |
+| Channels | Telegram sandbox (WhatsApp when its sandbox opens) | the same |
+| Key expiry | 7 days | none |
+
+Only messages your agent sends count; inbound is free. iMessage is not part of either.
+
+**Sign in to keep the app.** `npx @flow-engineer/messaging login` reads
+`FLOW_CLAIM_TOKEN`, prints a link and a short code, opens the browser and waits; once
+the person approves with GitHub or Google, it replaces `FLOW_MESSAGING_KEY` in `.env`
+and removes `FLOW_CLAIM_TOKEN`. The app is claimed: data and keys kept, no expiry,
+3 contacts x 100 messages. From code:
+
+```ts
+import { DeviceSignInError } from "@flow-engineer/messaging";
+
+const token = await flow.device.signIn({
+  claimToken: process.env.FLOW_CLAIM_TOKEN,
+  clientName: "My agent",
+  prompt: (auth) => console.log(auth.verification_uri_complete, auth.user_code),
+});
+// token.key is the new FLOW_MESSAGING_KEY; DeviceSignInError (reason "denied" or "expired") if it fails
+```
+
+`signIn` polls honouring `interval` and `retry_after`; `flow.device.authorize()` and
+`flow.device.poll(deviceCode)` are the two steps on their own. Past the allowance,
+sends throw `PermissionError` with `channelCode` `sandbox_allowance_used` (also
+`sandbox_contact_limit`, `sandbox_channel_not_included`, `sign_in_required`); an
+expired sandbox key throws `AuthenticationError` with `sandbox_key_expired`. Sign in,
+or get a new key. Signed-in people manage keys at https://api.flow.engineer/admin.
+Full guide: https://docs.flow.engineer/get-a-key.
 
 ## Receiving events
 
@@ -183,10 +235,10 @@ Errors are classes per API error type: `InvalidRequestError`, `AuthenticationErr
 `PermissionError`, `NotFoundError`, `IdempotencyConflictError`, `OutsideWindowError`,
 `UnsupportedContentError`, `NewContactLimitError`, `SenderThrottledError`,
 `FileBlockedError`, `RateLimitError`, `ChannelError`, `NotImplementedError`,
-`APIError`, plus `APIConnectionError`, `APITimeoutError` and
-`WebhookSignatureError`. All extend `FlowError` with `type`, `status`, `param`,
-`retryAfter`, `requestId` and, when the API sends them, `docUrl` (the error type's
-page, `https://api.flow.engineer/docs/errors/<type>`) and `hint`.
+`APIError`, plus `APIConnectionError`, `APITimeoutError`, `WebhookSignatureError`
+and `DeviceSignInError`. All extend `FlowError` with `type`, `status`, `param`,
+`retryAfter`, `requestId` and, when the API sends them, `channelCode`, `docUrl` (the
+error type's page, `https://api.flow.engineer/docs/errors/<type>`) and `hint`.
 
 Every POST carries an `Idempotency-Key` (yours via `{ idempotencyKey }`, else a
 random one), reused across retries. Connection errors, timeouts, `rate_limited` and
@@ -202,6 +254,7 @@ version pinned to your app instead.
 
 ```
 npx @flow-engineer/messaging init [--key fk_test_...] [--yes]      key, .env, sandbox code, agent files (asks)
+npx @flow-engineer/messaging login [--no-wait] [--no-browser]     sign in to keep the app (device flow)
 npx @flow-engineer/messaging listen [--forward-to <url>] [--events a,b]
 npx @flow-engineer/messaging send [--conversation conv_...] "Hello"
 npx @flow-engineer/messaging mcp
@@ -217,14 +270,13 @@ npx @flow-engineer/messaging mcp
   server. Without a terminal, or with no answer, it skips them and prints the commands
   to run by hand. `--yes` (`-y`) installs them without asking; `--no-agent-files`,
   `--no-mcp` and `--no-codex` leave parts out.
-- `init --device` (browser sign-in, OAuth 2.0 device flow, RFC 8628) is **not
-  available yet**: keys are issued by the Flow team while signup is in preview. The
-  CLI would use `https://flow.engineer/api/cli/device` (override with `--auth-url` or
-  `FLOW_AUTH_URL`): `POST /code` returns `device_code`, `user_code`,
-  `verification_uri`, `interval`; `POST /token` with
-  `grant_type=urn:ietf:params:oauth:grant-type:device_code` returns `{"api_key"}` or
-  `authorization_pending` / `slow_down` / `access_denied` / `expired_token`. Until
-  then, paste a key with `--key`.
+- `init` with no key in the environment or `.env` gets a sandbox key itself
+  (`POST /v1/sandbox/keys`) and saves `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN`.
+- `login` signs a person in with GitHub or Google (OAuth 2.0 device flow, RFC 8628,
+  `POST /v1/device/authorizations` and `POST /v1/device/token`) and claims the app of
+  `FLOW_CLAIM_TOKEN`. `--no-wait` prints the link and code and exits, for coding agents
+  that cannot wait; run `login` again after the person approves to collect the key.
+  `--no-browser` does not open a browser.
 
 ## Agent files
 

@@ -16,10 +16,10 @@ import { ids, json, message, mockFetch, receivedEvent } from "../helpers.js";
 const key = "fk_test_unit";
 
 describe("client", () => {
-  it("needs a key, from the option or FLOW_MESSAGING_KEY", () => {
+  it("takes the key from the option or FLOW_MESSAGING_KEY, and says how to get one without", async () => {
     const old = process.env.FLOW_MESSAGING_KEY;
     delete process.env.FLOW_MESSAGING_KEY;
-    expect(() => new FlowMessaging()).toThrow(/FLOW_MESSAGING_KEY/);
+    await expect(new FlowMessaging().app.retrieve()).rejects.toThrow(/FLOW_MESSAGING_KEY.*sandbox\/keys/);
     process.env.FLOW_MESSAGING_KEY = "fk_test_env";
     expect(new FlowMessaging().http.apiKey).toBe("fk_test_env");
     if (old === undefined) delete process.env.FLOW_MESSAGING_KEY;

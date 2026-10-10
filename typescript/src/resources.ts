@@ -1,6 +1,7 @@
 // The API's resources, one class each, mirroring the endpoints in the spec.
 import { toSendRequest, type SendInput } from "./conversation.js";
-import type { HttpClient, Query, RequestOptions } from "./core.js";
+import { sleep, type HttpClient, type Query, type RequestOptions } from "./core.js";
+import { APIConnectionError, APIError, APITimeoutError, DeviceSignInError, RateLimitError } from "./errors.js";
 import { PagePromise } from "./pagination.js";
 import type {
   AppContext,
@@ -10,6 +11,8 @@ import type {
   Conversation,
   ConversationAction,
   Deleted,
+  DeviceAuthorization,
+  DeviceToken,
   Event,
   File,
   ListContactsParams,
@@ -20,6 +23,8 @@ import type {
   ListTemplatesParams,
   ListWebhookEndpointsParams,
   Message,
+  SandboxKey,
+  SandboxKeyRequest,
   Sender,
   SenderRequest,
   StartConversationRequest,
@@ -268,9 +273,164 @@ export class Contacts {
 export class AppResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** The app, account and key making the request, its mode and the sandbox join code. */
+  /**
+   * The app, account and key making the request, its mode, the sandbox join code and,
+   * for sandbox apps, what is left of the sandbox `allowance`.
+   */
   retrieve(options?: RequestOptions): Promise<AppContext> {
     return this.http.request({ method: "GET", path: "/v1/app", options });
+  }
+}
+
+/** Test keys without an account. Needs no API key. */
+export class Sandbox {
+  constructor(private readonly http: HttpClient) {}
+
+  /**
+   * Makes a new app with a `fk_test_` key, without an account or an API key: the first
+   * call for an agent that has no key. The answer's `key` and `claim_token` are shown
+   * only this once: save them (as `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN`). Its
+   * `senders` carry the links and join code a person uses to join the sandbox.
+   *
+   * The app has a sandbox allowance (1 contact, 50 messages, on the Telegram and
+   * WhatsApp sandboxes) and its keys expire after 7 days; a person signs in with
+   * `device.signIn({ claimToken })` to keep it. Do not call this when you already have
+   * a key. Limited per client address (429 `rate_limited`).
+   *
+   * ```ts
+   * const sandbox = await new FlowMessaging().sandbox.createKey();
+   * const flow = new FlowMessaging({ apiKey: sandbox.key });
+   * ```
+   */
+  createKey(params: SandboxKeyRequest = {}, options?: RequestOptions): Promise<SandboxKey> {
+    return this.http.request({ method: "POST", path: "/v1/sandbox/keys", body: params, options, auth: false });
+  }
+}
+
+export interface DeviceAuthorizeParams {
+  /** The `claim_token` from `sandbox.createKey`, to claim that app when the person approves. */
+  claimToken?: string;
+  /** What is asking, shown on the approval page ("flow CLI", "Claude Code"). */
+  clientName?: string;
+  /** `false` never sends this client's key, even without `claimToken` (default `true`). */
+  useKey?: boolean;
+}
+
+export interface DeviceWaitOptions {
+  /** Seconds between polls, from the authorization (default 5). */
+  interval?: number;
+  /** When the codes expire, from the authorization; polling stops then. */
+  expiresAt?: string;
+  signal?: AbortSignal;
+  /** Waits between polls (default: a timer). Tests pass their own. */
+  wait?: (ms: number, signal?: AbortSignal) => Promise<void>;
+}
+
+export interface DeviceSignInParams extends DeviceAuthorizeParams, Omit<DeviceWaitOptions, "interval" | "expiresAt"> {
+  /**
+   * Shows the person `verification_uri_complete` (or `verification_uri` and
+   * `user_code`); called once, before the first poll. Never show `device_code`.
+   */
+  prompt: (authorization: DeviceAuthorization) => void | Promise<void>;
+}
+
+/** Transient poll failures in a row before `waitForKey` gives up. */
+const MAX_POLL_FAILURES = 5;
+
+/**
+ * Sign-in from an agent or CLI (the device flow): a person approves in a browser with
+ * GitHub or Google, and the agent receives a key. Needs no API key.
+ */
+export class Device {
+  constructor(private readonly http: HttpClient) {}
+
+  /**
+   * Starts a sign-in. With `claimToken` (or, without one, when this client holds a
+   * `fk_test_` key, sent as the bearer) the person's approval claims that sandbox app:
+   * its data and keys are kept, its keys stop expiring, its allowance becomes 3
+   * contacts and 100 messages each.
+   */
+  authorize(params: DeviceAuthorizeParams = {}, options?: RequestOptions): Promise<DeviceAuthorization> {
+    const body: Record<string, string> = {};
+    if (params.claimToken) body.claim_token = params.claimToken;
+    if (params.clientName) body.client_name = params.clientName;
+    const bearer = !params.claimToken && params.useKey !== false && this.http.testMode;
+    return this.http.request({ method: "POST", path: "/v1/device/authorizations", body, options, auth: bearer });
+  }
+
+  /** One poll of a sign-in: `pending`, `approved` (with `key`), `denied` or `expired`. */
+  poll(deviceCode: string, options?: RequestOptions): Promise<DeviceToken> {
+    return this.http.request({ method: "POST", path: "/v1/device/token", body: { device_code: deviceCode }, options, auth: false });
+  }
+
+  /**
+   * Polls a started sign-in until the person approves, every `interval` seconds; a 429
+   * (`rate_limited`) slows it down by 5 seconds and waits at least its `retry_after`.
+   * Resolves with the approved `DeviceToken` (its `key` is shown once); throws a
+   * `DeviceSignInError` when the person refuses or the codes expire.
+   */
+  async waitForKey(deviceCode: string, o: DeviceWaitOptions = {}): Promise<DeviceToken> {
+    const wait = o.wait ?? sleep;
+    const deadline = o.expiresAt ? Date.parse(o.expiresAt) : NaN;
+    let interval = Math.max(1, o.interval ?? 5) * 1000;
+    let next = interval;
+    let failures = 0;
+    for (;;) {
+      await wait(next, o.signal);
+      next = interval;
+      let t: DeviceToken;
+      try {
+        t = await this.poll(deviceCode, { maxRetries: 0, signal: o.signal });
+      } catch (e) {
+        if (e instanceof RateLimitError) {
+          interval += 5000;
+          next = Math.max(interval, (e.retryAfter ?? 0) * 1000);
+          continue;
+        }
+        const transient = e instanceof APIConnectionError || e instanceof APITimeoutError || e instanceof APIError;
+        if (!transient || ++failures >= MAX_POLL_FAILURES) throw e;
+        continue;
+      }
+      failures = 0;
+      switch (t.status) {
+        case "approved":
+          return t;
+        case "denied":
+          throw new DeviceSignInError("denied");
+        case "expired":
+          throw new DeviceSignInError("expired");
+      }
+      interval = Math.max(interval, t.interval * 1000);
+      next = interval;
+      if (Date.now() >= deadline) throw new DeviceSignInError("expired");
+    }
+  }
+
+  /**
+   * Runs the whole sign-in: starts it, calls `prompt` with the link and code, and polls
+   * until the person approves. Store the answer's `key` in place of the sandbox key.
+   *
+   * ```ts
+   * const flow = new FlowMessaging({ apiKey: process.env.FLOW_MESSAGING_KEY });
+   * const token = await flow.device.signIn({
+   *   claimToken: process.env.FLOW_CLAIM_TOKEN,
+   *   prompt: (a) => console.log(`Open ${a.verification_uri_complete} and check the code ${a.user_code}`),
+   * });
+   * // save token.key as FLOW_MESSAGING_KEY; FLOW_CLAIM_TOKEN is used up
+   * ```
+   */
+  async signIn(params: DeviceSignInParams): Promise<DeviceToken> {
+    const auth = await this.authorize(
+      { claimToken: params.claimToken, clientName: params.clientName, useKey: params.useKey },
+      { signal: params.signal },
+    );
+    await params.prompt(auth);
+    return this.waitForKey(auth.device_code, {
+      interval: auth.interval,
+      expiresAt: auth.expires_at,
+      signal: params.signal,
+      wait: params.wait,
+    });
   }
 }
 

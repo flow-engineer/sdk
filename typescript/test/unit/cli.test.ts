@@ -5,15 +5,15 @@ import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { installAgentsSnippet, installClaudeMcp, installCodexMcp, installSkill } from "../../src/cli/agentfiles.js";
-import { deviceLogin } from "../../src/cli/device.js";
+import { login } from "../../src/cli/device.js";
 import { envValue, ignoreDotenv, parseDotenv, setDotenv } from "../../src/cli/env.js";
 import { init, type InitOptions } from "../../src/cli/init.js";
 import { forwardEvent, readReply } from "../../src/cli/listen.js";
 import { runBridge } from "../../src/cli/mcp.js";
 import { FlowMessaging, toFlowEvent, verifySignature } from "../../src/index.js";
-import { ids, json, message, mockFetch, receivedEvent } from "../helpers.js";
+import { approvedToken, deviceAuthorization, ids, json, message, mockFetch, receivedEvent, sandboxKey } from "../helpers.js";
 
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), "flow-cli-"));
 const pluginDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../plugin");
@@ -154,30 +154,114 @@ describe("init", () => {
   });
 });
 
-describe("device sign-in (not available yet)", () => {
-  it("polls until the key is granted, slowing down when asked", async () => {
+// init without a key and login read FLOW_* from the environment before .env: these
+// tests clear them for their run (vitest runs a file's tests one at a time).
+const FLOW_VARS = ["FLOW_MESSAGING_KEY", "FLOW_CLAIM_TOKEN", "FLOW_DEVICE_CODE", "FLOW_DEVICE_URL"];
+function clearFlowEnv() {
+  const saved: Record<string, string | undefined> = {};
+  beforeAll(() => {
+    for (const k of FLOW_VARS) {
+      saved[k] = process.env[k];
+      delete process.env[k];
+    }
+  });
+  afterAll(() => {
+    for (const k of FLOW_VARS) if (saved[k] !== undefined) process.env[k] = saved[k];
+  });
+}
+
+describe("init without a key", () => {
+  clearFlowEnv();
+
+  it("gets a sandbox key, saves it and the claim token, and shows the sandbox, the allowance and login", async () => {
+    const { fetch, calls } = mockFetch((req) => (req.method === "POST" && req.url.pathname === "/v1/sandbox/keys" ? json(201, sandboxKey()) : undefined));
+    const dir = tmp();
+    const lines: string[] = [];
+    await init({ dir, name: "Demo", fetch, baseURL: "https://api.test", agentFiles: false, mcp: false, codex: false, print: (l) => lines.push(l) });
+    const out = lines.join("\n");
+    expect(parseDotenv(readFileSync(path.join(dir, ".env"), "utf8"))).toEqual({ FLOW_MESSAGING_KEY: "fk_test_unitsandbox", FLOW_CLAIM_TOKEN: "fct_unitclaim" });
+    expect(readFileSync(path.join(dir, ".gitignore"), "utf8")).toContain(".env");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.headers.authorization).toBeUndefined();
+    expect(calls[0]!.body).toEqual({ name: "Demo" });
+    expect(out).toMatch(/telegram\s+https:\/\/t\.me\/FlowSandboxBot\?start=wild-otter-04508705\s+open it and tap Start/);
+    expect(out).toContain("1 contact (0 joined), 50 of 50 messages left");
+    expect(out).toContain("expire 2026-11-08T00:00:00Z");
+    expect(out).toContain("npx @flow-engineer/messaging login");
+    expect(out).not.toContain("fct_unitclaim");
+    expect(out).not.toContain("fk_test_unitsandbox");
+  });
+});
+
+describe("login", () => {
+  clearFlowEnv();
+
+  function project() {
+    const dir = tmp();
+    writeFileSync(path.join(dir, ".env"), "OTHER=x\nFLOW_MESSAGING_KEY=fk_test_unitsandbox\nFLOW_CLAIM_TOKEN=fct_unitclaim\n");
+    return dir;
+  }
+
+  it("claims the app with the claim token, polls, and replaces the key in .env", async () => {
     let polls = 0;
     const { fetch, calls } = mockFetch((req) => {
-      if (req.url.pathname.endsWith("/code")) {
-        return json(200, { device_code: "dc", user_code: "ABCD-EFGH", verification_uri: "https://flow.engineer/device", expires_in: 600, interval: 1 });
-      }
+      if (req.url.pathname === "/v1/device/authorizations") return json(201, deviceAuthorization(2));
       polls++;
-      if (polls === 1) return json(400, { error: "authorization_pending" });
-      if (polls === 2) return json(400, { error: "slow_down" });
-      return json(200, { api_key: "fk_test_example", app: "app_1" });
+      return polls < 2 ? json(200, { status: "pending", interval: 2 }) : json(200, approvedToken());
     });
+    const dir = project();
+    const lines: string[] = [];
+    const opened: string[] = [];
     const waits: number[] = [];
-    const shown: string[] = [];
-    const out = await deviceLogin({ authUrl: "https://auth.test/device", fetch, prompt: (c) => shown.push(c.user_code), wait: async (ms) => void waits.push(ms) });
-    expect(out.apiKey).toBe("fk_test_example");
-    expect(shown).toEqual(["ABCD-EFGH"]);
-    expect(waits).toEqual([1000, 1000, 6000]);
-    expect(calls[1]!.body).toMatchObject({ grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: "dc" });
+    const r = await login({
+      dir,
+      fetch,
+      baseURL: "https://api.flow.engineer",
+      wait: true,
+      browser: true,
+      print: (l) => lines.push(l),
+      open: (u) => opened.push(u),
+      sleep: async (ms) => void waits.push(ms),
+    });
+    expect(r).toBe("signed_in");
+    expect(calls[0]!.body).toEqual({ claim_token: "fct_unitclaim", client_name: "flow CLI" });
+    expect(calls.every((c) => c.headers.authorization === undefined)).toBe(true);
+    expect(opened).toEqual(["https://api.flow.engineer/admin/device?code=WDJB-MJHT"]);
+    expect(waits).toEqual([2000, 2000]);
+    expect(parseDotenv(readFileSync(path.join(dir, ".env"), "utf8"))).toEqual({ OTHER: "x", FLOW_MESSAGING_KEY: "fk_test_unitsignedin" });
+    const out = lines.join("\n");
+    expect(out).toContain("WDJB-MJHT");
+    expect(out).toContain('Claimed "My agent"');
+    expect(out).toContain("https://api.flow.engineer/admin");
+    expect(out).not.toContain("fdc_unitdevice");
   });
 
-  it("says so when sign-in is not available", async () => {
-    const { fetch } = mockFetch(() => json(404, {}));
-    await expect(deviceLogin({ authUrl: "https://auth.test/device", fetch })).rejects.toThrow(/--key/);
+  it("with --no-wait prints the link and exits, and a second run collects the key", async () => {
+    let approved = false;
+    const { fetch, calls } = mockFetch((req) => {
+      if (req.url.pathname === "/v1/device/authorizations") return json(201, deviceAuthorization());
+      return approved ? json(200, approvedToken()) : json(200, { status: "pending", interval: 5 });
+    });
+    const dir = project();
+    const lines: string[] = [];
+    const base = { dir, fetch, baseURL: "https://api.flow.engineer", wait: false, browser: false, print: (l: string) => lines.push(l), sleep: async () => undefined };
+    expect(await login(base)).toBe("pending");
+    expect(parseDotenv(readFileSync(path.join(dir, ".env"), "utf8")).FLOW_DEVICE_CODE).toBe("fdc_unitdevice");
+    expect(lines.join("\n")).toContain("run `npx @flow-engineer/messaging login` again");
+
+    expect(await login(base)).toBe("pending"); // not approved yet: same sign-in, no new one
+    expect(calls.filter((c) => c.url.pathname === "/v1/device/authorizations")).toHaveLength(1);
+
+    approved = true;
+    expect(await login(base)).toBe("signed_in");
+    expect(parseDotenv(readFileSync(path.join(dir, ".env"), "utf8"))).toEqual({ OTHER: "x", FLOW_MESSAGING_KEY: "fk_test_unitsignedin" });
+  });
+
+  it("starts again when the person refused, and says so", async () => {
+    const { fetch } = mockFetch((req) => (req.url.pathname === "/v1/device/authorizations" ? json(201, deviceAuthorization()) : json(200, { status: "denied", interval: 5 })));
+    const dir = project();
+    await expect(login({ dir, fetch, wait: true, browser: false, print: () => undefined, sleep: async () => undefined })).rejects.toThrow(/refused.*login/);
+    expect(parseDotenv(readFileSync(path.join(dir, ".env"), "utf8")).FLOW_DEVICE_CODE).toBeUndefined();
   });
 });
 

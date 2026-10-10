@@ -180,6 +180,7 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
   }
 
   private async run(): Promise<void> {
+    this.flow.http.requireKey();
     const mode = this.params.transport ?? "auto";
     const WS = mode === "poll" ? undefined : await webSocketRuntime();
     if (!WS) {
