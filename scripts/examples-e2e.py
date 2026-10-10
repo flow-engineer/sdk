@@ -2,8 +2,8 @@
 """Runs each example in examples/ against a local Flow Messaging service and checks
 what it does, playing the Telegram user through the Telegram simulator's /_sim/ API.
 
-scripts/check-examples.sh --e2e starts the service and calls this; it is not meant
-to be run by hand. Standard library only. Keys are never printed.
+scripts/check-examples.sh --e2e starts the service (the service checkout's
+scripts/local-stack.sh) and calls this; it is not meant to be run by hand. Standard library only. Keys are never printed.
 
 Environment (set by check-examples.sh):
   E2E_API              the service's base URL
