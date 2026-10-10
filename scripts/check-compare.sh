@@ -4,6 +4,7 @@
 #   scripts/check-compare.sh           offline checks (run by scripts/local-checks.sh)
 #   scripts/check-compare.sh --fetch   also re-fetches every source URL and flags dead ones
 #   MAX_AGE_DAYS=90                    how old a claim's `checked` date may be (default 90)
+#   WARN_DAYS=14                       warn this many days before a claim expires (default 14)
 #
 # Offline, it fails when:
 #   - a claim in docs/compare/claims.yaml lacks id, claim, source, checked or pages,
@@ -13,6 +14,8 @@
 #   - a page listed in a claim's `pages` does not exist, does not mark the claim with
 #     {/* claim: <id> */}, or does not link the claim's source URL;
 #   - a page marks a claim id that claims.yaml does not have.
+# It warns (without failing) when a claim expires within WARN_DAYS, so a re-check can be
+# planned before local checks start failing.
 # With --fetch it also fails on a source that answers 404 or 410, and warns on other
 # non-2xx answers (some sites refuse scripted requests; check those by hand).
 #
@@ -24,12 +27,17 @@ cd "$(dirname "$0")/.."
 
 claims=docs/compare/claims.yaml
 max_age=${MAX_AGE_DAYS:-90}
+warn_days=${WARN_DAYS:-14}
 fetch=0
 [ "${1:-}" = "--fetch" ] && fetch=1
 
-if cutoff=$(date -v-"${max_age}"d +%F 2>/dev/null); then :; else
-  cutoff=$(date -d "${max_age} days ago" +%F)
-fi
+# days_ago N: the date N days before today (BSD date on macOS, GNU date elsewhere).
+days_ago() { date -v-"$1"d +%F 2>/dev/null || date -d "$1 days ago" +%F; }
+# expiry DATE: the date a claim checked on DATE expires.
+expiry() { date -j -v+"${max_age}"d -f %F "$1" +%F 2>/dev/null || date -d "$1 + ${max_age} days" +%F; }
+cutoff=$(days_ago "$max_age")
+warn_age=$((max_age > warn_days ? max_age - warn_days : 0))
+warn_cutoff=$(days_ago "$warn_age")
 
 # One line per claim: id<TAB>source<TAB>checked<TAB>pages(space separated)<TAB>has_claim_text
 rows=$(awk '
@@ -63,6 +71,8 @@ while IFS=$'\t' read -r id src chk pages txt; do
     err "$id: checked must be YYYY-MM-DD (got '$chk')"
   elif [[ "$chk" < "$cutoff" ]]; then
     err "$id: last checked $chk, more than $max_age days ago; re-verify it at $src"
+  elif [[ "$chk" < "$warn_cutoff" ]]; then
+    echo "check-compare: warning: $id expires on $(expiry "$chk") (checked $chk); re-verify it at $src" >&2
   fi
   [ -n "$pages" ] || err "$id: no pages"
   for p in $pages; do
