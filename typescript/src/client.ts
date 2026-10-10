@@ -5,9 +5,11 @@ import {
   Capabilities_,
   Contacts,
   Conversations,
+  Device,
   EventLog,
   Files,
   Messages,
+  Sandbox,
   Senders,
   Templates,
   WebhookEndpoints,
@@ -46,6 +48,7 @@ export class Events extends EventLog {
  * ```ts
  * import { FlowMessaging } from "@flow-engineer/messaging";
  * const flow = new FlowMessaging(); // reads FLOW_MESSAGING_KEY
+ * // No key yet? `await flow.sandbox.createKey()` makes one, no account needed.
  * for await (const event of flow.events.stream({ types: ["message.received"] })) {
  *   await event.conversation.reply("Hello from my agent");
  * }
@@ -64,6 +67,10 @@ export class FlowMessaging {
   readonly webhookEndpoints: WebhookEndpoints;
   readonly contacts: Contacts;
   readonly app: AppResource;
+  /** Test keys without an account (`createKey`); needs no API key. */
+  readonly sandbox: Sandbox;
+  /** Sign-in from an agent or CLI that claims a sandbox app (`signIn`); needs no API key. */
+  readonly device: Device;
   /** Verify deliveries (`constructEvent`), build replies, or get a ready `handler`. */
   readonly webhooks: Webhooks;
 
@@ -79,6 +86,8 @@ export class FlowMessaging {
     this.webhookEndpoints = new WebhookEndpoints(this.http);
     this.contacts = new Contacts(this.http);
     this.app = new AppResource(this.http);
+    this.sandbox = new Sandbox(this.http);
+    this.device = new Device(this.http);
     this.webhooks = new Webhooks(this);
   }
 

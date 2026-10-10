@@ -64,3 +64,14 @@ export function ignoreDotenv(dir: string): boolean {
   writeFileSync(file, `${text}${prefix}.env\n`);
   return true;
 }
+
+/** Removes KEY=... lines from a .env file. Returns whether one was there. */
+export function unsetDotenv(file: string, key: string): boolean {
+  if (!existsSync(file)) return false;
+  const lines = readFileSync(file, "utf8").split("\n");
+  const re = new RegExp(`^\\s*(?:export\\s+)?${key}\\s*=`);
+  const kept = lines.filter((l) => !re.test(l));
+  if (kept.length === lines.length) return false;
+  writeFileSync(file, kept.join("\n"), { mode: 0o600 });
+  return true;
+}

@@ -71,3 +71,74 @@ export async function* chunks<T>(items: T[]): AsyncGenerator<T> {
     yield i;
   }
 }
+
+export function allowance(tier: "anonymous" | "signed_in") {
+  const anon = tier === "anonymous";
+  return {
+    tier,
+    channels: ["telegram", "whatsapp"],
+    contacts: { limit: anon ? 1 : 3, used: 0 },
+    messages_per_contact: anon ? 50 : 100,
+    messages: { limit: anon ? 50 : 300, used: 0, remaining: anon ? 50 : 300 },
+    ...(anon ? { expires_at: "2026-11-08T00:00:00Z" } : {}),
+    upgrade: anon ? "Sign in with npx @flow-engineer/messaging login to keep this app." : "Ask the Flow team for more.",
+  };
+}
+
+const app = {
+  id: "app_01JB8Z0A1C3E5G7J9K1M3P5R7T",
+  account: "acct_01JB8Z0A1C3E5G7J9K1M3P5R7V",
+  name: "Sandbox app",
+  api_version: "2026-11-01",
+  settings: {},
+  sandbox_join_code: "wild-otter-04508705",
+  created_at: "2026-11-01T00:00:00Z",
+};
+
+/** A POST /v1/sandbox/keys answer, with placeholder secrets. */
+export function sandboxKey() {
+  return {
+    key: "fk_test_unitsandbox",
+    api_key: { id: "key_01JB8Z0A1C3E5G7J9K1M3P5R7W", mode: "test", last4: "dbox", created_at: "2026-11-01T00:00:00Z", expires_at: "2026-11-08T00:00:00Z" },
+    account: { id: app.account, name: "Sandbox", plan: "free", created_at: "2026-11-01T00:00:00Z" },
+    app,
+    allowance: allowance("anonymous"),
+    claim_token: "fct_unitclaim",
+    claim_url: "https://api.flow.engineer/admin/claim#token=fct_unitclaim",
+    senders: [
+      {
+        id: "snd_1",
+        kind: "shared",
+        channel: "telegram",
+        join_code: "join wild-otter-04508705",
+        address: { username: "FlowSandboxBot", link: "https://t.me/FlowSandboxBot?start=wild-otter-04508705" },
+      },
+    ],
+  };
+}
+
+/** A POST /v1/device/authorizations answer. */
+export function deviceAuthorization(interval = 5) {
+  return {
+    device_code: "fdc_unitdevice",
+    user_code: "WDJB-MJHT",
+    verification_uri: "https://api.flow.engineer/admin/device",
+    verification_uri_complete: "https://api.flow.engineer/admin/device?code=WDJB-MJHT",
+    expires_in: 900,
+    expires_at: "2999-01-01T00:00:00Z",
+    interval,
+  };
+}
+
+/** A POST /v1/device/token answer that carries a new key. */
+export function approvedToken(claimed = true) {
+  return {
+    status: "approved",
+    interval: 5,
+    key: "fk_test_unitsignedin",
+    app: { ...app, name: "My agent" },
+    claimed,
+    allowance: allowance("signed_in"),
+    user: { name: "octocat", provider: "github" },
+  };
+}

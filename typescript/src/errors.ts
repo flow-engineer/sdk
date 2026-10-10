@@ -15,7 +15,7 @@ import type { ErrorBody, ErrorType } from "./types.js";
 export class FlowError extends Error {
   override name = "FlowError";
   /** The API's error type, or `connection_error` / `timeout` / `signature_verification` for errors raised in the SDK. */
-  readonly type: ErrorType | "connection_error" | "timeout" | "signature_verification";
+  readonly type: ErrorType | "connection_error" | "timeout" | "signature_verification" | "device_sign_in";
   /** The HTTP status, when the error came from an answer. */
   readonly status: number | undefined;
   /** The request parameter the error is about (`content.buttons`, `limit`). */
@@ -71,11 +71,20 @@ export class FlowError extends Error {
 export class InvalidRequestError extends FlowError {
   override name = "InvalidRequestError";
 }
-/** 401 `authentication`: the API key is missing, unknown or revoked. */
+/**
+ * 401 `authentication`: the API key is missing, unknown, revoked or expired. A key from
+ * `sandbox.createKey` past its `expires_at` has `channelCode` `sandbox_key_expired`:
+ * sign in (`device.signIn`, or `npx @flow-engineer/messaging login`) or get a new key.
+ */
 export class AuthenticationError extends FlowError {
   override name = "AuthenticationError";
 }
-/** 403 `permission`: the key may not do this (for example a test key using a live sender). */
+/**
+ * 403 `permission`: the key may not do this (for example a test key using a live sender).
+ * Past the sandbox allowance `channelCode` is `sandbox_allowance_used` (also
+ * `sandbox_contact_limit`, `sandbox_channel_not_included`, `sign_in_required`): sign in
+ * to lift it (`device.signIn`, or `npx @flow-engineer/messaging login`).
+ */
 export class PermissionError extends FlowError {
   override name = "PermissionError";
 }
@@ -134,6 +143,24 @@ export class APITimeoutError extends FlowError {
 /** A webhook's `Flow-Signature` did not match, or its timestamp is outside the tolerance. Answer 400. */
 export class WebhookSignatureError extends FlowError {
   override name = "WebhookSignatureError";
+}
+
+/**
+ * A device sign-in ended without a key: the person refused (`reason` `denied`), or the
+ * codes ran out or were already used (`expired`). Start again with `device.signIn`.
+ */
+export class DeviceSignInError extends FlowError {
+  override name = "DeviceSignInError";
+  readonly reason: "denied" | "expired";
+  constructor(reason: "denied" | "expired") {
+    super(
+      reason === "denied"
+        ? "The sign-in was refused in the browser."
+        : "The sign-in codes expired or were already used. Start the sign-in again.",
+      { type: "device_sign_in" },
+    );
+    this.reason = reason;
+  }
 }
 
 const byType: Record<ErrorType, typeof FlowError> = {
