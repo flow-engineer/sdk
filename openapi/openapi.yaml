@@ -77,14 +77,14 @@ info:
       "type": "outside_window",
       "message": "Last message from the contact was 31h ago; WhatsApp allows only templates now.",
       "hint": "Send a template instead: POST /v1/messages with content.type=template.",
-      "doc_url": "https://docs.flow.engineer/errors/outside_window",
+      "doc_url": "https://api.flow.engineer/docs/errors/outside_window",
       "conversation": "conv_01JB..."}}
     ```
 
     `error.type` is a closed list (see the `ErrorType` schema); switch on it, not on
     the message text. Every error carries `hint`, one sentence saying what to change
     for this case, and `doc_url`, the page for its type
-    (`https://docs.flow.engineer/errors/<type>`: what it means, why it happens, how
+    (`https://api.flow.engineer/docs/errors/<type>`: what it means, why it happens, how
     to fix it, with code). Errors that can be retried carry `retry_after` in seconds.
     Coding agents can act on `hint` directly; the MCP tool `explain_error` returns
     the page for a type.
@@ -124,7 +124,7 @@ info:
       with `outside_window`.
     - **Telegram**: the contact must have started the bot; Telegram enforces this.
     - **Sandbox senders**: only contacts who joined through your app (by sending its
-      join code, for example `join brave-otter`).
+      join code, for example `join brave-otter-40718263`).
 
     Starting a conversation spends budget per sender (new contacts per day and per
     hour, with a warm-up curve for new lines) and per plan. When abuse signals trip
@@ -163,6 +163,7 @@ info:
     event with `200` and a body `{"reply": <content>}` or `{"reply": [<content>, ...]}`
     (up to 10 pieces), optionally with `fallback` as on HTTP sends; the reply is sent
     into the event's conversation through the send gate, which saves a round trip.
+    A string is text: `{"reply": "Hi"}` sends `{"type": "text", "text": "Hi"}`.
     Any other `2xx` answer (an empty body, plain text such as `OK`, or JSON without
     `reply`) sends nothing and is not an error. A JSON object whose `reply` is not
     valid `WebhookReply` content, or a body that starts with `{` but is not valid
@@ -953,8 +954,8 @@ paths:
         Asks Flow for a dedicated sender: a branded WhatsApp number, an iMessage line
         or a Telegram bot. Flow provisions it; the sender starts as `pending` and you
         receive `sender.status_changed` when it is ready. WhatsApp numbers also need
-        your business verified through Meta's Embedded Signup, linked from the
-        dashboard. Live keys only.
+        your business verified through Meta's Embedded Signup; the Flow team sends
+        you the link. Live keys only.
 
         A Telegram bot is connected at once: give the token BotFather issued as
         `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
@@ -1480,6 +1481,10 @@ webhooks:
                   summary: A text reply
                   value:
                     reply: {type: text, text: "Yes, we deliver to 560103."}
+                string_reply:
+                  summary: A text reply given as a string
+                  value:
+                    reply: "Yes, we deliver to 560103."
                 no_reply:
                   summary: No reply now
                   value: {}
@@ -1634,7 +1639,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            error: {type: invalid_request, message: "limit must be between 1 and 100.", hint: "Pass limit between 1 and 100 (default 20), and page with after or before.", doc_url: "https://docs.flow.engineer/errors/invalid_request", param: limit}
+            error: {type: invalid_request, message: "limit must be between 1 and 100.", hint: "Pass limit between 1 and 100 (default 20), and page with after or before.", doc_url: "https://api.flow.engineer/docs/errors/invalid_request", param: limit}
     Unauthenticated:
       description: The API key is missing, malformed, unknown or revoked (`authentication`).
       content:
@@ -1642,7 +1647,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            error: {type: authentication, message: "No valid API key was given.", hint: "Send the header Authorization: Bearer fk_test_... (or fk_live_...) with a key from your dashboard.", doc_url: "https://docs.flow.engineer/errors/authentication"}
+            error: {type: authentication, message: "No valid API key was given.", hint: "Send the header Authorization: Bearer fk_test_... (or fk_live_...) with a key from your dashboard.", doc_url: "https://api.flow.engineer/docs/errors/authentication"}
     PermissionDenied:
       description: The key may not do this, for example a test key using a live sender (`permission`).
       content:
@@ -1667,7 +1672,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            error: {type: outside_window, message: "Last message from the contact was 31h ago; WhatsApp allows only templates now.", hint: "Send a template instead: POST /v1/messages with content.type=template.", doc_url: "https://docs.flow.engineer/errors/outside_window", conversation: conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1}
+            error: {type: outside_window, message: "Last message from the contact was 31h ago; WhatsApp allows only templates now.", hint: "Send a template instead: POST /v1/messages with content.type=template.", doc_url: "https://api.flow.engineer/docs/errors/outside_window", conversation: conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1}
     UnsupportedContent:
       description: The channel cannot show this content and the request set no `fallback` (`unsupported_content`).
       content:
@@ -1675,7 +1680,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            error: {type: unsupported_content, message: "iMessage cannot show buttons.", hint: "Set \"fallback\": \"auto\" to send numbered text instead, or send text.", doc_url: "https://docs.flow.engineer/errors/unsupported_content", param: content.type}
+            error: {type: unsupported_content, message: "iMessage cannot show buttons.", hint: "Set \"fallback\": \"auto\" to send numbered text instead, or send text.", doc_url: "https://api.flow.engineer/docs/errors/unsupported_content", param: content.type}
     ChannelError:
       description: |
         The channel refused the call, failed or timed out (`channel_error`).
@@ -1685,7 +1690,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            error: {type: channel_error, message: "The channel refused: the request timed out.", hint: "Typing and read receipts are safe to ignore; carry on and send your reply.", doc_url: "https://docs.flow.engineer/errors/channel_error", conversation: conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1}
+            error: {type: channel_error, message: "The channel refused: the request timed out.", hint: "Typing and read receipts are safe to ignore; carry on and send your reply.", doc_url: "https://api.flow.engineer/docs/errors/channel_error", conversation: conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1}
     RateLimited:
       description: |
         Too many requests (`rate_limited`): either this key's request limit (see the
@@ -1708,7 +1713,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
           example:
-            error: {type: new_contact_limit, message: "This sender has started its 15 new conversations for today.", hint: "Retry after 3600 seconds; replies into existing conversations still go.", doc_url: "https://docs.flow.engineer/errors/new_contact_limit", retry_after: 3600, sender: snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T}
+            error: {type: new_contact_limit, message: "This sender has started its 15 new conversations for today.", hint: "Retry after 3600 seconds; replies into existing conversations still go.", doc_url: "https://api.flow.engineer/docs/errors/new_contact_limit", retry_after: 3600, sender: snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T}
 
   schemas:
     # ---------------------------------------------------------------- IDs
@@ -1801,7 +1806,7 @@ components:
       type: string
       description: |
         What went wrong. A closed list: new types arrive only with a new API version.
-        Each type has a page at `https://docs.flow.engineer/errors/<type>`, given in
+        Each type has a page at `https://api.flow.engineer/docs/errors/<type>`, given in
         the error's `doc_url`; the error's `hint` says what to change for the case.
 
         - `invalid_request` (400): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like.
@@ -1854,8 +1859,8 @@ components:
         doc_url:
           type: string
           format: uri
-          description: The documentation page for this error's type, `https://docs.flow.engineer/errors/<type>`. It says what the error means, why it happens and how to fix it, with code.
-          examples: ["https://docs.flow.engineer/errors/outside_window"]
+          description: The documentation page for this error's type, `https://api.flow.engineer/docs/errors/<type>`. It says what the error means, why it happens and how to fix it, with code.
+          examples: ["https://api.flow.engineer/docs/errors/outside_window"]
         param:
           type: string
           description: The request parameter the error is about, as a dotted path (`content.buttons`, `limit`).
@@ -1911,7 +1916,7 @@ components:
           $ref: "#/components/schemas/AccountId"
         name:
           type: string
-          description: The app's name, shown in the dashboard.
+          description: The app's name.
         api_version:
           type: string
           format: date
@@ -1920,14 +1925,16 @@ components:
           $ref: "#/components/schemas/AppSettings"
         sandbox_join_code:
           type: string
-          description: The code a contact sends to a shared sandbox sender to join this app, for example `join brave-otter`.
+          description: |
+            The app's sandbox join code on its own, without the word `join`: two words and eight digits, for example `brave-otter-40718263`. A contact joins this app by sending `join ` followed by it to a shared sandbox sender (`join brave-otter-40718263`); each shared sender's `join_code` gives that whole message.
+          examples: ["brave-otter-40718263"]
         created_at:
           type: string
           format: date-time
           description: When the app was created.
     AppSettings:
       type: object
-      description: Per-app behaviour, set in the dashboard.
+      description: Per-app behaviour. The Flow team sets it for now; ask them to change it.
       required: [transcription, auto_read]
       properties:
         transcription:
@@ -2009,7 +2016,9 @@ components:
           enum: [green, yellow, red, unknown]
         join_code:
           type: string
-          description: Shared senders only. What a contact sends to join your app, for example `join brave-otter`.
+          description: |
+            Shared senders only. The whole message a contact sends to this sender to join your app: `join `, a space, then the app's `sandbox_join_code` (from `GET /v1/app`), for example `join brave-otter-40718263`. Show it to testers as is.
+          examples: ["join brave-otter-40718263"]
         created_at:
           type: string
           format: date-time
@@ -3689,7 +3698,9 @@ components:
       description: |
         The optional body of your answer to a `message.received` delivery. `reply` is
         one piece of content or a list of up to 10, sent in order into the event's
-        conversation through the send gate. Leave `reply` out, set it to `null`, or
+        conversation through the send gate. A non-empty string, as `reply` or as an
+        item of the list, is text: `{"reply": "Hi"}` is short for
+        `{"reply": {"type": "text", "text": "Hi"}}`. Leave `reply` out, set it to `null`, or
         answer `{}`, an empty body or any body that is not a JSON object (such as
         `OK`) to send nothing now; that is not an error.
 
@@ -3699,14 +3710,21 @@ components:
         with the reason; the delivery counts as delivered and is not retried.
       properties:
         reply:
-          description: One piece of content, or a list of 1 to 10 pieces sent in order. `null` sends nothing.
+          description: One piece of content, or a list of 1 to 10 pieces sent in order. A non-empty string is text content. `null` sends nothing.
           oneOf:
             - $ref: "#/components/schemas/Content"
+            - type: string
+              minLength: 1
+              description: "Text to send, as `{\"type\": \"text\", \"text\": \"...\"}`."
             - type: array
               minItems: 1
               maxItems: 10
               items:
-                $ref: "#/components/schemas/Content"
+                oneOf:
+                  - $ref: "#/components/schemas/Content"
+                  - type: string
+                    minLength: 1
+                    description: "Text to send, as `{\"type\": \"text\", \"text\": \"...\"}`."
             - type: "null"
         fallback:
           $ref: "#/components/schemas/Fallback"

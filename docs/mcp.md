@@ -83,9 +83,9 @@ who has not joined your app's sandbox.
 | Tool | What it does |
 | --- | --- |
 | `whoami` | The app, account and mode behind the key, its senders and webhook endpoints, and a `cursor` for `wait_for_event`. |
-| `sandbox_join` | Your join code, a link per channel that opens the chat with `join <code>` filled in, a QR code (as text, SVG and PNG), and who has joined. |
+| `sandbox_join` | Your join code, a link per channel that opens the chat with `join <code>` filled in, and who has joined. Pass `include_qr: true` to add a QR code (as text, SVG and PNG). |
 | `send_test_message` | Sends text or any content to someone who joined, through the real send gate. With one joined person it needs only `text`. |
-| `wait_for_event` | Waits up to 120 seconds for an event (filter by `types` and `conversation`) and returns it the moment it lands. |
+| `wait_for_event` | Waits up to 50 seconds (default 25, under the 60-second tool timeout of common MCP clients) for an event (filter by `types` and `conversation`) and returns it the moment it lands; call again with `after` set to its `next_after` to wait longer. |
 | `list_events` | Reads your app's event log, like `GET /v1/events`. |
 | `get_webhook_deliveries` | Shows each delivery to your webhook: the request Flow sent, your status code and the start of your answer, the error and the next retry. |
 | `replay_event` | Sends an event to your webhook again, for example after you fixed your handler. |
@@ -134,7 +134,7 @@ A refused call returns the same typed error as the REST API, as the tool's error
   "type": "unsupported_content",
   "message": "Telegram cannot show effect content (Telegram has no message effects for bots; auto sends the plain text). Set fallback to \"auto\" or to content to send instead.",
   "hint": "Add \"fallback\": \"auto\" to the request to send text content instead, or check GET /v1/capabilities first.",
-  "doc_url": "https://docs.flow.engineer/errors/unsupported_content",
+  "doc_url": "https://api.flow.engineer/docs/errors/unsupported_content",
   "param": "content.type"}}
 ```
 
