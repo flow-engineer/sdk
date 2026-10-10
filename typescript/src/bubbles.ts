@@ -13,7 +13,11 @@ import type { Channel } from "./types.js";
 export interface BubbleRules {
   /** Past this many characters a bubble ends at the next sentence end. */
   softLength: number;
-  /** No bubble is longer than this (the channel's text limit). */
+  /**
+   * No bubble is longer than this (the channel's text limit), in UTF-16 code units
+   * (JavaScript string length): Telegram counts the same way, so an emoji such as 😀
+   * is 2; on other channels it errs short.
+   */
   maxLength: number;
 }
 
@@ -109,7 +113,10 @@ export class BubbleSplitter {
     if (nl > this.rules.maxLength / 2) return nl;
     const sp = window.lastIndexOf(" ");
     if (sp > this.rules.maxLength / 2) return sp;
-    return this.rules.maxLength;
+    // Never between the two halves of a surrogate pair (an emoji such as 😀).
+    const at = this.rules.maxLength;
+    const high = s.charCodeAt(at - 1);
+    return high >= 0xd800 && high <= 0xdbff ? at - 1 : at;
   }
 
   private hardSplit(s: string): string[] {

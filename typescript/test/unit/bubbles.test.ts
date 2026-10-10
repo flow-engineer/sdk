@@ -47,6 +47,16 @@ describe("bubbles", () => {
     expect(splitIntoBubbles(code, { softLength: 50, maxLength: 100 })).toEqual(["Run this:\n\n```\na = 1\n\nb = 2\n```", "Then go."]);
   });
 
+  it("counts UTF-16 code units and never cuts an emoji in half", () => {
+    const text = "😀".repeat(150); // 300 code units, no spaces
+    const out = splitIntoBubbles(text, { softLength: 50, maxLength: 101 });
+    for (const b of out) {
+      expect(b.length).toBeLessThanOrEqual(101);
+      expect(b).toMatch(/^(?:😀)+$/u);
+    }
+    expect(out.join("")).toBe(text);
+  });
+
   it("never passes the hard limit", () => {
     const out = splitIntoBubbles("word ".repeat(300), { softLength: 50, maxLength: 100 });
     for (const b of out) expect(b.length).toBeLessThanOrEqual(100);

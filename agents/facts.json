@@ -1,5 +1,5 @@
 {
-  "$comment": "The facts the agent-facing docs state, in one place. scripts/agent-docs.mjs fills them into agents/src/ templates; the service's facts test (flow-engineer/messaging, docs/context/customer/facts_test.go) fails when one differs from its code. The API version is read from openapi/openapi.yaml, never written here.",
+  "$comment": "The facts the agent-facing docs state, in one place. scripts/agent-docs.mjs fills them into agents/src/ templates; the service's facts test (flow-engineer/messaging, docs/context/customer/facts_test.go) fails when one differs from its code. The API version is read from openapi/openapi.yaml, never written here. sdk_version, cli_tagline and sign_in are checked against the TypeScript SDK and CLI by typescript/test/unit/agent-facts.test.ts.",
   "base_url": "https://api.flow.engineer",
   "docs_url": "https://docs.flow.engineer",
   "dashboard_url": "https://api.flow.engineer/admin",
@@ -15,6 +15,11 @@
     "cli_device_url": "FLOW_DEVICE_URL"
   },
   "text_caps": { "telegram": 4096, "imessage": 9999, "whatsapp": 4096 },
+  "text_counting": { "telegram": "UTF-16 code units", "imessage": "characters", "whatsapp": "characters" },
+  "caption_cap": 1024,
+  "sign_in": "GitHub",
+  "sdk_version": "0.1.1",
+  "cli_tagline": "Telegram and iMessage (WhatsApp coming) for AI agents.",
   "allowance": {
     "anonymous": { "contacts": 1, "messages_per_contact": 50, "key_ttl_days": 7 },
     "signed_in": { "contacts": 3, "messages_per_contact": 100 },

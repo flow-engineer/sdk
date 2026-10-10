@@ -1,6 +1,6 @@
 {
   "name": "@flow-engineer/messaging",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Flow Messaging SDK: let an AI agent talk with people on WhatsApp, Telegram and iMessage through one API. Typed client, live event stream, webhook verification, LLM stream to message bubbles, and a CLI with an MCP bridge.",
   "license": "Apache-2.0",
   "homepage": "https://docs.flow.engineer",
@@ -51,6 +51,7 @@
     "dist",
     "agent-files",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {

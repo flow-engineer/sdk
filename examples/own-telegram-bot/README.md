@@ -11,7 +11,7 @@ bot's webhook at Flow, and never returns the token. No Flow SDK.
 
 This needs a **live key** (`fk_live_...`); a test key gets `403 permission`. Live
 keys for your own Telegram bot are self-serve: sign in to the dashboard at
-<https://api.flow.engineer/admin/keys?mode=live> (GitHub or Google; the link opens
+<https://api.flow.engineer/admin/keys?mode=live> (GitHub; the link opens
 the Keys page in Live mode) and click **Create live key**. If your app was made
 without an account (`POST /v1/sandbox/keys`), sign in with
 `npx @flow-engineer/messaging login` first: that claims it. Keep the live key in its

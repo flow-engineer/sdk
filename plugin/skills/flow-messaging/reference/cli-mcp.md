@@ -4,7 +4,7 @@
 npx @flow-engineer/messaging init                      # no key yet: gets a test key; .env and sandbox link; asks before skill, AGENTS.md, .mcp.json
 npx @flow-engineer/messaging init --key fk_test_...    # the same with a key you already have
 npx @flow-engineer/messaging init --yes                # the project owner: installs the agent files without asking
-npx @flow-engineer/messaging login                     # sign in (GitHub or Google) to keep the app; replaces the key in .env
+npx @flow-engineer/messaging login                     # sign in (GitHub) to keep the app; replaces the key in .env
 npx @flow-engineer/messaging login --no-wait           # agents: print the link and code and exit; run login again after approval
 npx @flow-engineer/messaging listen                    # print live events
 npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow   # signed local deliveries
@@ -27,8 +27,8 @@ conversation, like the API does for real webhooks.
 ## Sign in to keep the app
 
 A key from `init` (or `POST /v1/sandbox/keys`) allows 1 contact and 50 messages on the
-Telegram sandbox and expires after 7 days. `login` signs a person in with GitHub or
-Google (device flow) and claims the app: data and keys kept, no expiry, 3 contacts x 100
+Telegram sandbox and expires after 7 days. `login` signs a person in with GitHub
+(device flow) and claims the app: data and keys kept, no expiry, 3 contacts x 100
 messages each. It reads `FLOW_CLAIM_TOKEN` from `.env`, prints a link and a short code
 (such as `WDJB-MJHT`), opens the browser and waits; once the person approves it replaces
 `FLOW_MESSAGING_KEY` in `.env` and removes `FLOW_CLAIM_TOKEN`. `--no-browser` does not open

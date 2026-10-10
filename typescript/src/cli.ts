@@ -7,6 +7,7 @@ import { FlowMessaging } from "./client.js";
 import { MCP_URL } from "./cli/agentfiles.js";
 import { LOGIN_COMMAND, login } from "./cli/device.js";
 import { announceAPIHost, envValue, resolveBaseURL, setDotenv } from "./cli/env.js";
+import { CLI_TAGLINE, SIGN_IN } from "./cli/facts.js";
 import { KEY_HELP, init } from "./cli/init.js";
 import { listen } from "./cli/listen.js";
 import { runBridge } from "./cli/mcp.js";
@@ -14,7 +15,7 @@ import { SDK_VERSION } from "./core.js";
 import { FlowError } from "./errors.js";
 import type { EventType } from "./types.js";
 
-const HELP = `Flow Messaging CLI ${SDK_VERSION}: WhatsApp, Telegram and iMessage for AI agents.
+const HELP = `Flow Messaging CLI ${SDK_VERSION}: ${CLI_TAGLINE}
 
 Usage: npx @flow-engineer/messaging <command> [options]
 
@@ -32,7 +33,7 @@ Commands
              --no-agent-files     skip the skill and AGENTS.md
              --no-mcp             skip the MCP registration
              --no-codex           do not run \`codex mcp add\`
-  login    Sign in with GitHub or Google in the browser to keep the sandbox app
+  login    Sign in with ${SIGN_IN} in the browser to keep the sandbox app
            (claims it with FLOW_CLAIM_TOKEN: no expiry, 3 contacts x 100 messages).
            Prints a link and a code, opens the browser and waits; the new key
            replaces FLOW_MESSAGING_KEY in .env.

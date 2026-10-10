@@ -13,7 +13,7 @@ curl -X POST https://api.flow.engineer/v1/sandbox/keys
 ```
 
 It allows 1 contact and 50 messages on the Telegram sandbox for 7 days. Sign in with
-GitHub or Google (`npx @flow-engineer/messaging login`) to keep the app and send 100
+GitHub (`npx @flow-engineer/messaging login`) to keep the app and send 100
 messages to each of 3 contacts. Details: [docs/get-a-key.mdx](docs/get-a-key.mdx).
 
 ```ts
