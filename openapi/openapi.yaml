@@ -615,7 +615,8 @@ paths:
         The call goes to the channel at once, not behind the conversation's queued
         messages, so the channel's answer is the call's answer. It fails with
         `409 outside_window` when the channel allows typing only inside a window
-        (iMessage: within 5 minutes of the contact's last message), and with
+        (iMessage: within 5 minutes of the contact's last message; WhatsApp: within
+        24 hours of it, and only after the contact wrote at least once), and with
         `502 channel_error` when the channel failed or timed out. Both are safe to
         ignore: typing is a courtesy, so never hold back a reply because of it.
       parameters:
@@ -1120,11 +1121,12 @@ paths:
         and the line then appears in `GET /v1/senders`. US SMS numbers (in pilot)
         are registered and connected by the Flow team too: `channel: "sms"` answers
         `501 not_implemented`, and the number appears in `GET /v1/senders` once it is
-        connected. WhatsApp is not available
-        yet (it waits on Meta's approval), so `channel: "whatsapp"` answers `501
-        not_implemented`; once it ships, a WhatsApp number starts as `pending`, you
-        receive `sender.status_changed` when it is ready, and your business is
-        verified through Meta's Embedded Signup. Live keys only.
+        connected. WhatsApp numbers are connected by the Flow team as well, either a
+        number Flow provides or a number in your business's own WhatsApp Business
+        Account: `channel: "whatsapp"` answers `501 not_implemented`, and the number
+        appears in `GET /v1/senders` once it is connected. A number in your own
+        WhatsApp Business Account needs a payment method in WhatsApp Manager, since
+        Meta bills its fees to you directly. Live keys only.
 
         To get a live key (`fk_live_...`), a person signs in to the dashboard at
         `https://api.flow.engineer/admin` (GitHub), switches to **Live**,
@@ -1132,8 +1134,8 @@ paths:
         (`https://api.flow.engineer/admin/keys?mode=live`). An app made without an
         account (`POST /v1/sandbox/keys`) is claimed first, by signing in through the
         device flow or its `claim_url`. A test key gets `403 permission` here, with
-        a `hint` naming these steps. Telegram bots are self-serve; iMessage lines are
-        arranged with the Flow team.
+        a `hint` naming these steps. Telegram bots are self-serve; iMessage lines,
+        SMS numbers and WhatsApp numbers are arranged with the Flow team.
 
         A Telegram bot is connected at once: give the token BotFather issued as
         `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
@@ -3451,7 +3453,9 @@ components:
           `reply_to_id` and `contact_file`; on `typing` content, `typing` (how long
           to show it, 1 to 60 seconds). Reactions, read receipts, edits and unsends
           take none.
-        - **WhatsApp**: none yet; the channel is not live.
+        - **WhatsApp**: on `text` content, `preview_url` (show a link preview;
+          by default on when the text holds an http(s) link). Everything else
+          (recipient, message type, reply context) comes from the typed fields.
       examples:
         - {parse_mode: HTML, disable_notification: true}
       additionalProperties: true
