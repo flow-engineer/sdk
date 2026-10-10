@@ -1,6 +1,7 @@
 // Sign-in from the terminal with the OAuth 2.0 device authorization grant
-// (RFC 8628). PREVIEW: flow.engineer does not serve these endpoints yet; `init`
-// uses this flow only with --device. The protocol the CLI expects:
+// (RFC 8628). NOT AVAILABLE YET: flow.engineer does not serve these endpoints; keys
+// are issued by the Flow team while signup is in preview. `init` uses this flow only
+// with --device. The protocol the CLI expects:
 //
 //   POST {authUrl}/code   {"client_id":"flow-messaging-cli","scope":"messaging:test"}
 //     -> {"device_code","user_code","verification_uri","verification_uri_complete"?,
@@ -60,7 +61,9 @@ export async function deviceLogin(opts: DeviceFlowOptions = {}): Promise<{ apiKe
   const wait = opts.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const start = await post(f, `${base}/code`, { client_id: CLIENT_ID, scope: "messaging:test" });
   if (start.status !== 200 || typeof start.json.device_code !== "string") {
-    throw new Error(`Sign-in is not available at ${base} (${start.status}). Paste a key instead: init --key fk_test_...`);
+    throw new Error(
+      `Browser sign-in is not available yet (${base} answered ${start.status}). Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (fk_test_...), then run init --key fk_test_...`,
+    );
   }
   const code = start.json as unknown as DeviceCode;
   (opts.prompt ?? defaultPrompt)(code);

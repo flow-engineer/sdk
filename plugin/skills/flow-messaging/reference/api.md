@@ -6,7 +6,7 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 
 | SDK | HTTP |
 |---|---|
-| `flow.messages.send(convId, "text" \| content \| {content, fallback})` | `POST /v1/conversations/{id}/messages` |
+| `flow.messages.send(convId, "text" \| content \| {content, fallback, reply_to})` (`reply_to: "msg_..."` is an inline reply; `message.reply_to` echoes it) | `POST /v1/conversations/{id}/messages` |
 | `flow.messages.start({ sender, to: { telegram_user_id \| phone \| handle \| contact }, content })` | `POST /v1/messages` |
 | `flow.messages.retrieve(id)` · `.edit(id, "new text")` · `.unsend(id)` | `GET` · `PATCH` · `DELETE /v1/messages/{id}` |
 | `flow.conversations.list()` · `.retrieve(id)` · `.messages(id)` | `GET /v1/conversations[/{id}[/messages]]` |
@@ -14,7 +14,7 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 | `flow.events.stream({ types, after })` | `GET /v1/stream` (WebSocket; in browsers the key goes as subprotocol `flow.key.<key>` next to `flow`) |
 | `flow.events.list({ after, type })` · `.retrieve(id)` | `GET /v1/events` (oldest first) |
 | `flow.capabilities.retrieve(convId)` | `GET /v1/capabilities?conversation=` |
-| `flow.files.upload({ file, filename })` · `.download(id)` | `POST /v1/files` · `GET /v1/files/{id}` |
+| `flow.files.upload({ file, filename })` (`file`: Blob, Uint8Array/Buffer or ArrayBuffer; returns a `File` whose `id` is the `file_id`) · `.download(id)` | `POST /v1/files` · `GET /v1/files/{id}` |
 | `flow.webhookEndpoints.create({ url, events })` (+ list, retrieve, update, delete) · `.rotateSecret(id, { overlap_seconds })` | `/v1/webhook_endpoints` · `POST .../{id}/rotate_secret` |
 | `flow.senders.list()` · `flow.contacts.list()` · `flow.templates.list()` · `flow.app.retrieve()` | `/v1/senders` · `/v1/contacts` · `/v1/templates` · `/v1/app` |
 
@@ -47,6 +47,9 @@ keys outside each channel's allowlist are dropped.
 `data.emoji`), `typing.started|stopped`, `conversation.started` (`data.via`),
 `conversation.window_closing` (WhatsApp), `sender.status_changed`,
 `template.status_changed`. Every event but the last two has `conversation`.
+Handlers get a `FlowEvent` (type them with `FlowEvent` or `FlowEventOf<"message.received">`),
+whose `conversation` is a handle with `reply`; `Event` is the plain JSON from `flow.events.list()`.
+Not every channel reports `message.delivered`: to confirm a send, wait for `message.sent` or `message.failed`.
 
 ## Errors (`err.type`, class)
 
@@ -57,6 +60,7 @@ keys outside each channel's allowlist are dropped.
 `new_contact_limit` NewContactLimitError (429, `retryAfter`) · `sender_throttled` SenderThrottledError (429) ·
 `rate_limited` RateLimitError (429, per-key limit or sender pacing, retried) · `channel_error` ChannelError (502, `channelCode`) ·
 `not_implemented` NotImplementedError (501) · `api_error` APIError (5xx, retried).
+Every error has `hint` (what to change) and `docUrl` (`https://api.flow.engineer/docs/errors/<type>`).
 
 ## HTTP without the SDK
 

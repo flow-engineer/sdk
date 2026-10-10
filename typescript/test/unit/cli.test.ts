@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { installAgentsSnippet, installClaudeMcp, installCodexMcp, installSkill } from "../../src/cli/agentfiles.js";
 import { deviceLogin } from "../../src/cli/device.js";
 import { envValue, ignoreDotenv, parseDotenv, setDotenv } from "../../src/cli/env.js";
+import { init, type InitOptions } from "../../src/cli/init.js";
 import { forwardEvent, readReply } from "../../src/cli/listen.js";
 import { runBridge } from "../../src/cli/mcp.js";
 import { FlowMessaging, toFlowEvent, verifySignature } from "../../src/index.js";
@@ -58,8 +59,8 @@ describe("agent files", () => {
     expect(installClaudeMcp(dir)).toBe("unchanged");
     const mcp = JSON.parse(readFileSync(path.join(dir, ".mcp.json"), "utf8"));
     expect(mcp.mcpServers.other).toEqual({ command: "x" });
-    expect(mcp.mcpServers["flow-messaging"]).toEqual({ command: "npx", args: ["-y", "@flow-engineer/messaging", "mcp"] });
-    expect(installCodexMcp(false).toml).toContain("[mcp_servers.flow-messaging]");
+    expect(mcp.mcpServers.flow).toEqual({ command: "npx", args: ["-y", "@flow-engineer/messaging", "mcp"] });
+    expect(installCodexMcp(false).toml).toContain("[mcp_servers.flow]");
   });
 
   it("skill description stays within Claude Code's limit and says when to load it", () => {
@@ -70,7 +71,90 @@ describe("agent files", () => {
   });
 });
 
-describe("device sign-in (preview)", () => {
+describe("init", () => {
+  // A stand-in API for the key check: GET /v1/app and GET /v1/senders.
+  async function api() {
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      if (req.url?.startsWith("/v1/app")) {
+        res.end(JSON.stringify({ app: { id: "app_1", name: "Demo", sandbox_join_code: "wild-otter-04508705" }, livemode: false }));
+        return;
+      }
+      res.end(
+        JSON.stringify({
+          data: [
+            { id: "snd_1", kind: "shared", channel: "telegram", join_code: "join wild-otter-04508705", address: { username: "FlowSandboxBot", link: "https://t.me/FlowSandboxBot?start=wild-otter-04508705" } },
+            { id: "snd_2", kind: "shared", channel: "imessage", join_code: "join wild-otter-04508705", address: { handle: "sandbox@example.com" } },
+          ],
+          has_more: false,
+        }),
+      );
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    return { server, baseURL: `http://127.0.0.1:${(server.address() as AddressInfo).port}` };
+  }
+
+  async function run(o: Partial<InitOptions>) {
+    const { server, baseURL } = await api();
+    const dir = tmp();
+    const lines: string[] = [];
+    const asked: string[] = [];
+    try {
+      await init({
+        dir,
+        key: "fk_test_0123456789abcdef",
+        baseURL,
+        agentFiles: true,
+        mcp: true,
+        codex: false,
+        agentFilesFrom: pluginDir,
+        print: (l) => lines.push(l),
+        ...o,
+        confirm: async (q) => {
+          asked.push(q);
+          return o.confirm ? o.confirm(q) : undefined;
+        },
+      });
+    } finally {
+      server.close();
+    }
+    return { dir, out: lines.join("\n"), asked };
+  }
+
+  it("writes the key, and without an answer skips the agent config and prints the commands", async () => {
+    const { dir, out, asked } = await run({});
+    expect(readFileSync(path.join(dir, ".env"), "utf8")).toBe("FLOW_MESSAGING_KEY=fk_test_0123456789abcdef\n");
+    expect(asked).toHaveLength(1);
+    expect(existsSync(path.join(dir, ".claude"))).toBe(false);
+    expect(existsSync(path.join(dir, "AGENTS.md"))).toBe(false);
+    expect(existsSync(path.join(dir, ".mcp.json"))).toBe(false);
+    expect(out).toContain("claude mcp add --scope project flow -- npx -y @flow-engineer/messaging mcp");
+    expect(out).toContain("codex mcp add flow -- npx -y @flow-engineer/messaging mcp");
+    expect(out).toContain("init --yes");
+    expect(out).toMatch(/telegram\s+https:\/\/t\.me\/FlowSandboxBot\?start=wild-otter-04508705\s+open it and tap Start/);
+    expect(out).toMatch(/imessage\s+sandbox@example\.com\s+send: join wild-otter-04508705/);
+  });
+
+  it("installs everything after a yes, or with --yes without asking", async () => {
+    const yes = await run({ confirm: async () => true });
+    expect(yes.asked).toHaveLength(1);
+    const withFlag = await run({ yes: true });
+    expect(withFlag.asked).toHaveLength(0);
+    for (const { dir } of [yes, withFlag]) {
+      expect(existsSync(path.join(dir, ".claude/skills/flow-messaging/SKILL.md"))).toBe(true);
+      expect(readFileSync(path.join(dir, "AGENTS.md"), "utf8")).toContain("flow-messaging:start");
+      expect(Object.keys(JSON.parse(readFileSync(path.join(dir, ".mcp.json"), "utf8")).mcpServers)).toEqual(["flow"]);
+    }
+  });
+
+  it("asks nothing when --no-agent-files and --no-mcp leave nothing to install", async () => {
+    const { asked, dir } = await run({ agentFiles: false, mcp: false });
+    expect(asked).toHaveLength(0);
+    expect(existsSync(path.join(dir, ".env"))).toBe(true);
+  });
+});
+
+describe("device sign-in (not available yet)", () => {
   it("polls until the key is granted, slowing down when asked", async () => {
     let polls = 0;
     const { fetch, calls } = mockFetch((req) => {

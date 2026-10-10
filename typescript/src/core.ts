@@ -105,7 +105,7 @@ export class HttpClient {
     const apiKey = opts.apiKey ?? readEnv("FLOW_MESSAGING_KEY");
     if (!apiKey) {
       throw new FlowError(
-        "No API key. Pass new FlowMessaging({ apiKey }) or set FLOW_MESSAGING_KEY (run `npx @flow-engineer/messaging init` to get a test key).",
+        "No API key. Pass new FlowMessaging({ apiKey }) or set FLOW_MESSAGING_KEY. Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (fk_test_...), then run `npx @flow-engineer/messaging init --key fk_test_...` to save it to .env.",
         { type: "authentication" },
       );
     }

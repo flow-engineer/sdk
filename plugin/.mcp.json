@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "flow-messaging": {
+    "flow": {
       "command": "npx",
       "args": ["-y", "@flow-engineer/messaging", "mcp"]
     }

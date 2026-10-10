@@ -7,7 +7,7 @@ import { FlowMessaging } from "./client.js";
 import { MCP_URL } from "./cli/agentfiles.js";
 import { DEFAULT_AUTH_URL } from "./cli/device.js";
 import { envValue, setDotenv } from "./cli/env.js";
-import { init } from "./cli/init.js";
+import { KEY_HELP, init } from "./cli/init.js";
 import { listen } from "./cli/listen.js";
 import { runBridge } from "./cli/mcp.js";
 import { SDK_VERSION } from "./core.js";
@@ -19,15 +19,20 @@ const HELP = `Flow Messaging CLI ${SDK_VERSION}: WhatsApp, Telegram and iMessage
 Usage: npx @flow-engineer/messaging <command> [options]
 
 Commands
-  init     Save a test key to .env, install the agent files (Claude Code skill,
-           AGENTS.md, MCP registration) and show the sandbox join code.
-             --key fk_test_...    use this key (else FLOW_MESSAGING_KEY, else asks)
-             --device             sign in in the browser (preview; --auth-url, default
-                                  ${DEFAULT_AUTH_URL})
+  init     Save a test key to .env and show the sandbox join code. Then asks
+           before installing agent config (Claude Code skill, AGENTS.md section,
+           MCP server "flow" in .mcp.json and for Codex); without a terminal, or
+           with no answer, it skips that and prints the commands to run by hand.
+             --key fk_test_...    use this key (else FLOW_MESSAGING_KEY, else asks).
+                                  Keys are issued by the Flow team while signup is in
+                                  preview: ask the Flow team for a test key (fk_test_...)
+             -y, --yes            install the agent config without asking
              --dir <path>         project folder (default: .)
              --no-agent-files     skip the skill and AGENTS.md
              --no-mcp             skip the MCP registration
              --no-codex           do not run \`codex mcp add\`
+             --device             browser sign-in: not available yet (--auth-url,
+                                  default ${DEFAULT_AUTH_URL})
   listen   Print live events, or forward them to a local webhook handler.
              --forward-to <url>   POST each event there, signed (Flow-Signature)
              --events a,b         only these event types
@@ -49,7 +54,7 @@ Docs: https://docs.flow.engineer`;
 
 function key(): string {
   const k = envValue("FLOW_MESSAGING_KEY");
-  if (!k) throw new Error("FLOW_MESSAGING_KEY is not set (in the environment or .env). Run: npx @flow-engineer/messaging init");
+  if (!k) throw new Error(`FLOW_MESSAGING_KEY is not set (in the environment or .env). ${KEY_HELP} Then run: npx @flow-engineer/messaging init --key fk_test_...`);
   return k;
 }
 
@@ -74,6 +79,7 @@ async function main(argv: string[]): Promise<number> {
         args: rest,
         options: {
           key: { type: "string" },
+          yes: { type: "boolean", short: "y", default: false },
           device: { type: "boolean", default: false },
           "auth-url": { type: "string" },
           dir: { type: "string", default: "." },
@@ -92,6 +98,7 @@ async function main(argv: string[]): Promise<number> {
         agentFiles: !values["no-agent-files"],
         mcp: !values["no-mcp"],
         codex: !values["no-codex"],
+        yes: values.yes,
       });
       return 0;
     }

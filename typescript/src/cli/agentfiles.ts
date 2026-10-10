@@ -5,7 +5,8 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const MCP_SERVER_NAME = "flow-messaging";
+/** The MCP server's name in every registration (the spec's `claude mcp add ... flow ...` uses it too). */
+export const MCP_SERVER_NAME = "flow";
 export const MCP_URL = "https://api.flow.engineer/mcp";
 /** How agents start the MCP bridge (it reads FLOW_MESSAGING_KEY from the environment or .env). */
 export const MCP_COMMAND = ["npx", "-y", "@flow-engineer/messaging", "mcp"] as const;
@@ -24,7 +25,7 @@ export function agentFilesDir(): string {
 }
 
 /** Copies the skill to .claude/skills/flow-messaging. */
-export function installSkill(projectDir: string, from = agentFilesDir()): string {
+export function installSkill(projectDir: string, from: string = agentFilesDir()): string {
   const dest = path.join(projectDir, ".claude", "skills", "flow-messaging");
   mkdirSync(dest, { recursive: true });
   cpSync(path.join(from, "skills", "flow-messaging"), dest, { recursive: true });
@@ -73,7 +74,8 @@ export function installCodexMcp(run = true): { registered: boolean; toml: string
   if (!run) return { registered: false, toml, command };
   try {
     const list = execFileSync("codex", ["mcp", "list"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-    if (list.includes(MCP_SERVER_NAME)) return { registered: true, toml, command };
+    // `codex mcp list` is a table whose first column is the name; match it exactly ("flow" is a prefix of other names).
+    if (list.split("\n").some((l) => l.trim().split(/\s+/)[0] === MCP_SERVER_NAME)) return { registered: true, toml, command };
     execFileSync("codex", ["mcp", "add", MCP_SERVER_NAME, "--", ...MCP_COMMAND], { stdio: "ignore" });
     return { registered: true, toml, command };
   } catch {

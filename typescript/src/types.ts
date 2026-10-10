@@ -65,7 +65,12 @@ export type UnsendContent = S["UnsendContent"];
 export type FileBlockedContent = S["FileBlockedContent"];
 
 export type EventType = S["EventType"];
-/** One entry in your app's event log: a discriminated union on `type`. */
+/**
+ * One entry in your app's event log as the API sends it (plain JSON; `conversation` is
+ * a `ConversationRef`): a discriminated union on `type`. `flow.events.list()` and
+ * `retrieve()` return it. Handlers given events by `flow.events.stream()` or
+ * `flow.webhooks` receive a `FlowEvent` instead, whose `conversation` can `reply`.
+ */
 export type Event = S["Event"];
 export type MessageReceivedEvent = S["MessageReceivedEvent"];
 export type MessageSentEvent = S["MessageSentEvent"];

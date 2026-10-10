@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Every check, run locally before a PR (no CI jobs: minutes are paid).
-#   scripts/local-checks.sh             spec lint + TypeScript (generated types, typecheck,
-#                                       lint, unit tests, build, package contents, integration)
+#   scripts/local-checks.sh             spec lint, spec drift (scripts/check-spec-drift.sh) +
+#                                       TypeScript (typecheck, lint, unit tests, build,
+#                                       package contents, integration)
 #   EXAMPLES=1 scripts/local-checks.sh  also typecheck examples/ against their real dependencies
 # The integration test runs the Flow Messaging service from a checkout beside this repo
 # (FLOW_MESSAGING_DIR, default ../flow-messaging; needs Go and Postgres binaries) and is
@@ -18,8 +19,8 @@ scripts/lint.sh
 cd "$root/typescript"
 step "typescript: install"
 if [ ! -d node_modules ]; then npm ci --no-audit --no-fund; fi
-step "typescript: generated types are current"
-npm run --silent check-generated
+step "spec drift (generated types, docs/openapi.yaml, Flow-Version, service copy)"
+"$root/scripts/check-spec-drift.sh"
 step "typescript: typecheck"
 npm run --silent typecheck
 step "typescript: lint"
