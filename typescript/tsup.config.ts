@@ -7,7 +7,7 @@ export default defineConfig([
     dts: true,
     target: "es2022",
     platform: "neutral",
-    sourcemap: true,
+    sourcemap: false,
     external: ["ws", "node:crypto"],
   },
   {
@@ -15,7 +15,7 @@ export default defineConfig([
     format: ["esm"],
     target: "node18",
     platform: "node",
-    sourcemap: true,
+    sourcemap: false,
     external: ["ws"],
   },
 ]);

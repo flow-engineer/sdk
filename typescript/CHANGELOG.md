@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The package no longer ships source maps; `dist/` is readable JavaScript with
+  JSDoc types.
+
 ## 0.1.1
 
 - The client retries a `409 idempotency_conflict` whose `channelCode` is

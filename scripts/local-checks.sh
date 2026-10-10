@@ -19,7 +19,7 @@ root=$(pwd)
 
 step() { printf '\n== %s\n' "$*"; }
 
-step "public repo: no founder-only content or private names (scripts/check-public.sh)"
+step "public repo: tracked files and commit messages (scripts/check-public.sh)"
 scripts/check-public.sh
 
 step "spec lint (Redocly)"
@@ -50,6 +50,8 @@ for f in dist/index.js dist/index.cjs dist/index.d.ts dist/index.d.cts dist/cli.
 done
 node -e "require('./dist/index.cjs').FlowMessaging" && node --input-type=module -e "import('./dist/index.js').then(m => m.FlowMessaging)"
 echo "ok"
+step "typescript: package is fit to publish (scripts/check-public.sh --package)"
+"$root/scripts/check-public.sh" --package
 
 step "typescript: integration (local Flow Messaging service)"
 server="${FLOW_MESSAGING_DIR:-$root/../flow-messaging}"
