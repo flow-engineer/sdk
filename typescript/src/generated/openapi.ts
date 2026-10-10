@@ -959,9 +959,14 @@ export interface paths {
          *     per test case. Simulated contacts never match real ones, even with the same
          *     address.
          *
-         *     Simulated traffic is free: it does not count against the sandbox allowance,
-         *     and only the key's request rate limit applies. A live key answers `403
-         *     permission` with `channel_code` `test_mode_only`.
+         *     Simulated traffic is free: it does not count against the sandbox allowance.
+         *     An app has at most 500 simulated conversations: past that, a new one answers
+         *     `403 permission` with `channel_code` `simulated_conversation_limit` (an
+         *     address that has one still returns it with `200`), so reuse conversations
+         *     across test runs. The `/v1/test/` endpoints take at most 120 requests a
+         *     minute per key (`429 rate_limited`), on top of the plan's request rate
+         *     limit. A live key answers `403 permission` with `channel_code`
+         *     `test_mode_only`.
          */
         post: operations["createTestConversation"];
         delete?: never;
@@ -1000,9 +1005,10 @@ export interface paths {
          *     numbered answer such as `2` to buttons sent as numbered text comes back as
          *     `button_reply` too, as on a real channel). Media and voice take the
          *     `file_id` of a file uploaded with `POST /v1/files` (no `url`); the contact's
-         *     message carries its own copy of the file, with its own `file_id`, as an MMS
-         *     or photo from a real person would. The channel's rules apply: content it
-         *     cannot carry from a person (a document over SMS, a location over SMS) answers
+         *     message refers to that same file (its `file_id`, `url`, `mime_type` and
+         *     `size_bytes`): Flow does not copy it again. The channel's rules apply:
+         *     content it cannot carry from a person (a document over SMS, a location over
+         *     SMS, a file larger than the channel fetches from a person) answers
          *     `422 unsupported_content`, and text over its `max_text_length` answers
          *     `400 invalid_request`.
          *

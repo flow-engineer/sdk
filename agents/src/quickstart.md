@@ -361,8 +361,11 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   digits). On SMS and iMessage the contact answers buttons with their number (`"2"`).
   A simulated iMessage line, like Flow's real lines, only replies: post a turn
   before your agent sends.
-- Free: simulated traffic is not in the sandbox allowance; only the key's rate limit
-  applies. The gate skips pacing, new-contact budgets and abuse throttling for
+- Free: simulated traffic is not in the sandbox allowance. An app has at most 500
+  simulated conversations (then `403 permission`, `simulated_conversation_limit`:
+  reuse conversations, or post an address that has one), and a key makes at most
+  120 requests a minute to `/v1/test/` (`429 rate_limited`). A media turn refers
+  to your upload's `file_id` itself. The gate skips pacing, new-contact budgets and abuse throttling for
   simulated senders, so tests can run in parallel.
 - Live keys get `403 permission` (`channel_code` `test_mode_only`); a real
   conversation gets `403 permission` (`not_simulated`). `GET /v1/senders` leaves
