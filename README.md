@@ -3,9 +3,21 @@
 Let an AI agent talk with people on **WhatsApp, Telegram and iMessage** through one API
 at `api.flow.engineer`.
 
+No key yet? Get a test key in one call, with no account (or run
+`npx @flow-engineer/messaging init`, which saves it to `.env`):
+
+```sh
+curl -X POST https://api.flow.engineer/v1/sandbox/keys
+# save "key" as FLOW_MESSAGING_KEY and "claim_token" as FLOW_CLAIM_TOKEN (both shown once);
+# open senders[].address.link on your phone to join the sandbox
+```
+
+It allows 1 contact and 50 messages on the Telegram sandbox for 7 days. Sign in with
+GitHub or Google (`npx @flow-engineer/messaging login`) to keep the app and send 100
+messages to each of 3 contacts. Details: [docs/get-a-key.mdx](docs/get-a-key.mdx).
+
 ```ts
-// npm install @flow-engineer/messaging   ·   npx @flow-engineer/messaging init --key fk_test_...
-// Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (fk_test_...).
+// npm install @flow-engineer/messaging
 import { FlowMessaging, contentText } from "@flow-engineer/messaging";
 
 const flow = new FlowMessaging(); // reads FLOW_MESSAGING_KEY

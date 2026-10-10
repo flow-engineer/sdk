@@ -23,7 +23,8 @@ curl https://api.flow.engineer/v1/app -H "Authorization: Bearer $FLOW_MESSAGING_
 
 - **Nothing in test mode reaches a real contact** unless that person joined the sandbox through your app. Build and test freely.
 - **The modes never mix.** Every object has `livemode`. A test key cannot see live data or use a live sender (`403` [`permission`](/errors/permission)), and webhook endpoints receive only their own mode's events.
-- **A key is shown once**, when it is issued, and stored only as a hash. Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (`fk_test_...`), or a live key (`fk_live_...`) when you go live. Ask the Flow team to revoke a key if it leaks.
+- **A key is shown once**, when it is issued, and stored only as a hash. Get a test key with no account in one call (`curl -X POST https://api.flow.engineer/v1/sandbox/keys`, or `npx @flow-engineer/messaging init`); signed in, you make live keys (`fk_live_...`) in the dashboard for your own Telegram bot (iMessage and WhatsApp senders are arranged with the Flow team). Signed-in people create and revoke keys in the [dashboard](https://api.flow.engineer/admin); otherwise ask the Flow team to revoke a key if it leaks.
+- **Test mode has a sandbox allowance.** Without an account: 1 contact, 50 messages in total, and the key expires after 7 days (`api_key.expires_at`). Signed in with GitHub or Google: 3 contacts, 100 messages each, no expiry, one allowance per person shared by all their apps. It covers the Telegram sandbox (and WhatsApp when its sandbox opens), not iMessage, and counts only messages your agent sends. `GET /v1/app` returns what is left (`allowance`). See [Keys and sign-in](/get-a-key).
 - **Keep live keys on your server.** Never ship a key in a web page or a mobile app.
 
 ## Going from test to live

@@ -34,7 +34,11 @@ On serverless platforms that stop work when the response is sent, run the reply 
 
 ## 1. Try it on the sandbox number
 
-1. Get a test key (`fk_test_...`): keys are issued by the Flow team while signup is in preview. Set it as `FLOW_MESSAGING_KEY`.
+<Note>
+The WhatsApp sandbox is not open yet. Until it is, try the same code on the [Telegram sandbox bot](/guides/telegram-agent); it does not change per channel. When it opens, the sandbox allowance covers it.
+</Note>
+
+1. Get a test key, with no account: `curl -X POST https://api.flow.engineer/v1/sandbox/keys` (or `npx @flow-engineer/messaging init`). Set its `key` as `FLOW_MESSAGING_KEY`. See [Keys and sign-in](/get-a-key).
 2. `GET /v1/senders?channel=whatsapp` lists the shared WhatsApp sandbox number with its `address.link` (a `https://wa.me/...` link) and `join_code`.
 3. Open the link on your phone and send the join code (for example `join wild-otter-04508705`). You now have a conversation with your app.
 4. Register your webhook, or on your laptop read events from the live stream (`GET /v1/stream`, see [Local development](/guides/local-development)), and send a message.

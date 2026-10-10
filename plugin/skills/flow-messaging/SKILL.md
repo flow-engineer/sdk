@@ -13,17 +13,35 @@ https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml).
 
 ## Set up (once per project)
 
+Check for `FLOW_MESSAGING_KEY` (environment or `.env`) first. No key yet? Get a test
+key with no account, in one call; never get a second one when you have one:
+
 ```sh
-npx @flow-engineer/messaging init --key fk_test_...   # writes FLOW_MESSAGING_KEY to .env, prints the sandbox join code
-                                                      # (asks before adding agent files; --yes skips the question)
+npx @flow-engineer/messaging init   # gets a test key, writes FLOW_MESSAGING_KEY and FLOW_CLAIM_TOKEN to .env,
+                                    # prints the sandbox link and join code (asks before adding agent files; --yes skips)
 npm install @flow-engineer/messaging
 ```
 
-No key yet: keys are issued by the Flow team while signup is in preview, so the user
-asks the Flow team for a test key (`fk_test_...`); there is no dashboard or sign-in yet.
-Test keys reach only the shared sandbox: on their phone the person opens the sandbox
-link and taps Start (on iMessage, texts the join code, such as `join wild-otter-04508705`)
-first. Never invent or hard-code keys.
+Without the CLI: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`, then save `key`
+as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once). From
+code: `await new FlowMessaging().sandbox.createKey()`. A key you already have:
+`init --key fk_test_...`. Test keys reach only the shared sandbox: on their phone the
+person opens the sandbox link and taps Start first. Never invent or hard-code keys.
+
+**Sandbox allowance.** No account: 1 contact, 50 messages in total, Telegram sandbox
+(WhatsApp when its sandbox opens), key expires after 7 days. Signed in: 3 contacts x 100
+messages, no expiry. iMessage is in neither; only outbound messages count.
+`(await flow.app.retrieve()).allowance` shows what is left. To keep the app a person
+signs in with GitHub or Google: run `npx @flow-engineer/messaging login --no-wait`, give
+the user the link and code, and after they approve run `npx @flow-engineer/messaging login`
+(it replaces `FLOW_MESSAGING_KEY` in `.env`). Past the allowance, sends throw
+`PermissionError` with `channelCode` `sandbox_allowance_used` (also
+`sandbox_contact_limit`, `sandbox_channel_not_included`, `sign_in_required`); an expired
+key throws `AuthenticationError` with `sandbox_key_expired`. Do not retry or get more
+keys: ask the user to sign in. Dashboard: https://api.flow.engineer/admin. Going live: signed-in
+users make `fk_live_` keys in the dashboard and connect their own Telegram bot; iMessage
+and WhatsApp senders are arranged with the Flow team. Details:
+[CLI and MCP](reference/cli-mcp.md).
 
 ## An agent in 10 lines
 

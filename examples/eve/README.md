@@ -51,5 +51,5 @@ return new Response("{}", { headers: { "Content-Type": "application/json" } });
   chat bubbles; use `event.conversation.responding(fn)` around tool-heavy turns that
   produce text only at the end.
 - Test with a `fk_test_` key and the sandbox: `npx @flow-engineer/messaging init`
-  shows the join code; `npx @flow-engineer/messaging listen --forward-to <your route>`
+  gets one (no account needed) and shows the join code; `npx @flow-engineer/messaging listen --forward-to <your route>`
   delivers signed events to a route on your laptop.

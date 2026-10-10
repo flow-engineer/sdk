@@ -14,9 +14,22 @@ Flow Messaging is one API for AI agents to hold conversations on WhatsApp, Teleg
 
 ## Set up
 
-1. Get a key: keys are issued by the Flow team while signup is in preview, so ask the user for their test key (`fk_test_...`; a live key, `fk_live_...`, only when they go live). Keep it in `FLOW_MESSAGING_KEY` (environment or a git-ignored `.env`). `npx @flow-engineer/messaging init` will do this and register the MCP server once the npm package ships; until then use the API or the hosted MCP server (`claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"`).
+1. Get a key. Use `FLOW_MESSAGING_KEY` if it is set (environment or `.env`). Otherwise get a test key with no account: `npx @flow-engineer/messaging init` (writes `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env`, prints the sandbox link and join code, and asks before installing agent files and the MCP server `flow`), or `curl -X POST https://api.flow.engineer/v1/sandbox/keys` and save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once) in a git-ignored `.env`. Never get a second key when you have one. Live keys (`fk_live_...`) come later, only when the user goes live: signed in, they make one in the dashboard for their own Telegram bot (iMessage and WhatsApp senders are arranged with the Flow team).
 2. TypeScript/JavaScript: `npm install @flow-engineer/messaging`. Other languages: HTTP to `https://api.flow.engineer` with `Authorization: Bearer $FLOW_MESSAGING_KEY`.
 3. The user joins the sandbox from their phone: `GET /v1/senders` (or the MCP tool `sandbox_join`) gives each sandbox sender's `address.link`. On Telegram, opening the link and tapping Start joins. Otherwise they send the sender's `join_code`, for example `join wild-otter-04508705`, to it.
+
+## Sandbox allowance and sign-in
+
+| | No account | Signed in (GitHub or Google) |
+|---|---|---|
+| Contacts | 1 | 3 |
+| Messages | 50 in total | 100 per contact |
+| Channels | Telegram sandbox (WhatsApp when its sandbox opens) | the same |
+| Key expiry | 7 days | none |
+
+Only messages your agent sends count; iMessage is in neither. `GET /v1/app` returns `allowance` (what is left). To keep the app, a person signs in: run `npx @flow-engineer/messaging login --no-wait`, show the user the link and code, and after they approve run `npx @flow-engineer/messaging login` to collect the new key (it replaces `FLOW_MESSAGING_KEY` in `.env`). By HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_..."}`, show `verification_uri_complete`, then poll `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `status` is `approved` (`key`), `denied` or `expired`; `429 rate_limited` means wait `retry_after`.
+
+Allowance errors: `403 permission` with `channel_code` `sandbox_allowance_used` (allowance used up), `sandbox_contact_limit` (no room for another contact), `sandbox_channel_not_included` (channel not covered, such as iMessage) or `sign_in_required` (needs a signed-in app); `401 authentication` with `sandbox_key_expired`. Do not retry or get more keys: ask the user to sign in (for `sandbox_channel_not_included`, use the Telegram sandbox sender instead). Signed-in users manage keys at https://api.flow.engineer/admin. Details: https://docs.flow.engineer/get-a-key.md
 
 ## Receive and reply (TypeScript)
 
@@ -58,7 +71,7 @@ export const POST = flow.webhooks.handler({
 
 ## MCP server
 
-`https://api.flow.engineer/mcp` (Streamable HTTP, bearer API key) or, once the npm package ships, `npx -y @flow-engineer/messaging mcp` (stdio). Name the server `flow`. Test keys get build tools (`whoami`, `sandbox_join`, `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`, `capabilities`, `explain_error`); live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`. After a send, wait for `message.sent` or `message.failed`, not `message.delivered` (not every channel reports delivery). Each `wait_for_event` call waits up to 50 seconds (a longer `timeout_seconds` is clamped to 50, with a note, not refused); call it again with `after` set to the returned `next_after` to keep waiting.
+`https://api.flow.engineer/mcp` (Streamable HTTP, bearer API key) or `npx -y @flow-engineer/messaging mcp` (stdio). Name the server `flow`. Test keys get build tools (`whoami`, `sandbox_join`, `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`, `capabilities`, `explain_error`); live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`. After a send, wait for `message.sent` or `message.failed`, not `message.delivered` (not every channel reports delivery). Each `wait_for_event` call waits up to 50 seconds (a longer `timeout_seconds` is clamped to 50, with a note, not refused); call it again with `after` set to the returned `next_after` to keep waiting.
 
 ## Docs
 

@@ -28,8 +28,8 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ## 1. Try it on the sandbox bot
 
-1. Get a test key (`fk_test_...`): keys are issued by the Flow team while signup is in preview. Set it as `FLOW_MESSAGING_KEY`.
-2. `GET /v1/senders?channel=telegram` lists the sandbox bot. Its `address.link` is `https://t.me/<bot>?start=<code>`, with your join code in it. (`npx @flow-engineer/messaging init` will print it once the npm package ships.)
+1. Get a test key, with no account: `curl -X POST https://api.flow.engineer/v1/sandbox/keys` (or `npx @flow-engineer/messaging init`). Set its `key` as `FLOW_MESSAGING_KEY`. It allows 1 contact and 50 messages for 7 days; sign in to get more ([Keys and sign-in](/get-a-key)).
+2. `GET /v1/senders?channel=telegram` lists the sandbox bot. Its `address.link` is `https://t.me/<bot>?start=<code>`, with your join code in it. (`npx @flow-engineer/messaging init` prints it too.)
 3. Open the link and tap **Start**. That's it, you've joined.
 4. Run the code above and send the bot a message.
 

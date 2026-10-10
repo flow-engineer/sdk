@@ -20,6 +20,8 @@ Both carry a `Retry-After` header and `error.retry_after` in seconds.
 
 - Polling `GET /v1/events` or `GET /v1/conversations` in a tight loop.
 - Sending many messages from one sender at once, for example a reply split into many short bubbles, or a burst of starts.
+- Asking for many sandbox keys (`POST /v1/sandbox/keys`) or device sign-ins from one address or network. Keep the key you got and reuse it; a person can sign in to lift its allowance instead.
+- Polling `POST /v1/device/token` faster than its `interval`.
 
 ## How to fix it
 

@@ -1,6 +1,7 @@
 import {
   APIConnectionError,
   APITimeoutError,
+  AuthenticationError,
   FlowError,
   errorFromBody,
 } from "./errors.js";
@@ -12,7 +13,12 @@ export const SDK_VERSION = "0.1.0";
 export const DEFAULT_BASE_URL = "https://api.flow.engineer";
 
 export interface ClientOptions {
-  /** An API key, `fk_test_...` or `fk_live_...`. Defaults to `process.env.FLOW_MESSAGING_KEY`. */
+  /**
+   * An API key, `fk_test_...` or `fk_live_...`. Defaults to `process.env.FLOW_MESSAGING_KEY`.
+   * Optional: without one, only the calls that need no key work (`sandbox.createKey`,
+   * `device.authorize`, `device.poll`, `device.signIn`); every other call throws an
+   * `AuthenticationError` before sending anything.
+   */
   apiKey?: string;
   /** Defaults to `process.env.FLOW_MESSAGING_BASE_URL`, else `https://api.flow.engineer`. */
   baseURL?: string;
@@ -52,7 +58,13 @@ interface RequestArgs {
   options?: RequestOptions;
   /** Return the raw Response instead of decoding JSON. */
   raw?: boolean;
+  /** `false` for the endpoints that take no API key: no key needed, none sent. Default `true`. */
+  auth?: boolean;
 }
+
+/** What to do without a key, said by every error about a missing one. */
+export const NO_KEY_HELP =
+  "No key yet? Get a test key in one call, no account needed: `npx @flow-engineer/messaging init` (saves it to .env), `await new FlowMessaging().sandbox.createKey()`, or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`.";
 
 /** Reads an environment variable where `process` exists (Node, Bun, Deno's node compat). */
 export function readEnv(name: string): string | undefined {
@@ -75,7 +87,8 @@ export function randomId(): string {
   return s;
 }
 
-const sleep = (ms: number, signal?: AbortSignal) =>
+/** Waits `ms`, or rejects with the signal's reason when it aborts. */
+export const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
     if (signal?.aborted) return reject(signal.reason);
     const t = setTimeout(() => {
@@ -93,7 +106,8 @@ const sleep = (ms: number, signal?: AbortSignal) =>
 const MAX_RETRY_WAIT_MS = 60_000;
 
 export class HttpClient {
-  readonly apiKey: string;
+  /** The API key, or `undefined` for a client that only makes the keyless calls. */
+  readonly apiKey: string | undefined;
   readonly baseURL: string;
   readonly flowVersion: string | null;
   readonly maxRetries: number;
@@ -102,14 +116,7 @@ export class HttpClient {
   private readonly defaultHeaders: Record<string, string>;
 
   constructor(opts: ClientOptions = {}) {
-    const apiKey = opts.apiKey ?? readEnv("FLOW_MESSAGING_KEY");
-    if (!apiKey) {
-      throw new FlowError(
-        "No API key. Pass new FlowMessaging({ apiKey }) or set FLOW_MESSAGING_KEY. Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (fk_test_...), then run `npx @flow-engineer/messaging init --key fk_test_...` to save it to .env.",
-        { type: "authentication" },
-      );
-    }
-    this.apiKey = apiKey;
+    this.apiKey = opts.apiKey || readEnv("FLOW_MESSAGING_KEY") || undefined;
     this.baseURL = (opts.baseURL ?? readEnv("FLOW_MESSAGING_BASE_URL") ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.flowVersion = opts.flowVersion === undefined ? API_VERSION : opts.flowVersion;
     this.maxRetries = opts.maxRetries ?? 2;
@@ -122,7 +129,15 @@ export class HttpClient {
 
   /** Whether the key is a test key (sandbox senders, test data). */
   get testMode(): boolean {
-    return this.apiKey.startsWith("fk_test_");
+    return this.apiKey?.startsWith("fk_test_") ?? false;
+  }
+
+  /** The API key; throws an `AuthenticationError` saying how to get one when there is none. */
+  requireKey(): string {
+    if (this.apiKey) return this.apiKey;
+    throw new AuthenticationError(`No API key. Pass new FlowMessaging({ apiKey }) or set FLOW_MESSAGING_KEY. ${NO_KEY_HELP}`, {
+      type: "authentication",
+    });
   }
 
   url(path: string, query?: Query): string {
@@ -135,9 +150,10 @@ export class HttpClient {
     return u.toString();
   }
 
-  headers(extra?: Record<string, string>): Record<string, string> {
+  /** The headers of a request; `auth: false` sends no `Authorization` (and needs no key). */
+  headers(extra?: Record<string, string>, auth = true): Record<string, string> {
     const h: Record<string, string> = {
-      Authorization: `Bearer ${this.apiKey}`,
+      ...(auth ? { Authorization: `Bearer ${this.requireKey()}` } : {}),
       Accept: "application/json",
       "User-Agent": `flow-messaging-typescript/${SDK_VERSION}`,
       ...this.defaultHeaders,
@@ -149,14 +165,15 @@ export class HttpClient {
   async request<T>(args: RequestArgs): Promise<T> {
     const opts = args.options ?? {};
     const maxRetries = opts.maxRetries ?? this.maxRetries;
-    const headers = this.headers(opts.headers);
+    const headers = this.headers(opts.headers, args.auth !== false);
     let body: BodyInit | undefined;
     if (args.form) body = args.form;
     else if (args.body !== undefined) {
       body = JSON.stringify(args.body);
       headers["Content-Type"] = "application/json";
     }
-    if (args.method === "POST") headers["Idempotency-Key"] = opts.idempotencyKey ?? randomId();
+    // The keyless endpoints take no Idempotency-Key: there is no key to scope it to.
+    if (args.method === "POST" && args.auth !== false) headers["Idempotency-Key"] = opts.idempotencyKey ?? randomId();
     const url = this.url(args.path, args.query);
 
     for (let attempt = 0; ; attempt++) {

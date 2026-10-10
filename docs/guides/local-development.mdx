@@ -50,10 +50,6 @@ See [The live stream](/concepts/events-and-webhooks#the-live-stream) for the fra
 
 If your production code is a webhook handler, you can still develop it on localhost: read the stream and pass each event to your handler function directly, then deploy the same handler behind a real webhook endpoint. The stream and your webhook endpoints read the same log and do not interfere: both receive events.
 
-<Note>
-`flow-messaging listen` is available once the npm package ships; until then use `GET /v1/stream` as above.
-</Note>
-
 The CLI wraps the stream for webhook handlers: `listen --forward-to` reads `GET /v1/stream` and `POST`s each event to your local URL, signed like a real delivery.
 
 ```bash

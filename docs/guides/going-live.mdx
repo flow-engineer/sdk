@@ -18,7 +18,7 @@ curl https://api.flow.engineer/v1/senders \
 
 <Steps>
   <Step title="Get a live key">
-    Keys are issued by the Flow team while signup is in preview: ask the Flow team for a test key (`fk_test_...`), or a live key (`fk_live_...`) when you go live. Ask for an `fk_live_...` key and keep it on your server only.
+    Sign in to the [dashboard](https://api.flow.engineer/admin) with GitHub or Google and make an `fk_live_...` key on the Keys page (test keys take one call, see [Keys and sign-in](/get-a-key)). Keep it on your server only, in its own variable (for example `FLOW_MESSAGING_LIVE_KEY`) so it does not replace your test key. Live Telegram with your own bot is self-serve; iMessage lines and WhatsApp numbers are arranged with the Flow team.
   </Step>
   <Step title="Request a dedicated sender">
     `POST /v1/senders` with the channel (see each channel below). WhatsApp numbers and iMessage lines start `pending` while Flow provisions them; you receive `sender.status_changed` when they are ready. A Telegram bot is `active` at once.
@@ -34,7 +34,7 @@ curl https://api.flow.engineer/v1/senders \
 ## WhatsApp: a dedicated number
 
 - **Request it:** `POST /v1/senders` with `channel: "whatsapp"`, the `display_name` people should see, and the `country` for the number (ISO code such as `IN`). Flow buys and hosts the number.
-- **Verify your business:** WhatsApp requires the business behind a number to be verified. While signup is in preview, the Flow team sends you WhatsApp's business verification link and connects the number when it is done.
+- **Verify your business:** WhatsApp requires the business behind a number to be verified. For now, the Flow team sends you WhatsApp's business verification link and connects the number when it is done.
 - **Quality and tiers:** the sender shows WhatsApp's `quality_rating` (`green`, `yellow`, `red`) and its messaging tier in `limits.whatsapp_tier`. New numbers start on a lower tier for conversations you start; replies to people who wrote first are not limited by the tier.
 - **Fees:** WhatsApp charges per template message by category; those fees are passed through at cost. See [Pricing](/pricing).
 

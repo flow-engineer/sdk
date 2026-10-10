@@ -1,5 +1,5 @@
 export { FlowMessaging, FlowMessaging as default, Events } from "./client.js";
-export { API_VERSION, SDK_VERSION, DEFAULT_BASE_URL, type ClientOptions, type RequestOptions } from "./core.js";
+export { API_VERSION, SDK_VERSION, DEFAULT_BASE_URL, NO_KEY_HELP, type ClientOptions, type RequestOptions } from "./core.js";
 export * from "./errors.js";
 export { PagePromise, type Page } from "./pagination.js";
 export {
@@ -32,5 +32,5 @@ export {
   type WebhookReplyInput,
 } from "./webhooks.js";
 export * from "./content.js";
-export type { UploadParams } from "./resources.js";
+export type { UploadParams, DeviceAuthorizeParams, DeviceSignInParams, DeviceWaitOptions } from "./resources.js";
 export type * from "./types.js";

@@ -19,6 +19,17 @@ export type AppSettings = S["AppSettings"];
 export type ApiKey = S["ApiKey"];
 export type AppContext = S["AppContext"];
 
+export type SandboxAllowance = S["SandboxAllowance"];
+export type AllowanceCount = S["AllowanceCount"];
+export type AllowanceMessages = S["AllowanceMessages"];
+export type SandboxKeyRequest = S["SandboxKeyRequest"];
+export type SandboxKey = S["SandboxKey"];
+export type DeviceAuthorizationRequest = S["DeviceAuthorizationRequest"];
+export type DeviceAuthorization = S["DeviceAuthorization"];
+export type DeviceTokenRequest = S["DeviceTokenRequest"];
+export type DeviceToken = S["DeviceToken"];
+export type SignedInUser = S["SignedInUser"];
+
 export type Sender = S["Sender"];
 export type SenderStatus = S["SenderStatus"];
 export type SenderAddress = S["SenderAddress"];

@@ -17,6 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  FlowError,
   FlowMessaging,
   NotFoundError,
   UnsupportedContentError,
@@ -216,6 +217,24 @@ describe.skipIf(!available)("against the local Flow Messaging service", () => {
       server.close();
     }
   }, 60_000);
+
+  // Skipped until the service checkout serves POST /v1/sandbox/keys: before then its
+  // key middleware answers 401 (or the router 404, a stub 501) to a keyless call.
+  it("sandbox key without an account, and its allowance on GET /v1/app", async (ctx) => {
+    let sandbox;
+    try {
+      sandbox = await new FlowMessaging({ baseURL: h.base_url }).sandbox.createKey({ name: "SDK integration" });
+    } catch (e) {
+      if (e instanceof FlowError && [401, 404, 501].includes(e.status ?? 0)) return ctx.skip();
+      throw e;
+    }
+    expect(sandbox.key).toMatch(/^fk_test_/);
+    expect(sandbox.claim_token).toBeTruthy();
+    expect(sandbox.allowance.tier).toBe("anonymous");
+    const app = await new FlowMessaging({ apiKey: sandbox.key, baseURL: h.base_url }).app.retrieve();
+    expect(app.app.id).toBe(sandbox.app.id);
+    expect(app.allowance?.contacts.limit).toBe(sandbox.allowance.contacts.limit);
+  }, 30_000);
 
   it.skipIf(!existsSync(path.join(here, "../../dist/cli.js")))("CLI: init with a pasted key, then send", async () => {
     const cli = path.join(here, "../../dist/cli.js");

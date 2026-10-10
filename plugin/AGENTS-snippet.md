@@ -3,9 +3,18 @@
 This project talks with people on WhatsApp, Telegram and iMessage through Flow
 Messaging (`@flow-engineer/messaging`, API at https://api.flow.engineer, docs at
 https://docs.flow.engineer). The key is `FLOW_MESSAGING_KEY` in `.env` (`fk_test_` keys
-reach only the sandbox: a person opens the sandbox link and taps Start, or on iMessage
-texts the join code, such as `join wild-otter-04508705`). Keys are issued by the Flow team
-while signup is in preview: ask the Flow team for a test key (`fk_test_...`).
+reach only the sandbox: a person opens the sandbox link and taps Start, or sends the
+join code, such as `join wild-otter-04508705`).
+
+No key yet? Check `FLOW_MESSAGING_KEY` first; if it is unset, get a test key with no
+account: `npx @flow-engineer/messaging init` (writes `FLOW_MESSAGING_KEY` and
+`FLOW_CLAIM_TOKEN` to `.env`), or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`
+and save `key` and `claim_token` (both shown once). It allows 1 contact and 50 messages
+on the Telegram sandbox and expires after 7 days. To keep the app (3 contacts x 100
+messages, no expiry) a person signs in with GitHub or Google: run
+`npx @flow-engineer/messaging login --no-wait`, show them the link and code, then run
+`npx @flow-engineer/messaging login` after they approve. `403 permission` with
+`channel_code` `sandbox_allowance_used` (or `401` `sandbox_key_expired`) means: sign in.
 
 ```ts
 import { FlowMessaging, contentText } from "@flow-engineer/messaging";

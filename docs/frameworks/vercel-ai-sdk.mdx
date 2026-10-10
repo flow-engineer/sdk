@@ -40,7 +40,7 @@ export const POST = flow.webhooks.handler({
 });
 ```
 
-Set `FLOW_MESSAGING_KEY`, `FLOW_MESSAGING_WEBHOOK_SECRET` and `OPENAI_API_KEY`, then register `https://<your-app>/api/flow` as a webhook endpoint for `message.received`. During development, with no public URL, read events from the live stream (`GET /v1/stream`) instead; once the npm package ships, `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow` wraps it for this route. See [Local development](/guides/local-development).
+Set `FLOW_MESSAGING_KEY`, `FLOW_MESSAGING_WEBHOOK_SECRET` and `OPENAI_API_KEY`, then register `https://<your-app>/api/flow` as a webhook endpoint for `message.received`. During development, with no public URL, read events from the live stream (`GET /v1/stream`) instead; `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow` wraps it for this route. See [Local development](/guides/local-development).
 
 ## How it fits
 
