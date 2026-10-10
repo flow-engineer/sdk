@@ -472,7 +472,10 @@ export interface paths {
          * @description Connects a dedicated sender to your app. Today this connects a Telegram bot
          *     (below). iMessage lines are connected by the Flow team, not by API: a request
          *     with `channel: "imessage"` answers `501 not_implemented`; ask the Flow team,
-         *     and the line then appears in `GET /v1/senders`. WhatsApp is not available
+         *     and the line then appears in `GET /v1/senders`. US SMS numbers (in pilot)
+         *     are registered and connected by the Flow team too: `channel: "sms"` answers
+         *     `501 not_implemented`, and the number appears in `GET /v1/senders` once it is
+         *     connected. WhatsApp is not available
          *     yet (it waits on Meta's approval), so `channel: "whatsapp"` answers `501
          *     not_implemented`; once it ships, a WhatsApp number starts as `pending`, you
          *     receive `sender.status_changed` when it is ready, and your business is
@@ -1014,10 +1017,10 @@ export interface components {
          */
         FileId: string;
         /**
-         * @description A messaging channel.
+         * @description A messaging channel. `sms` is US SMS and MMS (in pilot), from dedicated numbers only.
          * @enum {string}
          */
-        Channel: "telegram" | "whatsapp" | "imessage";
+        Channel: "telegram" | "whatsapp" | "imessage" | "sms";
         /**
          * @description `test` (sandbox senders and test data only) or `live`.
          * @enum {string}
@@ -1041,16 +1044,16 @@ export interface components {
          *
          *     - `invalid_request` (400): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like.
          *     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
-         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance.
+         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS).
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
          *     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret; a secret that was lost must be rotated again).
-         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window is closed (iMessage typing works only within 5 minutes of the contact's last message); ignore it and send your reply.
+         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window is closed (iMessage typing works only within 5 minutes of the contact's last message); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text.
          *     - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first.
          *     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
          *     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
          *     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file.
          *     - `rate_limited` (429): either too many requests for this key (the per-key request limit, reported in the `RateLimit-*` headers) or sends faster than the sender's sending rate (pacing). Wait `Retry-After` (`retry_after`) seconds and retry with the same `Idempotency-Key`.
-         *     - `channel_error` (502, or in `message.failed`): the channel refused or failed the message, or timed out; `channel_code` carries its own code. Read `message`, change what the channel objected to, and send again. From typing and read receipts, which call the channel at once, it is safe to ignore.
+         *     - `channel_error` (502, or in `message.failed`): the channel refused or failed the message, or timed out; `channel_code` carries its own code. Read `message`, change what the channel objected to, and send again. From typing and read receipts, which call the channel at once, it is safe to ignore. SMS codes are Flow's, the same whichever carrier network carries the message: `carrier_filtered` (a carrier's spam filter blocked it: make it read like a person's message, no shortened links), `unreachable`, `invalid_number`, `landline`, `registration_required` (the number's 10DLC or toll-free registration is not approved yet) and `carrier_error`.
          *     - `not_implemented` (501): this endpoint or channel is not live yet during the beta. Use a channel that is live (Telegram, iMessage), or check the changelog.
          *     - `api_error` (500, 503): something went wrong on Flow's side. Retry with the same idempotency key after `retry_after` seconds, and quote `request_id` if it persists.
          * @enum {string}
@@ -1096,6 +1099,11 @@ export interface components {
              *     key was used for a different request), `in_progress` (the first
              *     request is still running; `retry_after` says when to repeat it) or
              *     `secret_not_kept` (its answer carried a secret shown only once).
+             *     SMS: `contact_opted_out` and `consent_required` (`permission`),
+             *     `quiet_hours` (`outside_window`, with `retry_after`), and
+             *     `carrier_filtered`, `unreachable`, `invalid_number`, `landline`,
+             *     `registration_required` and `carrier_error` (`channel_error`). HIPAA
+             *     accounts: `hipaa_channel_not_covered` (`permission`).
              */
             channel_code?: string;
             /** @description Flow's ID for this request. Quote it when asking for help. */
@@ -1115,6 +1123,15 @@ export interface components {
              * @enum {string}
              */
             plan: "free" | "pro" | "business" | "enterprise";
+            /**
+             * @description `true` when the account handles protected health information under a
+             *     business associate agreement with Flow. Its messages then go only
+             *     through channels Flow holds such an agreement for (SMS): sends and
+             *     sender connections on Telegram, WhatsApp and iMessage answer `403
+             *     permission` with `channel_code` `hipaa_channel_not_covered`. Set by the
+             *     Flow team.
+             */
+            readonly hipaa?: boolean;
             /**
              * Format: date-time
              * @description When the account was created.
@@ -1356,8 +1373,8 @@ export interface components {
             provider: "github" | "google";
         };
         /**
-         * @description What your agent talks from: a Telegram bot, a WhatsApp number or an iMessage
-         *     line. `shared` senders are Flow's sandbox, used by many apps in test mode;
+         * @description What your agent talks from: a Telegram bot, a WhatsApp number, an iMessage
+         *     line or a US SMS number. `shared` senders are Flow's sandbox, used by many apps in test mode;
          *     `dedicated` senders are yours alone. Each sender has its own limits and
          *     warm-up state.
          */
@@ -1386,6 +1403,7 @@ export interface components {
              * @enum {string}
              */
             quality_rating?: "green" | "yellow" | "red" | "unknown";
+            sms?: components["schemas"]["SmsSender"];
             /**
              * @description Shared senders only. The whole message a contact sends to this sender to join your app: `join `, a space, then the app's `sandbox_join_code` (from `GET /v1/app`), for example `join brave-otter-40718263`. Show it to testers as is.
              * @example join brave-otter-40718263
@@ -1396,6 +1414,52 @@ export interface components {
              * @description When the sender was created.
              */
             created_at: string;
+        };
+        /**
+         * @description SMS senders only: how the number is registered with US carriers and what it
+         *     can do. An SMS number stays `pending` until its registration is approved
+         *     (carriers block traffic from unregistered numbers).
+         */
+        SmsSender: {
+            /**
+             * @description `10dlc` (a local 10-digit number, registered as a brand and campaign) or `toll_free` (a verified toll-free number).
+             * @enum {string}
+             */
+            number_type: "10dlc" | "toll_free";
+            /**
+             * @description The number's carrier registration (the 10DLC campaign, or toll-free
+             *     verification): `pending` (submitted, not approved yet; the sender is
+             *     `pending` and sends nothing), `approved`, or `rejected` (the sender is
+             *     `flagged`; the Flow team resubmits).
+             * @enum {string}
+             */
+            registration_status: "pending" | "approved" | "rejected";
+            /** @description Whether the number receives texts. Always `true` for senders Flow connects today. */
+            two_way: boolean;
+            /** @description Whether the number sends and receives MMS (images, audio and video). Without it, `media` and `voice` sends answer `422 unsupported_content`. */
+            mms: boolean;
+            quiet_hours?: components["schemas"]["QuietHours"];
+        };
+        /**
+         * @description The hours, in the contact's local time zone (worked out from their area
+         *     code; when it is not known, every US time zone must be outside the
+         *     hours), in which the sender does not message contacts who have not texted
+         *     it in the last hour. Absent when the sender has no quiet hours. A send
+         *     inside them answers `409 outside_window` with `channel_code` `quiet_hours`
+         *     and `retry_after`. Replies to a contact who texted within the hour always
+         *     go.
+         */
+        QuietHours: {
+            /**
+             * @description When the quiet hours begin, `HH:MM` on a 24-hour clock.
+             * @example 21:00
+             */
+            start: string;
+            /**
+             * @description When they end, `HH:MM` on a 24-hour clock (earlier than `start` when they span midnight).
+             * @example 08:00
+             */
+            end: string;
         };
         /**
          * @description - `pending`: requested, being provisioned.
@@ -1417,7 +1481,7 @@ export interface components {
         SenderStatus: "pending" | "active" | "warming_up" | "throttled" | "flagged" | "banned";
         /** @description How contacts reach the sender. Which fields are set depends on the channel. */
         SenderAddress: {
-            /** @description WhatsApp and iMessage. E.164 phone number. */
+            /** @description WhatsApp, iMessage and SMS. E.164 phone number. */
             phone?: string;
             /** @description Telegram. The bot's username, without `@`. */
             username?: string;
@@ -1469,13 +1533,29 @@ export interface components {
             name?: string;
             /**
              * Format: date-time
+             * @description SMS. When the contact opted out of your app's SMS messages. Absent when
+             *     they have not, or texted START (or UNSTOP, YES) since. While it is set,
+             *     sends to them on every SMS sender of your app answer `403 permission`
+             *     with `channel_code` `contact_opted_out`.
+             */
+            readonly opted_out_at?: string;
+            /**
+             * @description SMS. How the contact opted out: `keyword` (they texted STOP or one of
+             *     its variants) or `carrier` (the carrier or provider reported the number
+             *     unsubscribed when Flow sent to it). Set with `opted_out_at`.
+             * @enum {string}
+             */
+            readonly opted_out_via?: "keyword" | "carrier";
+            consent?: components["schemas"]["ContactConsent"];
+            /**
+             * Format: date-time
              * @description When Flow first saw the contact.
              */
             created_at: string;
         };
         /** @description How the contact is reached on their channel. Which fields are set depends on the channel; do not assume `phone`. */
         ContactAddress: {
-            /** @description E.164 phone number (WhatsApp; iMessage when the handle is a number). */
+            /** @description E.164 phone number (WhatsApp and SMS; iMessage when the handle is a number). */
             phone?: string;
             /** @description A username without `@` (Telegram, WhatsApp usernames). */
             username?: string;
@@ -1483,6 +1563,35 @@ export interface components {
             telegram_user_id?: string;
             /** @description iMessage handle (a phone number or an email address). */
             handle?: string;
+        };
+        /**
+         * @description The contact's consent to receive messages from you, as you recorded it
+         *     before starting the conversation. Required to start an SMS conversation
+         *     with someone who has never texted your numbers (US law, the TCPA, needs
+         *     their prior express consent). Flow keeps it on the contact. It does not
+         *     undo an opt-out: only the contact texting START does.
+         */
+        Consent: {
+            /**
+             * Format: date-time
+             * @description When the person gave consent. Not in the future.
+             */
+            obtained_at: string;
+            /**
+             * @description How they gave it.
+             * @enum {string}
+             */
+            method: "web_form" | "paper_form" | "verbal" | "text_message" | "app" | "other";
+            /** @description Your own reference to the record of consent (a form submission ID or URL). Do not put health information here. */
+            proof?: string;
+        };
+        /** @description SMS. The consent recorded with the latest start to this contact that carried one. Absent when none was recorded. */
+        ContactConsent: components["schemas"]["Consent"] & {
+            /**
+             * Format: date-time
+             * @description When Flow recorded it.
+             */
+            recorded_at: string;
         };
         /** @description A page of contacts. */
         ContactList: {
@@ -1496,7 +1605,7 @@ export interface components {
          */
         Recipient: {
             contact?: components["schemas"]["ContactId"];
-            /** @description WhatsApp or iMessage. E.164 phone number. */
+            /** @description WhatsApp, iMessage or SMS. E.164 phone number; on SMS a US or Canadian number, `+1` and ten digits. */
             phone?: string;
             /** @description Telegram. The user's numeric ID; they must have started the bot. */
             telegram_user_id?: string;
@@ -1587,6 +1696,7 @@ export interface components {
             error?: components["schemas"]["ErrorBody"];
             /** @description The channel's own ID for the message, once the channel accepted it. */
             channel_message_id?: string;
+            sms?: components["schemas"]["SmsSegments"];
             /**
              * @description The Flow ID of the message this one replies to. For a sent message, the
              *     message the send named in `reply_to`. For a received message, the message it
@@ -1608,6 +1718,23 @@ export interface components {
              * @description When the status last changed.
              */
             updated_at?: string;
+        };
+        /**
+         * @description SMS text messages only: how the text travels as SMS. Carriers bill and
+         *     deliver SMS in segments: 160 GSM-7 characters fit one segment (153 each
+         *     when split), but a single character outside GSM-7 (an emoji, curly quotes,
+         *     most non-Latin letters) makes the whole text UCS-2, 70 characters in one
+         *     segment (67 each when split). An SMS send may use at most `max_sms_segments`
+         *     (`GET /v1/capabilities`, 10). Absent on MMS and on other channels.
+         */
+        SmsSegments: {
+            /** @description How many SMS segments the text takes. */
+            segments: number;
+            /**
+             * @description `gsm7` or `ucs2`.
+             * @enum {string}
+             */
+            encoding: "gsm7" | "ucs2";
         };
         /**
          * @description - `received`: inbound from the contact.
@@ -1716,6 +1843,8 @@ export interface components {
             fallback?: components["schemas"]["Fallback"];
             channel_options?: components["schemas"]["ChannelOptions"];
             metadata?: components["schemas"]["Metadata"];
+            /** @description SMS. The contact's consent, required when they have never texted any of your SMS numbers; recorded on the contact. Ignored on other channels. */
+            consent?: components["schemas"]["Consent"];
         };
         /** @description The new text of a sent message. */
         EditMessageRequest: {
@@ -1732,21 +1861,21 @@ export interface components {
          *     `contact_card` and `file_blocked`; sends use every type except `button_reply`
          *     and `file_blocked`.
          *
-         *     | type | Telegram | WhatsApp | iMessage | `fallback: "auto"` |
-         *     |---|---|---|---|---|
-         *     | text | yes | yes | yes | markdown to plain |
-         *     | media | yes | yes | yes | none |
-         *     | voice | yes | yes | yes | audio file |
-         *     | buttons | inline keyboard | up to 3 buttons, else a list | no | numbered text |
-         *     | reaction | yes | yes | tapbacks, other emoji as emoji reactions | closest tapback, else skipped |
-         *     | template | no | yes | no | none |
-         *     | location | yes | yes | no | maps link as text |
-         *     | contact_card | yes | yes | no | text |
-         *     | effect | no | no | yes | plain text |
-         *     | typing | yes | yes | yes (within 5 minutes of the contact's last message) | skipped |
-         *     | read | no (bots) | yes | yes (the whole conversation) | skipped |
-         *     | edit | yes | no | yes (within 15 minutes) | none |
-         *     | unsend | yes (within 48 hours) | no | yes (within 2 minutes) | none |
+         *     | type | Telegram | WhatsApp | iMessage | SMS (US, pilot) | `fallback: "auto"` |
+         *     |---|---|---|---|---|---|
+         *     | text | yes | yes | yes | yes (at most 10 segments) | markdown to plain |
+         *     | media | yes | yes | yes | images, audio, video as MMS (no documents) | none |
+         *     | voice | yes | yes | yes | as an MMS audio file | audio file |
+         *     | buttons | inline keyboard | up to 3 buttons, else a list | no | no | numbered text |
+         *     | reaction | yes | yes | tapbacks, other emoji as emoji reactions | no | closest tapback, else skipped (SMS: none) |
+         *     | template | no | yes | no | no | none |
+         *     | location | yes | yes | no | no | maps link as text |
+         *     | contact_card | yes | yes | no | no | text |
+         *     | effect | no | no | yes | no | plain text |
+         *     | typing | yes | yes | yes (within 5 minutes of the contact's last message) | no | skipped |
+         *     | read | no (bots) | yes | yes (the whole conversation) | no | skipped |
+         *     | edit | yes | no | yes (within 15 minutes) | no | none |
+         *     | unsend | yes (within 48 hours) | no | yes (within 2 minutes) | no | none |
          */
         Content: components["schemas"]["TextContent"] | components["schemas"]["MediaContent"] | components["schemas"]["VoiceContent"] | components["schemas"]["ButtonsContent"] | components["schemas"]["ButtonReplyContent"] | components["schemas"]["ReactionContent"] | components["schemas"]["TemplateContent"] | components["schemas"]["LocationContent"] | components["schemas"]["ContactCardContent"] | components["schemas"]["EffectContent"] | components["schemas"]["TypingContent"] | components["schemas"]["ReadContent"] | components["schemas"]["EditContent"] | components["schemas"]["UnsendContent"] | components["schemas"]["FileBlockedContent"];
         /** @description Text, both ways. With `format` `markdown`, Flow renders it in each channel's own formatting; a channel without formatting needs `fallback`. */
@@ -1756,7 +1885,7 @@ export interface components {
              * @enum {string}
              */
             type: "text";
-            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
+            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 on SMS, where it must also fit in 10 segments, 670 characters when it holds an emoji or other character outside GSM-7; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
             text: string;
             /**
              * @description How to read `text`. Inbound text is always `plain`.
@@ -1977,7 +2106,7 @@ export interface components {
              * @enum {string}
              */
             type: "effect";
-            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
+            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 on SMS, where it must also fit in 10 segments, 670 characters when it holds an emoji or other character outside GSM-7; see `GET /v1/capabilities`). Longer text is refused with `invalid_request`. */
             text: string;
             /**
              * @description The effect.
@@ -2471,8 +2600,10 @@ export interface components {
         };
         /** @description Size limits on this channel. */
         ChannelLimits: {
-            /** @description The longest text one message may carry, in characters (4096 on Telegram and WhatsApp, 9999 on iMessage). Longer text is refused with `invalid_request`. */
+            /** @description The longest text one message may carry, in characters (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 on SMS). Longer text is refused with `invalid_request`. */
             max_text_length?: number;
+            /** @description SMS only. The most segments one text may take (10); see `SmsSegments`. A text of more segments is refused with `invalid_request`: 1530 GSM-7 characters (fewer when it uses GSM-7's two-unit characters such as `{` or `€`), or 670 when it holds an emoji or other character outside GSM-7. */
+            max_sms_segments?: number;
             /** @description The most buttons one message may carry natively. */
             max_buttons?: number;
             /** @description The largest file one message may carry. */

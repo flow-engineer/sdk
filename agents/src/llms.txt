@@ -19,12 +19,13 @@ Key facts for coding agents:
 - Every send ends `message.sent` or `message.failed`. Telegram never sends `message.delivered` or `message.read`. Text caps: {{text_caps.telegram}} characters on Telegram, {{text_caps.imessage}} on iMessage.
 - Go live on Telegram: with a live key, `POST /v1/senders {"channel":"telegram","telegram_bot_token":"..."}` connects your own bot (`200`, the sender `active`; connecting the same bot again updates that sender), and `DELETE /v1/senders/{sender_id}` disconnects it. Read the token from an env var; never paste it into a chat or commit it.
 - iMessage lines are connected by the Flow team and listed only with a live key. The person always writes first (replies only); get them to write with the line's opt-in link (`address.link` of the sender).
+- SMS (US): in pilot. US numbers are connected by the Flow team (live key only, no sandbox). Starts need the contact's recorded `consent` unless they texted first; STOP opts a contact out (`403 permission`, `contact_opted_out`) until START; quiet hours answer `409 outside_window`, `quiet_hours`, with `retry_after`. Text up to {{text_caps.sms}} characters and {{sms_max_segments}} segments.
 - Build the app on the REST API (HTTP and the WebSocket stream) for everything it does at runtime: receive, reply, start conversations. In TypeScript or JavaScript use the SDK, `npm install @flow-engineer/messaging` (it also has the CLI: `npx ... init`, `login`); Python and Go SDKs are not published yet, so use HTTP there.
 - {{> mcp-short}}
 
 ## Docs
 
-- [Agent quickstart](https://api.flow.engineer/docs/quickstart.md): everything needed to integrate, with curl, TypeScript and Python: getting a key in one call, the sandbox allowance, signing in to keep the app, the Telegram sandbox, the WebSocket stream, webhooks and signature checks, `message.received`, replies, your own Telegram bot, idempotency, errors, rate limits, channel notes (Telegram, iMessage), the optional MCP server.
+- [Agent quickstart](https://api.flow.engineer/docs/quickstart.md): everything needed to integrate, with curl, TypeScript and Python: getting a key in one call, the sandbox allowance, signing in to keep the app, the Telegram sandbox, the WebSocket stream, webhooks and signature checks, `message.received`, replies, your own Telegram bot, idempotency, errors, rate limits, channel notes (Telegram, iMessage, SMS), the optional MCP server.
 - [OpenAPI spec](https://api.flow.engineer/openapi.yaml): the full contract (OpenAPI 3.1, version {{api_version}}): every endpoint, schema, event type and error type.
 - [Error types](https://api.flow.engineer/docs/errors): one page per `error.type` (what it means, why it happens, how to fix it), the page each error's `doc_url` points at.
 

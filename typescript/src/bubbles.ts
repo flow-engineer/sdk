@@ -22,6 +22,8 @@ export const BUBBLE_RULES: Record<Channel, BubbleRules> = {
   telegram: { softLength: 900, maxLength: 4096 },
   whatsapp: { softLength: 700, maxLength: 4096 },
   imessage: { softLength: 400, maxLength: 9999 },
+  // SMS: 670 characters is 10 segments even when the text holds an emoji (UCS-2).
+  sms: { softLength: 300, maxLength: 670 },
 };
 
 const LIST_ITEM = /^\s*(?:[-*•]|\d{1,3}[.)])\s/;
