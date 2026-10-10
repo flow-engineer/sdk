@@ -11,8 +11,9 @@
 // as `a`, `b`); {{> name}} inserts agents/src/partials/name.md; {{api_version}} and
 // {{endpoint_table}} come from the spec. An unknown name fails the build.
 // Hand-written pages keep shared blocks between markers, refilled from a partial:
-//   <!-- agents:name --> ... <!-- /agents:name -->        (.md)
-//   {/* agents:name */} ... {/* /agents:name */}          (.mdx)
+//   <!-- agents:name --> ... <!-- /agents:name -->        (.md outside docs/)
+//   {/* agents:name */} ... {/* /agents:name */}          (anything under docs/, and .mdx)
+// Mintlify parses every page under docs/ as MDX, where an HTML comment fails the build.
 // docs/docs.json's markdown.instructions come from agents/src/docs-instructions.md.
 // Every output must state the MCP owner and runtime rules (facts mcp.owner_rule and
 // mcp.runtime_rule) and name only env vars listed in facts.env. (The service's tests
@@ -96,7 +97,8 @@ function partial(name, where, depth = 0) {
 }
 
 function fillRegions(file, text) {
-  const mdx = file.endsWith(".mdx");
+  // Mintlify parses .md under docs/ as MDX too, and MDX rejects HTML comments.
+  const mdx = file.endsWith(".mdx") || file.startsWith("docs/");
   const open = mdx ? (n) => `{/* agents:${n} */}` : (n) => `<!-- agents:${n} -->`;
   const close = mdx ? (n) => `{/* /agents:${n} */}` : (n) => `<!-- /agents:${n} -->`;
   const re = mdx ? /\{\/\* agents:([\w-]+) \*\/\}/g : /<!-- agents:([\w-]+) -->/g;
