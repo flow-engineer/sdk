@@ -41,14 +41,14 @@ curl -X POST https://api.flow.engineer/v1/device/token \
   -H "Content-Type: application/json" -d '{"device_code": "fdc_..."}'
 ```
 
-On SMS, a contact who opted out gets nothing more until they text START (or UNSTOP, YES) to one of your numbers; do not ask them to by other means unless they want it. To start a conversation with someone who has not texted you, record the consent they gave you (for example on your sign-up form) with the start:
+On SMS, a contact who opted out gets nothing more until they text START (or UNSTOP, YES) to a number they opted out through; do not ask them to by other means unless they want it. To start a conversation with someone who has not texted you, record the consent they gave you (for example on your sign-up form) with the start:
 
 ```bash
 curl -X POST https://api.flow.engineer/v1/messages \
   -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
   -d '{"sender": "snd_...", "to": {"phone": "+14155550100"},
-       "content": {"type": "text", "text": "Hi Sam, this is Berry from Acme. Reply STOP to opt out."},
+       "content": {"type": "text", "text": "Hi Sam, this is Example Clinic. Reply STOP to opt out."},
        "consent": {"obtained_at": "2026-10-01T15:04:05Z", "method": "web_form", "proof": "signup-8812"}}'
 ```
 

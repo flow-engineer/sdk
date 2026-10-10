@@ -1127,10 +1127,13 @@ export interface components {
             /**
              * @description `true` when the account handles protected health information under a
              *     business associate agreement with Flow. Its messages then go only
-             *     through channels Flow holds such an agreement for (SMS): sends and
-             *     sender connections on Telegram, WhatsApp and iMessage answer `403
-             *     permission` with `channel_code` `hipaa_channel_not_covered`. Set by the
-             *     Flow team.
+             *     through channels Flow holds such an agreement for (SMS): sends, typing,
+             *     read receipts and sender connections on Telegram, WhatsApp and iMessage
+             *     answer `403 permission` with `channel_code` `hipaa_channel_not_covered`,
+             *     and messages already queued there fail the same way. The sandbox
+             *     senders answer the account's contacts with a fixed refusal and store
+             *     and deliver nothing they send; turning the flag on ends the account's
+             *     sandbox joins. Set by the Flow team.
              */
             readonly hipaa?: boolean;
             /**
@@ -1447,7 +1450,8 @@ export interface components {
          *     hours), in which the sender does not message contacts who have not texted
          *     it in the last hour. Absent when the sender has no quiet hours. A send
          *     inside them answers `409 outside_window` with `channel_code` `quiet_hours`
-         *     and `retry_after`. Replies to a contact who texted within the hour always
+         *     and `retry_after`; a message that waited in the queue into them is held
+         *     until they end. Replies to a contact who texted within the hour always
          *     go.
          */
         QuietHours: {
@@ -1535,9 +1539,12 @@ export interface components {
             /**
              * Format: date-time
              * @description SMS. When the contact opted out of your app's SMS messages. Absent when
-             *     they have not, or texted START (or UNSTOP, YES) since. While it is set,
-             *     sends to them on every SMS sender of your app answer `403 permission`
-             *     with `channel_code` `contact_opted_out`.
+             *     they have not, or texted START (or UNSTOP, YES) since to a number they
+             *     opted out through (START to another of your numbers does not lift it,
+             *     since carriers and providers block per number). While it is set, sends
+             *     to them on every SMS sender of your app answer `403 permission` with
+             *     `channel_code` `contact_opted_out`. Every opt-out, opt-in and recorded
+             *     consent is kept in the contact's history.
              */
             readonly opted_out_at?: string;
             /**
@@ -1898,7 +1905,11 @@ export interface components {
         /**
          * @description An image, video, document or audio file, both ways. When sending, give either
          *     `url` (Flow fetches it) or `file_id` (from `POST /v1/files`). Inbound media
-         *     always has `url`, a Flow file URL (`GET /v1/files/{file_id}`), and `file_id`.
+         *     always has `url`, a Flow file URL (`GET /v1/files/{file_id}`), and `file_id`,
+         *     on every channel (an SMS contact's MMS files included), and `mime_type` and
+         *     `size_bytes` once Flow kept the file. On SMS Flow always keeps its own copy
+         *     (the provider's is deleted): an MMS file it could not fetch or check arrives
+         *     as `file_blocked` instead. Send a received file again by its `file_id`.
          */
         MediaContent: {
             /**

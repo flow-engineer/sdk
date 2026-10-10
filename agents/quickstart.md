@@ -933,8 +933,11 @@ and new conversations per hour and per day, growing during a new sender's warm-u
   permission`, `consent_required`).
 - **STOP is final until START**: a contact who texts STOP (or a variant) gets
   `opted_out_at`, and every send to them answers `403 permission`,
-  `contact_opted_out`. HELP is answered automatically. You still get these texts as
+  `contact_opted_out`, until they text START to a number they opted out through.
+  HELP is answered automatically. You still get these texts as
   `message.received`.
+- **MMS in**: an MMS file arrives as `media` with `file_id`, `mime_type` and
+  `size_bytes`, like other channels' media.
 - **Quiet hours** (default 21:00-08:00 in the contact's time zone) apply to contacts
   who have not texted in the last hour: `409 outside_window`, `quiet_hours`, with
   `retry_after`.
