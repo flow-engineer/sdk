@@ -83,6 +83,7 @@ export DATABASE_URL="postgres://postgres@127.0.0.1:$pg_port/flow?sslmode=disable
 export SECRETS_KEY; SECRETS_KEY=$(openssl rand -base64 32)
 export PUBLIC_BASE_URL="http://127.0.0.1:$api_port" TELEGRAM_API_URL="http://127.0.0.1:$sim_port"
 export WEBHOOK_ALLOW_PRIVATE=true FILES_BACKEND=local FILES_DIR="$work/files" PORT="$api_port" LOG_LEVEL=warn
+export STREAM_KEY_CHECK=1s  # a revoked key's stream closes within a second (the revoked-key scenarios)
 export SANDBOX_KEYS_PER_IP=1000 SANDBOX_KEYS_PER_NETWORK=1000 SANDBOX_KEYS_PER_WIDE_NETWORK=1000 SANDBOX_KEYS_PER_WIDE_NETWORK_DAY=1000
 
 PORT="$sim_port" SIM_ADMIN_TOKEN="$sim_token" SIM_BOTS=flow_sandbox_bot "$work/bin/telegramsim" > "$work/logs/telegramsim.log" 2>&1 &
@@ -95,18 +96,10 @@ sandbox_token=$(curl -sf -H "Authorization: Bearer $sim_token" "http://127.0.0.1
 TELEGRAM_SANDBOX_TOKEN="$sandbox_token" "$work/bin/server" sandbox-sender > "$work/logs/sandbox-sender.log" 2>&1 \
   || { cat "$work/logs/sandbox-sender.log"; exit 1; }
 
-# A live key for own-telegram-bot: `server bootstrap` makes a tenant (its test key is not
-# used), and a fk_live_ key is added to its app here, since a live bootstrap needs Secret
-# Manager. The key goes to a mode-600 file, never to the terminal.
-tenant=$("$work/bin/server" bootstrap 2>/dev/null | head -1)
-account=$(echo "$tenant" | sed -n 's/.*account \(acct_[A-Za-z0-9]*\).*/\1/p')
-app=$(echo "$tenant" | sed -n 's/.* app \(app_[A-Za-z0-9]*\).*/\1/p')
-[ -n "$account" ] && [ -n "$app" ] || { echo "server bootstrap printed no tenant"; exit 1; }
-(umask 077; python3 -c 'import secrets, string; a = string.digits + string.ascii_letters; print("fk_live_" + "".join(secrets.choice(a) for _ in range(32)))' > "$work/live_key")
-key_id="key_$(python3 -c 'import secrets; print("".join(secrets.choice("0123456789ABCDEFGHJKMNPQRSTVWXYZ") for _ in range(26)))')"
-{ printf "INSERT INTO api_keys (id, account_id, app_id, livemode, key_hash, last4) VALUES ('%s', '%s', '%s', true, sha256(convert_to('%s', 'UTF8')), right('%s', 4));\n" \
-    "$key_id" "$account" "$app" "$(cat "$work/live_key")" "$(cat "$work/live_key")"; } \
-  | psql -q -X -v ON_ERROR_STOP=1 "$DATABASE_URL" >/dev/null
+# A live key for own-telegram-bot: `server bootstrap` makes a live tenant and writes its
+# fk_live_ key to a new mode-600 file (BOOTSTRAP_KEY_FILE), never to the terminal.
+BOOTSTRAP_LIVE=true BOOTSTRAP_ACCOUNT_NAME="Examples e2e" BOOTSTRAP_KEY_FILE="$work/live_key" \
+  "$work/bin/server" bootstrap > "$work/logs/bootstrap.log" 2>&1 || { cat "$work/logs/bootstrap.log"; exit 1; }
 
 "$work/bin/server" > "$work/logs/server.log" 2>&1 &
 pids+=($!)
@@ -121,7 +114,7 @@ python3 -m venv "$work/venv"
 set +e
 E2E_API="http://127.0.0.1:$api_port" E2E_SIM="http://127.0.0.1:$sim_port" E2E_SIM_TOKEN="$sim_token" \
 E2E_SANDBOX_TOKEN="$sandbox_token" E2E_LIVE_KEY_FILE="$work/live_key" E2E_TS_DIR="$work/ts" \
-E2E_PYTHON="$work/venv/bin/python" E2E_EXAMPLES="$root/examples" \
+E2E_PYTHON="$work/venv/bin/python" E2E_EXAMPLES="$root/examples" E2E_DATABASE_URL="$DATABASE_URL" \
   python3 scripts/examples-e2e.py "$@"
 status=$?
 set -e

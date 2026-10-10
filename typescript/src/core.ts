@@ -237,6 +237,9 @@ function retryable(status: number, err: FlowError): boolean {
     // A channel's refusal is an answer, not a transient failure.
     return err.type !== "channel_error";
   }
+  // The first request with this idempotency key is still running: the same request
+  // again, after retry_after, gets its answer. The other idempotency conflicts are bugs.
+  if (status === 409) return err.type === "idempotency_conflict" && err.channelCode === "in_progress";
   // Only the per-key rate limit clears in seconds; send-gate budgets clear in hours.
   return status === 429 && err.type === "rate_limited";
 }

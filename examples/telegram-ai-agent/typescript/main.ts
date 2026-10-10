@@ -125,6 +125,7 @@ function connect() {
       ws.close();
       return;
     }
+    if (frame.type === "error") console.error(`${frame.error.type}: ${frame.error.message} (${frame.error.hint})`);
     if (frame.type !== "event") return;
     const event = frame.event;
     lastEventId = event.id;
@@ -136,7 +137,13 @@ function connect() {
       .catch((err) => console.error(`[${conv}] ${err.message}`));
     queues.set(conv, next);
   };
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
+    // A refused stream (bad, revoked or expired key; a bad request) sends an error
+    // frame, then closes with 4401, 4403 or 4400: reconnecting will not help.
+    if (ev.code === 4401 || ev.code === 4403 || ev.code === 4400) {
+      console.error(`Stream refused (${ev.code}): ${ev.reason}`);
+      process.exit(1);
+    }
     console.log("Stream closed; reconnecting.");
     setTimeout(connect, 1000);
   };

@@ -280,11 +280,13 @@ To answer a `message.received` at once, respond `200` with a reply body. Flow se
 
 `GET /v1/stream` upgrades to a WebSocket. Every frame is one JSON object: the server sends `event`, `ack`, `error` and `reconnect` frames, and you may send `send` and `start` frames with the same bodies as the HTTP send endpoints (`ref` is your idempotency key, echoed in the `ack` or `error`). Pass `after` to resume: the stream first replays everything after that event, then goes live. When the server is about to restart it sends `reconnect`; reconnect with `after` set to the last event you received. The TypeScript SDK does all of this for you in `flow.events.stream()`, and polls `GET /v1/events` where the runtime has no WebSocket.
 
-Authenticate with the `Authorization` header. A browser's `WebSocket` cannot set headers, so there you may offer the key as a subprotocol instead: offer both `flow` and `flow.key.<api key>`. The server selects `flow` and never echoes the key; offering the key protocol without `flow` is refused with `400 invalid_request`, and an `Authorization` header, when present, takes precedence. Keys are never accepted in the query string, since URLs end up in logs. The TypeScript SDK offers the subprotocol by itself where the WebSocket cannot send headers.
+Authenticate with the `Authorization` header. Where your WebSocket cannot set headers (a browser's `WebSocket`, and Node's global `WebSocket` on a server), offer the key as a subprotocol instead: offer both `flow` and `flow.key.<api key>`. This is as valid from server-side code as from a browser. The server selects `flow` and never echoes the key; offering the key protocol without `flow` is refused with `400 invalid_request`, and an `Authorization` header, when present, takes precedence. Keys are never accepted in the query string, since URLs end up in logs. The TypeScript SDK offers the subprotocol by itself where the WebSocket cannot send headers.
 
 ```js
 const ws = new WebSocket("wss://api.flow.engineer/v1/stream", ["flow", "flow.key." + key]);
 ```
+
+A refused stream (a bad, revoked or expired key, a bad parameter, too many streams for the key) is still upgraded, because most WebSocket clients cannot read an HTTP status: the server sends one `error` frame with the usual error body, then closes with 4000 plus the HTTP status. Stop reconnecting on `4401` (`authentication`), `4403` (`permission`) and `4400` (`invalid_request`); reconnect after `retry_after` on `4429` and `4503`. An open stream whose key is revoked also gets an `authentication` error frame and close `4401`.
 
 <Warning>A key used in a browser is visible to whoever uses that page. Do this only for internal tools or with test keys (`fk_test_`); keep live keys on your server.</Warning>
 

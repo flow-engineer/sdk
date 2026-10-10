@@ -39,6 +39,7 @@ SANDBOX_TOKEN = os.environ["E2E_SANDBOX_TOKEN"]
 TS_DIR = os.environ["E2E_TS_DIR"]
 PYTHON = os.environ["E2E_PYTHON"]
 EXAMPLES = os.environ["E2E_EXAMPLES"]
+DATABASE_URL = os.environ["E2E_DATABASE_URL"]  # only to revoke a key (the public API has no call for it)
 WAIT = 20  # seconds any one expectation may take
 
 
@@ -176,6 +177,13 @@ def sandbox_key():
     return body
 
 
+def revoke(sk):
+    """Revokes the sandbox app's keys, as a person does on the dashboard's Keys page."""
+    subprocess.run(["psql", "-q", "-X", "-v", "ON_ERROR_STOP=1", DATABASE_URL, "-c",
+                    f"UPDATE api_keys SET revoked_at = now() WHERE app_id = '{sk['app']['id']}'"],
+                   check=True, stdout=subprocess.DEVNULL)
+
+
 def join(user, sk):
     """The user taps the sandbox link (/start <code>), which joins them to the app."""
     user.say("/start " + sk["app"]["sandbox_join_code"])
@@ -202,6 +210,23 @@ def echo(run):
         check(call["params"]["text"] == "You said: hello from the e2e test", f"echo sent {call['params']['text']!r}")
         p.expect(r"^\[conv_\w+\] hello from the e2e test$")
         p.expect(r"^  -> sent msg_\w+$")
+    finally:
+        p.stop()
+    return p
+
+
+def stream_refused(run):
+    """A stream whose key is revoked closes with 4401 (after an error frame), and the
+    example stops instead of reconnecting forever. The service re-checks keys every
+    STREAM_KEY_CHECK (1s in check-examples.sh)."""
+    sk = sandbox_key()
+    p = run("telegram-echo", env={"FLOW_MESSAGING_KEY": sk["key"]})
+    try:
+        p.expect(r"^Echo agent ready\.$")
+        revoke(sk)
+        p.expect(r"authentication: This API key has been revoked\.")
+        p.expect(r"^Stream refused \(4401\): authentication: api key revoked$")
+        check(p.wait_exit() == 1, "the echo agent did not stop on close 4401")
     finally:
         p.stop()
     return p
@@ -331,12 +356,13 @@ def own_telegram_bot(run):
     with open(os.environ["E2E_LIVE_KEY_FILE"]) as f:
         live_key = f.read().strip()
     status, bot = http("POST", SIM + "/_sim/bots", {"username": "e2e_own_bot"}, SIM_AUTH)
-    check(status in (200, 201), f"the simulator made no bot: {status}")
+    check(status == 201, f"the simulator made no bot: {status} {bot}")
 
     # A test key cannot connect a bot: the API says so, with a hint.
     p = run("own-telegram-bot", "connect", env={"FLOW_MESSAGING_KEY": sandbox_key()["key"], "TELEGRAM_BOT_TOKEN": bot["token"]})
     check(p.wait_exit() == 1, "connect with a test key did not fail")
     check(any(l.startswith("permission: ") for l in p.lines) and any(l.startswith("hint: ") for l in p.lines), f"output: {p.lines}")
+    check(any("/admin/keys?mode=live" in l and "Create live key" in l for l in p.lines), f"the hint does not say how to get a live key: {p.lines}")
 
     p = run("own-telegram-bot", "connect", env={"FLOW_MESSAGING_KEY": live_key, "TELEGRAM_BOT_TOKEN": bot["token"]})
     sender = p.expect(r"^Connected @e2e_own_bot as (snd_\w+) \(status active\)\.$").group(1)
@@ -366,6 +392,8 @@ def own_telegram_bot(run):
 SCENARIOS = {
     "telegram-echo/typescript": lambda: echo(ts),
     "telegram-echo/python": lambda: echo(py),
+    "telegram-echo/typescript revoked key": lambda: stream_refused(ts),
+    "telegram-echo/python revoked key": lambda: stream_refused(py),
     "telegram-ai-agent/typescript": lambda: ai_agent(ts, fake_llm=False),
     "telegram-ai-agent/python": lambda: ai_agent(py, fake_llm=False),
     "telegram-ai-agent/typescript --fake-llm": lambda: ai_agent(ts, fake_llm=True),

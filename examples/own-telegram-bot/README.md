@@ -10,13 +10,20 @@ bot's webhook at Flow, and never returns the token. No Flow SDK.
 | TypeScript | [typescript/main.ts](typescript/main.ts) | Node 22.18+, no dependencies |
 
 This needs a **live key** (`fk_live_...`); a test key gets `403 permission`. Live
-keys come from the Flow team for now. Until you have one, build on the sandbox bot
+keys for your own Telegram bot are self-serve: sign in to the dashboard at
+<https://api.flow.engineer/admin/keys?mode=live> (GitHub or Google; the link opens
+the Keys page in Live mode) and click **Create live key**. If your app was made
+without an account (`POST /v1/sandbox/keys`), sign in with
+`npx @flow-engineer/messaging login` first: that claims it. Keep the live key in its
+own variable, apart from your test key. Until you go live, build on the sandbox bot
 with a test key ([telegram-echo](../telegram-echo)); your code does not change.
+(iMessage lines and WhatsApp numbers are arranged with the Flow team.)
 
 ## Run it
 
-1. In Telegram, message [@BotFather](https://t.me/BotFather), send `/newbot`, and copy
-   the token. Set it with your live key:
+1. Create a live key in the dashboard (above). In Telegram, message
+   [@BotFather](https://t.me/BotFather), send `/newbot`, and copy the token. Set it
+   with your live key:
 
    ```bash
    export FLOW_MESSAGING_KEY=fk_live_... TELEGRAM_BOT_TOKEN=123456789:AA...
@@ -42,7 +49,7 @@ with a test key ([telegram-echo](../telegram-echo)); your code does not change.
 
 | Variable | Required | Meaning |
 |---|---|---|
-| `FLOW_MESSAGING_KEY` | yes | Your live API key (`fk_live_...`). |
+| `FLOW_MESSAGING_KEY` | yes | Your live API key (`fk_live_...`), from the dashboard's Keys page in Live mode. |
 | `TELEGRAM_BOT_TOKEN` | for `connect` | The bot token from @BotFather. Keep it secret; Flow never returns it. |
 | `FLOW_MESSAGING_BASE_URL` | no | The API, default `https://api.flow.engineer`. |
 
@@ -59,11 +66,12 @@ $ node main.ts disconnect snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T
 Disconnected snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T (status banned).
 ```
 
-With a test key, `connect` prints the API's `error.type`, `message` and `hint`:
+With a test key, `connect` prints the API's `error.type`, `message` and `hint`, and
+the hint says how to get a live key:
 
 ```text
 permission: This app was made without an account (POST /v1/sandbox/keys), so it cannot connect its own senders.
-hint: Sign in to claim the app: ...
+hint: Have a person sign in to claim the app first: run npx @flow-engineer/messaging login, ... To get a live key (fk_live_...), the person signs in to the dashboard at https://api.flow.engineer/admin/keys?mode=live ... and clicks Create live key; ...
 ```
 
 ## Good to know
