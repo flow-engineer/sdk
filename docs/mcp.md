@@ -6,7 +6,7 @@ description: "Let your coding agent integrate, test and run Flow Messaging throu
 # MCP server
 
 Flow Messaging has a hosted [Model Context Protocol](https://modelcontextprotocol.io)
-server at `https://api.flow.engineer/mcp`. Connect your coding agent to it and the
+server at `https://api.flow.engineer/mcp`. With it in your coding tools, your coding
 agent can integrate the API **and verify it end to end**: get a sandbox join link,
 send a real test message, wait for the reply, and see exactly what your webhook
 answered.
@@ -17,7 +17,7 @@ answered.
   `fk_live_...`. The key's mode decides which tools the agent sees.
 
 {/* agents:mcp-note */}
-MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. The hosted MCP server at `https://api.flow.engineer/mcp` is an optional tool for testing and operating the integration during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to a coding agent, it can use them for sandbox testing.
+MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. The hosted MCP server at `https://api.flow.engineer/mcp` is an optional tool for testing and operating the integration during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to a coding agent, it can use them for sandbox testing.
 {/* /agents:mcp-note */}
 
 No key yet? Get a test key with no account in one call (the MCP server needs a key,
@@ -36,9 +36,9 @@ export FLOW_CLAIM_TOKEN=fct_...
 ```
 
 This key allows 1 contact and 50 messages on the Telegram sandbox and expires after 7
-days; a person signs in with GitHub or Google (`npx @flow-engineer/messaging login`) to
+days; a person signs in with GitHub (`npx @flow-engineer/messaging login`) to
 keep the app and send 100 messages to each of 3 contacts. See
-[Keys and sign-in](https://docs.flow.engineer/get-a-key). Signed in, you make live keys (`fk_live_...`) in the dashboard and go live on Telegram with your own bot; iMessage lines and WhatsApp numbers are arranged with the Flow team.
+[Keys and sign-in](https://docs.flow.engineer/get-a-key). Signed in, you make live keys (`fk_live_...`) in the dashboard and go live on Telegram with your own bot; iMessage lines are arranged with the Flow team, and WhatsApp is not available yet.
 
 ## Add it to your coding tools
 
@@ -79,7 +79,7 @@ who has not joined your app's sandbox.
 | Tool | What it does |
 | --- | --- |
 | `whoami` | The app, account and mode behind the key, its senders and webhook endpoints, and a `cursor` for `wait_for_event`. |
-| `sandbox_join` | Your join code, a link per channel that opens the chat with `join <code>` filled in, and who has joined. Pass `include_qr: true` to add a QR code (as text, SVG and PNG). |
+| `sandbox_join` | Your join code, the link for each sandbox sender (today the Telegram sandbox bot) that joins your app, and who has joined. Pass `include_qr: true` to add a QR code (as text, SVG and PNG). |
 | `send_test_message` | Sends text or any content to someone who joined, through the real send gate. With one joined person it needs only `text`. |
 | `wait_for_event` | Waits up to 50 seconds (default 25, under the 60-second tool timeout of common MCP clients; a longer `timeout_seconds` is clamped to 50, with a note) for an event (filter by `types` and `conversation`) and returns it the moment it lands; call again with `after` set to its `next_after` to wait longer. |
 | `list_events` | Reads your app's event log, like `GET /v1/events`. |
@@ -90,7 +90,7 @@ who has not joined your app's sandbox.
 
 A typical session, in the agent's words:
 
-1. `whoami`, then `sandbox_join`: "Open this link on your phone and tap Start." (Telegram; on other channels the person sends `join <code>`, for example `join wild-otter-04508705`.)
+1. `whoami`, then `sandbox_join`: "Open this link on your phone and tap Start." (If the link can't be used, the person sends the bot `join <code>`, for example `join wild-otter-04508705`.)
 2. `wait_for_event` with `types: ["conversation.started", "message.received"]`.
 3. `send_test_message` with `text: "Hello from my agent"`.
 4. `wait_for_event` with `types: ["message.sent", "message.failed"]` and
@@ -109,7 +109,7 @@ REST API (channel rules, budgets, pacing).
 
 | Tool | What it does |
 | --- | --- |
-| `send_message` | Starts a conversation from a dedicated sender (spends its new-contact budget). |
+| `send_message` | Starts a conversation from a dedicated sender (spends its new-contact budget). On Telegram only people who started your bot can be reached; iMessage lines are reply-only. |
 | `reply` | Sends into an existing conversation. |
 | `react` | Sets or removes your reaction on a message. |
 | `typing` | Shows or clears the typing indicator. |

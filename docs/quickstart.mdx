@@ -1,11 +1,11 @@
 ---
-title: "Quickstart: give your AI agent WhatsApp, Telegram and iMessage in 5 minutes"
+title: "Quickstart: give your AI agent Telegram in 5 minutes"
 sidebarTitle: "Quickstart"
-description: "Get a test key, join the Flow sandbox from your phone, receive your first message and reply to it, in TypeScript, Python, Go or curl. Five minutes, no phone number or bot of your own needed."
+description: "Get a test key, join the Flow Telegram sandbox from your phone, receive your first message and reply to it, in TypeScript, or over HTTP from Python, Go or curl. Five minutes, no bot of your own needed."
 keywords: ["send WhatsApp message from LLM agent", "AI agent WhatsApp quickstart", "Telegram bot API for AI agents", "iMessage API quickstart", "AI chatbot messaging API tutorial"]
 ---
 
-This page gets an agent answering messages on your phone in about 5 minutes: get a test key, join the shared sandbox, receive a message, and reply.
+This page gets an agent answering messages on your phone in about 5 minutes: get a test key, join the shared Telegram sandbox, receive a message, and reply. The same code later answers on your own Telegram bot, and on an iMessage line the Flow team connects for you (WhatsApp is coming).
 
 ```bash
 npx @flow-engineer/messaging init
@@ -21,14 +21,14 @@ That one command gets a test key with no account, saves it to `.env` as `FLOW_ME
     curl -X POST https://api.flow.engineer/v1/sandbox/keys
     ```
 
-    The answer holds `key` (`fk_test_...`) and `claim_token` (`fct_...`), both shown once, plus your app's `sandbox_join_code` and the sandbox `senders`. Save them:
+    The answer holds `key` (`fk_test_...`) and `claim_token` (`fct_...`), both shown once, plus your `app` (with its `sandbox_join_code`) and the sandbox `senders`. Save them:
 
     ```bash
     export FLOW_MESSAGING_KEY=fk_test_...
     export FLOW_CLAIM_TOKEN=fct_...
     ```
 
-    Test keys reach only the shared sandbox, so nothing reaches anyone who has not joined it. This key allows 1 contact and 50 messages on the Telegram sandbox and expires after 7 days; [sign in](/get-a-key#3-sign-in-to-keep-the-app) with GitHub or Google (`npx @flow-engineer/messaging login`) to keep the app and send 100 messages to each of 3 contacts. See [Keys and sign-in](/get-a-key).
+    Test keys reach only the shared sandbox, so nothing reaches anyone who has not joined it. This key allows 1 contact and 50 messages on the Telegram sandbox and expires after 7 days; [sign in](/get-a-key#3-sign-in-to-keep-the-app) with GitHub (`npx @flow-engineer/messaging login`) to keep the app and send 100 messages to each of 3 contacts. See [Keys and sign-in](/get-a-key).
 
     Check the key, and read your app's sandbox join code and what is left of its allowance:
 
@@ -41,7 +41,7 @@ That one command gets a test key with no account, saves it to `.env` as `FLOW_ME
   </Step>
 
   <Step title="Join the sandbox from your phone">
-    List the sandbox senders your key can use:
+    List the sandbox senders your key can use (today, the Telegram sandbox bot):
 
     ```bash
     curl https://api.flow.engineer/v1/senders \
@@ -51,7 +51,7 @@ That one command gets a test key with no account, saves it to `.env` as `FLOW_ME
     Each shared sender has an `address.link` and a `join_code`. Open the link on your phone:
 
     - **Telegram:** the link is `https://t.me/<bot>?start=<code>`. Open it and tap **Start**. That's it, you've joined.
-    - **Other channels**, or if the link can't be used: send the sender's `join_code` to it, for example:
+    - **If the link can't be used** (for example you found the bot by searching for it): send the sender's `join_code` to it, for example:
 
     ```text
     join wild-otter-04508705
@@ -78,8 +78,8 @@ That one command gets a test key with no account, saves it to `.env` as `FLOW_ME
     ```
 
     ```python Python (HTTP)
-    # The Python SDK (pip install flow-messaging) is coming soon.
-    # Until then this is the same agent over plain HTTP: pip install requests
+    # The Python SDK is not published yet; this is the same agent over plain HTTP.
+    # pip install requests
     import os, time, requests
 
     API = "https://api.flow.engineer"
@@ -109,8 +109,8 @@ That one command gets a test key with no account, saves it to `.env` as `FLOW_ME
     ```
 
     ```go Go (HTTP)
-    // The Go SDK (github.com/flow-engineer/sdk/go) is coming soon.
-    // Until then this is the same agent over plain HTTP, standard library only.
+    // The Go SDK is not published yet; this is the same agent over plain HTTP,
+    // standard library only.
     package main
 
     import (
@@ -248,7 +248,7 @@ That one command gets a test key with no account, saves it to `.env` as `FLOW_ME
 
 ## What you built
 
-- A test-mode agent that answers anyone who joined your sandbox, on whichever channel they used. The code does not change per channel.
+- A test-mode agent that answers anyone who joined your app on the Telegram sandbox. The code does not change per channel: it answers the same way on your own Telegram bot or an iMessage line.
 - It reads events from the live stream (TypeScript) or the event log (HTTP). In production most agents use [webhooks](/concepts/events-and-webhooks) instead, and can answer straight in the webhook response.
 
 ## Next steps
@@ -264,6 +264,6 @@ That one command gets a test key with no account, saves it to `.env` as `FLOW_ME
     Media, voice notes, buttons, reactions and what each channel shows.
   </Card>
   <Card title="Going live" icon="flag-checkered" href="/guides/going-live">
-    Dedicated numbers, WhatsApp verification and templates.
+    A live key, your own Telegram bot, and iMessage lines.
   </Card>
 </CardGroup>

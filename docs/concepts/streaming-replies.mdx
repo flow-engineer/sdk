@@ -1,7 +1,7 @@
 ---
-title: "Streaming LLM replies as chat bubbles on WhatsApp, Telegram and iMessage"
+title: "Streaming LLM replies as chat bubbles on Telegram and iMessage"
 sidebarTitle: "Streaming replies"
-description: "Send a streamed LLM answer to WhatsApp, Telegram or iMessage as natural chat bubbles: pass an OpenAI, Anthropic, Vercel AI SDK, LangChain or Mastra stream to reply(), or follow the bubble rule over plain HTTP."
+description: "Send a streamed LLM answer to Telegram or iMessage as natural chat bubbles: pass an OpenAI, Anthropic, Vercel AI SDK, LangChain or Mastra stream to reply(), or follow the bubble rule over plain HTTP."
 keywords: ["stream LLM response to WhatsApp", "stream OpenAI to Telegram", "send ChatGPT reply to iMessage", "LLM chat bubbles", "typing indicator API"]
 ---
 
@@ -69,7 +69,7 @@ Without the SDK, apply this rule to the model's text and send each bubble with `
 | Channel | Soft length | Hard limit |
 |---|---|---|
 | Telegram | 900 characters | 4096 |
-| WhatsApp | 700 characters | 4096 |
+| WhatsApp (coming) | 700 characters | 4096 |
 | iMessage | 400 characters | 9999 |
 
 Use the event's ID plus the bubble's index as each send's `Idempotency-Key` (`evt_...:0`, `evt_...:1`), so retrying a failed reply never sends a bubble twice.

@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Flow Messaging",
-  "description": "Flow Messaging is a two-way messaging API for AI agents on WhatsApp, Telegram and iMessage: one HTTP API and SDKs (TypeScript, Python, Go) to receive messages, reply, stream LLM answers as chat bubbles, and start conversations, with webhooks, a live event stream and an MCP server.",
+  "description": "Flow Messaging is a two-way messaging API for AI agents on Telegram and iMessage, with WhatsApp coming: one HTTP API and a TypeScript SDK to receive messages, reply, and stream LLM answers as chat bubbles, with webhooks, a live event stream and an MCP server.",
   "colors": {
     "primary": "#0b7a5a",
     "light": "#3cc497",
@@ -64,9 +64,9 @@
           {
             "group": "Channel guides",
             "pages": [
-              "guides/whatsapp-agent",
               "guides/telegram-agent",
               "guides/imessage-agent",
+              "guides/whatsapp-agent",
               "guides/local-development",
               "guides/going-live"
             ]
@@ -212,9 +212,9 @@
   },
   "markdown": {
     "instructions": [
-      "Flow Messaging is one HTTP API (https://api.flow.engineer) for AI agents to hold two-way conversations on WhatsApp, Telegram and iMessage.",
-      "Build the app on the REST API. MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. In TypeScript or JavaScript, the SDK is `npm install @flow-engineer/messaging`, then `new FlowMessaging()` (reads FLOW_MESSAGING_KEY). Python (flow-messaging) and Go (github.com/flow-engineer/sdk/go) SDKs are coming; until then call the HTTP API directly.",
-      "No key yet? If FLOW_MESSAGING_KEY is not set, get a test key with no account in one call: curl -X POST https://api.flow.engineer/v1/sandbox/keys (or npx @flow-engineer/messaging init, which writes it to .env). Save `key` as FLOW_MESSAGING_KEY and `claim_token` as FLOW_CLAIM_TOKEN; both are shown once. It allows 1 contact and 50 messages on the Telegram sandbox and expires after 7 days; a person signs in with `npx @flow-engineer/messaging login` (GitHub or Google) to keep the app and get 3 contacts x 100 messages. Signed in, live keys (fk_live_...) are made in the dashboard for your own Telegram bot; iMessage and WhatsApp senders are arranged with the Flow team.",
+      "Flow Messaging is one HTTP API (https://api.flow.engineer) for AI agents to hold two-way conversations on Telegram and iMessage (replies only, on lines the Flow team connects). WhatsApp is coming and not available yet.",
+      "Build the app on the REST API. MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. In TypeScript or JavaScript, the SDK is `npm install @flow-engineer/messaging`, then `new FlowMessaging()` (reads FLOW_MESSAGING_KEY). Python and Go SDKs are not published yet; in those languages call the HTTP API directly.",
+      "No key yet? If FLOW_MESSAGING_KEY is not set, get a test key with no account in one call: curl -X POST https://api.flow.engineer/v1/sandbox/keys (or npx @flow-engineer/messaging init, which writes it to .env). Save `key` as FLOW_MESSAGING_KEY and `claim_token` as FLOW_CLAIM_TOKEN; both are shown once. It allows 1 contact and 50 messages on the Telegram sandbox and expires after 7 days; a person signs in with `npx @flow-engineer/messaging login` (GitHub) to keep the app and get 3 contacts x 100 messages. Signed in, live keys (fk_live_...) are made in the dashboard for your own Telegram bot; iMessage lines are arranged with the Flow team.",
       "The hosted MCP server (https://api.flow.engineer/mcp) is optional, for testing during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. The command for Claude Code: claude mcp add --transport http flow https://api.flow.engineer/mcp --header \"Authorization: Bearer $FLOW_MESSAGING_KEY\". If its tools are already available to you, use them for sandbox testing.",
       "Authenticate with `Authorization: Bearer fk_test_...` (sandbox) or `fk_live_...` (real contacts). Never put a live key in client-side code.",
       "Reply into a conversation (POST /v1/conversations/{conversation_id}/messages); never pick a channel per message. Switch on `error.type`, not the message text.",

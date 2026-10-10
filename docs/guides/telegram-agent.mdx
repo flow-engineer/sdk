@@ -90,7 +90,8 @@ await flow.messages.unsend(msg.id);
 | Content | Telegram |
 |---|---|
 | Text with markdown | yes |
-| Photos, video, documents, audio, voice notes | yes |
+| Photos, video, audio, voice notes | yes |
+| Documents | received (not malware-scanned yet, so treat them as untrusted); sending uploaded documents is refused with `422 unsupported_content` until scanning is on |
 | Buttons | inline keyboard, up to 10 |
 | Reactions, typing | yes |
 | Read receipts | no: bots cannot send them (skipped and reported in `delivered_as`) |
