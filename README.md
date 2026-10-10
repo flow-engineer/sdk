@@ -43,8 +43,11 @@ senders (Telegram bots, WhatsApp numbers, iMessage lines), receives every inboun
 message into an ordered log, and passes every send through one gate that applies each
 channel's rules. You get typed events in (webhooks, a live stream, or polling) and send
 typed content out; you never handle a channel's keys or webhooks. Replies can be an LLM
-stream, sent as chat bubbles with typing on. An MCP server (`api.flow.engineer/mcp`)
-gives coding agents and assistants the same actions.
+stream, sent as chat bubbles with typing on.
+
+<!-- agents:mcp-note -->
+MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. The hosted MCP server at `https://api.flow.engineer/mcp` is an optional tool for testing and operating the integration during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to a coding agent, it can use them for sandbox testing.
+<!-- /agents:mcp-note -->
 
 ## In this repo
 
@@ -60,8 +63,11 @@ gives coding agents and assistants the same actions.
   `AGENTS.md` section for Codex. Install with
   `claude plugin marketplace add flow-engineer/sdk` and
   `claude plugin install flow-messaging@flow-engineer`, or let `npx @flow-engineer/messaging init` copy them
-  (it asks first; `--yes` skips the question). The MCP server is named `flow`.
-- [`llms.txt`](llms.txt): a summary for language models.
+  (it asks the project owner first). The MCP server is named `flow`.
+- [`llms.txt`](llms.txt): the index for language models (the same file the API serves
+  at https://api.flow.engineer/llms.txt).
+- [`agents/`](agents): the one source of the agent-facing docs: `facts.json`, the
+  templates in `src/`, and the generated pages the API serves.
 - `python/`, `go/`: SDKs (coming). `docs/`: documentation source (coming, docs.flow.engineer).
 
 The API is in beta. Licensed under Apache-2.0 (see [LICENSE](LICENSE)).

@@ -1,0 +1,1 @@
+To keep the app, a person signs in with GitHub or Google: run `npx {{package}} login --no-wait`, show them the link and code it prints (they open the page, sign in and type the code), and after they approve run `npx {{package}} login` (it replaces `{{env.api_key}}` in `.env` and drops `{{env.claim_token}}`).

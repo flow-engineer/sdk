@@ -1,0 +1,42 @@
+{
+  "$comment": "The facts the agent-facing docs state, in one place. scripts/agent-docs.mjs fills them into agents/src/ templates; the service's facts test (flow-engineer/messaging, docs/context/customer/facts_test.go) fails when one differs from its code. The API version is read from openapi/openapi.yaml, never written here.",
+  "base_url": "https://api.flow.engineer",
+  "docs_url": "https://docs.flow.engineer",
+  "dashboard_url": "https://api.flow.engineer/admin",
+  "package": "@flow-engineer/messaging",
+  "env": {
+    "api_key": "FLOW_MESSAGING_KEY",
+    "live_key": "FLOW_MESSAGING_LIVE_KEY",
+    "claim_token": "FLOW_CLAIM_TOKEN",
+    "webhook_secret": "FLOW_MESSAGING_WEBHOOK_SECRET",
+    "base_url": "FLOW_MESSAGING_BASE_URL",
+    "mcp_url": "FLOW_MESSAGING_MCP_URL",
+    "cli_device_code": "FLOW_DEVICE_CODE",
+    "cli_device_url": "FLOW_DEVICE_URL"
+  },
+  "text_caps": { "telegram": 4096, "imessage": 9999, "whatsapp": 4096 },
+  "allowance": {
+    "anonymous": { "contacts": 1, "messages_per_contact": 50, "key_ttl_days": 7 },
+    "signed_in": { "contacts": 3, "messages_per_contact": 100 },
+    "channels": ["telegram", "whatsapp"],
+    "claims_per_person": 10,
+    "expired_key_grace_days": 30
+  },
+  "webhook_timeout_seconds": 10,
+  "mcp": {
+    "url": "https://api.flow.engineer/mcp",
+    "server_name": "flow",
+    "owner_rule": "Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself.",
+    "runtime_rule": "MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime.",
+    "add": {
+      "claude": "claude mcp add --transport http flow https://api.flow.engineer/mcp --header \"Authorization: Bearer $FLOW_MESSAGING_KEY\"",
+      "codex_toml": "[mcp_servers.flow]\nurl = \"https://api.flow.engineer/mcp\"\nbearer_token_env_var = \"FLOW_MESSAGING_KEY\"",
+      "cursor_json": "{\"mcpServers\": {\"flow\": {\"url\": \"https://api.flow.engineer/mcp\", \"headers\": {\"Authorization\": \"Bearer ${env:FLOW_MESSAGING_KEY}\"}}}}"
+    },
+    "tools": {
+      "common": ["whoami", "capabilities", "explain_error"],
+      "test": ["sandbox_join", "send_test_message", "wait_for_event", "list_events", "get_webhook_deliveries", "replay_event"],
+      "live": ["send_message", "reply", "react", "typing", "list_conversations", "get_conversation_messages"]
+    }
+  }
+}

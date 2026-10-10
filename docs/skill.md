@@ -14,9 +14,9 @@ Flow Messaging is one API for AI agents to hold conversations on WhatsApp, Teleg
 
 ## Set up
 
-1. Get a key. Use `FLOW_MESSAGING_KEY` if it is set (environment or `.env`). Otherwise get a test key with no account: `npx @flow-engineer/messaging init` (writes `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env`, prints the sandbox link and join code, and asks before installing agent files and the MCP server `flow`), or `curl -X POST https://api.flow.engineer/v1/sandbox/keys` and save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once) in a git-ignored `.env`. Never get a second key when you have one. Live keys (`fk_live_...`) come later, only when the user goes live: signed in, they make one in the dashboard for their own Telegram bot (iMessage and WhatsApp senders are arranged with the Flow team).
-2. TypeScript/JavaScript: `npm install @flow-engineer/messaging`. Other languages: HTTP to `https://api.flow.engineer` with `Authorization: Bearer $FLOW_MESSAGING_KEY`.
-3. The user joins the sandbox from their phone: `GET /v1/senders` (or the MCP tool `sandbox_join`) gives each sandbox sender's `address.link`. On Telegram, opening the link and tapping Start joins. Otherwise they send the sender's `join_code`, for example `join wild-otter-04508705`, to it.
+1. Get a key. Check for `FLOW_MESSAGING_KEY` (environment or `.env`) first; never get a second key when you have one. No key yet? Get a test key with no account, in one call: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`, then save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once) in a git-ignored `.env`. Or run `npx @flow-engineer/messaging init`: it does the same and prints the sandbox link and join code, then asks before installing agent files or the MCP server. That answer is the project owner's, so never pass `--yes` for them. Never invent or hard-code keys. Live keys (`fk_live_...`) come later, only when the user goes live: signed in, they make one in the dashboard for their own Telegram bot (iMessage and WhatsApp senders are arranged with the Flow team).
+2. Build on the REST API: MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. TypeScript/JavaScript: `npm install @flow-engineer/messaging` once it is published. Other languages: HTTP to `https://api.flow.engineer` with `Authorization: Bearer $FLOW_MESSAGING_KEY`.
+3. The user joins the sandbox from their phone: `GET /v1/senders` (or, when the Flow MCP tools are available, `sandbox_join`) gives each sandbox sender's `address.link`. On Telegram, opening the link and tapping Start joins. Otherwise they send the sender's `join_code`, for example `join wild-otter-04508705`, to it.
 
 ## Sandbox allowance and sign-in
 
@@ -27,7 +27,7 @@ Flow Messaging is one API for AI agents to hold conversations on WhatsApp, Teleg
 | Channels | Telegram sandbox (WhatsApp when its sandbox opens) | the same |
 | Key expiry | 7 days | none |
 
-Only messages your agent sends count; iMessage is in neither. `GET /v1/app` returns `allowance` (what is left). To keep the app, a person signs in: run `npx @flow-engineer/messaging login --no-wait`, show the user the link and code, and after they approve run `npx @flow-engineer/messaging login` to collect the new key (it replaces `FLOW_MESSAGING_KEY` in `.env`). By HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_..."}`, show the person `verification_uri` and `user_code` (they type the code on that page), then poll `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `status` is `approved` (`key`), `denied` or `expired`; `429 rate_limited` means wait `retry_after`.
+Only messages your agent sends count; iMessage is in neither. `GET /v1/app` returns `allowance` (what is left). To keep the app, a person signs in with GitHub or Google: run `npx @flow-engineer/messaging login --no-wait`, show them the link and code it prints (they open the page, sign in and type the code), and after they approve run `npx @flow-engineer/messaging login` (it replaces `FLOW_MESSAGING_KEY` in `.env` and drops `FLOW_CLAIM_TOKEN`). By HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_..."}`, show the person `verification_uri` and `user_code` (they type the code on that page), then poll `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `status` is `approved` (`key`), `denied` or `expired`; `429 rate_limited` means wait `retry_after`.
 
 Allowance errors: `403 permission` with `channel_code` `sandbox_allowance_used` (allowance used up), `sandbox_contact_limit` (no room for another contact), `sandbox_channel_not_included` (channel not covered, such as iMessage) or `sign_in_required` (needs a signed-in app); `401 authentication` with `sandbox_key_expired`. Do not retry or get more keys: ask the user to sign in (for `sandbox_channel_not_included`, use the Telegram sandbox sender instead). Signed-in users manage keys at https://api.flow.engineer/admin. Details: https://docs.flow.engineer/get-a-key.md
 
@@ -69,9 +69,35 @@ export const POST = flow.webhooks.handler({
 - Use test keys while building; live keys only on the server.
 - Locally, with no public URL, receive events from `GET /v1/stream` (WebSocket, resumable with `after`) instead of a webhook.
 
-## MCP server
+## MCP server (optional, for development)
 
-`https://api.flow.engineer/mcp` (Streamable HTTP, bearer API key) or `npx -y @flow-engineer/messaging mcp` (stdio). Name the server `flow`. Test keys get build tools (`whoami`, `sandbox_join`, `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`, `capabilities`, `explain_error`); live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`. After a send, wait for `message.sent` or `message.failed`, not `message.delivered` (not every channel reports delivery). Each `wait_for_event` call waits up to 50 seconds (a longer `timeout_seconds` is clamped to 50, with a note, not refused); call it again with `after` set to the returned `next_after` to keep waiting.
+**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the SDK once published) for everything it does at runtime. Never make the app call the MCP server.
+
+The hosted MCP server at `https://api.flow.engineer/mcp` (Streamable HTTP, the same API key as a Bearer token) is an optional tool for testing and operating the integration while you build: with a test key it shows the sandbox join link, sends test messages, waits for events, reads webhook deliveries and replays events; with a live key it reads and answers conversations. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to you, use them for sandbox testing.
+
+To suggest it, show the project owner the line for their tool. The server is named `flow` and reads the key from `FLOW_MESSAGING_KEY` in their environment:
+
+Claude Code:
+
+```bash
+claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"
+```
+
+Codex (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.flow]
+url = "https://api.flow.engineer/mcp"
+bearer_token_env_var = "FLOW_MESSAGING_KEY"
+```
+
+Cursor (`~/.cursor/mcp.json`):
+
+```json
+{"mcpServers": {"flow": {"url": "https://api.flow.engineer/mcp", "headers": {"Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}"}}}}
+```
+
+Test keys get `sandbox_join`, `send_test_message`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
 
 ## Docs
 

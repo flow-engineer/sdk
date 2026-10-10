@@ -1,0 +1,1 @@
+{{mcp.runtime_rule}} The hosted MCP server at `{{mcp.url}}` is an optional tool for testing and operating the integration during development. {{mcp.owner_rule}} If its tools are already available to a coding agent, it can use them for sandbox testing.

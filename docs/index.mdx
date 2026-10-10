@@ -39,7 +39,7 @@ You never handle channel credentials, channel webhooks or per-channel payload fo
 - **Reply in the webhook response.** Answer a `message.received` delivery with `{"reply": ...}` and save a round trip. See [Events and webhooks](/concepts/events-and-webhooks).
 - **Nothing converted silently.** If a channel cannot show something (buttons on iMessage), the API says so, or sends the `fallback` you chose and reports what was shown. See [Content types](/concepts/content-types).
 - **Errors an agent can act on.** Every error has a closed `type`, a one-line `hint` and a `doc_url`. See [Errors](/errors/outside_window).
-- **Works from coding agents.** An [MCP server](/mcp), a Claude Code skill and an `AGENTS.md` snippet let Claude Code, Codex and Cursor integrate and test Flow for you. See [For AI coding agents](/coding-agents).
+- **Works from coding agents.** A Claude Code skill and an `AGENTS.md` snippet let Claude Code, Codex and Cursor integrate Flow for you, and an optional [MCP server](/mcp) you can add to them helps test it while you build. See [For AI coding agents](/coding-agents).
 - **Language-neutral.** Everything is plain HTTP and JSON with an OpenAPI 3.1 spec, so any language works today.
 
 ## Packages

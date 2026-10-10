@@ -1,0 +1,1 @@
+Past the allowance, sends fail with `403 permission` and `channel_code` `sandbox_allowance_used`, `sandbox_contact_limit`, `sandbox_channel_not_included` or `sign_in_required`; an expired key is `401 authentication` with `sandbox_key_expired`. Do not retry or get more keys: ask the person to sign in.

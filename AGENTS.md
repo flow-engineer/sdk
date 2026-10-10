@@ -22,7 +22,8 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 ## Checks
 
 - **Run `scripts/local-checks.sh` before a PR.** It runs the spec lint, the spec
-  drift check and, in `typescript/`: typecheck (`tsc`, sources and tests),
+  drift check, the agent docs check (`node scripts/agent-docs.mjs --check`, see
+  "Agent-facing docs") and, in `typescript/`: typecheck (`tsc`, sources and tests),
   ESLint, the unit tests (vitest), the build (tsup: ESM, CJS, types, the CLI), the
   package contents, and the integration test; then `scripts/check-examples.sh`.
   `EXAMPLES=1` also typechecks the SDK examples against their real dependencies.
@@ -52,7 +53,7 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   with `go test`, which starts a throwaway Postgres, the API and the Telegram
   simulator; the copy is removed afterwards. Without a checkout or Go it is skipped
   (`REQUIRE_INTEGRATION=1` makes that fail).
-- After a spec change, regenerate the service in flow-engineer/messaging
+- After a spec, error page or agent docs change, regenerate the service in flow-engineer/messaging
   (`make generate` there, with this repo checked out beside it as `../flow-sdk`) and
   run its `scripts/local-checks.sh`.
 
@@ -83,19 +84,57 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 - Tests wait on explicit gates (promises resolved by the event they wait for), never
   sleeps.
 
-## Agent files
+## Agent-facing docs: one source
 
-- `plugin/` is their one source: the Claude Code plugin (`.claude-plugin/plugin.json`,
-  `.mcp.json`, `skills/flow-messaging/`) and `AGENTS-snippet.md` (the section `init`
-  adds to a project's `AGENTS.md`). `.claude-plugin/marketplace.json` at the root
-  lists the plugin. The build copies them into `typescript/agent-files/` for the npm
-  package. Keep them short, correct and example-led; the skill's `description` says
-  exactly when to load it.
-- `llms.txt` summarises the SDK for language models; keep it in step with the README.
+This repo is the single source of every page a coding agent reads, as it is for the
+spec and the error pages. Edit the source, regenerate, commit both:
+
+- **Canonical (edit these):** `agents/facts.json` (base URL, env var names, text caps
+  per channel, sandbox allowances, the MCP server's URL, owner commands and tool
+  names, and the two MCP rules) and the templates in `agents/src/` (whole pages, and
+  `partials/` shared between them). The API version and the endpoint table come from
+  `openapi/openapi.yaml`.
+- **Generated (never edit by hand):** `node scripts/agent-docs.mjs` writes
+  `agents/llms.txt`, `agents/quickstart.md`, `agents/root.md` (the service's `GET /`),
+  `agents/mcp-instructions-{test,live}.txt` (the MCP server's `initialize`
+  instructions), the root `llms.txt` (the same as `agents/llms.txt`),
+  `plugin/skills/flow-messaging/SKILL.md`, `plugin/AGENTS-snippet.md` (what `init`
+  installs), `docs/skill.md` and `markdown.instructions` in `docs/docs.json` (from
+  `agents/src/docs-instructions.md`), and refills the marked regions (`<!-- agents:name -->`,
+  `{/* agents:name */}` in MDX) of `README.md`, `typescript/README.md`, `docs/mcp.md`,
+  `docs/coding-agents.mdx` and `plugin/skills/flow-messaging/reference/cli-mcp.md`.
+  Text outside the regions in those pages is hand-written.
+- **Copied into the service:** its `make generate` copies every top-level file of
+  `agents/` (with `facts.json`) into `docs/context/customer/`, as it copies
+  `docs/errors/`; the service embeds and serves them (`/llms.txt`,
+  `/docs/quickstart.md`, `GET /`, the MCP instructions).
+- **Checks that fail on drift:** `node scripts/agent-docs.mjs --check` (in
+  `scripts/local-checks.sh`) fails when a generated file or region is stale, when a
+  page names an env var missing from `facts.env`, and
+  when an agent page does not state the MCP rules (`mcp.owner_rule`, `mcp.runtime_rule`).
+  `typescript/test/unit/agent-facts.test.ts` fails when the facts differ from the SDK
+  and CLI (base URL, MCP URL and name, every `FLOW_*` variable). In the service,
+  `scripts/check-generated.sh` fails when its copies are stale, and
+  `docs/context/customer/facts_test.go` fails when the facts differ from its code
+  (text caps from channel Capabilities, allowance defaults from internal/config, env
+  var names, MCP tool names).
+- **MCP rule (founders' decision):** apps use the REST API (or the SDK once
+  published) at runtime; the hosted MCP server is an optional development tool.
+  Adding it to a developer's coding tools is the project owner's decision: agent docs
+  tell agents to suggest it and show the owner the command, never to add it
+  themselves. `init` asks before writing `.mcp.json`; keep that.
+- `plugin/` holds the Claude Code plugin (`.claude-plugin/plugin.json`, `.mcp.json`,
+  `skills/flow-messaging/`) and `AGENTS-snippet.md`; `.claude-plugin/marketplace.json`
+  at the root lists the plugin. The build copies them into `typescript/agent-files/`
+  for the npm package. Keep them short, correct and example-led; the skill's
+  `description` says exactly when to load it. The skill's `reference/` pages are
+  hand-written apart from their regions.
 
 ## Layout
 
 - `openapi/openapi.yaml`: the spec. `redocly.yaml`: lint rules.
+- `agents/`: the one source of the agent-facing docs (see "Agent-facing docs").
+  `scripts/agent-docs.mjs` generates and checks them.
 - `docs/`: the Mintlify site later (docs.flow.engineer). `docs/errors/<type>.md` is
   one page per `ErrorType` (what it means, why, how to fix it, code); every error's
   `doc_url` points at it, and the service embeds copies for the MCP tool
