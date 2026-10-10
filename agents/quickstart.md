@@ -47,7 +47,7 @@ webhook_signature_header: "Flow-Signature: t=<unix>,v1=<hex hmac-sha256>"
 webhook_signed_payload: "t.{t}.{raw body}"   # HMAC key = the endpoint secret, whsec_ prefix included
 webhook_timeout_seconds: 10
 webhook_tolerance_seconds: 300
-max_text_length: {telegram: 4096, imessage: 9999, whatsapp: 4096}   # characters; GET /v1/capabilities
+max_text_length: {telegram: 4096, imessage: 9999, whatsapp: 4096}   # characters (Telegram: UTF-16 code units); captions 1024; GET /v1/capabilities
 error_shape: '{"error": {"type": "...", "message": "...", "hint": "...", "doc_url": "https://api.flow.engineer/docs/errors/<type>", "param": "...", "retry_after": 0, "channel_code": "...", "request_id": "..."}}'
 error_handling: read error.hint first (what to change for this case), then switch on error.type
 error_types: [invalid_request, authentication, permission, not_found, idempotency_conflict,
@@ -697,7 +697,9 @@ sent you, until they can be malware-scanned), `voice`, `buttons`, `reaction`
 (`message_id`, `emoji`, `null` removes), `location`, `contact_card`, `effect`.
 
 Text is 1 to the channel's `max_text_length` characters:
-**4096 on Telegram, 9999 on iMessage** (4096 on WhatsApp). Longer text is refused with
+**4096 on Telegram, 9999 on iMessage** (4096 on WhatsApp). Telegram counts
+UTF-16 code units of the text as shown (after markdown), so an emoji such as 😀 counts 2. A media
+`caption` takes at most 1024, also when an edit replaces it. Longer text is refused with
 `400 invalid_request`: split it. `"format": "markdown"` renders in the channel's
 formatting (iMessage has none: add `"fallback": "auto"` and it goes as plain text).
 
@@ -788,7 +790,7 @@ why it happens, how to fix it. For example:
 ```json
 {"error": {"type": "invalid_request",
            "message": "text must be 1 to 4096 characters on Telegram.",
-           "hint": "The text is 5120 characters and Telegram takes at most 4096 characters; split it into several messages.",
+           "hint": "The text is 5120 characters and Telegram takes at most 4096 characters (counted in UTF-16 code units, so an emoji such as 😀 is 2); split it into several messages.",
            "doc_url": "https://api.flow.engineer/docs/errors/invalid_request",
            "param": "content.text",
            "request_id": "req_01JB8ZF6P8R0T2V4X6Z8B0C2D4"}}
@@ -874,7 +876,8 @@ and new conversations per hour and per day, growing during a new sender's warm-u
 
 - **Statuses**: `message.sent` or `message.failed` only. Telegram has no delivery or
   read receipts for bots, so never wait for `message.delivered` or `message.read`.
-- **Text** up to 4096 characters; `"format": "markdown"` shows Telegram formatting.
+- **Text** up to 4096 characters, counted in UTF-16 code units (an emoji such as 😀 is 2);
+  `"format": "markdown"` shows Telegram formatting. Media captions up to 1024.
 - **Buttons**: an inline keyboard, up to 10, one per row; a tap arrives as
   `button_reply` content (`button_id`, `label`).
 - **Media** by `https` URL (Telegram fetches it: photos up to 5 MB, other files up to
@@ -882,7 +885,7 @@ and new conversations per hour and per day, growing during a new sender's warm-u
 - **Reactions**: Telegram allows a fixed set of reaction emoji.
 - **Typing** (`state: "on"`) shows for about 5 seconds or until a message arrives.
   Bots cannot send read receipts (`read` is skipped).
-- **Edit** text or a media caption; **unsend** within 48 hours.
+- **Edit** text (up to 4096) or a media caption (up to 1024); **unsend** within 48 hours.
 - **Contacts**: `address.username` (when set) and `address.telegram_user_id`; no
   phone number.
 - A bot can only message people who started it: reply to people who wrote, or (in

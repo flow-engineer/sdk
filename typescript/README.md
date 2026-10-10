@@ -76,7 +76,7 @@ const sandbox = await flow.sandbox.createKey({ name: "Support agent" });
 **Sandbox allowance.** What an app may send on the sandbox for free
 (`(await flow.app.retrieve()).allowance` shows what is left):
 
-| | No account | Signed in (GitHub or Google) |
+| | No account | Signed in (GitHub) |
 |---|---|---|
 | Contacts | 1 | 3 |
 | Messages | 50 in total | 100 per contact |
@@ -87,7 +87,7 @@ Only messages your agent sends count; inbound is free. iMessage is not part of e
 
 **Sign in to keep the app.** `npx @flow-engineer/messaging login` reads
 `FLOW_CLAIM_TOKEN`, prints a link and a short code, opens the browser and waits; once
-the person approves with GitHub or Google, it replaces `FLOW_MESSAGING_KEY` in `.env`
+the person approves with GitHub, it replaces `FLOW_MESSAGING_KEY` in `.env`
 and removes `FLOW_CLAIM_TOKEN`. The app is claimed: data and keys kept, no expiry,
 3 contacts x 100 messages. From code:
 
@@ -189,7 +189,7 @@ soon as it is complete, in order. The rule, for those not using the SDK: a bubbl
 at a blank line, except after a line ending in `:` and between items of one list;
 past the channel's soft length (Telegram 900, WhatsApp 700, iMessage 400 characters) it
 ends at the next sentence end; never inside a code block unless it would pass the
-channel's text limit (4096 characters; 10000 on iMessage). Text is sent as markdown with `fallback: "auto"` (plain text where a
+channel's text limit (4096 characters; 9999 on iMessage). Text is sent as markdown with `fallback: "auto"` (plain text where a
 channel has no formatting). Options: `{ format: "plain" }`, `{ split: false }`,
 `{ bubbles: { softLength } }`, and `{ idempotencyKey: event.id }` to make retrying a
 whole reply safe. `splitIntoBubbles(text, "whatsapp")` gives the same split.
@@ -274,7 +274,7 @@ npx @flow-engineer/messaging mcp
   `--no-mcp` and `--no-codex` leave parts out.
 - `init` with no key in the environment or `.env` gets a sandbox key itself
   (`POST /v1/sandbox/keys`) and saves `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN`.
-- `login` signs a person in with GitHub or Google (OAuth 2.0 device flow, RFC 8628,
+- `login` signs a person in with GitHub (OAuth 2.0 device flow, RFC 8628,
   `POST /v1/device/authorizations` and `POST /v1/device/token`) and claims the app of
   `FLOW_CLAIM_TOKEN`. `--no-wait` prints the link and code and exits, for coding agents
   that cannot wait; run `login` again after the person approves to collect the key.

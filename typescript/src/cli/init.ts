@@ -10,6 +10,7 @@ import type { SandboxAllowance, Sender } from "../types.js";
 import { MCP_COMMAND, MCP_SERVER_NAME, installAgentsSnippet, installClaudeMcp, installCodexMcp, installSkill } from "./agentfiles.js";
 import { LOGIN_COMMAND, describeAllowance } from "./device.js";
 import { dotenvIgnored, ignoreDotenv, projectEnvValue, setDotenv } from "./env.js";
+import { SIGN_IN } from "./facts.js";
 
 /** Where to get a key. */
 export const KEY_HELP = "No key yet? `npx @flow-engineer/messaging init` gets a test key in one call, no account needed.";
@@ -188,7 +189,7 @@ export async function init(o: InitOptions): Promise<void> {
     print(`\nSandbox allowance: ${describeAllowance(allowance)}.`);
     print("Only messages your agent sends count; inbound messages are free.");
     if (allowance.tier === "anonymous") {
-      print("To keep this app (no expiry, 3 contacts x 100 messages each), a person signs in with GitHub or Google:");
+      print(`To keep this app (no expiry, 3 contacts x 100 messages each), a person signs in with ${SIGN_IN}:`);
       print(`  ${LOGIN_COMMAND}`);
       print("  (an agent that cannot wait: add --no-wait, then run it again once the person has approved)");
     }

@@ -1,4 +1,4 @@
-// `flow-messaging login`: sign in with GitHub or Google from the terminal (the device
+// `flow-messaging login`: sign in with GitHub from the terminal (the device
 // flow, POST /v1/device/authorizations and POST /v1/device/token on the API base URL).
 // With the FLOW_CLAIM_TOKEN that `init` saved (or the sandbox key as the bearer) the
 // sign-in claims the sandbox app: its keys stop expiring and its allowance is lifted.
@@ -18,6 +18,7 @@ import { DEFAULT_BASE_URL } from "../core.js";
 import { AuthenticationError, DeviceSignInError, NotFoundError } from "../errors.js";
 import type { DeviceAuthorization, DeviceToken, SandboxAllowance } from "../types.js";
 import { projectEnvValue, setDotenv, unsetDotenv } from "./env.js";
+import { SIGN_IN } from "./facts.js";
 
 export const CLIENT_NAME = "flow CLI";
 export const LOGIN_COMMAND = "npx @flow-engineer/messaging login";
@@ -147,12 +148,12 @@ export async function login(o: LoginOptions): Promise<"signed_in" | "pending"> {
     if (process.env.FLOW_MESSAGING_KEY && process.env.FLOW_MESSAGING_KEY !== t.key) {
       print("! FLOW_MESSAGING_KEY is also set in your environment, which wins over .env: set it to the new key from .env there too.");
     }
-    print(`  Dashboard: ${dashboardURL(o.baseURL)} (sign in with the same GitHub or Google account).`);
+    print(`  Dashboard: ${dashboardURL(o.baseURL)} (sign in with the same ${SIGN_IN} account).`);
     return "signed_in";
   };
 
   const show = (url: string, userCode?: string) => {
-    print("To sign in with GitHub or Google and keep this app, open:");
+    print(`To sign in with ${SIGN_IN} and keep this app, open:`);
     print(`  ${url}`);
     if (userCode) print(`and check that the page shows the code ${userCode}.`);
   };
