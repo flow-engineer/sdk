@@ -17,7 +17,7 @@ export {
   type BubbleRules,
   type TextStreamSource,
 } from "./bubbles.js";
-export { EventStream, toFlowEvent, type FlowEvent, type StreamParams } from "./stream.js";
+export { EventStream, toFlowEvent, type FlowEvent, type FlowEventOf, type StreamParams } from "./stream.js";
 export {
   Webhooks,
   SIGNATURE_HEADER,

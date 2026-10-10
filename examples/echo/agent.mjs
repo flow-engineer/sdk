@@ -5,7 +5,7 @@ import { FlowMessaging, contentText } from "@flow-engineer/messaging";
 const flow = new FlowMessaging(); // reads FLOW_MESSAGING_KEY
 
 const { app } = await flow.app.retrieve();
-console.log(`Echo agent ready. From your phone, message a sandbox sender: join ${app.sandbox_join_code}`);
+console.log(`Echo agent ready. From your phone, open the sandbox link and tap Start (on iMessage, text: join ${app.sandbox_join_code}).`);
 
 for await (const event of flow.events.stream({ types: ["message.received"] })) {
   const content = event.data.message.content;

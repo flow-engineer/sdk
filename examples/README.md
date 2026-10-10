@@ -1,8 +1,10 @@
 # Examples
 
 Each folder is a runnable agent that talks on WhatsApp, Telegram and iMessage through
-Flow Messaging, tested with a `fk_test_` key on the shared sandbox (you join it from
-your phone with your app's join code; `npx @flow-engineer/messaging init` prints it).
+Flow Messaging, tested with a `fk_test_` key on the shared sandbox (on your phone, open
+the sandbox link and tap Start, or on iMessage text your app's join code, such as
+`join wild-otter-04508705`; `npx @flow-engineer/messaging init` prints both). Keys are
+issued by the Flow team while signup is in preview: ask the Flow team for a test key.
 
 | Folder | What it shows |
 |---|---|
