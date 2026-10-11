@@ -106,7 +106,7 @@ ws.close();
 - Register `https://<your-app>/api/flow` once with `POST /v1/webhook_endpoints` and store the `whsec_...` secret as `FLOW_MESSAGING_WEBHOOK_SECRET`. Verify `Flow-Signature` on the raw body (in TypeScript `flow.webhooks.handler(...)` does it), dedupe on `event.id`, answer within 10 seconds.
 - Fast answer: return `{"reply": ...}` in the webhook answer. Slow agent: answer `200 {}` at once, then reply with `POST /v1/conversations/{conversation_id}/messages` (on Vercel inside `waitUntil`). Keep conversation state in your database, keyed by `conversation.id`.
 - Missed deliveries are retried for 3 days; to catch up, read `GET /v1/events?after=evt_...` from a cron job.
-- Previews and local runs: Flow calls only public HTTPS URLs; use a tunnel, or the stream.
+- Previews and local runs: Flow calls only public HTTPS URLs. Locally, no tunnel needed: `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow` reads the stream and `POST`s each event to your handler, signed like a real delivery with `FLOW_MESSAGING_WEBHOOK_SECRET`.
 
 ### Add Flow to the IDE (MCP)
 
@@ -128,13 +128,16 @@ Connect its token with a live key (`POST /v1/senders`). Flow sets the bot's webh
 ### Broadcast to many people
 
 - There is no bulk endpoint: one `POST /v1/messages` per person, each with its own `Idempotency-Key` (for example `campaign-7-ct_...`), from a queue of your own.
-- Telegram: a bot can message only people who started it, so a broadcast goes to people who wrote to your bot. Each sender sends about 20 messages a second (burst 40); faster answers `429 rate_limited` with `Retry-After`. The per-key request limit is 600 a minute on the free plan (`RateLimit-*` headers), so 5,000 messages take about 9 minutes.
+- Telegram: a bot can message only people who started it, so a broadcast goes to people who wrote to your bot. Each bot sends about 20 messages a second (burst 40); faster answers `429 rate_limited` with `Retry-After`. The per-key request limit is 600 a minute on the free plan (`RateLimit-*` headers), so 5,000 messages take about 9 minutes.
 - New conversations per sender are budgeted: the sender's `limits` (`new_contacts_per_day`, `new_contacts_per_hour`) show today's numbers; past them a start answers `429 new_contact_limit` with `retry_after`: queue it, do not loop. iMessage lines start no cold conversations; WhatsApp needs a template and Meta's tier caps new contacts a day; SMS needs consent.
+- The same first message to 20 new contacts within an hour throttles a dedicated sender for 24 hours (`429 sender_throttled` on starts; replies still go). Personalise first messages; templates and media without a caption do not count. Limits and signals: quickstart section 10.
 - Every send still ends `message.sent` or `message.failed`: count those, not the `202`s.
 
 ### Delete a person's data (GDPR)
 
 `DELETE /v1/contacts/{contact_id}` (`204`, repeat-safe) erases the contact's name and address, all their message content and files, their events' payloads, pending deliveries and queued sends at once, and emits `contact.deleted`. IDs and timestamps stay. Find the contact ID on their events (`conversation.contact`) or `GET /v1/contacts`; there is no lookup by phone number or username. Content is otherwise kept 30 days.
+
+Erasure removes Flow's copy only: messages already delivered stay on the person's phone. To remove those too, unsend them first (`DELETE /v1/messages/{message_id}`: Telegram within 48 hours, iMessage within 2 minutes; WhatsApp and SMS cannot), wait until each shows `status` `unsent`, then erase. After erasure nothing can be unsent.
 
 ### A leaked API key
 
@@ -158,8 +161,16 @@ One app holds many senders: connect each customer's bot with your live key (`POS
 ### Delivery guarantees
 
 - Inbound: every message becomes an event, stored before Flow answers the channel, delivered at least once and in order per conversation (dedupe on `event.id`). Webhooks retry for 3 days (5 s up to 12 h apart); the event log keeps everything for 30 days.
-- Outbound: a `202` means stored and queued; every send then ends `message.sent` or `message.failed`, never silently. One conversation sends one message at a time, in order. Retryable channel errors are retried by Flow. When a send's outcome is unknown (the channel took it but never answered), Flow resends it once, so a rare duplicate is possible on Telegram.
-- Requests: `Idempotency-Key` on every POST makes your own retries safe for 24 hours.
+- Outbound: a `202` means stored and queued; every send then ends `message.sent` or `message.failed`, never silently. One conversation sends one message at a time, in order. Retryable channel errors are retried by Flow. When a send's outcome is unknown (the channel took it but never answered), Flow resends it once, so a rare duplicate is possible on Telegram; if that is unknown too, the message fails with `channel_timeout_unknown_outcome` (it may have arrived: check before sending again).
+- Requests: `Idempotency-Key` on every POST makes your own retries safe for 24 hours; it cannot undo the channel-side resend above.
+
+### Sent but not received: a checklist
+
+1. **Did the send end?** `GET /v1/messages/{message_id}`, or `GET /v1/events?conversation=conv_...&type=message.sent&type=message.failed`. `queued`: still waiting (an earlier message in the conversation, the sender's pace, or a bot whose token Telegram rejected: reconnect it). `sent`: the channel took it (Telegram reports nothing after that). `failed`: read `error.type`, `error.channel_code` and `error.hint`.
+2. **Common `message.failed` codes**: `permission` with `sandbox_contact_left` (the person joined another app on the shared sandbox bot while the message waited: they send your join code again); `channel_error` with `channel_code` `403` on Telegram (the person blocked the bot, or never started it); `outside_window` (iMessage: they have not written recently; WhatsApp: `window_closed`, send a template; `queued_too_long`); `channel_timeout_unknown_outcome` (may have arrived).
+3. **Sandbox (test key)**: the person joined *your* app: opened the sandbox bot's `address.link` and tapped Start, or sent your join code. One person belongs to one app per sandbox bot, so joining another app moves them (sends answer `403 permission`). A key made without an account expires after 7 days and its contact is removed. Allowance refusals are `403 permission` (`sandbox_allowance_used`, `sandbox_contact_limit`).
+4. **Your own bot (live key)**: the person pressed Start on that bot (a Telegram bot cannot write first), and you send with the live key: sandbox conversations belong to the test key and answer `404 not_found` with a live one.
+5. **On the phone**: the chat with the right bot (the sandbox bot and your own bot are different chats) on the Telegram account that joined.
 
 ### Tests in CI, without a phone
 

@@ -1,11 +1,11 @@
 ---
 title: "Idempotency: retry sends without double messages"
 sidebarTitle: "Idempotency"
-description: "Send an Idempotency-Key with every POST to Flow Messaging so a retried request never sends a WhatsApp, Telegram or iMessage message twice. Keys are kept 24 hours per app and mode."
+description: "Send an Idempotency-Key with every POST to Flow Messaging so retrying a request never makes a second WhatsApp, Telegram or iMessage send. Keys are kept 24 hours per app and mode."
 keywords: ["idempotency key API", "avoid duplicate WhatsApp messages", "retry send message API"]
 ---
 
-An `Idempotency-Key` header makes a `POST` safe to retry: a repeat with the same key returns the first answer and does not act twice, so a person never gets the same message twice.
+An `Idempotency-Key` header makes a `POST` safe to retry: a repeat with the same key returns the first answer and does not act twice, so your retries never make a second send.
 
 ```bash
 curl https://api.flow.engineer/v1/conversations/conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1/messages \
@@ -22,6 +22,10 @@ curl https://api.flow.engineer/v1/conversations/conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1/
 - A repeat returns the first answer with the header `Idempotent-Replayed: true`.
 - Reusing a key with a different method, path or body fails with `409` [`idempotency_conflict`](/errors/idempotency_conflict). So does a repeat that arrives while the first request is still running, and a repeat of a request that made a secret shown only once (creating a webhook endpoint, rotating its secret): Flow does not keep that answer, so it cannot show the secret again.
 - Answers worth retrying (`429`, `500`, `502`, `503`, `504`) are **not** kept, so a retry with the same key runs again.
+
+## What it does not cover
+
+The key protects your requests, not the hop to the channel. When a channel takes a send but never answers, Flow cannot tell whether it arrived, so it sends it once more; on Telegram, which has no way to check, the person can rarely get it twice (on the other channels Flow first waits for the channel's own report). If the outcome is still unknown, the message fails with `channel_timeout_unknown_outcome` ([`channel_error`](/errors/channel_error)): check the conversation before sending it again.
 
 ## Good keys for agents
 

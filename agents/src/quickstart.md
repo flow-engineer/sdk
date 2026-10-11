@@ -496,7 +496,17 @@ last event you saw: nothing is lost.
 ### b) Webhook: a public HTTPS URL
 
 The URL must be public HTTPS (Flow will not call `localhost` or private addresses).
-For local development use the WebSocket above, or a tunnel (`cloudflared tunnel --url
+For local development use the WebSocket above. To run your webhook handler itself on
+localhost, no tunnel needed:
+
+```bash
+npx {{package}} listen --forward-to http://localhost:3000/flow/webhook
+```
+
+It reads the stream and `POST`s each event to that URL with the headers and signature
+of a real delivery, signed with `{{env.webhook_secret}}` (made and saved to `.env` when
+unset); a `{"reply": ...}` answer is sent into the conversation. `--events a,b` filters,
+`--after evt_...` replays first. Or use a tunnel (`cloudflared tunnel --url
 http://localhost:3000`, `ngrok http 3000`) and register the tunnel's `https://` URL.
 The answer's `secret` (`whsec_...`) is shown **only once**: store it as
 `FLOW_MESSAGING_WEBHOOK_SECRET`.
@@ -795,7 +805,8 @@ Messages in one conversation go out one at a time, in the order accepted. Add
 Other content: `media` (`kind` `image|video|document|audio`, plus `url` or `file_id`
 from `POST /v1/files`, optional `caption`; uploads of documents and archives are
 refused with `422 unsupported_content` for now, as are sends of documents contacts
-sent you, until they can be malware-scanned), `voice`, `buttons`, `reaction`
+sent you, until they can be malware-scanned: send a document by public `https` `url`
+instead), `voice`, `buttons`, `reaction`
 (`message_id`, `emoji`, `null` removes), `location`, `contact_card`, `effect`.
 
 Text is 1 to the channel's `max_text_length` characters:
@@ -862,7 +873,9 @@ with its new token (above); those queued for more than 72 hours fail with
 
 People reach your bot at `address.link`. Their first message (usually `/start`) gives
 `conversation.started` (`data.via` = `inbound`) and `message.received`, delivered to
-endpoints and streams of your **live** key.
+endpoints and streams of your **live** key. Webhook endpoints and their secrets belong
+to one mode: register your endpoint again with the live key and store the new
+`whsec_...` secret (the test endpoint keeps getting sandbox events).
 
 To disconnect a bot, call `DELETE /v1/senders/{sender_id}` with your live key: Flow
 removes the bot's webhook, deletes its stored token and retires the sender (`status`
@@ -880,6 +893,9 @@ connect it with `POST /v1/senders`; it becomes a new sender.
   different method, path or body (a bug: make a new key); `in_progress`, the first
   request is still running (wait `retry_after` seconds, then retry with the same key).
 - `429` and `5xx` answers are not stored: retrying with the same key runs again.
+- It covers your requests, not the channel: when a channel takes a send but never
+  answers, Flow resends it once (Telegram cannot tell whether the first arrived, so the
+  person can rarely get it twice), then fails it with `channel_timeout_unknown_outcome`.
 - Webhook-answer replies use the event `id`; stream frames use `ref`.
 
 ## 9. Errors: switch on `error.type`
@@ -912,10 +928,10 @@ the same error shape in `data.message.error`).
 | `not_found` | 404 | Wrong ID, or it belongs to the other mode (test vs live). |
 | `idempotency_conflict` | 409 | See section 8. |
 | `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. |
-| `unsupported_content` | 422 | The channel cannot show it: resend with `"fallback": "auto"` or other content. |
+| `unsupported_content` | 422 | The channel cannot show it: resend with `"fallback": "auto"` or other content. An upload of a document or archive (PDF, Office, zip) is refused too: send it by public `https` `url` instead. |
 | `file_blocked` | 422 | The upload failed the malware scan and was not stored. |
 | `new_contact_limit` | 429 | The sender's budget for new conversations is used up. `retry_after` can be an hour: queue the start, do not block on it. |
-| `sender_throttled` | 429 | Abuse signals tripped; new conversations wait until `retry_after` (can be long). Replies still go. |
+| `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` ({{sending.abuse.throttle_hours}} hours by default). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |
 | `channel_error` | in `message.failed` (502 from typing/read/file download) | The channel refused or failed it; `channel_code` is its code. A 502 may be retried; a failed message needs a new send. |
 | `not_implemented` | 501 | Not available through the API (for example requesting an iMessage, SMS or WhatsApp sender: the Flow team connects those). |
@@ -973,6 +989,35 @@ the window resets). Over the limit you get `429 rate_limited` with `Retry-After`
 are also paced per sender by the send gate: messages per second (`429 rate_limited`)
 and new conversations per hour and per day, growing during a new sender's warm-up
 (`429 new_contact_limit`).
+
+### Sending limits and abuse signals
+
+Defaults for dedicated senders (your own bot, line or number). A sender's `limits`
+(`GET /v1/senders/{sender_id}`) shows its own numbers.
+
+| | Pace | New conversations |
+|---|---|---|
+| Telegram bot | {{sending.messages_per_second}} a second, burst {{sending.burst}} | no practical cap (a bot reaches only people who started it) |
+| WhatsApp number | Meta's throughput | {{sending.new_contacts_per_day.whatsapp}} a day, {{sending.new_contacts_per_hour.whatsapp}} an hour, and Meta's tier (`limits.whatsapp_tier`) |
+| SMS number | set by the number's registration (10DLC, toll-free) | {{sending.new_contacts_per_day.sms}} a day, {{sending.new_contacts_per_hour.sms}} an hour |
+| iMessage line | spaced out by the line's own rules | {{sending.new_contacts_per_hour.imessage}} an hour, and a daily cap that grows over the line's first weeks |
+
+Faster than the pace: `429 rate_limited` with `Retry-After`. Past the budget: `429
+new_contact_limit` with `retry_after`; queue the start, do not loop.
+
+Any of these signals throttles a dedicated sender for {{sending.abuse.throttle_hours}} hours (`sender.status_changed`,
+`status` `throttled`): starts answer `429 sender_throttled` with `retry_after`, replies
+into existing conversations still go, and it recovers by itself. The start that trips a
+signal still goes.
+
+- The same first message (text or caption, ignoring case and spacing) to {{sending.abuse.same_text_contacts}} new
+  contacts within {{sending.abuse.same_text_window_minutes}} minutes. Templates and media without a caption do not
+  count: personalise first messages.
+- Of the starts from the last {{sending.abuse.unanswered_window_hours}} hours that are more than {{sending.abuse.unanswered_grace_hours}} hours old, at
+  least {{sending.abuse.unanswered_min_starts}}, with {{sending.abuse.unanswered_percent}}% or more never answered.
+- {{sending.abuse.blocks}} contacts blocking the sender within {{sending.abuse.blocks_window_hours}} hours.
+
+iMessage lines have stricter limits of their own.
 
 ## 11. Channel notes
 

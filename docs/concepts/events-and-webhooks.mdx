@@ -100,7 +100,9 @@ curl https://api.flow.engineer/v1/webhook_endpoints \
   -d '{"url": "https://example.com/api/flow", "events": ["message.received", "message.failed"]}'
 ```
 
-The answer includes the endpoint's signing `secret` (`whsec_...`), shown only this once. Store it as `FLOW_MESSAGING_WEBHOOK_SECRET`. Endpoints belong to the mode of the key that created them: a test key's endpoint receives test events.
+The answer includes the endpoint's signing `secret` (`whsec_...`), shown only this once. Store it as `FLOW_MESSAGING_WEBHOOK_SECRET`. Endpoints and their secrets belong to the mode of the key that created them: a test key's endpoint receives test events, so going live means registering the endpoint again with the live key and storing its new secret.
+
+The URL must be public HTTPS. To run your handler on localhost with no tunnel, `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow` forwards each event from the live stream to it, signed like a real delivery ([Local development](/guides/local-development#testing-your-webhook-handler-locally)).
 
 ## Verify the signature
 
