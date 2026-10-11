@@ -15,7 +15,7 @@ On iMessage a line can reach only contacts who have messaged it (or opted in). T
 
 On SMS (US, in pilot), a sender does not message contacts who have not texted it in the last hour during its quiet hours (`sender.sms.quiet_hours`, by default 21:00 to 08:00), in the contact's local time worked out from their area code. The send is refused with HTTP 409, `channel_code` `quiet_hours`, and `retry_after` in seconds until the quiet hours end.
 
-Typing and read receipts go to the channel at once, so they answer HTTP 409 `outside_window` directly when the channel's window is closed: on iMessage, typing works only within 5 minutes of the contact's last message.
+Typing and read receipts go to the channel at once, so they answer HTTP 409 `outside_window` directly when the channel's window for them is closed: on iMessage, typing works only within 5 minutes of the contact's last message, and a read receipt only once the contact has written; on WhatsApp, typing works only inside the 24-hour window, while read receipts go at any time.
 
 ## Why it happens
 
