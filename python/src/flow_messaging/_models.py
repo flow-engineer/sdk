@@ -858,7 +858,7 @@ class EditContent(BaseModel):
 
 class EditMessageRequest(BaseModel):
     """
-    The new text of a sent message.
+    The new text of a sent message. A field not listed here is refused with `400 invalid_request` naming it in `param`.
     """
 
     model_config = ConfigDict(
@@ -915,12 +915,12 @@ class ErrorBody(BaseModel):
     the error's `doc_url`; the error's `hint` says what to change for the case.
 
     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
-    - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
+    - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join code again).
     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret; a secret that was lost must be rotated again).
     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-    - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first.
+    - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. `POST /v1/files` answers it for a type Flow does not take, and for a document while malware scanning is off: send the document by a public HTTPS `url` in `media` content instead.
     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file.
@@ -1163,7 +1163,9 @@ class FileBlockedContent(BaseModel):
     pages), it could not be scanned, or it is larger than the channel lets Flow
     download. The file is not stored and has no `url`; what is known about it is
     here. Images, audio and video are not scanned; documents (PDF, Office,
-    archives) are.
+    archives) are, once malware scanning is on. While it is off (during the
+    beta), an inbound document is kept without a scan, and Flow does not send
+    that file again by its `file_id` (`422 unsupported_content`).
 
     """
 
@@ -1781,7 +1783,11 @@ class SandboxKeyRequest(BaseModel):
 
 class SendMessageRequest(BaseModel):
     """
-    One piece of content to send into a conversation.
+    One piece of content to send into a conversation. A field not listed here is
+    refused with `400 invalid_request` naming it in `param`, never ignored. There
+    are no scheduled sends: a message goes out as soon as it passes the gate, so
+    to send later, wait in your own code and send then.
+
     """
 
     model_config = ConfigDict(
@@ -1960,7 +1966,7 @@ class SenderAddress(BaseModel):
 
 class SenderLimits(BaseModel):
     """
-    The sender's current budget for starting conversations.
+    The sender's current budget for starting conversations, and how fast it sends.
     """
 
     model_config = ConfigDict(
@@ -1973,6 +1979,15 @@ class SenderLimits(BaseModel):
     new_contacts_per_hour: int
     """
     New conversations the sender may start per hour.
+    """
+    messages_per_second: Annotated[float | None, Field(examples=[1])] = None
+    """
+    The sender's pacing: how many messages a second it takes on average,
+    replies included, with short bursts allowed above it. A send past it
+    answers `429 rate_limited` with `retry_after`. A shared sandbox
+    sender's pacing is shared by every app that uses it. Absent for
+    simulated senders, which are not paced.
+
     """
     whatsapp_tier: str | None = None
     """
@@ -2203,7 +2218,11 @@ class SmsSender(BaseModel):
 
 class StartConversationRequest(BaseModel):
     """
-    The first message from one of your senders to a contact.
+    The first message from one of your senders to a contact. A field not listed
+    here is refused with `400 invalid_request` naming it in `param`, never
+    ignored. There are no scheduled sends: to start a conversation later, wait
+    in your own code and send then.
+
     """
 
     model_config = ConfigDict(
