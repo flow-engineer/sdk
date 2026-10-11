@@ -274,6 +274,15 @@ export class Contacts {
   retrieve(contactId: string, options?: RequestOptions): Promise<Contact> {
     return this.http.request({ method: "GET", path: `/v1/contacts/${enc(contactId)}`, options });
   }
+
+  /**
+   * Erases the contact and their data in this app and mode (address, message content,
+   * files, events, queued sends); it cannot be undone. Resolves the same when the
+   * contact was already deleted, so it is safe to retry. Emits `contact.deleted`.
+   */
+  delete(contactId: string, options?: RequestOptions): Promise<void> {
+    return this.http.request({ method: "DELETE", path: `/v1/contacts/${enc(contactId)}`, options });
+  }
 }
 
 export class AppResource {

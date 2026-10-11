@@ -201,6 +201,17 @@ describe("client", () => {
     expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/senders/${sender.id}`);
   });
 
+  it("deletes a contact with DELETE and resolves on 204", async () => {
+    const contact = "ct_01JB8ZC3K5M7P9R1T3V5X7Z9B1";
+    const { fetch, calls } = mockFetch(() => new Response(null, { status: 204 }));
+    const flow = new FlowMessaging({ apiKey: "fk_live_unit", fetch, baseURL: "https://example.test" });
+    await expect(flow.contacts.delete(contact)).resolves.toBeUndefined();
+    await expect(flow.contacts.delete(contact)).resolves.toBeUndefined();
+    expect(calls).toHaveLength(2);
+    expect(calls[0]!.method).toBe("DELETE");
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/contacts/${contact}`);
+  });
+
   it("sends reply_to and reads it back on the message", async () => {
     const target = ids.msg(1);
     const { fetch, calls } = mockFetch(() => json(202, { ...message(2, "Yes, that one."), reply_to: target }));

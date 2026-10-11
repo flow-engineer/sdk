@@ -1,0 +1,68 @@
+---
+title: "Retention and deleting contacts"
+sidebarTitle: "Retention and deletion"
+description: "How long Flow Messaging keeps message content, files and events, and how DELETE /v1/contacts/{contact_id} erases one person's data at once: what is erased, what is kept, and what happens if they write again."
+keywords: ["delete contact API", "erase user data messaging API", "GDPR delete messages", "message retention period"]
+---
+
+Flow keeps what your agent and its contacts say only as long as it needs to. Two things remove it: your plan's retention period, which applies to everyone, and deleting a contact, which erases one person at once.
+
+## Retention
+
+Message content and files are kept for your plan's retention period, **30 days by default**. After it:
+
+- a message's content is removed and the message is no longer returned by `GET /v1/conversations/{conversation_id}/messages`;
+- files are deleted, and their `file_id` is not found;
+- events older than it leave the log (`GET /v1/events`, the stream).
+
+Contacts and conversations themselves stay until you delete them, so a person who writes again after a month is still the same contact.
+
+## Delete a contact
+
+Call `DELETE /v1/contacts/{contact_id}` when the person asks you to delete their data, or when you delete them in your own product. It answers `204 No Content`, and so does every repeat, so it is safe to retry.
+
+```bash curl
+curl -X DELETE https://api.flow.engineer/v1/contacts/ct_01JB8ZC3K5M7P9R1T3V5X7Z9B1 \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+```
+
+```ts TypeScript
+await flow.contacts.delete("ct_01JB8ZC3K5M7P9R1T3V5X7Z9B1");
+```
+
+It works within the key's app and mode, and it cannot be undone.
+
+### What is erased
+
+- The contact's name and address: phone, username, Telegram user ID, iMessage handle, and on SMS their recorded consent and opt-out.
+- The content of every message in their conversations, inbound and outbound, with reply quotes, metadata and what the channel reported back.
+- The files sent or received in those conversations, including uploads you sent them. A `file_id` you sent to a deleted contact is not found afterwards: upload the file again to send it to someone else.
+- The events of those conversations. They are no longer returned by `GET /v1/events`, the stream or webhooks. An event ID you already hold still works as an `after` or `before` cursor, so paging never breaks.
+- Webhook deliveries of those events that were still pending: they are not sent.
+- Messages still queued to the contact: they are not sent. A message already handed to the channel may still arrive.
+- Saved `Idempotency-Key` answers that held their data. Repeating such a request answers `404 not_found`.
+
+### What is kept
+
+Only IDs, timestamps, and the counts that bill and pace your senders (allowances, new-contact budgets, warm-up). The contact and their conversations answer `404 not_found` from then on and are not listed.
+
+Flow cannot delete what the channel itself keeps, such as the chat on the person's own device.
+
+### After the delete
+
+- Your endpoints receive `contact.deleted`, once, with only the contact's ID in `data.contact`. Delete what you keep about them too.
+- If the person writes again, or you send to their address, they are a **new contact** with a new ID and a new conversation (`conversation.started`). The channel's usual rules apply to it, such as the WhatsApp 24-hour window.
+- On a shared sandbox sender the person leaves your app; they send your join code again to talk to it.
+- On SMS the opt-out is erased with the contact. Carriers keep blocking a number that texted STOP, so do not text it again unless the person opts in again.
+
+```json contact.deleted
+{
+  "id": "evt_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+  "type": "contact.deleted",
+  "created_at": "2026-11-02T10:00:00Z",
+  "app": "app_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
+  "livemode": true,
+  "data": { "contact": "ct_01JB8ZC3K5M7P9R1T3V5X7Z9B1" },
+  "timing": { "received_at": "2026-11-02T10:00:00Z", "stored_at": "2026-11-02T10:00:00Z" }
+}
+```

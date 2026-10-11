@@ -152,7 +152,8 @@ deliveries verify with either while you deploy.
 Events are a discriminated union on `type` (`message.received`, `message.sent`,
 `message.delivered`, `message.read`, `message.failed`, `reaction.added`,
 `reaction.removed`, `typing.started`, `typing.stopped`, `conversation.started`,
-`conversation.window_closing`, `sender.status_changed`, `template.status_changed`).
+`conversation.window_closing`, `sender.status_changed`, `template.status_changed`,
+`contact.deleted`).
 Each event in a conversation carries `event.conversation`, a handle with `reply`,
 `send`, `typing`, `markRead`, `react`, `responding` and `messages`.
 

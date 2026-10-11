@@ -247,6 +247,20 @@ info:
     inbound order is best-effort (arrival order); messages sent within about a second
     of each other may arrive out of order.
 
+    ## Retention and deleting contacts
+
+    Message content and files are kept for your plan's retention period (30 days by
+    default). After it, a message's content is removed and the message is no longer
+    returned, files are deleted, and events older than it leave the log.
+
+    `DELETE /v1/contacts/{contact_id}` erases one contact at once, for example when
+    the person asks you to delete their data or when you delete them in your own
+    product: their name and address, the content of every message in their
+    conversations, the files in them, their events and pending webhook deliveries,
+    and messages still queued to them. It cannot be undone. What stays is only IDs,
+    timestamps and the counts that bill and pace your senders. If the person writes
+    again, or you send to their address, they are a new contact with a new ID.
+
     ## Testing with simulated contacts
 
     A test key can play the end user's side without a phone or a real channel. `POST
@@ -1616,7 +1630,7 @@ paths:
       operationId: getContact
       tags: [Contacts]
       summary: Get a contact
-      description: Returns one contact and the address they are reached at on their channel.
+      description: Returns one contact and the address they are reached at on their channel. A deleted contact answers `404 not_found`.
       responses:
         "200":
           description: The contact.
@@ -1624,6 +1638,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Contact"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteContact
+      tags: [Contacts]
+      summary: Delete a contact and their data
+      description: |
+        Erases the contact and what Flow keeps about them in this app and mode. It
+        cannot be undone. Use it when the person asks you to delete their data, or
+        when you delete them in your own product.
+
+        Erased at once:
+
+        - the contact's name and address (phone, username, Telegram user ID, iMessage
+          handle) and, on SMS, their recorded consent and opt-out;
+        - the content of every message in their conversations, inbound and outbound,
+          with reply quotes, metadata and what the channel reported back;
+        - the files sent or received in those conversations, including uploads you
+          sent them (a `file_id` sent to a deleted contact is not found afterwards);
+        - the events of those conversations: they are no longer returned by
+          `GET /v1/events`, the stream or webhooks (an event ID you hold still works
+          as an `after` or `before` cursor);
+        - webhook deliveries of those events still pending (they are not sent), and
+          messages still queued to the contact (they are not sent; a message already
+          handed to the channel may still arrive);
+        - saved `Idempotency-Key` answers that held their data: repeating such a
+          request answers `404 not_found`.
+
+        Kept: IDs, timestamps, and the counts that bill and pace your senders
+        (allowances, new-contact budgets, warm-up). The contact and their
+        conversations answer `404 not_found` from then on and are not listed. Flow
+        cannot delete what the channel itself keeps, such as the chat on the
+        person's own device.
+
+        On a shared sandbox sender the person leaves your app and must send the join
+        code again to talk to it. On SMS the opt-out is erased with the contact:
+        carriers keep blocking a number that texted STOP, so do not text it again
+        unless the person opts in again. If the person writes again, or you send to their address, they are a
+        new contact with a new ID and a new conversation (`conversation.started`),
+        and the channel's usual rules apply, such as the WhatsApp 24-hour window.
+
+        The first delete emits `contact.deleted`, which carries only the contact's ID.
+        Deleting a contact that is already deleted, or an ID this app and mode never
+        had, also answers `204`, so the call is safe to retry.
+      responses:
+        "204":
+          description: The contact is deleted (or was already).
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "404":
@@ -4014,6 +4081,7 @@ components:
         - `conversation.window_closing`: WhatsApp only, opt-in. The 24-hour window closes in 1 hour.
         - `sender.status_changed`: a sender was throttled, flagged, banned or restored, or its WhatsApp quality rating changed.
         - `template.status_changed`: Meta approved, rejected or paused a template.
+        - `contact.deleted`: a contact was deleted with `DELETE /v1/contacts/{contact_id}`. Carries only the contact's ID; delete what you keep about them too.
       enum:
         - message.received
         - message.sent
@@ -4028,6 +4096,7 @@ components:
         - conversation.window_closing
         - sender.status_changed
         - template.status_changed
+        - contact.deleted
     Timing:
       type: object
       description: |
@@ -4071,7 +4140,8 @@ components:
       description: |
         One entry in your app's log. `type` says what happened and selects the shape
         of `data`. `conversation` is set for every event that happened in a
-        conversation (all but `sender.status_changed` and `template.status_changed`).
+        conversation (all but `sender.status_changed`, `template.status_changed` and
+        `contact.deleted`).
       oneOf:
         - $ref: "#/components/schemas/MessageReceivedEvent"
         - $ref: "#/components/schemas/MessageSentEvent"
@@ -4086,6 +4156,7 @@ components:
         - $ref: "#/components/schemas/ConversationWindowClosingEvent"
         - $ref: "#/components/schemas/SenderStatusChangedEvent"
         - $ref: "#/components/schemas/TemplateStatusChangedEvent"
+        - $ref: "#/components/schemas/ContactDeletedEvent"
       discriminator:
         propertyName: type
         mapping:
@@ -4102,6 +4173,7 @@ components:
           conversation.window_closing: "#/components/schemas/ConversationWindowClosingEvent"
           sender.status_changed: "#/components/schemas/SenderStatusChangedEvent"
           template.status_changed: "#/components/schemas/TemplateStatusChangedEvent"
+          contact.deleted: "#/components/schemas/ContactDeletedEvent"
     MessageEventData:
       type: object
       description: The message the event is about.
@@ -4345,6 +4417,29 @@ components:
               description: Always `template.status_changed`.
             data:
               $ref: "#/components/schemas/TemplateStatusChangedData"
+    ContactDeletedData:
+      type: object
+      description: The contact that was deleted. Only the ID is kept.
+      required: [contact]
+      properties:
+        contact:
+          $ref: "#/components/schemas/ContactId"
+    ContactDeletedEvent:
+      description: |
+        A contact was deleted with `DELETE /v1/contacts/{contact_id}`: their address,
+        messages, files and events are erased at Flow. Delete what you keep about
+        them too. Sent once, for the first delete; it has no `conversation`.
+      allOf:
+        - $ref: "#/components/schemas/EventBase"
+        - type: object
+          required: [type, data]
+          properties:
+            type:
+              type: string
+              enum: [contact.deleted]
+              description: Always `contact.deleted`.
+            data:
+              $ref: "#/components/schemas/ContactDeletedData"
     EventList:
       type: object
       description: A page of events, oldest first.
