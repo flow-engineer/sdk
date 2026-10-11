@@ -4,7 +4,8 @@
 #                                     byte-compile the Python ones
 #   scripts/check-examples.sh --e2e   also run every example against a local Flow Messaging
 #                                     service and check what it does (scripts/examples-e2e.py),
-#                                     and the SDK examples that have a scenario (built SDK)
+#                                     and the SDK examples that have a scenario (built SDK),
+#                                     and then the Python SDK's end-to-end tests (python/tests/e2e)
 #   scripts/check-examples.sh --e2e telegram-echo/python ...   only these scenarios
 # --e2e runs the service from a checkout (FLOW_MESSAGING_DIR, default ../flow-messaging)
 # on this machine with its scripts/local-stack.sh (in the background, with a live key):
@@ -50,7 +51,7 @@ node -e '
 ls "$work/ts"/*.ts | sed 's|.*/|ok  |'
 
 step "examples: Python byte-compile"
-for f in examples/*/python/main.py; do
+for f in examples/*/python/main.py examples/*/agent.py; do
   PYTHONPYCACHEPREFIX="$work/pycache" python3 -m py_compile "$f"
   echo "ok  $f"
 done
@@ -93,6 +94,8 @@ printf '{"name":"sdk-examples-e2e","private":true,"type":"module","dependencies"
 echo "installing the Python examples' requirements"
 python3 -m venv "$work/venv"
 "$work/venv/bin/pip" install --quiet --disable-pip-version-check $(printf -- '-r %s ' examples/*/python/requirements.txt)
+echo "installing the Python SDK from python/ (for examples/*/agent.py and its end-to-end tests)"
+"$work/venv/bin/pip" install --quiet --disable-pip-version-check ./python pytest
 
 set +e
 E2E_API="$FLOW_BASE_URL" E2E_SIM="$TELEGRAMSIM_URL" E2E_SIM_TOKEN="$(cat "$TELEGRAMSIM_ADMIN_TOKEN_FILE")" \
@@ -100,6 +103,14 @@ E2E_SANDBOX_TOKEN="$(cat "$TELEGRAMSIM_SANDBOX_TOKEN_FILE")" E2E_LIVE_KEY_FILE="
 E2E_PYTHON="$work/venv/bin/python" E2E_EXAMPLES="$root/examples" E2E_DATABASE_URL="$DATABASE_URL" E2E_SDK_DIR="$work/sdk" \
   python3 scripts/examples-e2e.py "$@"
 status=$?
+if [ "$#" = "0" ]; then
+  # The Python SDK's end-to-end tests (python/tests/e2e) on the same stack: they read
+  # the stack's env file (FLOW_BASE_URL, TELEGRAMSIM_*), sourced above.
+  step "python SDK: end to end against the local service"
+  # An empty ini: test the installed package, not python/src.
+  printf '[pytest]\n' > "$work/pytest.ini"
+  "$work/venv/bin/python" -m pytest -q -p no:cacheprovider -c "$work/pytest.ini" --rootdir python/tests/e2e python/tests/e2e || status=1
+fi
 set -e
 if [ "$status" != "0" ]; then
   echo "service log (last 30 lines):"; tail -30 "$FLOW_STACK_LOG_DIR/server.log"

@@ -6,6 +6,8 @@
 #                                       this branch that are not on origin/main yet
 #   scripts/check-public.sh --package   also the files `npm pack` would publish from
 #                                       typescript/ (run it after the build)
+#   scripts/check-public.sh --files DIR also every file under DIR (the unpacked Python
+#                                       wheel and sdist; scripts/check-python.sh)
 #
 # What fails:
 # 1. Internal-only markers (pages that say they are not for publication), below.
@@ -20,12 +22,17 @@
 #    skipped. Without the file this part is skipped with a warning;
 #    REQUIRE_PUBLIC_DENYLIST=1 makes that fail. Hits print only file and line.
 # 4. With --package: any source map in the package. The build ships none, since a
-#    map's sourcesContent carries the original sources with every comment.
+#    map's sourcesContent carries the original sources with every comment. With
+#    --files, the same for every file under the folder.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 package=0
+files=""
 [ "${1:-}" = "--package" ] && package=1
+if [ "${1:-}" = "--files" ]; then
+  files="${2:?--files needs a folder}"
+fi
 
 markers=(
   "For the founders"
@@ -120,6 +127,16 @@ if [ "$package" = 1 ]; then
       fail "the npm package would publish a file that fails this check:" "typescript/$f"
     fi
   done < "$tmp/files"
+fi
+
+# 5. Unpacked package files (the Python wheel and sdist).
+if [ -n "$files" ]; then
+  while IFS= read -r f; do
+    case "$f" in *.map) fail "the package would ship a source map:" "$f" ;; esac
+    if flagged "$f"; then
+      fail "the package would publish a file that fails this check:" "${f#"$files"/}"
+    fi
+  done < <(find "$files" -type f)
 fi
 
 [ "$failed" = 0 ] || exit 1
