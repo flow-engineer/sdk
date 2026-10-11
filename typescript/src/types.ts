@@ -1,6 +1,6 @@
 // Friendly names for the types generated from the OpenAPI spec
 // (src/generated/openapi.ts, made by `npm run generate`; never edit that file).
-import type { components, operations } from "./generated/openapi.js";
+import type { components } from "./generated/openapi.js";
 
 type S = components["schemas"];
 
@@ -120,12 +120,82 @@ export type SimulatedInbound = S["SimulatedInbound"];
 export type TestTranscript = S["TestTranscript"];
 export type TranscriptEntry = S["TranscriptEntry"];
 
-/** Query parameters of list endpoints, by operation. */
-export type ListConversationsParams = NonNullable<operations["listConversations"]["parameters"]["query"]>;
-export type ListMessagesParams = NonNullable<operations["listConversationMessages"]["parameters"]["query"]>;
-export type ListEventsParams = NonNullable<operations["listEvents"]["parameters"]["query"]>;
-export type ListSendersParams = NonNullable<operations["listSenders"]["parameters"]["query"]>;
-export type ListTemplatesParams = NonNullable<operations["listTemplates"]["parameters"]["query"]>;
-export type ListWebhookEndpointsParams = NonNullable<operations["listWebhookEndpoints"]["parameters"]["query"]>;
-export type ListContactsParams = NonNullable<operations["listContacts"]["parameters"]["query"]>;
-export type TestTranscriptParams = NonNullable<operations["getTestTranscript"]["parameters"]["query"]>;
+// ---------------------------------------------------------------- list parameters
+// Written out by hand so editors show each field and its meaning; a type test
+// (test/unit/params.test.ts) fails when one differs from the spec's query parameters.
+
+/**
+ * Cursor paging, shared by every list call. A list call returns a `PagePromise`:
+ * `await` it for one page, or `for await` it to walk every item across pages (it
+ * follows `after` for you).
+ */
+export interface PageParams {
+  /** An item ID: returns the items that come after it in the list's order. Pass the last ID you processed to read on from there. */
+  after?: string;
+  /** An item ID: returns the items that come before it in the list's order. Give `after` or `before`, not both. */
+  before?: string;
+  /** How many items one page holds, 1 to 100 (default 20). */
+  limit?: number;
+}
+
+/**
+ * `flow.events.list(params)`: the event log, **oldest first**. Pass the last event you
+ * processed as `after` to catch up; to wait for an event, use `flow.events.waitFor` or
+ * the helpers on a conversation (`waitForReply`, `ask`) instead of listing in a loop.
+ *
+ * ```ts
+ * const page = await flow.events.list({ type: ["message.received"], conversation: "conv_...", limit: 50 });
+ * ```
+ */
+export interface ListEventsParams extends PageParams {
+  /** Only events of these types (at most 20), e.g. `["message.received", "conversation.started"]`. */
+  type?: EventType[];
+  /** Only events in this conversation (`conv_...`). An ID with no conversation of this app and mode throws `NotFoundError`. */
+  conversation?: string;
+}
+
+/** `flow.conversations.list(params)`: your app's conversations in this mode, newest first. */
+export interface ListConversationsParams extends PageParams {
+  /** Only conversations on this sender (`snd_...`). */
+  sender?: string;
+  /** Only conversations with this contact (`ct_...`). */
+  contact?: string;
+  /** Only conversations on this channel. */
+  channel?: Channel;
+}
+
+/** `flow.conversations.messages(id, params)` and `conversation.messages(params)`: a conversation's messages, inbound and outbound, newest first. */
+export type ListMessagesParams = PageParams;
+
+/** `flow.senders.list(params)`: the senders your app can use in this mode. */
+export interface ListSendersParams extends PageParams {
+  /** Only senders on this channel. */
+  channel?: Channel;
+  /** Only senders of this kind. `simulated` lists your app's simulated senders (test keys only), which are otherwise left out. */
+  kind?: SenderKind;
+}
+
+/** `flow.templates.list(params)`: WhatsApp templates of your senders, newest first. */
+export interface ListTemplatesParams extends PageParams {
+  /** Only templates of this sender (`snd_...`). */
+  sender?: string;
+  /** Only templates in this status. */
+  status?: TemplateStatus;
+}
+
+/** `flow.webhookEndpoints.list(params)`: your app's webhook endpoints in this mode. */
+export type ListWebhookEndpointsParams = PageParams;
+
+/** `flow.contacts.list(params)`: your app's contacts in this mode. */
+export interface ListContactsParams extends PageParams {
+  /** Only contacts on this channel. */
+  channel?: Channel;
+}
+
+/** `flow.test.transcript(id, params)`: both sides of a simulated conversation, oldest first. */
+export interface TestTranscriptParams {
+  /** An entry ID: returns the entries after it. */
+  after?: string;
+  /** How many entries one page holds, 1 to 100 (default 20). */
+  limit?: number;
+}

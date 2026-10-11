@@ -19,7 +19,7 @@
   "caption_cap": 1024,
   "sms_max_segments": 10,
   "sign_in": "GitHub",
-  "sdk_version": "0.1.1",
+  "sdk_version": "0.2.0",
   "cli_tagline": "Telegram, iMessage and WhatsApp for AI agents.",
   "allowance": {
     "anonymous": { "contacts": 1, "messages_per_contact": 50, "key_ttl_days": 7 },

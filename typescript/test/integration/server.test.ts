@@ -7,7 +7,8 @@
 // Flow: create a webhook endpoint, a simulated Telegram user joins the sandbox and
 // writes, the event arrives on the stream and at the webhook (verified with
 // constructEvent), the agent replies with an LLM-style stream, and the bubbles
-// arrive at the simulator; then a reply given in the webhook's answer.
+// arrive at the simulator; then a reply given in the webhook's answer. Then the wait
+// helpers (waitForNew, waitForReply, ask, sendAndWait) with a simulated contact.
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
@@ -21,6 +22,7 @@ import {
   FlowMessaging,
   NotFoundError,
   UnsupportedContentError,
+  WaitTimeoutError,
   contentText,
   template,
   type FlowEvent,
@@ -255,4 +257,58 @@ describe.skipIf(!available)("against the local Flow Messaging service", () => {
     expect(calls.at(-1)!.text).toBe("Hello from the CLI");
     rmSync(dir, { recursive: true, force: true });
   }, 30_000);
+
+  // Last: its simulated conversation would be the newest, which `send` in the CLI test picks.
+  it("waits: a new simulated conversation, its first message, ask, sendAndWait, a timeout", async () => {
+    const flow = new FlowMessaging({ apiKey: h.test_key, baseURL: h.base_url });
+    const opts = { timeoutMs: 15_000 };
+
+    // A contact who writes first: waitForNew finds the conversation, even though it
+    // began before the wait connected; waitForReply then returns the first message.
+    const since = new Date();
+    const sim = await flow.test.createConversation({ channel: "telegram" });
+    await flow.test.inbound(sim.id, "hello");
+    // On the simulated sender only: the sandbox conversation of the test above is recent too.
+    const conv = await flow.conversations.waitForNew({ since, sender: sim.sender, ...opts });
+    expect(conv.id).toBe(sim.id);
+    expect(conv.channel).toBe("telegram");
+    expect(contentText((await conv.waitForReply(opts)).content)).toBe("hello");
+
+    // sendAndWait resolves once the message is sent, not when it is queued.
+    const question = await conv.sendAndWait("What's your name?", opts);
+    expect(question.status).toBe("sent");
+
+    // The answer comes after the question: waitForReply starts at the last send.
+    const answer = conv.waitForReply(opts);
+    await flow.test.inbound(sim.id, "Asha");
+    expect(contentText((await answer).content)).toBe("Asha");
+
+    // ask: the contact answers once the question was sent (the gate is its message.sent).
+    const cursor = (await flow.events.list({ conversation: sim.id, limit: 100 })).data.at(-1)!.id;
+    const questionSent = flow.events.waitFor("message.sent", { after: cursor, conversation: sim.id, ...opts });
+    const city = conv.ask("Which city are you in?", opts);
+    const sentEvent = await questionSent;
+    expect(contentText(sentEvent.data.message.content)).toBe("Which city are you in?");
+    await flow.test.inbound(sim.id, "Pune");
+    expect(contentText((await city).content)).toBe("Pune");
+
+    // An answer that arrived before the wait started is returned at once.
+    await conv.sendAndWait("Anything else?", opts);
+    const early = await flow.test.inbound(sim.id, "No, thanks");
+    const late = await conv.waitForReply(opts);
+    expect(late.id).toBe(early.message);
+
+    // Nothing comes: a typed timeout, and the transcript holds both sides.
+    await expect(conv.waitForReply({ timeoutMs: 300 })).rejects.toBeInstanceOf(WaitTimeoutError);
+    const transcript = await flow.test.transcript(sim.id, { limit: 100 }).toArray();
+    expect(transcript.map((m) => `${m.direction} ${contentText(m.content)}`)).toEqual([
+      "in hello",
+      "out What's your name?",
+      "in Asha",
+      "out Which city are you in?",
+      "in Pune",
+      "out Anything else?",
+      "in No, thanks",
+    ]);
+  }, 45_000);
 });

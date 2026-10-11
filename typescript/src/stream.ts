@@ -54,6 +54,15 @@ export interface StreamParams<T extends EventType = EventType> {
   onStatus?: (status: "open" | "reconnecting" | "polling", detail?: string) => void;
 }
 
+/**
+ * Used by the wait helpers (not part of the public options): called each time the
+ * stream is connected and will deliver every event committed from then on, that is
+ * when a socket opens, or once polling has found where the log ends.
+ */
+export interface LiveHook {
+  onLive?: () => void;
+}
+
 type WSLike = {
   addEventListener(type: string, fn: (ev: { data?: unknown; code?: number; reason?: string }) => void): void;
   close(code?: number, reason?: string): void;
@@ -85,7 +94,8 @@ async function webSocketRuntime(): Promise<WSRuntime | undefined> {
 /** Hands an API event to you with a conversation handle attached. */
 export function toFlowEvent<E extends Event>(flow: FlowMessaging, event: E): FlowEvent<E> {
   const conv = (event as { conversation?: { id: string } }).conversation;
-  if (conv?.id) (event as Record<string, unknown>).conversation = new ConversationHandle(flow, conv);
+  // The handle's waitForReply() starts after this event.
+  if (conv?.id) (event as Record<string, unknown>).conversation = new ConversationHandle(flow, conv, { after: event.id });
   return event as FlowEvent<E>;
 }
 
@@ -119,7 +129,7 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
 
   constructor(
     private readonly flow: FlowMessaging,
-    private readonly params: StreamParams = {},
+    private readonly params: StreamParams & LiveHook = {},
   ) {
     this.lastEventId = params.after;
     this.cursor = params.after;
@@ -219,6 +229,7 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
       ws.addEventListener("open", () => {
         opened = true;
         this.params.onStatus?.("open");
+        this.params.onLive?.();
       });
       ws.addEventListener("message", (ev) => {
         let frame: { type?: string; event?: Event; after?: string; error?: ErrorBody };
@@ -268,6 +279,7 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
       // Start live, like the socket: skip what is already in the log (pass `after` to avoid this scan).
       for await (const ev of this.flow.events.list({ limit: 100, type: this.params.types })) after = ev.id;
     }
+    this.params.onLive?.();
     while (!this.closed) {
       let page;
       try {

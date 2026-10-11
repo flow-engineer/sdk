@@ -1,7 +1,32 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
+- Send, wait for the reply, continue, without a polling loop:
+  `flow.conversations.waitForNew({ since })` (the next contact to join or write
+  first, including one who did since `since`), `conversation.ask(input)` (send, then
+  the contact's next message), `conversation.waitForReply({ after })`,
+  `conversation.sendAndWait(input, { until })` and
+  `flow.messages.sendAndWait(conversationId, input)` (resolve on `message.sent`, or
+  `delivered`/`read`; throw the message's typed error on `message.failed`, with
+  `err.failedMessage`), `flow.messages.waitFor(messageId)`,
+  `reply(input, { until: "sent" })` and `flow.events.waitFor(types, { after,
+  conversation, match })`. Each wait uses one live stream (resumed after a drop,
+  polling the event log where there is no WebSocket), checks for what happened just
+  before the call, takes `timeoutMs` (default 5 minutes) and `signal`, throws
+  `WaitTimeoutError` when time runs out, and closes its stream and timer when it
+  settles.
+- Handles from events (`event.conversation`) remember their event, and handles
+  remember their last send, so `waitForReply()` starts in the right place.
+- The list parameter types are named, documented interfaces exported from the
+  package root: `PageParams`, `ListEventsParams`, `ListConversationsParams`,
+  `ListMessagesParams`, `ListSendersParams`, `ListTemplatesParams`,
+  `ListWebhookEndpointsParams`, `ListContactsParams`, `TestTranscriptParams`.
+- New example: `examples/ask-and-wait`.
+- First release with `flow.test` (simulated conversations for test keys:
+  `createConversation`, `inbound`, `transcript`), which the docs already describe.
+- Docs: the file upload example sends an image; documents go by public HTTPS `url`
+  where uploads of documents are refused (no malware scanner).
 - The package no longer ships source maps; `dist/` is readable JavaScript with
   JSDoc types.
 - CLI: `--help` says Telegram, iMessage and WhatsApp. Types regenerated from the

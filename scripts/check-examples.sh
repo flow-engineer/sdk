@@ -3,7 +3,8 @@
 #   scripts/check-examples.sh         typecheck the TypeScript examples (tsc, strict) and
 #                                     byte-compile the Python ones
 #   scripts/check-examples.sh --e2e   also run every example against a local Flow Messaging
-#                                     service and check what it does (scripts/examples-e2e.py)
+#                                     service and check what it does (scripts/examples-e2e.py),
+#                                     and the SDK examples that have a scenario (built SDK)
 #   scripts/check-examples.sh --e2e telegram-echo/python ...   only these scenarios
 # --e2e runs the service from a checkout (FLOW_MESSAGING_DIR, default ../flow-messaging)
 # on this machine with its scripts/local-stack.sh (in the background, with a live key):
@@ -81,6 +82,14 @@ STREAM_KEY_CHECK=1s LOG_LEVEL=warn "$stack" --background --live-key --dir "$work
 . "$work/stack/env"
 echo "service ready on $FLOW_BASE_URL, Telegram simulator on $TELEGRAMSIM_URL"
 
+# The SDK examples (agent.ts, run by Node directly) use this repo's SDK, built here.
+echo "building the TypeScript SDK for the SDK examples"
+(cd typescript && { [ -d node_modules ] || npm ci --no-audit --no-fund --silent; } && npm run --silent build)
+mkdir -p "$work/sdk"
+for name in ask-and-wait; do cp "examples/$name/agent.ts" "$work/sdk/$name.ts"; done
+printf '{"name":"sdk-examples-e2e","private":true,"type":"module","dependencies":{"@flow-engineer/messaging":"file:%s"}}\n' "$root/typescript" > "$work/sdk/package.json"
+(cd "$work/sdk" && npm install --no-audit --no-fund --no-package-lock --silent)
+
 echo "installing the Python examples' requirements"
 python3 -m venv "$work/venv"
 "$work/venv/bin/pip" install --quiet --disable-pip-version-check $(printf -- '-r %s ' examples/*/python/requirements.txt)
@@ -88,7 +97,7 @@ python3 -m venv "$work/venv"
 set +e
 E2E_API="$FLOW_BASE_URL" E2E_SIM="$TELEGRAMSIM_URL" E2E_SIM_TOKEN="$(cat "$TELEGRAMSIM_ADMIN_TOKEN_FILE")" \
 E2E_SANDBOX_TOKEN="$(cat "$TELEGRAMSIM_SANDBOX_TOKEN_FILE")" E2E_LIVE_KEY_FILE="$FLOW_LIVE_KEY_FILE" E2E_TS_DIR="$work/ts" \
-E2E_PYTHON="$work/venv/bin/python" E2E_EXAMPLES="$root/examples" E2E_DATABASE_URL="$DATABASE_URL" \
+E2E_PYTHON="$work/venv/bin/python" E2E_EXAMPLES="$root/examples" E2E_DATABASE_URL="$DATABASE_URL" E2E_SDK_DIR="$work/sdk" \
   python3 scripts/examples-e2e.py "$@"
 status=$?
 set -e

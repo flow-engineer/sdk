@@ -49,6 +49,7 @@ published).
 | Folder | What it shows |
 |---|---|
 | [echo](echo) | The echo agent with the SDK: 20 lines, no framework. |
+| [ask-and-wait](ask-and-wait) | Send, wait for the reply, continue: `waitForNew`, `ask`, `sendAndWait`; no polling. |
 | [vercel-ai-sdk](vercel-ai-sdk) | `streamText` passed to `reply`, history per conversation. |
 | [openai-agents](openai-agents) | An OpenAI Agents SDK agent with a tool, streamed. |
 | [claude-agent-sdk](claude-agent-sdk) | Claude Agent SDK `query()`, a Claude session per conversation. |
