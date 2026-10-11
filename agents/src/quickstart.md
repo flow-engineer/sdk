@@ -345,9 +345,11 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
 ```
 
-- Each turn reaches your agent exactly like a real one: `conversation.started` (`via`
-  `inbound`) before the first turn, then `message.received` with the `message` ID
-  from step 2, by webhook, on the stream and in `GET /v1/events`, in order. The
+- Each turn reaches your agent exactly like a real one: `message.received` with the
+  `message` ID from step 2, by webhook, on the stream and in `GET /v1/events`, in
+  order. The conversation starts with its first message: the contact's first turn
+  (`conversation.started`, `via` `inbound`), or your first send to the contact, such
+  as a WhatsApp template or an SMS send with consent (`via` `outbound`). The
   conversation and contact carry `simulated: true`.
 - Your agent replies as usual (HTTP, stream frame or webhook answer). The send passes
   the real gate (content support, `fallback`, text limits, edit targets) and ends

@@ -15,7 +15,7 @@ On iMessage a line can reach only contacts who have messaged it (or opted in). T
 
 On SMS (US, in pilot), a sender does not message contacts who have not texted it in the last hour during its quiet hours (`sender.sms.quiet_hours`, by default 21:00 to 08:00), in the contact's local time worked out from their area code. The send is refused with HTTP 409, `channel_code` `quiet_hours`, and `retry_after` in seconds until the quiet hours end.
 
-Typing and read receipts go to the channel at once, so they answer HTTP 409 `outside_window` directly when the channel's window is closed: on iMessage, typing works only within 5 minutes of the contact's last message.
+Typing and read receipts go to the channel at once, so they answer HTTP 409 `outside_window` directly when the channel's window for them is closed: on iMessage, typing works only within 5 minutes of the contact's last message, and a read receipt only once the contact has written; on WhatsApp, typing works only inside the 24-hour window, while read receipts go at any time.
 
 ## Why it happens
 
@@ -23,6 +23,8 @@ Typing and read receipts go to the channel at once, so they answer HTTP 409 `out
 - WhatsApp: you are starting a conversation with someone who never wrote to the number.
 - iMessage: the contact has never messaged the line, or has not opted in to it.
 - iMessage: you turned typing on more than 5 minutes after the contact's last message.
+- WhatsApp, in `message.failed` (`channel_code` `window_closed`): the window was open when you sent, but closed while the message waited in the queue (for example behind the sender's pacing), so Flow did not send it.
+- In `message.failed` (`channel_code` `queued_too_long`): the message waited in the queue longer than its sender allows, for example while the sender was paused or its credentials were rejected, so Flow did not send it late.
 - SMS: it is inside the sender's quiet hours where the contact lives (`quiet_hours`), and they have not texted in the last hour. When their area code does not tell their time zone, every US time zone must be outside the quiet hours.
 
 ## How to fix it
@@ -34,6 +36,8 @@ curl https://api.flow.engineer/v1/messages \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -d '{"sender":"snd_...","to":{"contact":"ct_..."},"content":{"type":"template","template_id":"tpl_...","language":"en","params":{"body":["Asha"]}}}'
 ```
+
+For `window_closed`, send the message again as an approved template, or wait for the contact to write. For `queued_too_long`, send it again if it still applies, once the sender is `active` again (`sender.status_changed`).
 
 On iMessage, ask the contact to message the line first (share its handle, or its opt-in link from the sender's `address.link` when the line has one, for example in your app or website), then reply in the conversation their message opens.
 
