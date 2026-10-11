@@ -1,8 +1,10 @@
 // The API's resources, one class each, mirroring the endpoints in the spec.
-import { toSendRequest, type SendInput } from "./conversation.js";
+import type { FlowMessaging } from "./client.js";
+import { ConversationHandle, toSendRequest, type SendInput } from "./conversation.js";
 import { sleep, type HttpClient, type Query, type RequestOptions } from "./core.js";
 import { APIConnectionError, APIError, APITimeoutError, DeviceSignInError, RateLimitError } from "./errors.js";
 import { PagePromise } from "./pagination.js";
+import { waitForConversation, waitForMessages, type MessageWaitOptions, type NewConversationWaitOptions } from "./wait.js";
 import type {
   AppContext,
   Capabilities,
@@ -45,16 +47,22 @@ import type {
 
 const enc = encodeURIComponent;
 
-function list<T extends { id: string }>(http: HttpClient, path: string, params: Query = {}): PagePromise<T> {
-  const { after, ...rest } = params;
+function list<T extends { id: string }>(http: HttpClient, path: string, params: object = {}): PagePromise<T> {
+  const { after, ...rest } = params as Query;
   return new PagePromise<T>(
     (cursor) => http.request({ method: "GET", path, query: { ...rest, after: cursor } }),
     typeof after === "string" ? after : undefined,
   );
 }
 
+/** Options of `sendAndWait`: the request's, and the wait's (`until`, `timeoutMs`, `signal`). */
+export interface SendAndWaitOptions extends MessageWaitOptions, Pick<RequestOptions, "idempotencyKey" | "headers" | "maxRetries"> {}
+
 export class Messages {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly flow: FlowMessaging,
+  ) {}
 
   /**
    * Sends into a conversation (the normal reply): a string, a piece of content, or a
@@ -100,10 +108,46 @@ export class Messages {
   unsend(messageId: string, options?: RequestOptions): Promise<Message> {
     return this.http.request({ method: "DELETE", path: `/v1/messages/${enc(messageId)}`, options });
   }
+
+  /**
+   * Waits until one of your messages is `sent` (the channel accepted it; the default),
+   * or `delivered` or `read` with `until`, and resolves with it. When it fails
+   * (`message.failed`) it throws the message's typed error (`ChannelError`,
+   * `PermissionError`, ...; `err.failedMessage` is the message). Throws
+   * `WaitTimeoutError` after `timeoutMs` (default 5 minutes). A status reached before
+   * the call counts.
+   *
+   * ```ts
+   * const queued = await flow.messages.send("conv_...", "Your order shipped.");
+   * const sent = await flow.messages.waitFor(queued.id); // status "sent", or throws
+   * ```
+   */
+  async waitFor(messageId: string, options: MessageWaitOptions = {}): Promise<Message> {
+    const [m] = await waitForMessages(this.flow, [messageId], options);
+    return m!;
+  }
+
+  /**
+   * `send`, then `waitFor`: resolves once the channel accepted the message (`until`
+   * `sent`, the default), or throws its typed error when it fails. The answer of
+   * `send` alone only means Flow queued it.
+   *
+   * ```ts
+   * const msg = await flow.messages.sendAndWait("conv_...", "Your order shipped.", { timeoutMs: 30_000 });
+   * ```
+   */
+  async sendAndWait(conversationId: string, input: SendInput, options: SendAndWaitOptions = {}): Promise<Message> {
+    const { idempotencyKey, headers, maxRetries, ...wait } = options;
+    const queued = await this.send(conversationId, input, { idempotencyKey, headers, maxRetries, signal: wait.signal });
+    return this.waitFor(queued.id, wait);
+  }
 }
 
 export class Conversations {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly flow: FlowMessaging,
+  ) {}
 
   /** Your app's conversations in this mode, newest first. */
   list(params: ListConversationsParams = {}): PagePromise<Conversation> {
@@ -134,6 +178,28 @@ export class Conversations {
       options,
     });
   }
+
+  /**
+   * Waits for the next conversation to begin, and resolves with a handle to it: a
+   * contact who joins the sandbox or writes first (`via`, by default), on any of your
+   * senders (or `channel`, `sender`). One that began at or after `since` (default: the
+   * moment of the call) counts too, so take the time before you show the sandbox link.
+   * Throws `WaitTimeoutError` after `timeoutMs` (default 5 minutes).
+   *
+   * The handle's `waitForReply()` then starts from the `conversation.started` event, so
+   * the contact's first message is not missed.
+   *
+   * ```ts
+   * const since = new Date();
+   * console.log("Open the sandbox link and tap Start");
+   * const conv = await flow.conversations.waitForNew({ since, timeoutMs: 10 * 60_000 });
+   * const name = await conv.ask("Hi! What's your name?");
+   * ```
+   */
+  async waitForNew(options: NewConversationWaitOptions = {}): Promise<ConversationHandle> {
+    const { conversation, eventId } = await waitForConversation(this.flow, options);
+    return new ConversationHandle(this.flow, conversation, { after: eventId });
+  }
 }
 
 export class Capabilities_ {
@@ -159,11 +225,14 @@ export class Files {
 
   /**
    * Uploads media to send later as `media` or `voice` content by `file_id`. The answer
-   * is the stored `File`; its `id` (`file_...`) is the `file_id`.
+   * is the stored `File`; its `id` (`file_...`) is the `file_id`. Documents (PDF,
+   * Office, archives) are refused with `UnsupportedContentError` where no malware
+   * scanner runs: send those by public HTTPS `url` instead
+   * (`document("https://example.com/receipt.pdf")`).
    *
    * ```ts
-   * const file = await flow.files.upload({ file: await readFile("receipt.pdf"), filename: "receipt.pdf" });
-   * await flow.messages.send("conv_...", document(file.id, { caption: "Your receipt" }));
+   * const file = await flow.files.upload({ file: await readFile("receipt.png"), filename: "receipt.png" });
+   * await flow.messages.send("conv_...", image(file.id, { caption: "Your receipt" }));
    * ```
    */
   upload(params: UploadParams, options?: RequestOptions): Promise<File> {

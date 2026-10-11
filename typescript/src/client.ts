@@ -15,8 +15,9 @@ import {
   Testing,
   WebhookEndpoints,
 } from "./resources.js";
-import { EventStream, type StreamParams } from "./stream.js";
+import { EventStream, type FlowEvent, type FlowEventOf, type StreamParams } from "./stream.js";
 import type { ConversationRef, EventOf, EventType } from "./types.js";
+import { waitUntil, type EventWaitOptions } from "./wait.js";
 import { Webhooks } from "./webhooks.js";
 
 export class Events extends EventLog {
@@ -40,6 +41,37 @@ export class Events extends EventLog {
    */
   stream<T extends EventType = EventType>(params: StreamParams<T> = {}): EventStream<EventOf<T>> {
     return new EventStream<EventOf<T>>(this.flow, params as StreamParams);
+  }
+
+  /**
+   * Waits for the next event of these types (and in `conversation`, and passing
+   * `match`), and resolves with it. With `after` (an event ID), the log after it is
+   * replayed first, so an event that happened before the call is found; without it,
+   * only events from the moment the wait connects count. Throws `WaitTimeoutError`
+   * after `timeoutMs` (default 5 minutes). One stream while it waits, closed after.
+   *
+   * For the common waits use the helpers: `conversation.waitForReply()`,
+   * `conversation.ask(text)`, `sendAndWait`, `flow.conversations.waitForNew()`.
+   *
+   * ```ts
+   * const typing = await flow.events.waitFor("typing.started", { conversation: "conv_...", timeoutMs: 30_000 });
+   * ```
+   */
+  waitFor<T extends EventType>(types: T | T[], options: EventWaitOptions<FlowEventOf<T>> = {}): Promise<FlowEventOf<T>> {
+    const wanted: EventType[] = Array.isArray(types) ? types : [types];
+    const { after, conversation, match, ...wait } = options;
+    return waitUntil(this.flow, {
+      ...wait,
+      what: wanted.join(" or ") + (conversation ? ` in ${conversation}` : ""),
+      types: wanted,
+      after,
+      onEvent: (e: FlowEvent) => {
+        if (!wanted.includes(e.type)) return undefined;
+        if (conversation !== undefined && (!("conversation" in e) || e.conversation?.id !== conversation)) return undefined;
+        const event = e as FlowEventOf<T>;
+        return !match || match(event) ? { value: event } : undefined;
+      },
+    });
   }
 }
 
@@ -79,8 +111,8 @@ export class FlowMessaging {
 
   constructor(options: ClientOptions = {}) {
     this.http = new HttpClient(options);
-    this.messages = new Messages(this.http);
-    this.conversations = new Conversations(this.http);
+    this.messages = new Messages(this.http, this);
+    this.conversations = new Conversations(this.http, this);
     this.events = new Events(this.http, this);
     this.capabilities = new Capabilities_(this.http);
     this.files = new Files(this.http);

@@ -12,6 +12,7 @@ Environment (set by check-examples.sh):
   E2E_SANDBOX_TOKEN    the sandbox bot's token in the simulator
   E2E_LIVE_KEY_FILE    a file holding a fk_live_ key of a local tenant
   E2E_TS_DIR           a folder with node_modules and each TypeScript example as <name>.ts
+  E2E_SDK_DIR          a folder with this repo's SDK installed and each SDK example as <name>.ts
   E2E_PYTHON           a Python with the Python examples' requirements installed
   E2E_EXAMPLES         the examples/ folder
 Arguments: scenario names to run (default: all).
@@ -37,6 +38,7 @@ SIM = os.environ["E2E_SIM"]
 SIM_AUTH = {"Authorization": "Bearer " + os.environ["E2E_SIM_TOKEN"]}
 SANDBOX_TOKEN = os.environ["E2E_SANDBOX_TOKEN"]
 TS_DIR = os.environ["E2E_TS_DIR"]
+SDK_DIR = os.environ["E2E_SDK_DIR"]
 PYTHON = os.environ["E2E_PYTHON"]
 EXAMPLES = os.environ["E2E_EXAMPLES"]
 DATABASE_URL = os.environ["E2E_DATABASE_URL"]  # only to revoke a key (the public API has no call for it)
@@ -125,6 +127,10 @@ def ts(name, *args, env):
     return Proc(f"{name} (TypeScript)", ["node", f"{name}.ts", *args], env, TS_DIR)
 
 
+def sdk(name, *args, env):
+    return Proc(f"{name} (SDK)", ["node", f"{name}.ts", *args], env, SDK_DIR)
+
+
 def py(name, *args, env):
     return Proc(f"{name} (Python)", [PYTHON, os.path.join(EXAMPLES, name, "python", "main.py"), *args], env, os.path.join(EXAMPLES, name, "python"))
 
@@ -192,6 +198,40 @@ def join(user, sk):
 def check(cond, what):
     if not cond:
         raise Failed(what)
+
+
+def api(method, path, key, body=None):
+    """One call to the Flow API with a key; fails the scenario on an error answer."""
+    headers = {"Authorization": "Bearer " + key}
+    if method == "POST":
+        headers["Idempotency-Key"] = os.urandom(12).hex()
+    status, out = http(method, API + path, body, headers)
+    if status >= 300:
+        raise Failed(f"{method} {path} answered {status}: {out}")
+    return out
+
+
+def wait_sent(key, conv, text):
+    """Waits until the agent's message `text` is in a simulated conversation's transcript.
+    The transcript is the only view of a simulated contact's side, so this reads it
+    until the message is there or WAIT runs out."""
+    deadline = time.monotonic() + WAIT
+    while True:
+        entries = api("GET", f"/v1/test/conversations/{conv}/transcript?limit=100", key)["data"]
+        if any(e["direction"] == "out" and e["content"].get("text") == text for e in entries):
+            return
+        if time.monotonic() > deadline:
+            raise Failed(f"the agent did not send {text!r} within {WAIT}s; transcript: {[e['content'] for e in entries]}")
+        time.sleep(0.05)
+
+
+def receive_text(user, after, text):
+    """Waits for the bot to send `text` to the user after call number `after`; returns the call."""
+    while True:
+        call = user.receive(after)
+        if call["params"].get("text") == text:
+            return call
+        after = call["seq"]
 
 
 # ---------------------------------------------------------------- scenarios
@@ -389,6 +429,57 @@ def own_telegram_bot(run):
     return p
 
 
+def ask_and_wait_simulated(run):
+    """The SDK example's waits (waitForNew, ask, sendAndWait) with a simulated contact,
+    who writes first: possibly before the example's wait has connected."""
+    sk = sandbox_key()
+    key = sk["key"]
+    p = run("ask-and-wait", env={"FLOW_MESSAGING_KEY": key})
+    try:
+        p.expect(r"^Waiting for someone to join or write\.\.\.$")
+        conv = api("POST", "/v1/test/conversations", key, {"channel": "telegram"})["id"]
+        api("POST", f"/v1/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "hi"}})
+        p.expect(rf"^\[{conv}\] joined on telegram$")
+        wait_sent(key, conv, "Hi! What's your name?")
+        api("POST", f"/v1/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Asha"}})
+        p.expect(rf"^\[{conv}\] name: Asha$")
+        wait_sent(key, conv, "Nice to meet you, Asha. Which city are you in?")
+        api("POST", f"/v1/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Pune"}})
+        p.expect(rf"^\[{conv}\] city: Pune$")
+        msg = p.expect(rf"^\[{conv}\] sent (msg_\w+)$").group(1)
+        check(p.wait_exit() == 0, "the example did not exit cleanly")
+        last = api("GET", f"/v1/messages/{msg}", key)
+        check(last["status"] == "sent" and last["content"]["text"] == "Thanks, Asha! You're signed up in Pune.", f"last message: {last}")
+    finally:
+        p.stop()
+    return p
+
+
+def ask_and_wait_telegram(run):
+    """The same example with a Telegram user who joins through the sandbox link."""
+    sk = sandbox_key()
+    p = run("ask-and-wait", env={"FLOW_MESSAGING_KEY": sk["key"]})
+    try:
+        p.expect(r'^Join: https://t\.me/\w+\?start=[\w-]+ \(or send "join [\w-]+"\)$')
+        p.expect(r"^Waiting for someone to join or write\.\.\.$")
+        u = User()
+        after = u.seq()
+        join(u, sk)
+        conv = p.expect(r"^\[(conv_\w+)\] joined on telegram$").group(1)
+        after = receive_text(u, after, "Hi! What's your name?")["seq"]
+        u.say("Asha")
+        p.expect(rf"^\[{conv}\] name: Asha$")
+        after = receive_text(u, after, "Nice to meet you, Asha. Which city are you in?")["seq"]
+        u.say("Pune")
+        p.expect(rf"^\[{conv}\] city: Pune$")
+        receive_text(u, after, "Thanks, Asha! You're signed up in Pune.")
+        p.expect(rf"^\[{conv}\] sent msg_\w+$")
+        check(p.wait_exit() == 0, "the example did not exit cleanly")
+    finally:
+        p.stop()
+    return p
+
+
 SCENARIOS = {
     "telegram-echo/typescript": lambda: echo(ts),
     "telegram-echo/python": lambda: echo(py),
@@ -401,6 +492,8 @@ SCENARIOS = {
     "webhook-receiver/typescript": lambda: webhook_receiver(ts),
     "webhook-receiver/python": lambda: webhook_receiver(py),
     "own-telegram-bot/typescript": lambda: own_telegram_bot(ts),
+    "ask-and-wait/sdk simulated contact": lambda: ask_and_wait_simulated(sdk),
+    "ask-and-wait/sdk telegram": lambda: ask_and_wait_telegram(sdk),
 }
 
 

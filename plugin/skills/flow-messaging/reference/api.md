@@ -27,6 +27,16 @@ Handle helpers: `flow.conversation(id)` or `event.conversation` gives `.reply(x)
 `.send(x)`, `.typing("on")`, `.markRead()`, `.react(msgId, "👍")`,
 `.responding(fn)` (typing on until `fn` settles), `.messages()`.
 
+Waits (never poll `flow.events.list` in a loop): `flow.conversations.waitForNew({ since })`
+(the next contact to join or write first, or one since `since`; resolves with a handle),
+`conv.ask(x)` (send, then the contact's next message), `conv.waitForReply()` (the next
+message after the handle's last send or its event), `conv.sendAndWait(x)` /
+`flow.messages.sendAndWait(convId, x)` (resolves on `message.sent`, throws the typed
+error on `message.failed`), `flow.messages.waitFor(msgId, { until })`,
+`flow.events.waitFor(type, { after, conversation, match })`. All take `timeoutMs`
+(default 5 min) and `signal`, and throw `WaitTimeoutError`. List parameters are named
+types (`ListEventsParams`, `ListConversationsParams`, ...).
+
 ## Content (one union, both directions; `type` picks the shape)
 
 Builders: `text("hi")`, `markdown("**hi**")`, `image(url | "file_...", { caption })`,

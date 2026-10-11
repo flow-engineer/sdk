@@ -1,0 +1,7 @@
+{
+  "name": "flow-messaging-example-ask-and-wait",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node --env-file=.env agent.ts" },
+  "dependencies": { "@flow-engineer/messaging": "file:../../typescript" }
+}

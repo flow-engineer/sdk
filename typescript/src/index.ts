@@ -5,10 +5,22 @@ export { PagePromise, type Page } from "./pagination.js";
 export {
   ConversationHandle,
   TYPING_REFRESH_MS,
+  type AskOptions,
+  type ConversationSendAndWaitOptions,
   type ReplyInput,
   type ReplyOptions,
   type SendInput,
 } from "./conversation.js";
+export {
+  DEFAULT_WAIT_TIMEOUT_MS,
+  type ConversationVia,
+  type EventWaitOptions,
+  type MessageWaitOptions,
+  type MessageWaitStatus,
+  type NewConversationWaitOptions,
+  type ReplyWaitOptions,
+  type WaitOptions,
+} from "./wait.js";
 export {
   BUBBLE_RULES,
   BubbleSplitter,
@@ -32,5 +44,5 @@ export {
   type WebhookReplyInput,
 } from "./webhooks.js";
 export * from "./content.js";
-export type { UploadParams, DeviceAuthorizeParams, DeviceSignInParams, DeviceWaitOptions } from "./resources.js";
+export type { UploadParams, DeviceAuthorizeParams, DeviceSignInParams, DeviceWaitOptions, SendAndWaitOptions } from "./resources.js";
 export type * from "./types.js";

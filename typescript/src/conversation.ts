@@ -8,10 +8,19 @@ import type {
   ConversationAction,
   ConversationRef,
   Fallback,
+  ListMessagesParams,
   Message,
   Metadata,
   SendMessageRequest,
 } from "./types.js";
+import {
+  waitForInbound,
+  waitForMessages,
+  type MessageWaitOptions,
+  type MessageWaitStatus,
+  type ReplyWaitOptions,
+  type WaitOptions,
+} from "./wait.js";
 
 /** What `send` and `reply` accept: a string (a text message), one piece of content, or a full request. */
 export type SendInput = string | Content | SendMessageRequest;
@@ -39,7 +48,21 @@ export interface ReplyOptions extends Omit<RequestOptions, "idempotencyKey"> {
   channel_options?: ChannelOptions;
   /** Called after each bubble is accepted. */
   onBubble?: (message: Message, index: number) => void;
+  /**
+   * Resolve only once every bubble reached this status (`sent`: the channel accepted
+   * it; `delivered`, `read` where the channel reports them), and throw the typed error
+   * of one that fails. Without it, `reply` resolves once Flow queued the bubbles.
+   */
+  until?: MessageWaitStatus;
+  /** How long `until` waits before throwing `WaitTimeoutError` (default 5 minutes). */
+  untilTimeoutMs?: number;
 }
+
+/** Options of `conversation.ask`: the send's, and the wait's (`timeoutMs`, `signal`). */
+export interface AskOptions extends WaitOptions, Pick<RequestOptions, "idempotencyKey" | "headers" | "maxRetries"> {}
+
+/** Options of `conversation.sendAndWait`: the send's, and the wait's (`until`, `timeoutMs`, `signal`). */
+export interface ConversationSendAndWaitOptions extends MessageWaitOptions, Pick<RequestOptions, "idempotencyKey" | "headers" | "maxRetries"> {}
 
 /** Anything `reply` accepts: text, content, a list of content, or an LLM stream. */
 export type ReplyInput = string | Content | Content[] | TextStreamSource;
@@ -65,9 +88,16 @@ export class ConversationHandle {
   readonly contact: string | undefined;
   readonly window_open_until: string | undefined;
   readonly #flow: FlowMessaging;
+  /** Where `waitForReply` starts by default: a message or event ID, or none (the moment of the call). */
+  #after: string | undefined;
 
-  constructor(flow: FlowMessaging, ref: string | Partial<ConversationRef> & { id: string }) {
+  /**
+   * @param options.after Where `waitForReply()` starts by default (`msg_...` or
+   *   `evt_...`). Handles on events start at their event.
+   */
+  constructor(flow: FlowMessaging, ref: string | (Partial<ConversationRef> & { id: string }), options: { after?: string } = {}) {
     this.#flow = flow;
+    this.#after = options.after;
     const r = typeof ref === "string" ? { id: ref } : ref;
     this.id = r.id;
     this.channel = r.channel;
@@ -80,9 +110,74 @@ export class ConversationHandle {
     }
   }
 
-  /** Sends one message: a string, a piece of content, or a full send request. */
-  send(input: SendInput, options?: RequestOptions): Promise<Message> {
-    return this.#flow.messages.send(this.id, input, options);
+  /**
+   * Sends one message: a string, a piece of content, or a full send request. Resolves
+   * once Flow queued it; `sendAndWait` resolves once the channel accepted it.
+   */
+  async send(input: SendInput, options?: RequestOptions): Promise<Message> {
+    const message = await this.#flow.messages.send(this.id, input, options);
+    this.#after = message.id;
+    return message;
+  }
+
+  /**
+   * Sends one message and waits until the channel accepted it (`until` `sent`, the
+   * default; or `delivered`, `read` where the channel reports them). Throws the
+   * message's typed error when it fails (`err.failedMessage` is the message), and
+   * `WaitTimeoutError` after `timeoutMs` (default 5 minutes).
+   *
+   * ```ts
+   * const msg = await conversation.sendAndWait("Your order shipped.");
+   * console.log(msg.status); // "sent"
+   * ```
+   */
+  async sendAndWait(input: SendInput, options: ConversationSendAndWaitOptions = {}): Promise<Message> {
+    const { idempotencyKey, headers, maxRetries, ...wait } = options;
+    const queued = await this.send(input, { idempotencyKey, headers, maxRetries, signal: wait.signal });
+    const [sent] = await waitForMessages(this.#flow, [queued.id], wait);
+    return sent!;
+  }
+
+  /**
+   * Waits for the contact's next message in this conversation and resolves with it
+   * (`contentText(reply.content)` is its text). It starts where the handle is: after
+   * the last message it sent (`send`, `reply`, `ask`) or reply it returned, else after
+   * the event it came with (`event.conversation`, `waitForNew`), else at the call; or
+   * `after` (a `msg_...` or `evt_...` ID). A message that already came after that
+   * point is returned at once, so a quick answer is never missed. Throws
+   * `WaitTimeoutError` after `timeoutMs` (default 5 minutes).
+   *
+   * The message also reaches your other streams and webhooks as `message.received`.
+   *
+   * ```ts
+   * await conversation.send("Which size, S, M or L?");
+   * const answer = await conversation.waitForReply({ timeoutMs: 120_000 });
+   * ```
+   */
+  async waitForReply(options: ReplyWaitOptions = {}): Promise<Message> {
+    const { after = this.#after, ...wait } = options;
+    const reply = await waitForInbound(this.#flow, this.id, { after }, wait);
+    this.#after = reply.id;
+    return reply;
+  }
+
+  /**
+   * Sends a question and resolves with the contact's next message after it: `send`,
+   * then `waitForReply`. Throws the question's typed error if it fails
+   * (`message.failed`), and `WaitTimeoutError` after `timeoutMs` (default 5 minutes).
+   * Each call holds one stream while it waits.
+   *
+   * ```ts
+   * const name = contentText((await conversation.ask("What's your name?")).content);
+   * const city = contentText((await conversation.ask(`Thanks, ${name}. Which city are you in?`)).content);
+   * ```
+   */
+  async ask(input: SendInput, options: AskOptions = {}): Promise<Message> {
+    const { idempotencyKey, headers, maxRetries, ...wait } = options;
+    const question = await this.send(input, { idempotencyKey, headers, maxRetries, signal: wait.signal });
+    const reply = await waitForInbound(this.#flow, this.id, { after: question.id, question: question.id }, wait);
+    this.#after = reply.id;
+    return reply;
   }
 
   /** Turns the typing indicator on or off. */
@@ -101,7 +196,7 @@ export class ConversationHandle {
   }
 
   /** This conversation's messages, newest first. */
-  messages(params?: Parameters<FlowMessaging["conversations"]["messages"]>[1]) {
+  messages(params?: ListMessagesParams) {
     return this.#flow.conversations.messages(this.id, params);
   }
 
@@ -167,18 +262,27 @@ export class ConversationHandle {
         idempotencyKey: options.idempotencyKey ? `${options.idempotencyKey}:${i}` : undefined,
       });
       sent.push(msg);
+      this.#after = msg.id;
       options.onBubble?.(msg, i);
+    };
+    const settle = async (): Promise<Message[]> => {
+      if (!options.until) return sent;
+      return waitForMessages(
+        this.#flow,
+        sent.map((m) => m.id),
+        { until: options.until, timeoutMs: options.untilTimeoutMs, signal: options.signal },
+      );
     };
     const textContent = (t: string): Content =>
       options.format === "plain" ? { type: "text", text: t } : { type: "text", text: t, format: "markdown" };
 
     if (Array.isArray(input)) {
       for (const c of input) await sendOne(c);
-      return sent;
+      return settle();
     }
     if (typeof input === "object" && input !== null && "type" in input && typeof input.type === "string" && !isTextStreamSource(input)) {
       await sendOne(input as Content);
-      return sent;
+      return settle();
     }
 
     const stopTyping = options.typing === false ? async () => undefined : this.keepTyping();
@@ -186,27 +290,27 @@ export class ConversationHandle {
       const splitter = new BubbleSplitter(rules);
       if (typeof input === "string") {
         for (const b of [...splitter.push(input), ...splitter.end()]) await sendOne(textContent(b));
-        return sent;
+      } else {
+        // Bubbles go out in order while the stream is still being read.
+        let chain: Promise<void> = Promise.resolve();
+        let failed: unknown;
+        const enqueue = (b: string) => {
+          chain = chain.then(() => (failed ? undefined : sendOne(textContent(b)))).catch((e) => {
+            failed ??= e;
+          });
+        };
+        for await (const chunk of textChunks(input as TextStreamSource)) {
+          if (failed) break;
+          for (const b of splitter.push(chunk)) enqueue(b);
+        }
+        for (const b of splitter.end()) enqueue(b);
+        await chain;
+        if (failed) throw failed;
       }
-      // Bubbles go out in order while the stream is still being read.
-      let chain: Promise<void> = Promise.resolve();
-      let failed: unknown;
-      const enqueue = (b: string) => {
-        chain = chain.then(() => (failed ? undefined : sendOne(textContent(b)))).catch((e) => {
-          failed ??= e;
-        });
-      };
-      for await (const chunk of textChunks(input as TextStreamSource)) {
-        if (failed) break;
-        for (const b of splitter.push(chunk)) enqueue(b);
-      }
-      for (const b of splitter.end()) enqueue(b);
-      await chain;
-      if (failed) throw failed;
-      return sent;
     } finally {
       await stopTyping();
     }
+    return settle();
   }
 
   toJSON(): ConversationRef {

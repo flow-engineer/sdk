@@ -1,4 +1,4 @@
-import type { ErrorBody, ErrorType } from "./types.js";
+import type { ErrorBody, ErrorType, Message } from "./types.js";
 
 /**
  * Every error the API returns is a `FlowError` subclass chosen by `error.type`
@@ -15,7 +15,7 @@ import type { ErrorBody, ErrorType } from "./types.js";
 export class FlowError extends Error {
   override name = "FlowError";
   /** The API's error type, or `connection_error` / `timeout` / `signature_verification` for errors raised in the SDK. */
-  readonly type: ErrorType | "connection_error" | "timeout" | "signature_verification" | "device_sign_in";
+  readonly type: ErrorType | "connection_error" | "timeout" | "signature_verification" | "device_sign_in" | "wait_timeout";
   /** The HTTP status, when the error came from an answer. */
   readonly status: number | undefined;
   /** The request parameter the error is about (`content.buttons`, `limit`). */
@@ -38,6 +38,12 @@ export class FlowError extends Error {
   readonly body: ErrorBody | undefined;
   /** The answer's headers, when there was an answer. */
   readonly headers: Headers | undefined;
+  /**
+   * For a send the API accepted that then failed (`message.failed`), as thrown by
+   * `sendAndWait`, `messages.waitFor`, `ask` and `reply({ until })`: the failed message,
+   * whose `error` this error was made from.
+   */
+  readonly failedMessage: Message | undefined;
 
   constructor(
     message: string,
@@ -47,6 +53,7 @@ export class FlowError extends Error {
       body?: ErrorBody;
       headers?: Headers;
       cause?: unknown;
+      failedMessage?: Message;
     },
   ) {
     super(message, init.cause === undefined ? undefined : { cause: init.cause });
@@ -55,6 +62,7 @@ export class FlowError extends Error {
     this.status = init.status;
     this.body = init.body;
     this.headers = init.headers;
+    this.failedMessage = init.failedMessage;
     this.param = b.param;
     this.conversation = b.conversation;
     this.sender = b.sender;
@@ -168,6 +176,23 @@ export class DeviceSignInError extends FlowError {
   }
 }
 
+/**
+ * A wait (`conversation.waitForReply`, `ask`, `sendAndWait`, `reply({ until })`,
+ * `messages.waitFor`, `conversations.waitForNew`, `events.waitFor`) ran out of time:
+ * what it waited for did not happen within `timeoutMs`. Nothing is lost: the event
+ * may still come, so wait again, or read the log with `flow.events.list({ after })`.
+ * The wait's stream is closed and its timer cleared before this is thrown.
+ */
+export class WaitTimeoutError extends FlowError {
+  override name = "WaitTimeoutError";
+  /** How long the wait lasted, in milliseconds. */
+  readonly timeoutMs: number;
+  constructor(what: string, timeoutMs: number) {
+    super(`Waited ${timeoutMs} ms for ${what}; it did not come. Wait again, or pass a longer timeoutMs.`, { type: "wait_timeout" });
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 const byType: Record<ErrorType, typeof FlowError> = {
   invalid_request: InvalidRequestError,
   authentication: AuthenticationError,
@@ -191,4 +216,16 @@ export function errorFromBody(status: number, body: ErrorBody | undefined, heade
   const Cls = byType[type] ?? FlowError;
   const message = body?.message ?? `Flow Messaging answered ${status} with no error body.`;
   return new Cls(message, { type, status, body, headers });
+}
+
+/**
+ * The typed error of a message that failed after the API accepted it (`message.failed`):
+ * the class its `error.type` names (a `ChannelError`, a `PermissionError`, ...), with
+ * `failedMessage` set. The wait helpers throw it.
+ */
+export function messageFailedError(message: Message): FlowError {
+  const body = message.error;
+  const type = (body?.type ?? "api_error") as ErrorType;
+  const Cls = byType[type] ?? FlowError;
+  return new Cls(body?.message ?? `Message ${message.id} failed.`, { type, body, failedMessage: message });
 }

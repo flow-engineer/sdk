@@ -155,7 +155,8 @@ Events are a discriminated union on `type` (`message.received`, `message.sent`,
 `conversation.window_closing`, `sender.status_changed`, `template.status_changed`,
 `contact.deleted`).
 Each event in a conversation carries `event.conversation`, a handle with `reply`,
-`send`, `typing`, `markRead`, `react`, `responding` and `messages`.
+`send`, `typing`, `markRead`, `react`, `responding`, `messages`, and the waits
+`waitForReply`, `ask` and `sendAndWait` (see "Send, wait for the reply, continue").
 
 **Which event type to use.** Type your handlers with `FlowEvent` (or
 `FlowEventOf<"message.received">` for one type): it is what the stream,
@@ -197,6 +198,53 @@ whole reply safe. `splitIntoBubbles(text, "whatsapp")` gives the same split.
 
 `conversation.responding(fn)` keeps typing on while `fn` runs and always clears it.
 
+## Send, wait for the reply, continue
+
+For scripts, onboarding flows and tests that talk with one person step by step, the
+SDK waits for you: no polling loop, no event cursors to keep, no timestamps to compare.
+
+```ts
+import { FlowMessaging, WaitTimeoutError, contentText } from "@flow-engineer/messaging";
+
+const flow = new FlowMessaging();
+const since = new Date(); // before showing the link, so a quick join still counts
+console.log("Open the sandbox link and tap Start");
+
+const conv = await flow.conversations.waitForNew({ since, timeoutMs: 10 * 60_000 });
+try {
+  const name = contentText((await conv.ask("Hi! What's your name?")).content);
+  const city = contentText((await conv.ask(`Thanks, ${name}. Which city are you in?`)).content);
+  await conv.sendAndWait(`All set, ${name} from ${city}.`); // resolves once sent, throws if it fails
+} catch (err) {
+  if (err instanceof WaitTimeoutError) console.log("No answer in time.");
+  else throw err;
+}
+```
+
+- `flow.conversations.waitForNew({ since?, after?, channel?, sender?, via? })` resolves
+  with a handle to the next conversation that begins: a contact who joins the sandbox
+  or writes first (`via`, add `"outbound"` for ones you start). One that began at or
+  after `since` (a `Date`, ISO string or epoch ms; default: the call) counts too.
+- `conversation.ask(input)` sends and resolves with the contact's next message after
+  it, or throws the question's typed error if it fails.
+- `conversation.waitForReply({ after? })` resolves with the contact's next message. It
+  starts where the handle is: after its last send or returned reply, else after the
+  event it came with (so `event.conversation.waitForReply()` and the handle from
+  `waitForNew` miss nothing), else at the call. `after` takes a `msg_...` or `evt_...`.
+- `conversation.sendAndWait(input, { until? })` and `flow.messages.sendAndWait(convId,
+  input)` resolve once the message is `sent` (or `delivered`, `read` with `until`,
+  where the channel reports them), and throw its typed error (`ChannelError`,
+  `PermissionError`, ...; `err.failedMessage` is the message) on `message.failed`.
+  `flow.messages.waitFor(messageId)` does the waiting alone, and
+  `reply(input, { until: "sent" })` waits for every bubble.
+- `flow.events.waitFor(types, { after?, conversation?, match? })` waits for any event.
+
+Every wait takes `timeoutMs` (default 5 minutes; `Infinity` waits until `signal`
+aborts) and `signal`, and throws `WaitTimeoutError` when time runs out. A wait holds
+one stream while it lasts (keys may hold 10), resumes it after a drop, checks for what
+happened just before the call or while it was away, and closes it when it settles.
+The messages it returns also reach your other streams and webhooks.
+
 ## Sending and the rest of the API
 
 ```ts
@@ -214,23 +262,30 @@ const caps = await flow.capabilities.retrieve("conv_..."); // what the channel c
 `Blob`/`File`, a `Uint8Array` (a Node `Buffer` is one) or an `ArrayBuffer` (read a
 stream into one first), and returns the stored `File`. Its `id` (`file_...`) is the
 `file_id` to send in `media` or `voice` content; `channel` checks that channel's size
-limit at upload. Inbound media arrives with a `url`; `flow.files.download(idOrUrl)`
-gives its bytes as a `Blob`.
+limit at upload. Documents (PDF, Office, archives) are refused at upload
+(`UnsupportedContentError`) where no malware scanner runs: send them by public HTTPS
+`url`. Inbound media arrives with a `url`; `flow.files.download(idOrUrl)` gives its
+bytes as a `Blob`.
 
 ```ts
 import { readFile } from "node:fs/promises";
-import { document } from "@flow-engineer/messaging";
+import { document, image } from "@flow-engineer/messaging";
 
-const file = await flow.files.upload({ file: await readFile("receipt.pdf"), filename: "receipt.pdf" });
-await flow.messages.send("conv_...", document(file.id, { caption: "Your receipt" }));
-// the same content by hand: { type: "media", kind: "document", file_id: file.id, caption: "Your receipt" }
+const file = await flow.files.upload({ file: await readFile("receipt.png"), filename: "receipt.png" });
+await flow.messages.send("conv_...", image(file.id, { caption: "Your receipt" }));
+// the same content by hand: { type: "media", kind: "image", file_id: file.id, caption: "Your receipt" }
+await flow.messages.send("conv_...", document("https://example.com/receipt.pdf", { caption: "Your receipt" })); // a document by url
 ```
 
 Resources mirror the endpoints: `messages`, `conversations`, `events`,
 `capabilities`, `files`, `senders`, `templates`, `webhookEndpoints`, `contacts`, `app`.
 Lists are cursor-paged: `await flow.conversations.list({ limit: 50 })` gives a page
 (`data`, `has_more`, `nextPage()`); `for await (const c of flow.conversations.list())`
-walks them all.
+walks them all. Each list's parameters are a named type exported from the package:
+`ListEventsParams` (`after`, `before`, `limit`, `type`, `conversation`),
+`ListConversationsParams`, `ListMessagesParams`, `ListSendersParams`,
+`ListTemplatesParams`, `ListWebhookEndpointsParams`, `ListContactsParams`,
+`TestTranscriptParams`, all built on `PageParams`.
 
 ## Errors, retries, versions
 
@@ -238,8 +293,8 @@ Errors are classes per API error type: `InvalidRequestError`, `AuthenticationErr
 `PermissionError`, `NotFoundError`, `IdempotencyConflictError`, `OutsideWindowError`,
 `UnsupportedContentError`, `NewContactLimitError`, `SenderThrottledError`,
 `FileBlockedError`, `RateLimitError`, `ChannelError`, `NotImplementedError`,
-`APIError`, plus `APIConnectionError`, `APITimeoutError`, `WebhookSignatureError`
-and `DeviceSignInError`. All extend `FlowError` with `type`, `status`, `param`,
+`APIError`, plus `APIConnectionError`, `APITimeoutError`, `WebhookSignatureError`,
+`DeviceSignInError` and `WaitTimeoutError` (a wait helper ran out of time). All extend `FlowError` with `type`, `status`, `param`,
 `retryAfter`, `requestId` and, when the API sends them, `channelCode`, `docUrl` (the
 error type's page, `https://api.flow.engineer/docs/errors/<type>`) and `hint`.
 
@@ -302,7 +357,7 @@ The repo is also a Claude Code plugin marketplace:
 ## Examples
 
 Runnable agents in [`examples/`](https://github.com/flow-engineer/sdk/tree/main/examples):
-echo (20 lines), Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, Mastra,
+echo (20 lines), ask-and-wait (send, wait for the reply, continue), Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, Mastra,
 LangChain.js, and a note for Eve.
 
 ## Development
