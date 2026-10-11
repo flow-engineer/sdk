@@ -771,8 +771,10 @@ Text is 1 to the channel's `max_text_length` characters:
 **4096 on Telegram, 9999 on iMessage** (4096 on WhatsApp). Telegram counts
 UTF-16 code units of the text as shown (after markdown), so an emoji such as 😀 counts 2. A media
 `caption` takes at most 1024, also when an edit replaces it. Longer text is refused with
-`400 invalid_request`: split it. `"format": "markdown"` renders in the channel's
-formatting (iMessage has none: add `"fallback": "auto"` and it goes as plain text).
+`400 invalid_request`: split it. `"format": "markdown"` is CommonMark (`**bold**`,
+`*italic*`) and renders in the channel's formatting (iMessage has none: add
+`"fallback": "auto"` and it goes as plain text). `plain`, the default, is sent as
+written, so a channel's own marks (WhatsApp's `*bold*`) work with `plain`.
 
 Set `"fallback": "auto"` to let the channel's documented fallback replace what it cannot
 show; without it such a send fails with `422 unsupported_content`. Ask `GET

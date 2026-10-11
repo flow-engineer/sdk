@@ -3612,7 +3612,7 @@ components:
           type: string
           enum: [plain, markdown]
           default: plain
-          description: How to read `text`. Inbound text is always `plain`.
+          description: How to read `text`. `markdown` is CommonMark (`**bold**`, `*italic*`); Flow converts it to each channel's marks. `plain` is sent as written, so a channel's own marks (WhatsApp's `*bold*`) work with `plain`. Inbound text is always `plain`.
     MediaContent:
       type: object
       description: |
