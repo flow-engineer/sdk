@@ -273,7 +273,9 @@ info:
     webhook, on the stream and in the event log, in order. Your agent replies with
     its normal send, which passes the real send gate (content support, fallbacks,
     text limits, edit targets) and ends `sent` on your app's simulated sender,
-    without touching a network. `GET /v1/test/conversations/{conversation_id}/transcript`
+    without touching a network. On Telegram, as with a real bot, nothing reaches a
+    contact who has not written yet: a send before the contact's first turn ends
+    `failed` (`channel_error`, `channel_code` `403`). `GET /v1/test/conversations/{conversation_id}/transcript`
     shows both sides, oldest first, with what the contact was shown.
 
     Simulated traffic is free: it does not count against the sandbox allowance,
@@ -2035,7 +2037,11 @@ paths:
         network: sends to the simulated contact pass the real send gate and end
         `sent`. Simulated channels: `telegram`, `whatsapp`, `imessage` and `sms`.
         The channel's rules hold as on a real sender: a simulated iMessage line,
-        like Flow's lines today, only replies, so the contact writes first; on SMS
+        like Flow's lines today, only replies, so the contact writes first; a
+        simulated Telegram bot, like a real one, cannot write to a contact who has
+        not written to it, so a send before the contact's first turn is accepted
+        (`202`) and then fails as it does on real Telegram (`message.failed`,
+        `channel_error`, `channel_code` `403`); on SMS
         and iMessage buttons need `fallback` and the contact answers with the
         button's number.
 

@@ -1020,7 +1020,11 @@ export interface paths {
          *     network: sends to the simulated contact pass the real send gate and end
          *     `sent`. Simulated channels: `telegram`, `whatsapp`, `imessage` and `sms`.
          *     The channel's rules hold as on a real sender: a simulated iMessage line,
-         *     like Flow's lines today, only replies, so the contact writes first; on SMS
+         *     like Flow's lines today, only replies, so the contact writes first; a
+         *     simulated Telegram bot, like a real one, cannot write to a contact who has
+         *     not written to it, so a send before the contact's first turn is accepted
+         *     (`202`) and then fails as it does on real Telegram (`message.failed`,
+         *     `channel_error`, `channel_code` `403`); on SMS
          *     and iMessage buttons need `fallback` and the contact answers with the
          *     button's number.
          *
