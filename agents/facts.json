@@ -3,6 +3,7 @@
   "base_url": "https://api.flow.engineer",
   "docs_url": "https://docs.flow.engineer",
   "dashboard_url": "https://api.flow.engineer/admin",
+  "team_contacts": ["samyak@flow.engineer", "prabal@flow.engineer"],
   "package": "@flow-engineer/messaging",
   "env": {
     "api_key": "FLOW_MESSAGING_KEY",

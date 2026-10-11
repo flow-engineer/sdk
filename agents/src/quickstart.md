@@ -32,6 +32,7 @@ sandbox_allowance:                           # outbound messages only (inbound i
   signed_in: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages each, no expiry, one allowance per person over all their apps   # iMessage is in neither
 sign_in: "npx @flow-engineer/messaging login"   # GitHub; or POST /v1/device/authorizations, then poll POST /v1/device/token
 dashboard: https://api.flow.engineer/admin    # sign in with GitHub
+flow_team: [{{team_contacts|comma}}]   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
 key_prefixes:
@@ -919,7 +920,7 @@ why it happens, how to fix it. For example:
 ```
 
 Quote `request_id` (also the `Flow-Request-Id` header) when you contact the Flow
-team. A send can fail **at once** (an HTTP error) or **later** (`message.failed`, with
+team ({{team_contacts|or}}). A send can fail **at once** (an HTTP error) or **later** (`message.failed`, with
 the same error shape in `data.message.error`).
 
 | `error.type` | HTTP | What to do |
@@ -936,7 +937,7 @@ the same error shape in `data.message.error`).
 | `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` ({{sending.abuse.throttle_hours}} hours by default). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |
 | `channel_error` | in `message.failed` (502 from typing/read/file download) | The channel refused or failed it; `channel_code` is its code. A 502 may be retried; a failed message needs a new send. |
-| `not_implemented` | 501 | Not available through the API. `POST /v1/senders` for an iMessage, SMS or WhatsApp sender answers it first, with any key: the Flow team connects those. Build meanwhile on simulated conversations of that channel (`POST /v1/test/conversations`). |
+| `not_implemented` | 501 | Not available through the API. `POST /v1/senders` for an iMessage, SMS or WhatsApp sender answers it first, with any key: the Flow team connects those (write to {{team_contacts|or}}). Build meanwhile on simulated conversations of that channel (`POST /v1/test/conversations`). |
 | `api_error` | 500, 503 | Our side. Retry with backoff and the same key. |
 
 Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code`:
@@ -1139,6 +1140,10 @@ published yet, so in those languages build on plain HTTP and the WebSocket as sh
 {{> ask-and-wait}}
 
 {{> common-tasks}}
+
+### What the Flow team arranges, and how to ask
+
+{{> flow-team}}
 
 ## 15. Endpoint index
 

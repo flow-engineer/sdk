@@ -8,7 +8,7 @@
 //   node scripts/agent-docs.mjs --check  fail (exit 1) when one is stale, naming it
 //
 // Templates: {{facts.path}} inserts a fact ({{mcp.tools.test|code}} formats a list
-// as `a`, `b`); {{> name}} inserts agents/src/partials/name.md; {{api_version}} and
+// as `a`, `b`; {{team_contacts|or}} as a or b, or a, b or c; |comma as a, b); {{> name}} inserts agents/src/partials/name.md; {{api_version}} and
 // {{endpoint_table}} come from the spec. An unknown name fails the build.
 // Hand-written pages keep shared blocks between markers, refilled from a partial:
 //   <!-- agents:name --> ... <!-- /agents:name -->        (.md outside docs/)
@@ -16,7 +16,10 @@
 // Mintlify parses every page under docs/ as MDX, where an HTML comment fails the build.
 // docs/docs.json's markdown.instructions come from agents/src/docs-instructions.md.
 // Every output must state the MCP owner and runtime rules (facts mcp.owner_rule and
-// mcp.runtime_rule) and name only env vars listed in facts.env. scripts/check-public.sh
+// mcp.runtime_rule) and name only env vars listed in facts.env. Hand-written pages that
+// give the Flow team's contact (CONTACT_PAGES) must give every address in
+// facts.team_contacts as {{team_contacts|or}} renders it, and no page names another
+// @flow.engineer address. scripts/check-public.sh
 // checks every output for text that does not belong in public.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -48,6 +51,9 @@ const REGIONS = [
   "plugin/skills/flow-messaging/reference/cli-mcp.md",
   "docs/guides/recipes.mdx",
 ];
+// Hand-written pages (no generated regions: the service serves docs/errors as they
+// are) that must give the Flow team's contact, checked against facts.team_contacts.
+const CONTACT_PAGES = ["docs/pricing.mdx", "docs/errors/not_implemented.md", "docs/errors/channel_error.md"];
 
 const read = (p) => readFileSync(path.join(root, p), "utf8");
 const facts = JSON.parse(read("agents/facts.json"));
@@ -76,13 +82,20 @@ function lookup(name, where) {
     if (v == null || typeof v !== "object" || !(part in v)) throw new Error(`${where}: unknown fact {{${name}}}`);
     v = v[part];
   }
-  if (filter === "code") {
+  if (filter === "code" || filter === "or" || filter === "comma") {
     if (!Array.isArray(v)) throw new Error(`${where}: {{${name}}} is not a list`);
-    return v.map((x) => `\`${x}\``).join(", ");
+    if (filter === "code") return v.map((x) => `\`${x}\``).join(", ");
+    if (filter === "comma") return v.join(", ");
+    return orList(v);
   }
   if (filter) throw new Error(`${where}: unknown filter in {{${name}}}`);
   if (typeof v === "object") throw new Error(`${where}: {{${name}}} is not a single value`);
   return String(v);
+}
+
+// orList(["a", "b", "c"]) is "a, b or c".
+function orList(v) {
+  return v.length < 2 ? v.join("") : `${v.slice(0, -1).join(", ")} or ${v[v.length - 1]}`;
 }
 
 function render(text, where, depth = 0) {
@@ -121,7 +134,25 @@ function fillRegions(file, text) {
 
 const allowedEnv = new Set(Object.values(facts.env));
 const problems = [];
+// Pages tell people to write to the Flow team at every address in team_contacts: a
+// non-empty list of distinct real addresses.
+const contacts = facts.team_contacts;
+if (
+  !Array.isArray(contacts) ||
+  contacts.length === 0 ||
+  new Set(contacts).size !== contacts.length ||
+  !contacts.every((c) => typeof c === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c))
+) {
+  problems.push("agents/facts.json team_contacts must be a non-empty list of the Flow team's distinct email addresses");
+}
+const contactsText = Array.isArray(contacts) ? orList(contacts) : "";
+function lintContacts(file, text) {
+  for (const a of new Set(text.match(/[\w.+-]+@flow\.engineer\b/gi) ?? [])) {
+    if (!contacts?.includes?.(a)) problems.push(`${file} names ${a}, which is not in agents/facts.json team_contacts`);
+  }
+}
 function lint(file, text, mustState) {
+  lintContacts(file, text);
   for (const v of new Set(text.match(/\bFLOW_[A-Z][A-Z_]*[A-Z]\b/g) ?? [])) {
     if (!allowedEnv.has(v)) problems.push(`${file} names ${v}, which is not in agents/facts.json env`);
   }
@@ -155,6 +186,14 @@ for (const file of REGIONS) {
   const text = fillRegions(file, read(file));
   outputs.set(file, text);
   lint(file, text, file === "docs/mcp.md" || file === "docs/coding-agents.mdx" || file.endsWith("cli-mcp.md"));
+}
+
+for (const file of CONTACT_PAGES) {
+  const text = read(file);
+  lintContacts(file, text);
+  if (contactsText && !text.includes(contactsText)) {
+    problems.push(`${file} must give the Flow team's contact as "${contactsText}" (agents/facts.json team_contacts)`);
+  }
 }
 
 const stale = [];

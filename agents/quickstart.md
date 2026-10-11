@@ -32,6 +32,7 @@ sandbox_allowance:                           # outbound messages only (inbound i
   signed_in: 3 contacts x 100 messages each, no expiry, one allowance per person over all their apps   # iMessage is in neither
 sign_in: "npx @flow-engineer/messaging login"   # GitHub; or POST /v1/device/authorizations, then poll POST /v1/device/token
 dashboard: https://api.flow.engineer/admin    # sign in with GitHub
+flow_team: [samyak@flow.engineer, prabal@flow.engineer]   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
 key_prefixes:
@@ -919,7 +920,7 @@ why it happens, how to fix it. For example:
 ```
 
 Quote `request_id` (also the `Flow-Request-Id` header) when you contact the Flow
-team. A send can fail **at once** (an HTTP error) or **later** (`message.failed`, with
+team (samyak@flow.engineer or prabal@flow.engineer). A send can fail **at once** (an HTTP error) or **later** (`message.failed`, with
 the same error shape in `data.message.error`).
 
 | `error.type` | HTTP | What to do |
@@ -936,7 +937,7 @@ the same error shape in `data.message.error`).
 | `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` (24 hours by default). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |
 | `channel_error` | in `message.failed` (502 from typing/read/file download) | The channel refused or failed it; `channel_code` is its code. A 502 may be retried; a failed message needs a new send. |
-| `not_implemented` | 501 | Not available through the API. `POST /v1/senders` for an iMessage, SMS or WhatsApp sender answers it first, with any key: the Flow team connects those. Build meanwhile on simulated conversations of that channel (`POST /v1/test/conversations`). |
+| `not_implemented` | 501 | Not available through the API. `POST /v1/senders` for an iMessage, SMS or WhatsApp sender answers it first, with any key: the Flow team connects those (write to samyak@flow.engineer or prabal@flow.engineer). Build meanwhile on simulated conversations of that channel (`POST /v1/test/conversations`). |
 | `api_error` | 500, 503 | Our side. Retry with backoff and the same key. |
 
 Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code`:
@@ -1323,6 +1324,7 @@ One app holds many senders: connect each customer's bot with your live key (`POS
 3. **Sandbox (test key)**: the person joined *your* app: opened the sandbox bot's `address.link` and tapped Start, or sent your join code. One person belongs to one app per sandbox bot, so joining another app moves them (sends answer `403 permission`). A key made without an account expires after 7 days and its contact is removed. Allowance refusals are `403 permission` (`sandbox_allowance_used`, `sandbox_contact_limit`).
 4. **Your own bot (live key)**: the person pressed Start on that bot (a Telegram bot cannot write first), and you send with the live key: sandbox conversations belong to the test key and answer `404 not_found` with a live one.
 5. **On the phone**: the chat with the right bot (the sandbox bot and your own bot are different chats) on the Telegram account that joined.
+6. **Still stuck?** Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer with the message ID (`msg_...`), conversation ID (`conv_...`), the call's `request_id`, test or live, and the time. Never your API key.
 
 ### Tests in CI, without a phone
 
@@ -1331,6 +1333,23 @@ Use a test key and simulated conversations: `POST /v1/test/conversations`, post 
 ### Give a cofounder access
 
 Not built yet: an account has one member (whoever signed in), and there are no invitations. Today a cofounder can sign in to get their own account, or you can hand them an API key from your Keys page (it acts as the app, not as them; revoke it when no longer needed).
+
+### What the Flow team arranges, and how to ask
+
+Some things are set up by the Flow team, not through the API: SMS numbers, WhatsApp numbers (Flow's or your own WhatsApp Business Account), iMessage lines, pricing and support. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer. For each, what to do today, what to build meanwhile, and what to send.
+
+**Never send secrets in chat or email, and never paste them to a coding agent or commit them**: API keys, bot tokens, provider auth tokens, access tokens, app secrets. The Flow team tells you how to hand credentials over, and Flow stores them encrypted. A coding agent that finds credentials in `.env` or a secret manager leaves them where they are and tells the person this.
+
+**Build meanwhile on Telegram or simulated conversations.** Your code does not change per channel: you reply into conversations, switch on `content.type` and `error.type`, and set `"fallback": "auto"`. Simulated conversations (`POST /v1/test/conversations` with `"channel": "sms"`, `"whatsapp"` or `"imessage"`) keep each channel's rules (SMS consent and STOP, WhatsApp's 24-hour window and templates, iMessage replies only), are free and need no number. When the number or line is connected, switch to a live key; nothing else changes.
+
+| You want | Today | Send the Flow team |
+|---|---|---|
+| **US SMS** (in pilot), including on your own SMS provider account | `POST /v1/senders` with `"channel": "sms"` answers `501`; the team connects the number. Build on simulated SMS. | Your app ID (`app_...`, from `GET /v1/app` with your live key) and account ID (`account` there); the number in E.164 (`+1` and ten digits), 10DLC or toll-free, and its registration status; whether it is on your own provider account (which provider) or Flow should provide one; what you send and how people opt in. Not the auth token: the team arranges that. |
+| **WhatsApp on your own WhatsApp Business Account** (credentials in your own secret manager is fine) | `POST /v1/senders` with `"channel": "whatsapp"` answers `501`; the team connects the number. Build on simulated WhatsApp (templates are approved at once there). | Your app and account IDs; the phone number ID and WhatsApp Business Account ID (in WhatsApp Manager); whether the number is on your own Meta app. Not the access token or the app secret: the team arranges how they reach Flow. Meta bills you directly, so the account needs a payment method in WhatsApp Manager. |
+| **iMessage** | Lines are connected by the team; they reply only (the person writes first) unless the line is enabled to start conversations. Build on simulated iMessage or Telegram. | Your app and account IDs; what the agent does; expected people per day; whether you need to write first (and why the person expects it). |
+| **Python** | No Python SDK yet (TypeScript first). Use plain HTTP and the WebSocket: the quickstart's snippets come in Python too, and the plain-HTTP examples are tested in Python. | Nothing needed; ask if you want to hear when the SDK ships. |
+| **Pricing and billing** | Billing is not live, so everything is free today. Payments are coming; there are no prices or dates yet. With your own provider account (your own SMS provider account, or your own WhatsApp Business Account), the provider bills you directly and Flow charges nothing while billing is not live. | Expected volume per channel and month, if you want to talk about it. |
+| **Support: "sent but not delivered"** | First read the message: `GET /v1/messages/{message_id}` and its events (`GET /v1/events?conversation=conv_...`). Every send ends `message.sent` or `message.failed` (with `error.type`, `channel_code` and `hint`); Telegram never reports `message.delivered`, so `sent` is the last status there. | The message ID (`msg_...`), conversation ID (`conv_...`), the `request_id` of the call (also the `Flow-Request-Id` header), test or live, the time, and what you expected. Not your API key, and no message content unless asked. |
 
 ## 15. Endpoint index
 
