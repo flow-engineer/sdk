@@ -1051,10 +1051,17 @@ paths:
       description: |
         Uploads media to send later as `media` or `voice` content (by `file_id`).
         The real type is checked from the file's first bytes: programs, web pages and
-        unknown types are refused with `422 unsupported_content`. Documents (PDF,
-        Office, archives) are scanned for malware, and a file that fails the scan is
-        refused with `422 file_blocked` and not stored; images, audio and video are
-        not scanned. Files up to 100 MB are taken; give `channel` to check the file
+        unknown types are refused with `422 unsupported_content`. Images, audio and
+        video are not scanned and are taken. Documents (PDF, Office documents,
+        archives) are stored only after a malware scan, and malware scanning is off
+        during the beta, so a document upload is refused with
+        `422 unsupported_content`. To send a document meanwhile, send `media`
+        content with `kind` `document` and a public HTTPS `url` in place of
+        `file_id`: the channel fetches it from that URL, and Flow neither stores nor
+        scans it (on Telegram this works for PDF and ZIP files). Or send an image of
+        the page, or a link to the document as text. Once scanning is on, a document
+        that fails the scan is refused with `422 file_blocked` and not stored.
+        Files up to 100 MB are taken; give `channel` to check the file
         against that channel's own size limit now (otherwise it is checked when you
         send it, with `422 unsupported_content`). Files are kept for your plan's
         retention period (30 days by default).
@@ -1184,29 +1191,36 @@ paths:
       summary: Request a dedicated sender
       description: |
         Connects a dedicated sender to your app. Today this connects a Telegram bot
-        (below). iMessage lines are connected by the Flow team, not by API: a request
-        with `channel: "imessage"` answers `501 not_implemented`; ask the Flow team,
-        and the line then appears in `GET /v1/senders`. US SMS numbers (in pilot)
-        are registered and connected by the Flow team too: `channel: "sms"` answers
-        `501 not_implemented`, and the number appears in `GET /v1/senders` once it is
-        connected. WhatsApp numbers are connected by the Flow team as well, either a
-        number Flow provides or a number in your business's own WhatsApp Business
-        Account: `channel: "whatsapp"` answers `501 not_implemented`, and the number
-        appears in `GET /v1/senders` once it is connected. A number in your own
-        WhatsApp Business Account needs a payment method in WhatsApp Manager, since
-        Meta bills its fees to you directly. Live keys only.
+        (below); senders of the other channels are connected by the Flow team, not by
+        API. A request with `channel` `imessage`, `sms` or `whatsapp` answers
+        `501 not_implemented` before any other check, with any key (test or live,
+        claimed app or not): ask the Flow team, and the sender appears in
+        `GET /v1/senders` once it is connected. Its `hint` says what to build with
+        meanwhile: a Telegram bot, or simulated conversations of that channel
+        (`POST /v1/test/conversations`, test keys). Never send API keys, tokens or
+        passwords in a chat or email, to the Flow team or anyone else.
+
+        - iMessage: a dedicated line attached to your app.
+        - US SMS (in pilot): carriers require each number's brand and campaign to be
+          registered first, so the Flow team registers and connects the number.
+        - WhatsApp: a number Flow provides, or a number in your business's own
+          WhatsApp Business Account. A number in your own WhatsApp Business Account
+          needs a payment method in WhatsApp Manager, since Meta bills its fees to
+          you directly.
 
         To get a live key (`fk_live_...`), a person signs in to the dashboard at
         `https://api.flow.engineer/admin` (GitHub), switches to **Live**,
         and clicks **Create live key** on the Keys page
         (`https://api.flow.engineer/admin/keys?mode=live`). An app made without an
         account (`POST /v1/sandbox/keys`) is claimed first, by signing in through the
-        device flow or its `claim_url`. A test key gets `403 permission` here, with
-        a `hint` naming these steps. Telegram bots are self-serve; iMessage lines,
-        SMS numbers and WhatsApp numbers are arranged with the Flow team.
+        device flow or its `claim_url`. For a Telegram bot, an unclaimed app's key
+        gets `403 permission` (`channel_code` `sign_in_required`) and a test key
+        gets `403 permission`, each with a `hint` naming these steps. Telegram bots
+        are self-serve; iMessage lines, SMS numbers and WhatsApp numbers are
+        arranged with the Flow team.
 
-        A Telegram bot is connected at once: give the token BotFather issued as
-        `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
+        A Telegram bot is connected at once, with a live key: give the token
+        BotFather issued as `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
         webhook at Flow, and answers `200` with the sender `active`. The token is
         never returned. One bot is one sender:
 
@@ -1256,7 +1270,16 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
         "501":
-          $ref: "#/components/responses/NotImplemented"
+          description: |
+            `channel` is `imessage`, `sms` or `whatsapp`: the Flow team connects
+            these senders (`not_implemented`, with any key). The `hint` says how to
+            get one and what to build with meanwhile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: {type: not_implemented, message: "WhatsApp numbers are connected by the Flow team, not by API: a number Flow provides, or a number in your business's own WhatsApp Business Account. Once connected, it appears in GET /v1/senders.", hint: "Ask the Flow team to connect a WhatsApp number to your app; it then appears in GET /v1/senders. Meanwhile, build with a Telegram bot (POST /v1/senders with telegram_bot_token and a live key) or with simulated WhatsApp conversations (POST /v1/test/conversations with a test key). Never send API keys, tokens or passwords in a chat or email.", doc_url: "https://api.flow.engineer/docs/errors/not_implemented", param: channel}
         "502":
           $ref: "#/components/responses/ChannelError"
         default:
@@ -2678,12 +2701,12 @@ components:
         the error's `doc_url`; the error's `hint` says what to change for the case.
 
         - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
-        - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
+        - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
         - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join code again).
         - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
         - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret; a secret that was lost must be rotated again).
         - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-        - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first.
+        - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. `POST /v1/files` answers it for a type Flow does not take, and for a document while malware scanning is off: send the document by a public HTTPS `url` in `media` content instead.
         - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
         - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
         - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file.
@@ -3274,7 +3297,7 @@ components:
             line has one configured.
     SenderLimits:
       type: object
-      description: The sender's current budget for starting conversations.
+      description: The sender's current budget for starting conversations, and how fast it sends.
       required: [new_contacts_per_day, new_contacts_per_hour]
       properties:
         new_contacts_per_day:
@@ -3283,6 +3306,15 @@ components:
         new_contacts_per_hour:
           type: integer
           description: New conversations the sender may start per hour.
+        messages_per_second:
+          type: number
+          description: |
+            The sender's pacing: how many messages a second it takes on average,
+            replies included, with short bursts allowed above it. A send past it
+            answers `429 rate_limited` with `retry_after`. A shared sandbox
+            sender's pacing is shared by every app that uses it. Absent for
+            simulated senders, which are not paced.
+          examples: [1]
         whatsapp_tier:
           type: string
           description: WhatsApp only. Meta's messaging tier for the number.
@@ -3715,8 +3747,13 @@ components:
       additionalProperties: true
     SendMessageRequest:
       type: object
-      description: One piece of content to send into a conversation.
+      description: |
+        One piece of content to send into a conversation. A field not listed here is
+        refused with `400 invalid_request` naming it in `param`, never ignored. There
+        are no scheduled sends: a message goes out as soon as it passes the gate, so
+        to send later, wait in your own code and send then.
       required: [content]
+      additionalProperties: false
       properties:
         content:
           $ref: "#/components/schemas/Content"
@@ -3739,8 +3776,13 @@ components:
           $ref: "#/components/schemas/Metadata"
     StartConversationRequest:
       type: object
-      description: The first message from one of your senders to a contact.
+      description: |
+        The first message from one of your senders to a contact. A field not listed
+        here is refused with `400 invalid_request` naming it in `param`, never
+        ignored. There are no scheduled sends: to start a conversation later, wait
+        in your own code and send then.
       required: [sender, to, content]
+      additionalProperties: false
       properties:
         sender:
           $ref: "#/components/schemas/SenderId"
@@ -3759,8 +3801,9 @@ components:
           description: SMS. The contact's consent, required when they have never texted any of your SMS numbers; recorded on the contact. Ignored on other channels.
     EditMessageRequest:
       type: object
-      description: The new text of a sent message.
+      description: The new text of a sent message. A field not listed here is refused with `400 invalid_request` naming it in `param`.
       required: [content]
+      additionalProperties: false
       properties:
         content:
           $ref: "#/components/schemas/TextContent"
@@ -4207,7 +4250,9 @@ components:
         pages), it could not be scanned, or it is larger than the channel lets Flow
         download. The file is not stored and has no `url`; what is known about it is
         here. Images, audio and video are not scanned; documents (PDF, Office,
-        archives) are.
+        archives) are, once malware scanning is on. While it is off (during the
+        beta), an inbound document is kept without a scan, and Flow does not send
+        that file again by its `file_id` (`422 unsupported_content`).
       required: [type, reason]
       properties:
         type:
