@@ -57,7 +57,7 @@ error_types: [invalid_request, authentication, permission, not_found, idempotenc
 event_types: [message.received, message.sent, message.delivered, message.read, message.failed,
               reaction.added, reaction.removed, typing.started, typing.stopped,
               conversation.started, conversation.window_closing,
-              sender.status_changed, template.status_changed]
+              sender.status_changed, template.status_changed, contact.deleted]
 send_outcome: every send ends message.sent or message.failed (Telegram never sends message.delivered)
 rate_limit_headers: [RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After]
 id_prefixes: {app: app_, sender: snd_, contact: ct_, conversation: conv_, message: msg_,
@@ -1121,6 +1121,7 @@ Every operation in the spec (https://api.flow.engineer/openapi.yaml):
 | `POST /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret` | Rotate a webhook endpoint's signing secret |
 | `GET /v1/contacts` | List contacts |
 | `GET /v1/contacts/{contact_id}` | Get a contact |
+| `DELETE /v1/contacts/{contact_id}` | Delete a contact and their data |
 | `POST /v1/test/conversations` | Create a simulated conversation |
 | `POST /v1/test/conversations/{conversation_id}/inbound` | Write as the simulated contact |
 | `GET /v1/test/conversations/{conversation_id}/transcript` | Read a simulated conversation, both ways |

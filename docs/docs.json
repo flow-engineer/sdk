@@ -57,6 +57,7 @@
               "concepts/send-gate",
               "concepts/test-and-live-mode",
               "concepts/idempotency",
+              "concepts/data-retention",
               "concepts/versioning",
               "concepts/rate-limits"
             ]

@@ -8,7 +8,7 @@ import { AuthenticationError, FlowError, PermissionError, InvalidRequestError, e
 import { canSendWebSocketHeaders } from "./runtime.js";
 import type { ErrorBody, Event, EventOf, EventType } from "./types.js";
 
-type NoConversation = "sender.status_changed" | "template.status_changed";
+type NoConversation = "sender.status_changed" | "template.status_changed" | "contact.deleted";
 
 /**
  * **The event type to write handlers against.** It is what `flow.events.stream()`,
@@ -19,7 +19,7 @@ type NoConversation = "sender.status_changed" | "template.status_changed";
  * into a `FlowEvent`.)
  *
  * It is a discriminated union on `type`: narrow it before using `conversation`, since
- * `sender.status_changed` and `template.status_changed` have none. For one type, use
+ * `sender.status_changed`, `template.status_changed` and `contact.deleted` have none. For one type, use
  * {@link FlowEventOf}.
  *
  * ```ts

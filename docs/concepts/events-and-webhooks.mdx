@@ -75,6 +75,7 @@ All three read the same log, so you can mix them: for example a webhook in produ
 | `conversation.window_closing` | WhatsApp only, opt-in: the 24-hour window closes in 1 hour. |
 | `sender.status_changed` | A sender was throttled, flagged, banned or restored (or, on WhatsApp, its quality changed). |
 | `template.status_changed` | A WhatsApp template was approved, rejected or paused. |
+| `contact.deleted` | A contact was deleted with `DELETE /v1/contacts/{contact_id}`; carries only the contact's ID. See [Retention and deleting contacts](/concepts/data-retention). |
 
 Status events are high volume. Each webhook endpoint subscribes to the types it lists, so subscribe only to what you use.
 

@@ -57,7 +57,7 @@ error_types: [invalid_request, authentication, permission, not_found, idempotenc
 event_types: [message.received, message.sent, message.delivered, message.read, message.failed,
               reaction.added, reaction.removed, typing.started, typing.stopped,
               conversation.started, conversation.window_closing,
-              sender.status_changed, template.status_changed]
+              sender.status_changed, template.status_changed, contact.deleted]
 send_outcome: every send ends message.sent or message.failed (Telegram never sends message.delivered)
 rate_limit_headers: [RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After]
 id_prefixes: {app: app_, sender: snd_, contact: ct_, conversation: conv_, message: msg_,

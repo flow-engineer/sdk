@@ -769,12 +769,53 @@ export interface paths {
         };
         /**
          * Get a contact
-         * @description Returns one contact and the address they are reached at on their channel.
+         * @description Returns one contact and the address they are reached at on their channel. A deleted contact answers `404 not_found`.
          */
         get: operations["getContact"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a contact and their data
+         * @description Erases the contact and what Flow keeps about them in this app and mode. It
+         *     cannot be undone. Use it when the person asks you to delete their data, or
+         *     when you delete them in your own product.
+         *
+         *     Erased at once:
+         *
+         *     - the contact's name and address (phone, username, Telegram user ID, iMessage
+         *       handle) and, on SMS, their recorded consent and opt-out;
+         *     - the content of every message in their conversations, inbound and outbound,
+         *       with reply quotes, metadata and what the channel reported back;
+         *     - the files sent or received in those conversations, including uploads you
+         *       sent them (a `file_id` sent to a deleted contact is not found afterwards);
+         *     - the events of those conversations: they are no longer returned by
+         *       `GET /v1/events`, the stream or webhooks (an event ID you hold still works
+         *       as an `after` or `before` cursor);
+         *     - webhook deliveries of those events still pending (they are not sent), and
+         *       messages still queued to the contact (they are not sent; a message already
+         *       handed to the channel may still arrive);
+         *     - saved `Idempotency-Key` answers that held their data: repeating such a
+         *       request answers `404 not_found`.
+         *
+         *     Kept: IDs, timestamps, and the counts that bill and pace your senders
+         *     (allowances, new-contact budgets, warm-up). The contact and their
+         *     conversations answer `404 not_found` from then on and are not listed. Flow
+         *     cannot delete what the channel itself keeps, such as the chat on the
+         *     person's own device.
+         *
+         *     On a shared sandbox sender the person leaves your app and must send the join
+         *     code again to talk to it. On SMS the opt-out is erased with the contact:
+         *     carriers keep blocking a number that texted STOP, so do not text it again
+         *     unless the person opts in again. If the person writes again, or you send to their address, they are a
+         *     new contact with a new ID and a new conversation (`conversation.started`),
+         *     and the channel's usual rules apply, such as the WhatsApp 24-hour window.
+         *
+         *     The first delete emits `contact.deleted`, which carries only the contact's ID.
+         *     Deleting a contact that is already deleted also answers `204`, so the call is
+         *     safe to retry. An ID this app and mode never had (including a contact of your
+         *     other mode) answers `404 not_found` with `param` `contact_id`, as `GET` does.
+         */
+        delete: operations["deleteContact"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2407,9 +2448,10 @@ export interface components {
          *     - `conversation.window_closing`: WhatsApp only, opt-in. The 24-hour window closes in 1 hour.
          *     - `sender.status_changed`: a sender was throttled, flagged, banned or restored, or its WhatsApp quality rating changed.
          *     - `template.status_changed`: Meta approved, rejected or paused a template.
+         *     - `contact.deleted`: a contact was deleted with `DELETE /v1/contacts/{contact_id}`. Carries only the contact's ID; delete what you keep about them too.
          * @enum {string}
          */
-        EventType: "message.received" | "message.sent" | "message.delivered" | "message.read" | "message.failed" | "reaction.added" | "reaction.removed" | "typing.started" | "typing.stopped" | "conversation.started" | "conversation.window_closing" | "sender.status_changed" | "template.status_changed";
+        EventType: "message.received" | "message.sent" | "message.delivered" | "message.read" | "message.failed" | "reaction.added" | "reaction.removed" | "typing.started" | "typing.stopped" | "conversation.started" | "conversation.window_closing" | "sender.status_changed" | "template.status_changed" | "contact.deleted";
         /**
          * @description When the event moved through Flow, to measure Flow's overhead
          *     (`delivered_at` minus `received_at`).
@@ -2448,9 +2490,10 @@ export interface components {
         /**
          * @description One entry in your app's log. `type` says what happened and selects the shape
          *     of `data`. `conversation` is set for every event that happened in a
-         *     conversation (all but `sender.status_changed` and `template.status_changed`).
+         *     conversation (all but `sender.status_changed`, `template.status_changed` and
+         *     `contact.deleted`).
          */
-        Event: components["schemas"]["MessageReceivedEvent"] | components["schemas"]["MessageSentEvent"] | components["schemas"]["MessageDeliveredEvent"] | components["schemas"]["MessageReadEvent"] | components["schemas"]["MessageFailedEvent"] | components["schemas"]["ReactionAddedEvent"] | components["schemas"]["ReactionRemovedEvent"] | components["schemas"]["TypingStartedEvent"] | components["schemas"]["TypingStoppedEvent"] | components["schemas"]["ConversationStartedEvent"] | components["schemas"]["ConversationWindowClosingEvent"] | components["schemas"]["SenderStatusChangedEvent"] | components["schemas"]["TemplateStatusChangedEvent"];
+        Event: components["schemas"]["MessageReceivedEvent"] | components["schemas"]["MessageSentEvent"] | components["schemas"]["MessageDeliveredEvent"] | components["schemas"]["MessageReadEvent"] | components["schemas"]["MessageFailedEvent"] | components["schemas"]["ReactionAddedEvent"] | components["schemas"]["ReactionRemovedEvent"] | components["schemas"]["TypingStartedEvent"] | components["schemas"]["TypingStoppedEvent"] | components["schemas"]["ConversationStartedEvent"] | components["schemas"]["ConversationWindowClosingEvent"] | components["schemas"]["SenderStatusChangedEvent"] | components["schemas"]["TemplateStatusChangedEvent"] | components["schemas"]["ContactDeletedEvent"];
         /** @description The message the event is about. */
         MessageEventData: {
             message: components["schemas"]["Message"];
@@ -2697,6 +2740,29 @@ export interface components {
              * @enum {string}
              */
             type: "template.status_changed";
+        };
+        /** @description The contact that was deleted. Only the ID is kept. */
+        ContactDeletedData: {
+            contact: components["schemas"]["ContactId"];
+        };
+        /**
+         * @description A contact was deleted with `DELETE /v1/contacts/{contact_id}`: their address,
+         *     messages, files and events are erased at Flow. Delete what you keep about
+         *     them too. Sent once, for the first delete; it has no `conversation`.
+         */
+        ContactDeletedEvent: components["schemas"]["EventBase"] & {
+            /**
+             * @description Always `contact.deleted`.
+             * @enum {string}
+             */
+            type: "contact.deleted";
+            data: components["schemas"]["ContactDeletedData"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "contact.deleted";
         };
         /** @description A page of events, oldest first. */
         EventList: {
@@ -4476,6 +4542,34 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Contact"];
                 };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteContact: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The contact's ID. */
+                contact_id: components["parameters"]["ContactId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The contact is deleted (or was already). */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
