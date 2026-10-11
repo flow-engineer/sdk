@@ -363,7 +363,9 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   `message.sent` on your app's simulated sender (`kind: simulated`), which never
   touches a network. Transcript entries are messages; a sent one has `shown`, what
   the contact saw (for example numbered text for buttons on SMS; answering `2`
-  comes back as `button_reply`).
+  comes back as `button_reply`). On Telegram, as with a real bot, the contact writes
+  first: a send before their first turn is accepted and then ends `message.failed`
+  (`channel_error`, `channel_code` `403`), as on real Telegram.
 - The channel's rules apply to what the contact sends: no documents or locations
   over SMS (`422 unsupported_content`), text up to the channel's `max_text_length`,
   no inline `reply_to` on SMS; an SMS contact's `phone` is a US number (`+1` and ten

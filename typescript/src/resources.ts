@@ -10,7 +10,6 @@ import type {
   Capabilities,
   Channel,
   Contact,
-  Content,
   Conversation,
   ConversationAction,
   Deleted,
@@ -31,6 +30,7 @@ import type {
   Sender,
   SenderRequest,
   SimulatedInbound,
+  SimulatedInboundContent,
   SimulatedInboundRequest,
   StartConversationRequest,
   Template,
@@ -545,12 +545,14 @@ export class Testing {
 
   /**
    * Writes one turn as the simulated contact: content (a string is text) or a full
-   * request with `reply_to`. Media takes a `file_id` from `flow.files.upload`. The
-   * answer's `message` is the ID the `message.received` event will carry.
+   * request with `reply_to`. Media takes a `file_id` from `flow.files.upload`. A tap
+   * on a reply button is `{ type: "button_reply", message_id, button_id }`: Flow
+   * fills in the button's label. The answer's `message` is the ID the
+   * `message.received` event will carry.
    */
   inbound(
     conversationId: string,
-    input: string | Content | SimulatedInboundRequest,
+    input: string | SimulatedInboundContent | SimulatedInboundRequest,
     options?: RequestOptions,
   ): Promise<SimulatedInbound> {
     const body: SimulatedInboundRequest =
