@@ -345,7 +345,7 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0
 servers:
   - url: https://api.flow.engineer
-    description: Production (asia-south1). Test and live mode are chosen by the API key.
+    description: Production. Test and live mode are chosen by the API key.
 security:
   - bearerAuth: []
 tags:

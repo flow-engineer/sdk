@@ -69,7 +69,8 @@
               "guides/imessage-agent",
               "guides/whatsapp-agent",
               "guides/local-development",
-              "guides/going-live"
+              "guides/going-live",
+              "guides/recipes"
             ]
           },
           {

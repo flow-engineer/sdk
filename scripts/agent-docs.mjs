@@ -46,6 +46,7 @@ const REGIONS = [
   "docs/mcp.md",
   "docs/coding-agents.mdx",
   "plugin/skills/flow-messaging/reference/cli-mcp.md",
+  "docs/guides/recipes.mdx",
 ];
 
 const read = (p) => readFileSync(path.join(root, p), "utf8");
