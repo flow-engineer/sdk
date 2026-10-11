@@ -250,7 +250,7 @@ export class ConversationHandle {
     const sent: Message[] = [];
     let index = 0;
     const sendOne = async (content: Content) => {
-      const req: SendMessageRequest = { content, fallback: options.fallback ?? "auto" };
+      const req: SendMessageRequest = { content, fallback: options.fallback === undefined ? "auto" : options.fallback };
       if (options.metadata) req.metadata = options.metadata;
       if (options.channel_options) req.channel_options = options.channel_options;
       const i = index++;

@@ -1847,6 +1847,7 @@ class SendMessageRequest(BaseModel):
       maps link, a contact card becomes text, an effect becomes plain text, a
       reaction becomes the closest tapback or is skipped).
     - A `Content` object: send exactly this instead.
+    - `null`: no fallback, the same as leaving it out.
 
     The message's `delivered_as` reports what was used.
 
@@ -2106,6 +2107,37 @@ class SignedInUser(BaseModel):
     """
 
 
+class SimulatedButtonTap(BaseModel):
+    """
+    The simulated contact taps a reply button of a buttons message your app sent
+    in this conversation. Name the message and the button's `id`; Flow fills in
+    the label, and the received message is a `button_reply` with the tapped
+    button's `label`. On a channel that shows no buttons the contact answers the
+    numbered text instead (send the number as `text`).
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["button_reply"]
+    """
+    Always `button_reply`.
+    """
+    message_id: Annotated[str, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])]
+    """
+    The buttons message your app sent, which must have reached the contact (its `message.sent`).
+    """
+    button_id: str
+    """
+    The `id` of the tapped reply button.
+    """
+    label: str | None = None
+    """
+    Ignored: Flow uses the tapped button's label.
+    """
+
+
 class SimulatedInbound(BaseModel):
     """
     A simulated turn Flow accepted. Its `message.received` event follows.
@@ -2141,13 +2173,14 @@ class SimulatedInboundRequest(BaseModel):
         extra="allow",
     )
     content: Annotated[
-        TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent,
+        TextContent | MediaContent | VoiceContent | LocationContent | ContactCardContent | SimulatedButtonTap,
         Field(discriminator="type"),
     ]
     """
     What the contact sends: `text`, `media`, `voice`, `location`,
-    `contact_card` or `button_reply`. Media and voice take a `file_id` from
-    `POST /v1/files`. Other types answer `400 invalid_request`.
+    `contact_card` or `button_reply` (a tap on a reply button, named by the
+    buttons message and the button's `id`). Media and voice take a `file_id`
+    from `POST /v1/files`. Other types answer `400 invalid_request`.
 
     """
     reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
@@ -2273,6 +2306,7 @@ class StartConversationRequest(BaseModel):
       maps link, a contact card becomes text, an effect becomes plain text, a
       reaction becomes the closest tapback or is skipped).
     - A `Content` object: send exactly this instead.
+    - `null`: no fallback, the same as leaving it out.
 
     The message's `delivered_as` reports what was used.
 

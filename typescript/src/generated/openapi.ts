@@ -432,6 +432,12 @@ export interface paths {
          *     against that channel's own size limit now (otherwise it is checked when you
          *     send it, with `422 unsupported_content`). Files are kept for your plan's
          *     retention period (30 days by default).
+         *
+         *     An app made without an account (`POST /v1/sandbox/keys`) that is not claimed
+         *     yet uploads at most 20 files in any 24 hours; past that an upload answers
+         *     `403 permission` with `channel_code` `sign_in_required`. Reuse a `file_id`
+         *     you already have, wait for the oldest upload to age out, or sign in to lift
+         *     the limit.
          */
         post: operations["uploadFile"];
         delete?: never;
@@ -642,7 +648,9 @@ export interface paths {
         post?: never;
         /**
          * Delete a template
-         * @description Deletes the template at Meta and here. Messages already sent with it are unaffected.
+         * @description Deletes the template at Meta and here. Messages already sent with it are
+         *     unaffected. Templates of a shared sandbox sender belong to Flow and cannot
+         *     be deleted (`403 permission`).
          */
         delete: operations["deleteTemplate"];
         options?: never;
@@ -1091,9 +1099,11 @@ export interface paths {
          *     `message` ID given here.
          *
          *     `content` is what the contact sends: `text`, `media`, `voice`, `location`,
-         *     `contact_card` or `button_reply` (a tap on buttons your agent sent; a
-         *     numbered answer such as `2` to buttons sent as numbered text comes back as
-         *     `button_reply` too, as on a real channel). Media and voice take the
+         *     `contact_card` or `button_reply` (a tap on a reply button of a buttons
+         *     message your agent sent, given as its `message_id` and `button_id`: Flow
+         *     fills in the button's `label`; a numbered answer such as `2` to buttons
+         *     sent as numbered text comes back as `button_reply` too, as on a real
+         *     channel). Media and voice take the
          *     `file_id` of a file uploaded with `POST /v1/files` (no `url`); the contact's
          *     message refers to that same file (its `file_id`, `url`, `mime_type` and
          *     `size_bytes`): Flow does not copy it again. The channel's rules apply:
@@ -2066,10 +2076,11 @@ export interface components {
          *       maps link, a contact card becomes text, an effect becomes plain text, a
          *       reaction becomes the closest tapback or is skipped).
          *     - A `Content` object: send exactly this instead.
+         *     - `null`: no fallback, the same as leaving it out.
          *
          *     The message's `delivered_as` reports what was used.
          */
-        Fallback: components["schemas"]["FallbackAuto"] | components["schemas"]["Content"];
+        Fallback: components["schemas"]["FallbackAuto"] | components["schemas"]["Content"] | null;
         /**
          * @description Use the content type's default fallback.
          * @enum {string}
@@ -3090,12 +3101,44 @@ export interface components {
         SimulatedInboundRequest: {
             /**
              * @description What the contact sends: `text`, `media`, `voice`, `location`,
-             *     `contact_card` or `button_reply`. Media and voice take a `file_id` from
-             *     `POST /v1/files`. Other types answer `400 invalid_request`.
+             *     `contact_card` or `button_reply` (a tap on a reply button, named by the
+             *     buttons message and the button's `id`). Media and voice take a `file_id`
+             *     from `POST /v1/files`. Other types answer `400 invalid_request`.
              */
-            content: components["schemas"]["Content"];
+            content: components["schemas"]["SimulatedInboundContent"];
             /** @description A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`. */
             reply_to?: components["schemas"]["MessageId"];
+        };
+        /**
+         * @description What a simulated contact sends in one turn: `text`, `media`, `voice`,
+         *     `location`, `contact_card`, or a tap on a reply button (`button_reply`).
+         *     Other content types answer `400 invalid_request`.
+         */
+        SimulatedInboundContent: components["schemas"]["TextContent"] | components["schemas"]["MediaContent"] | components["schemas"]["VoiceContent"] | components["schemas"]["LocationContent"] | components["schemas"]["ContactCardContent"] | components["schemas"]["SimulatedButtonTap"];
+        /**
+         * @description The simulated contact taps a reply button of a buttons message your app sent
+         *     in this conversation. Name the message and the button's `id`; Flow fills in
+         *     the label, and the received message is a `button_reply` with the tapped
+         *     button's `label`. On a channel that shows no buttons the contact answers the
+         *     numbered text instead (send the number as `text`).
+         * @example {
+         *       "type": "button_reply",
+         *       "message_id": "msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2",
+         *       "button_id": "yes"
+         *     }
+         */
+        SimulatedButtonTap: {
+            /**
+             * @description Always `button_reply`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "button_reply";
+            /** @description The buttons message your app sent, which must have reached the contact (its `message.sent`). */
+            message_id: components["schemas"]["MessageId"];
+            /** @description The `id` of the tapped reply button. */
+            button_id: string;
+            /** @description Ignored: Flow uses the tapped button's label. */
+            label?: string;
         };
         /** @description A simulated turn Flow accepted. Its `message.received` event follows. */
         SimulatedInbound: {
@@ -4099,6 +4142,31 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            /**
+             * @description `permission`: an app made without an account, not claimed yet, past its
+             *     20 uploads in any 24 hours (`channel_code` `sign_in_required`, `param`
+             *     `file`).
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "type": "permission",
+                     *         "message": "This app was made without an account (POST /v1/sandbox/keys) and uploaded its 20 files for the last 24 hours.",
+                     *         "hint": "Reuse a file_id you already uploaded, or wait for the oldest upload of the last 24 hours to age out; signing in lifts the limit.",
+                     *         "doc_url": "https://api.flow.engineer/docs/errors/permission",
+                     *         "param": "file",
+                     *         "channel_code": "sign_in_required"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             409: components["responses"]["IdempotencyConflict"];
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["UnsupportedContent"];
@@ -4465,6 +4533,26 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            /** @description `permission`: the template belongs to a shared sandbox sender, whose templates are Flow's (`param` `template_id`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "type": "permission",
+                     *         "message": "This template belongs to the sandbox's sender; the sandbox's templates are Flow's.",
+                     *         "hint": "Delete only templates of your own senders: your dedicated WhatsApp senders' (fk_live_ key) or your simulated sender's (fk_test_ key).",
+                     *         "doc_url": "https://api.flow.engineer/docs/errors/permission",
+                     *         "param": "template_id"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["ChannelError"];

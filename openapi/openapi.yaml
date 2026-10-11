@@ -1065,6 +1065,12 @@ paths:
         against that channel's own size limit now (otherwise it is checked when you
         send it, with `422 unsupported_content`). Files are kept for your plan's
         retention period (30 days by default).
+
+        An app made without an account (`POST /v1/sandbox/keys`) that is not claimed
+        yet uploads at most 20 files in any 24 hours; past that an upload answers
+        `403 permission` with `channel_code` `sign_in_required`. Reuse a `file_id`
+        you already have, wait for the oldest upload to age out, or sign in to lift
+        the limit.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1084,6 +1090,17 @@ paths:
           $ref: "#/components/responses/InvalidRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: |
+            `permission`: an app made without an account, not claimed yet, past its
+            20 uploads in any 24 hours (`channel_code` `sign_in_required`, `param`
+            `file`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: {type: permission, message: "This app was made without an account (POST /v1/sandbox/keys) and uploaded its 20 files for the last 24 hours.", hint: "Reuse a file_id you already uploaded, or wait for the oldest upload of the last 24 hours to age out; signing in lifts the limit.", doc_url: "https://api.flow.engineer/docs/errors/permission", param: file, channel_code: sign_in_required}
         "409":
           $ref: "#/components/responses/IdempotencyConflict"
         "413":
@@ -1467,7 +1484,10 @@ paths:
       operationId: deleteTemplate
       tags: [Templates]
       summary: Delete a template
-      description: Deletes the template at Meta and here. Messages already sent with it are unaffected.
+      description: |
+        Deletes the template at Meta and here. Messages already sent with it are
+        unaffected. Templates of a shared sandbox sender belong to Flow and cannot
+        be deleted (`403 permission`).
       responses:
         "200":
           description: The template was deleted.
@@ -1479,6 +1499,14 @@ paths:
           $ref: "#/components/responses/InvalidRequest"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: "`permission`: the template belongs to a shared sandbox sender, whose templates are Flow's (`param` `template_id`)."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: {type: permission, message: "This template belongs to the sandbox's sender; the sandbox's templates are Flow's.", hint: "Delete only templates of your own senders: your dedicated WhatsApp senders' (fk_live_ key) or your simulated sender's (fk_test_ key).", doc_url: "https://api.flow.engineer/docs/errors/permission", param: template_id}
         "404":
           $ref: "#/components/responses/NotFound"
         "429":
@@ -2122,9 +2150,11 @@ paths:
         `message` ID given here.
 
         `content` is what the contact sends: `text`, `media`, `voice`, `location`,
-        `contact_card` or `button_reply` (a tap on buttons your agent sent; a
-        numbered answer such as `2` to buttons sent as numbered text comes back as
-        `button_reply` too, as on a real channel). Media and voice take the
+        `contact_card` or `button_reply` (a tap on a reply button of a buttons
+        message your agent sent, given as its `message_id` and `button_id`: Flow
+        fills in the button's `label`; a numbered answer such as `2` to buttons
+        sent as numbered text comes back as `button_reply` too, as on a real
+        channel). Media and voice take the
         `file_id` of a file uploaded with `POST /v1/files` (no `url`); the contact's
         message refers to that same file (its `file_id`, `url`, `mime_type` and
         `size_bytes`): Flow does not copy it again. The channel's rules apply:
@@ -2168,6 +2198,10 @@ paths:
                 summary: A photo with a caption (an MMS on SMS)
                 value:
                   content: {type: media, kind: image, file_id: file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5, caption: "Do you have this in blue?"}
+              tap:
+                summary: A tap on a reply button of a buttons message your agent sent
+                value:
+                  content: {type: button_reply, message_id: msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2, button_id: "yes"}
       responses:
         "202":
           description: The turn was accepted; `message.received` follows.
@@ -3706,11 +3740,13 @@ components:
           maps link, a contact card becomes text, an effect becomes plain text, a
           reaction becomes the closest tapback or is skipped).
         - A `Content` object: send exactly this instead.
+        - `null`: no fallback, the same as leaving it out.
 
         The message's `delivered_as` reports what was used.
       oneOf:
         - $ref: "#/components/schemas/FallbackAuto"
         - $ref: "#/components/schemas/Content"
+        - type: "null"
     FallbackAuto:
       type: string
       description: Use the content type's default fallback.
@@ -5052,14 +5088,63 @@ components:
       required: [content]
       properties:
         content:
-          $ref: "#/components/schemas/Content"
+          $ref: "#/components/schemas/SimulatedInboundContent"
           description: |
             What the contact sends: `text`, `media`, `voice`, `location`,
-            `contact_card` or `button_reply`. Media and voice take a `file_id` from
-            `POST /v1/files`. Other types answer `400 invalid_request`.
+            `contact_card` or `button_reply` (a tap on a reply button, named by the
+            buttons message and the button's `id`). Media and voice take a `file_id`
+            from `POST /v1/files`. Other types answer `400 invalid_request`.
         reply_to:
           $ref: "#/components/schemas/MessageId"
           description: A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`.
+    SimulatedInboundContent:
+      type: object
+      description: |
+        What a simulated contact sends in one turn: `text`, `media`, `voice`,
+        `location`, `contact_card`, or a tap on a reply button (`button_reply`).
+        Other content types answer `400 invalid_request`.
+      oneOf:
+        - $ref: "#/components/schemas/TextContent"
+        - $ref: "#/components/schemas/MediaContent"
+        - $ref: "#/components/schemas/VoiceContent"
+        - $ref: "#/components/schemas/LocationContent"
+        - $ref: "#/components/schemas/ContactCardContent"
+        - $ref: "#/components/schemas/SimulatedButtonTap"
+      discriminator:
+        propertyName: type
+        mapping:
+          text: "#/components/schemas/TextContent"
+          media: "#/components/schemas/MediaContent"
+          voice: "#/components/schemas/VoiceContent"
+          location: "#/components/schemas/LocationContent"
+          contact_card: "#/components/schemas/ContactCardContent"
+          button_reply: "#/components/schemas/SimulatedButtonTap"
+    SimulatedButtonTap:
+      type: object
+      description: |
+        The simulated contact taps a reply button of a buttons message your app sent
+        in this conversation. Name the message and the button's `id`; Flow fills in
+        the label, and the received message is a `button_reply` with the tapped
+        button's `label`. On a channel that shows no buttons the contact answers the
+        numbered text instead (send the number as `text`).
+      required: [type, message_id, button_id]
+      properties:
+        type:
+          type: string
+          enum: [button_reply]
+          description: Always `button_reply`.
+        message_id:
+          $ref: "#/components/schemas/MessageId"
+          description: The buttons message your app sent, which must have reached the contact (its `message.sent`).
+        button_id:
+          type: string
+          minLength: 1
+          description: The `id` of the tapped reply button.
+        label:
+          type: string
+          description: "Ignored: Flow uses the tapped button's label."
+      examples:
+        - {type: button_reply, message_id: msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2, button_id: "yes"}
     SimulatedInbound:
       type: object
       description: A simulated turn Flow accepted. Its `message.received` event follows.
