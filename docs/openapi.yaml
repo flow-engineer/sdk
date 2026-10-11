@@ -1101,7 +1101,9 @@ paths:
       summary: List senders
       description: |
         Lists the senders your app can use in this mode, newest first. Test keys see
-        the shared sandbox senders; live keys see your dedicated senders. Your app's
+        the shared sandbox senders (a sandbox sender Flow has replaced is left out;
+        `GET /v1/senders/{sender_id}` still shows it, retired); live keys see your
+        dedicated senders. Your app's
         simulated senders (test mode only) are listed only when asked for with
         `kind=simulated`, so code that picks a sender from this list never picks one.
       parameters:
