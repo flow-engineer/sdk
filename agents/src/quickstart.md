@@ -32,6 +32,7 @@ sandbox_allowance:                           # outbound messages only (inbound i
   signed_in: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages each, no expiry, one allowance per person over all their apps   # iMessage is in neither
 sign_in: "npx @flow-engineer/messaging login"   # GitHub; or POST /v1/device/authorizations, then poll POST /v1/device/token
 dashboard: https://api.flow.engineer/admin    # sign in with GitHub
+flow_team: {{team_contact}}   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
 key_prefixes:
@@ -919,7 +920,7 @@ why it happens, how to fix it. For example:
 ```
 
 Quote `request_id` (also the `Flow-Request-Id` header) when you contact the Flow
-team. A send can fail **at once** (an HTTP error) or **later** (`message.failed`, with
+team ({{team_contact}}). A send can fail **at once** (an HTTP error) or **later** (`message.failed`, with
 the same error shape in `data.message.error`).
 
 | `error.type` | HTTP | What to do |
@@ -1139,6 +1140,10 @@ published yet, so in those languages build on plain HTTP and the WebSocket as sh
 {{> ask-and-wait}}
 
 {{> common-tasks}}
+
+### What the Flow team arranges, and how to ask
+
+{{> flow-team}}
 
 ## 15. Endpoint index
 

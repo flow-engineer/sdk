@@ -121,6 +121,10 @@ function fillRegions(file, text) {
 
 const allowedEnv = new Set(Object.values(facts.env));
 const problems = [];
+// Pages tell people to write to the Flow team at team_contact: it must be a real address.
+if (typeof facts.team_contact !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(facts.team_contact)) {
+  problems.push("agents/facts.json team_contact must be the Flow team's email address");
+}
 function lint(file, text, mustState) {
   for (const v of new Set(text.match(/\bFLOW_[A-Z][A-Z_]*[A-Z]\b/g) ?? [])) {
     if (!allowedEnv.has(v)) problems.push(`${file} names ${v}, which is not in agents/facts.json env`);
