@@ -1016,9 +1016,11 @@ export interface paths {
          *     sender keeps no quiet hours, so a test's outcome never depends on the time of
          *     day, and it sends media and voice as MMS.
          *
-         *     Creating the conversation sends no event. The contact's first turn starts it
-         *     as a real contact's first message does: `conversation.started` (`via`
-         *     `inbound`), then `message.received`.
+         *     Creating the conversation sends no event. The conversation starts with its
+         *     first message: the contact's first turn (`via` `inbound`), or your first send
+         *     to the contact, such as a WhatsApp template or an SMS send with consent
+         *     (`via` `outbound`). `conversation.started` comes before that message's
+         *     `message.received` or `message.sent`.
          *
          *     Give `contact` to choose the simulated contact's address; giving an address
          *     that already has a simulated conversation returns that conversation (`200`).
@@ -2463,7 +2465,7 @@ export interface components {
          *     - `message.sent`, `message.delivered`, `message.read`, `message.failed`: the status of your outbound messages. `message.failed` carries the error in `data.message.error`.
          *     - `reaction.added`, `reaction.removed`: the contact reacted to a message.
          *     - `typing.started`, `typing.stopped`: the contact is typing, where the channel reports it.
-         *     - `conversation.started`: the first inbound message from a new contact, or a sandbox join (Flow itself answers the join; the join message is not a `message.received`).
+         *     - `conversation.started`: the first inbound message from a new contact, a sandbox join (Flow itself answers the join; the join message is not a `message.received`), or your first send to a new contact (`via` `outbound`).
          *     - `conversation.window_closing`: WhatsApp only, opt-in. The 24-hour window closes in 1 hour.
          *     - `sender.status_changed`: a sender was throttled, flagged, banned or restored, or its WhatsApp quality rating changed.
          *     - `template.status_changed`: Meta approved, rejected or paused a template.
@@ -2680,7 +2682,8 @@ export interface components {
         };
         /**
          * @description A new conversation began. Sent before the first `message.received` of a new
-         *     contact. A sandbox join (`data.via` `sandbox_join`) also starts one: the join
+         *     contact, or, when you started the conversation (`data.via` `outbound`), with
+         *     your first send to the contact. A sandbox join (`data.via` `sandbox_join`) also starts one: the join
          *     message itself is not delivered as `message.received`, and the sandbox bot's
          *     confirmation ("You're connected to <your app>") is sent by Flow itself, not
          *     by your app, and counts against no allowance. Joining again in a
