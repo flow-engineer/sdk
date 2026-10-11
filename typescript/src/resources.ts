@@ -278,7 +278,8 @@ export class Contacts {
   /**
    * Erases the contact and their data in this app and mode (address, message content,
    * files, events, queued sends); it cannot be undone. Resolves the same when the
-   * contact was already deleted, so it is safe to retry. Emits `contact.deleted`.
+   * contact was already deleted, so it is safe to retry; an ID this app and mode never
+   * had throws a `not_found` error (`param` `contact_id`). Emits `contact.deleted`.
    */
   delete(contactId: string, options?: RequestOptions): Promise<void> {
     return this.http.request({ method: "DELETE", path: `/v1/contacts/${enc(contactId)}`, options });

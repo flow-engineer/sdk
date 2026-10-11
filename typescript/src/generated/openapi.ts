@@ -811,8 +811,9 @@ export interface paths {
          *     and the channel's usual rules apply, such as the WhatsApp 24-hour window.
          *
          *     The first delete emits `contact.deleted`, which carries only the contact's ID.
-         *     Deleting a contact that is already deleted, or an ID this app and mode never
-         *     had, also answers `204`, so the call is safe to retry.
+         *     Deleting a contact that is already deleted also answers `204`, so the call is
+         *     safe to retry. An ID this app and mode never had (including a contact of your
+         *     other mode) answers `404 not_found` with `param` `contact_id`, as `GET` does.
          */
         delete: operations["deleteContact"];
         options?: never;

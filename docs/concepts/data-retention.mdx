@@ -19,7 +19,7 @@ Contacts and conversations themselves stay until you delete them, so a person wh
 
 ## Delete a contact
 
-Call `DELETE /v1/contacts/{contact_id}` when the person asks you to delete their data, or when you delete them in your own product. It answers `204 No Content`, and so does every repeat, so it is safe to retry.
+Call `DELETE /v1/contacts/{contact_id}` when the person asks you to delete their data, or when you delete them in your own product. It answers `204 No Content`, and so does every repeat, so it is safe to retry. An ID your app never had in this mode answers `404 not_found` with `param` `contact_id`, like `GET /v1/contacts/{contact_id}`.
 
 ```bash curl
 curl -X DELETE https://api.flow.engineer/v1/contacts/ct_01JB8ZC3K5M7P9R1T3V5X7Z9B1 \
