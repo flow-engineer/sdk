@@ -1493,7 +1493,7 @@ export interface components {
          */
         SandboxAllowance: {
             /**
-             * @description `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (with a Flow account, or GitHub).
+             * @description `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (with a Flow account).
              * @enum {string}
              */
             tier: "anonymous" | "signed_in";
@@ -1647,9 +1647,10 @@ export interface components {
              */
             email?: string;
             /**
-             * @description Where they signed in: `flow` (a Flow account, flow.engineer), `github` or
-             *     `google`. More may be added later, so treat a value you do not know as a
-             *     sign-in elsewhere rather than an error.
+             * @description Where they signed in: `flow` (a Flow account, flow.engineer: every sign-in
+             *     today). `github` and `google` are sign-ins made on the Messaging API itself
+             *     before Flow accounts. More may be added later, so treat a value you do not
+             *     know as a sign-in elsewhere rather than an error.
              * @enum {string}
              */
             provider: "flow" | "github" | "google";

@@ -1703,7 +1703,7 @@ class SandboxAllowance(BaseModel):
     )
     tier: Literal["anonymous", "signed_in"]
     """
-    `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (with a Flow account, or GitHub).
+    `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (with a Flow account).
     """
     scope: Literal["app", "person"]
     """
@@ -2103,9 +2103,10 @@ class SignedInUser(BaseModel):
     """
     provider: str
     """
-    Where they signed in: `flow` (a Flow account, flow.engineer), `github` or
-    `google`. More may be added later, so treat a value you do not know as a
-    sign-in elsewhere rather than an error.
+    Where they signed in: `flow` (a Flow account, flow.engineer: every sign-in
+    today). `github` and `google` are sign-ins made on the Messaging API itself
+    before Flow accounts. More may be added later, so treat a value you do not
+    know as a sign-in elsewhere rather than an error.
 
     """
 

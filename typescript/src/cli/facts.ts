@@ -5,4 +5,4 @@
 export const CLI_TAGLINE = "Telegram, iMessage and WhatsApp for AI agents.";
 
 /** The sign-in a person uses to keep a sandbox app. */
-export const SIGN_IN = "a Flow account (flow.engineer)";
+export const SIGN_IN = "a Flow account (flow.engineer: Google or GitHub)";

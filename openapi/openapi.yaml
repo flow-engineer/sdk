@@ -2982,7 +2982,7 @@ components:
       properties:
         tier:
           type: string
-          description: "`anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (with a Flow account, or GitHub)."
+          description: "`anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (with a Flow account)."
           enum: [anonymous, signed_in]
         scope:
           type: string
@@ -3187,9 +3187,10 @@ components:
         provider:
           type: string
           description: |
-            Where they signed in: `flow` (a Flow account, flow.engineer), `github` or
-            `google`. More may be added later, so treat a value you do not know as a
-            sign-in elsewhere rather than an error.
+            Where they signed in: `flow` (a Flow account, flow.engineer: every sign-in
+            today). `github` and `google` are sign-ins made on the Messaging API itself
+            before Flow accounts. More may be added later, so treat a value you do not
+            know as a sign-in elsewhere rather than an error.
           enum: [flow, github, google]
 
     # ---------------------------------------------------------------- senders

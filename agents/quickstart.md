@@ -160,7 +160,7 @@ person can still claim the app.
 
 ### Sign in to keep the app
 
-A person signs in with a Flow account (flow.engineer) and the app is **claimed**: its data and keys
+A person signs in with a Flow account (flow.engineer: Google or GitHub) and the app is **claimed**: its data and keys
 are kept, the expiry is removed, and the app moves under the person's signed-in
 allowance: 3 contacts x 100 messages, **one allowance per person**, shared by every
 app they own or claim (a person may claim up to 10 apps). `allowance.scope` is
@@ -210,7 +210,7 @@ Revoked, ask the person for a key from the dashboard's Keys page, or sign in wit
 the device flow above.
 
 Signed-in people see their apps and keys in the dashboard,
-https://api.flow.engineer/admin (sign in with a Flow account (flow.engineer)). There they can make
+https://api.flow.engineer/admin (sign in with a Flow account (flow.engineer: Google or GitHub)). There they can make
 **live keys** (`fk_live_...`) themselves (switch to **Live**, then Keys > **Create
 live key**: https://api.flow.engineer/admin/keys?mode=live) and go live on Telegram
 with their own bot (section 7). iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team.
