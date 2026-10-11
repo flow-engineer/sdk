@@ -65,7 +65,7 @@ Cursor (`~/.cursor/mcp.json`):
 {"mcpServers": {"flow": {"url": "https://api.flow.engineer/mcp", "headers": {"Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}"}}}}
 ```
 
-Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session).
+Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session). Added with an empty key already? `export FLOW_MESSAGING_KEY=fk_test_...`, then `claude mcp remove flow`, run the add command again, and restart.
 {/* /agents:mcp-setup */}
 
 ### Any other client

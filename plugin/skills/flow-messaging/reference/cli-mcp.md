@@ -72,7 +72,7 @@ Cursor (`~/.cursor/mcp.json`):
 {"mcpServers": {"flow": {"url": "https://api.flow.engineer/mcp", "headers": {"Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}"}}}}
 ```
 
-Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session).
+Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session). Added with an empty key already? `export FLOW_MESSAGING_KEY=fk_test_...`, then `claude mcp remove flow`, run the add command again, and restart.
 
 Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
 <!-- /agents:mcp -->

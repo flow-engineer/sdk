@@ -14,6 +14,7 @@ Flow could not accept the request as sent: the body is not valid JSON for the en
 ## Why it happens
 
 - A required field is missing (`content`, `to`, `content.type`).
+- A send, start or edit body has a top-level field it does not list (`param` names it): Flow refuses it rather than ignore it. There are no scheduled sends, so `send_at` is one of these; schedule in your own app and send then.
 - A value is the wrong shape: a `telegram_user_id` that is a username instead of digits, an ID with the wrong prefix, `limit` above 100.
 - The `Flow-Version` header is not a date this API serves (`param` `Flow-Version`). Every endpoint checks it; leave it out to use your app's pinned version.
 - The `Idempotency-Key` is longer than 255 characters (`param` `Idempotency-Key`).

@@ -922,7 +922,7 @@ the same error shape in `data.message.error`).
 
 | `error.type` | HTTP | What to do |
 |---|---|---|
-| `invalid_request` | 400 | Fix the request; `param` names the field. Do not retry. |
+| `invalid_request` | 400 | Fix the request; `param` names the field. Do not retry. Send, start and edit bodies refuse any top-level field they do not list (for example `send_at`: there are no scheduled sends). |
 | `authentication` | 401 | Check `FLOW_MESSAGING_KEY`. `channel_code` `sandbox_key_expired`: the sandbox key passed its 7 days (see below). Do not retry. |
 | `permission` | 403 | Not allowed: a test key messaging someone who has not joined your app on the sandbox, a test key connecting a bot, connecting a Flow sandbox bot's token, sending from a sender `flagged` because Telegram rejected its token (connect the bot again), starting an iMessage conversation with someone who never wrote, the sandbox allowance (see below). Do not retry. |
 | `not_found` | 404 | Wrong ID, or it belongs to the other mode (test vs live). |
@@ -934,7 +934,7 @@ the same error shape in `data.message.error`).
 | `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` (24 hours by default). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |
 | `channel_error` | in `message.failed` (502 from typing/read/file download) | The channel refused or failed it; `channel_code` is its code. A 502 may be retried; a failed message needs a new send. |
-| `not_implemented` | 501 | Not available through the API (for example requesting an iMessage, SMS or WhatsApp sender: the Flow team connects those). |
+| `not_implemented` | 501 | Not available through the API. `POST /v1/senders` for an iMessage, SMS or WhatsApp sender answers it first, with any key: the Flow team connects those. Build meanwhile on simulated conversations of that channel (`POST /v1/test/conversations`). |
 | `api_error` | 500, 503 | Our side. Retry with backoff and the same key. |
 
 Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code`:
@@ -993,7 +993,8 @@ and new conversations per hour and per day, growing during a new sender's warm-u
 ### Sending limits and abuse signals
 
 Defaults for dedicated senders (your own bot, line or number). A sender's `limits`
-(`GET /v1/senders/{sender_id}`) shows its own numbers.
+(`GET /v1/senders/{sender_id}`: `messages_per_second`, `new_contacts_per_day`,
+`new_contacts_per_hour`) shows its own numbers.
 
 | | Pace | New conversations |
 |---|---|---|
@@ -1141,7 +1142,7 @@ Cursor (`~/.cursor/mcp.json`):
 {"mcpServers": {"flow": {"url": "https://api.flow.engineer/mcp", "headers": {"Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}"}}}}
 ```
 
-Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session).
+Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session). Added with an empty key already? `export FLOW_MESSAGING_KEY=fk_test_...`, then `claude mcp remove flow`, run the add command again, and restart.
 
 Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
 
