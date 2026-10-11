@@ -97,6 +97,10 @@ export interface paths {
          *     2 minutes of sending; WhatsApp: no, `422 unsupported_content`). The unsend passes the send gate and goes out in order with the
          *     conversation's other messages; the message stays in your history and takes
          *     status `unsent` once the channel removed it. Repeating the call is safe.
+         *     Only your app's outbound messages can be unsent: an inbound message's ID
+         *     answers `400 invalid_request` (`param` `message_id`). The gate's sender and
+         *     contact checks apply as for a send, so the unsend can answer `403
+         *     permission` (for example a sandbox contact who has since joined another app).
          */
         delete: operations["unsendMessage"];
         options?: never;
@@ -113,6 +117,10 @@ export interface paths {
          *     other messages. The answer shows the message with its new content; the stored
          *     message takes it once the channel accepted the edit. If the channel refuses
          *     it, you receive `message.failed` for an `edit` message naming this one.
+         *     Only your app's outbound messages can be edited: an inbound message's ID
+         *     answers `400 invalid_request` (`param` `message_id`). The gate's sender and
+         *     contact checks apply as for a send, so the edit can answer `403 permission`
+         *     (for example a sandbox contact who has since joined another app).
          */
         patch: operations["editMessage"];
         trace?: never;
@@ -1267,18 +1275,18 @@ export interface components {
          *     Each type has a page at `https://api.flow.engineer/docs/errors/<type>`, given in
          *     the error's `doc_url`; the error's `hint` says what to change for the case.
          *
-         *     - `invalid_request` (400): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like.
+         *     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
          *     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
-         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS).
+         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join code again).
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
          *     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret; a secret that was lost must be rotated again).
-         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window is closed (iMessage typing works only within 5 minutes of the contact's last message); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text.
+         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window is closed (iMessage typing works only within 5 minutes of the contact's last message); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
          *     - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first.
          *     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
          *     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
          *     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file.
          *     - `rate_limited` (429): either too many requests for this key (the per-key request limit, reported in the `RateLimit-*` headers) or sends faster than the sender's sending rate (pacing). Wait `Retry-After` (`retry_after`) seconds and retry with the same `Idempotency-Key`.
-         *     - `channel_error` (502, or in `message.failed`): the channel refused or failed the message, or timed out; `channel_code` carries its own code. Read `message`, change what the channel objected to, and send again. From typing and read receipts, which call the channel at once, it is safe to ignore. SMS codes are Flow's, the same whichever carrier network carries the message: `carrier_filtered` (a carrier's spam filter blocked it: make it read like a person's message, no shortened links), `unreachable`, `invalid_number`, `landline`, `registration_required` (the number's 10DLC or toll-free registration is not approved yet) and `carrier_error`.
+         *     - `channel_error` (502, or in `message.failed`): the channel refused or failed the message, or timed out; `channel_code` carries its own code. Read `message`, change what the channel objected to, and send again. From typing and read receipts, which call the channel at once, it is safe to ignore. SMS codes are Flow's, the same whichever carrier network carries the message: `carrier_filtered` (a carrier's spam filter blocked it: make it read like a person's message, no shortened links), `unreachable`, `invalid_number`, `landline`, `registration_required` (the number's 10DLC or toll-free registration is not approved yet), `carrier_error`, and `provider_not_configured` (the SMS sender is not fully set up on Flow's side, so nothing was sent; contact the Flow team). Flow's own codes on every channel: `channel_timeout_unknown_outcome` (in `message.failed`: the channel did not answer after the message was sent, and the resends its policy allows did not settle it, so the message may have arrived or not; check with the contact before sending it again) and `unknown_outcome` (from typing and read receipts: the call timed out after it was sent).
          *     - `not_implemented` (501): this endpoint or channel is not live yet during the beta. Use a channel that is live (Telegram, iMessage), or check the changelog.
          *     - `api_error` (500, 503): something went wrong on Flow's side. Retry with the same idempotency key after `retry_after` seconds, and quote `request_id` if it persists.
          * @enum {string}
@@ -1327,8 +1335,17 @@ export interface components {
              *     SMS: `contact_opted_out` and `consent_required` (`permission`),
              *     `quiet_hours` (`outside_window`, with `retry_after`), and
              *     `carrier_filtered`, `unreachable`, `invalid_number`, `landline`,
-             *     `registration_required` and `carrier_error` (`channel_error`). HIPAA
-             *     accounts: `hipaa_channel_not_covered` (`permission`).
+             *     `registration_required`, `carrier_error` and `provider_not_configured`
+             *     (`channel_error`). HIPAA accounts: `hipaa_channel_not_covered`
+             *     (`permission`). Simulated conversations (`permission`): `test_mode_only`,
+             *     `not_simulated`, `simulated_contact` and `simulated_conversation_limit`.
+             *     For a message that failed after it was queued (`message.failed`):
+             *     `sandbox_contact_left` (`permission`), `window_closed` and
+             *     `queued_too_long` (`outside_window`), and
+             *     `channel_timeout_unknown_outcome` (`channel_error`: the channel never
+             *     confirmed the send, so it may or may not have arrived). From typing and
+             *     read receipts, `unknown_outcome` (`channel_error`: the call timed out after
+             *     it was sent).
              */
             channel_code?: string;
             /** @description Flow's ID for this request. Quote it when asking for help. */
@@ -2471,7 +2488,14 @@ export interface components {
             stored_at: string;
             /**
              * Format: date-time
-             * @description When an endpoint first accepted it. Absent until then.
+             * @description When the event went out to a webhook endpoint. Its value depends on
+             *     where you read it. In a webhook delivery's body, it is when that delivery
+             *     attempt started (each attempt to each endpoint gets its own), unless an
+             *     endpoint had already accepted the event, in which case it is that
+             *     acceptance time. In the event log (`GET /v1/events`,
+             *     `GET /v1/events/{event_id}`, the stream), it is when the first endpoint
+             *     accepted the event, and it is absent until one has (always, for an app
+             *     with no webhook endpoints).
              */
             delivered_at?: string;
         };
@@ -3191,7 +3215,13 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description The request is malformed or a parameter is invalid (`invalid_request`). `error.param` names the parameter. */
+        /**
+         * @description The request is malformed or a parameter is invalid (`invalid_request`).
+         *     `error.param` names the parameter. Every endpoint answers this for a
+         *     `Flow-Version` header that is not a date this API serves (`param`
+         *     `Flow-Version`), and every `POST` that takes an `Idempotency-Key` for a key
+         *     over 255 characters (`param` `Idempotency-Key`).
+         */
         InvalidRequest: {
             headers: {
                 [name: string]: unknown;
@@ -3214,6 +3244,14 @@ export interface components {
         /** @description The API key is missing, malformed, unknown, revoked or expired (`authentication`). */
         Unauthenticated: {
             headers: {
+                /**
+                 * @description The authentication scheme, `Bearer realm="api.flow.engineer"`. When the
+                 *     request carried a key that is well formed but unknown, revoked or
+                 *     expired, it also says `error="invalid_token"`:
+                 *     `Bearer realm="api.flow.engineer", error="invalid_token"`. A missing or
+                 *     malformed key gets the scheme alone.
+                 */
+                "WWW-Authenticate"?: string;
                 [name: string]: unknown;
             };
             content: {
@@ -3271,6 +3309,71 @@ export interface components {
                  *       }
                  *     }
                  */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description The `Idempotency-Key` was already used (`idempotency_conflict`):
+         *     `channel_code` `body_mismatch` (a different method, path or body; use a new
+         *     key), `in_progress` (the first request with the key is still running; repeat
+         *     it after `retry_after` seconds), or `secret_not_kept` (the first request went
+         *     through and its answer carried a secret shown only once). See "Idempotency"
+         *     in the introduction.
+         */
+        IdempotencyConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "type": "idempotency_conflict",
+                 *         "message": "This Idempotency-Key was already used for a different request (another method, path or body).",
+                 *         "hint": "Use a new Idempotency-Key for this request; reuse a key only to repeat the identical request.",
+                 *         "doc_url": "https://api.flow.engineer/docs/errors/idempotency_conflict",
+                 *         "param": "Idempotency-Key",
+                 *         "channel_code": "body_mismatch"
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description The request body is larger than Flow takes (`invalid_request`): 32 MB, or
+         *     101 MB for `POST /v1/files` (a 100 MB file and its multipart framing). A body
+         *     that declares a larger `Content-Length` is refused before it is read. Send
+         *     media as a `file_id` from `POST /v1/files` or by `url` instead of inlining it.
+         */
+        PayloadTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "type": "invalid_request",
+                 *         "message": "The request body is larger than 33554432 bytes.",
+                 *         "hint": "Send a smaller body; upload media with POST /v1/files and send its file_id instead of inlining it.",
+                 *         "doc_url": "https://api.flow.engineer/docs/errors/invalid_request"
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description Not available through the API during the beta (`not_implemented`), for
+         *     example a sender of a channel the Flow team connects and disconnects for
+         *     you. The `hint` says what to do instead.
+         */
+        NotImplemented: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
                 "application/json": components["schemas"]["Error"];
             };
         };
@@ -3474,6 +3577,7 @@ export interface operations {
             403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
@@ -3515,6 +3619,7 @@ export interface operations {
             403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
@@ -3544,6 +3649,7 @@ export interface operations {
                     "application/json": components["schemas"]["Message"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
@@ -3574,7 +3680,9 @@ export interface operations {
                     "application/json": components["schemas"]["Message"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
@@ -3611,7 +3719,9 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
@@ -3656,6 +3766,7 @@ export interface operations {
             403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
@@ -3700,6 +3811,7 @@ export interface operations {
             403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
@@ -3769,6 +3881,7 @@ export interface operations {
                     "application/json": components["schemas"]["Conversation"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
@@ -3838,6 +3951,7 @@ export interface operations {
                     "application/json": components["schemas"]["Event"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
@@ -3946,6 +4060,8 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["IdempotencyConflict"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
@@ -3988,9 +4104,11 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
+            502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
         };
     };
@@ -4075,7 +4193,11 @@ export interface operations {
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["PermissionDenied"];
+            409: components["responses"]["IdempotencyConflict"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
+            501: components["responses"]["NotImplemented"];
+            502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
         };
     };
@@ -4103,6 +4225,7 @@ export interface operations {
                     "application/json": components["schemas"]["Sender"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
@@ -4133,10 +4256,12 @@ export interface operations {
                     "application/json": components["schemas"]["Sender"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
+            501: components["responses"]["NotImplemented"];
             default: components["responses"]["Error"];
         };
     };
@@ -4213,8 +4338,11 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["IdempotencyConflict"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
+            502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
         };
     };
@@ -4242,6 +4370,7 @@ export interface operations {
                     "application/json": components["schemas"]["Template"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
@@ -4272,9 +4401,11 @@ export interface operations {
                     "application/json": components["schemas"]["Deleted"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
+            502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
         };
     };
@@ -4345,6 +4476,8 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["IdempotencyConflict"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
@@ -4373,6 +4506,7 @@ export interface operations {
                     "application/json": components["schemas"]["WebhookEndpoint"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
@@ -4403,6 +4537,7 @@ export interface operations {
                     "application/json": components["schemas"]["Deleted"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
@@ -4440,6 +4575,7 @@ export interface operations {
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
@@ -4481,6 +4617,8 @@ export interface operations {
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["IdempotencyConflict"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
@@ -4545,6 +4683,7 @@ export interface operations {
                     "application/json": components["schemas"]["Contact"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
@@ -4573,6 +4712,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
@@ -4600,6 +4740,7 @@ export interface operations {
                     "application/json": components["schemas"]["AppContext"];
                 };
             };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
@@ -4628,6 +4769,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["InvalidRequest"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
@@ -4656,6 +4798,7 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
@@ -4684,6 +4827,7 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
@@ -4756,6 +4900,8 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            409: components["responses"]["IdempotencyConflict"];
+            413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
@@ -4823,6 +4969,8 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            409: components["responses"]["IdempotencyConflict"];
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];

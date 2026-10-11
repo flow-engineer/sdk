@@ -23,6 +23,8 @@ Typing and read receipts go to the channel at once, so they answer HTTP 409 `out
 - WhatsApp: you are starting a conversation with someone who never wrote to the number.
 - iMessage: the contact has never messaged the line, or has not opted in to it.
 - iMessage: you turned typing on more than 5 minutes after the contact's last message.
+- WhatsApp, in `message.failed` (`channel_code` `window_closed`): the window was open when you sent, but closed while the message waited in the queue (for example behind the sender's pacing), so Flow did not send it.
+- In `message.failed` (`channel_code` `queued_too_long`): the message waited in the queue longer than its sender allows, for example while the sender was paused or its credentials were rejected, so Flow did not send it late.
 - SMS: it is inside the sender's quiet hours where the contact lives (`quiet_hours`), and they have not texted in the last hour. When their area code does not tell their time zone, every US time zone must be outside the quiet hours.
 
 ## How to fix it
@@ -34,6 +36,8 @@ curl https://api.flow.engineer/v1/messages \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -d '{"sender":"snd_...","to":{"contact":"ct_..."},"content":{"type":"template","template_id":"tpl_...","language":"en","params":{"body":["Asha"]}}}'
 ```
+
+For `window_closed`, send the message again as an approved template, or wait for the contact to write. For `queued_too_long`, send it again if it still applies, once the sender is `active` again (`sender.status_changed`).
 
 On iMessage, ask the contact to message the line first (share its handle, or its opt-in link from the sender's `address.link` when the line has one, for example in your app or website), then reply in the conversation their message opens.
 
