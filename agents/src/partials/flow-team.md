@@ -1,4 +1,4 @@
-Some things are set up by the Flow team, not through the API: SMS numbers, WhatsApp numbers (Flow's or your own WhatsApp Business Account), iMessage lines, pricing and support. Write to the Flow team at **{{team_contact}}**. For each, what to do today, what to build meanwhile, and what to send.
+Some things are set up by the Flow team, not through the API: SMS numbers, WhatsApp numbers (Flow's or your own WhatsApp Business Account), iMessage lines, pricing and support. Write to the Flow team at {{team_contacts|or}}. For each, what to do today, what to build meanwhile, and what to send.
 
 **Never send secrets in chat or email, and never paste them to a coding agent or commit them**: API keys, bot tokens, provider auth tokens, access tokens, app secrets. The Flow team tells you how to hand credentials over, and Flow stores them encrypted. A coding agent that finds credentials in `.env` or a secret manager leaves them where they are and tells the person this.
 
