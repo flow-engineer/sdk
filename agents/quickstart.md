@@ -111,8 +111,8 @@ No API key is sent. The answer (`201`, abridged):
   "allowance": {"tier": "anonymous", "contacts": {"limit": 1, "used": 0}, "messages_per_contact": 50,
                 "messages": {"limit": 50, "used": 0, "remaining": 50}, "expires_at": "2026-10-17T09:00:00Z"},
   "senders": [{"id": "snd_...", "channel": "telegram", "kind": "shared",
-               "address": {"username": "flowmessagingtest_bot",
-                           "link": "https://t.me/flowmessagingtest_bot?start=wild-otter-04508705"},
+               "address": {"username": "FlowSandboxBot",
+                           "link": "https://t.me/FlowSandboxBot?start=wild-otter-04508705"},
                "join_code": "join wild-otter-04508705"}]
 }
 ```
@@ -285,10 +285,10 @@ curl -s "https://api.flow.engineer/v1/senders?channel=telegram" -H "Authorizatio
     "channel": "telegram",
     "kind": "shared",
     "livemode": false,
-    "display_name": "flowmessagingtest_bot",
+    "display_name": "FlowSandboxBot",
     "status": "active",
-    "address": {"username": "flowmessagingtest_bot",
-                "link": "https://t.me/flowmessagingtest_bot?start=wild-otter-04508705"},
+    "address": {"username": "FlowSandboxBot",
+                "link": "https://t.me/FlowSandboxBot?start=wild-otter-04508705"},
     "join_code": "join wild-otter-04508705",
     "limits": {"new_contacts_per_day": 100000, "new_contacts_per_hour": 10000},
     "created_at": "2026-10-09T08:00:00Z"
