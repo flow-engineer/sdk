@@ -496,7 +496,17 @@ last event you saw: nothing is lost.
 ### b) Webhook: a public HTTPS URL
 
 The URL must be public HTTPS (Flow will not call `localhost` or private addresses).
-For local development use the WebSocket above, or a tunnel (`cloudflared tunnel --url
+For local development use the WebSocket above. To run your webhook handler itself on
+localhost, no tunnel needed:
+
+```bash
+npx @flow-engineer/messaging listen --forward-to http://localhost:3000/flow/webhook
+```
+
+It reads the stream and `POST`s each event to that URL with the headers and signature
+of a real delivery, signed with `FLOW_MESSAGING_WEBHOOK_SECRET` (made and saved to `.env` when
+unset); a `{"reply": ...}` answer is sent into the conversation. `--events a,b` filters,
+`--after evt_...` replays first. Or use a tunnel (`cloudflared tunnel --url
 http://localhost:3000`, `ngrok http 3000`) and register the tunnel's `https://` URL.
 The answer's `secret` (`whsec_...`) is shown **only once**: store it as
 `FLOW_MESSAGING_WEBHOOK_SECRET`.
@@ -795,7 +805,8 @@ Messages in one conversation go out one at a time, in the order accepted. Add
 Other content: `media` (`kind` `image|video|document|audio`, plus `url` or `file_id`
 from `POST /v1/files`, optional `caption`; uploads of documents and archives are
 refused with `422 unsupported_content` for now, as are sends of documents contacts
-sent you, until they can be malware-scanned), `voice`, `buttons`, `reaction`
+sent you, until they can be malware-scanned: send a document by public `https` `url`
+instead), `voice`, `buttons`, `reaction`
 (`message_id`, `emoji`, `null` removes), `location`, `contact_card`, `effect`.
 
 Text is 1 to the channel's `max_text_length` characters:
@@ -862,7 +873,9 @@ with its new token (above); those queued for more than 72 hours fail with
 
 People reach your bot at `address.link`. Their first message (usually `/start`) gives
 `conversation.started` (`data.via` = `inbound`) and `message.received`, delivered to
-endpoints and streams of your **live** key.
+endpoints and streams of your **live** key. Webhook endpoints and their secrets belong
+to one mode: register your endpoint again with the live key and store the new
+`whsec_...` secret (the test endpoint keeps getting sandbox events).
 
 To disconnect a bot, call `DELETE /v1/senders/{sender_id}` with your live key: Flow
 removes the bot's webhook, deletes its stored token and retires the sender (`status`
@@ -880,6 +893,9 @@ connect it with `POST /v1/senders`; it becomes a new sender.
   different method, path or body (a bug: make a new key); `in_progress`, the first
   request is still running (wait `retry_after` seconds, then retry with the same key).
 - `429` and `5xx` answers are not stored: retrying with the same key runs again.
+- It covers your requests, not the channel: when a channel takes a send but never
+  answers, Flow resends it once (Telegram cannot tell whether the first arrived, so the
+  person can rarely get it twice), then fails it with `channel_timeout_unknown_outcome`.
 - Webhook-answer replies use the event `id`; stream frames use `ref`.
 
 ## 9. Errors: switch on `error.type`
@@ -906,19 +922,19 @@ the same error shape in `data.message.error`).
 
 | `error.type` | HTTP | What to do |
 |---|---|---|
-| `invalid_request` | 400 | Fix the request; `param` names the field. Do not retry. |
+| `invalid_request` | 400 | Fix the request; `param` names the field. Do not retry. Send, start and edit bodies refuse any top-level field they do not list (for example `send_at`: there are no scheduled sends). |
 | `authentication` | 401 | Check `FLOW_MESSAGING_KEY`. `channel_code` `sandbox_key_expired`: the sandbox key passed its 7 days (see below). Do not retry. |
 | `permission` | 403 | Not allowed: a test key messaging someone who has not joined your app on the sandbox, a test key connecting a bot, connecting a Flow sandbox bot's token, sending from a sender `flagged` because Telegram rejected its token (connect the bot again), starting an iMessage conversation with someone who never wrote, the sandbox allowance (see below). Do not retry. |
 | `not_found` | 404 | Wrong ID, or it belongs to the other mode (test vs live). |
 | `idempotency_conflict` | 409 | See section 8. |
 | `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. |
-| `unsupported_content` | 422 | The channel cannot show it: resend with `"fallback": "auto"` or other content. |
+| `unsupported_content` | 422 | The channel cannot show it: resend with `"fallback": "auto"` or other content. An upload of a document or archive (PDF, Office, zip) is refused too: send it by public `https` `url` instead. |
 | `file_blocked` | 422 | The upload failed the malware scan and was not stored. |
 | `new_contact_limit` | 429 | The sender's budget for new conversations is used up. `retry_after` can be an hour: queue the start, do not block on it. |
-| `sender_throttled` | 429 | Abuse signals tripped; new conversations wait until `retry_after` (can be long). Replies still go. |
+| `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` (24 hours by default). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |
 | `channel_error` | in `message.failed` (502 from typing/read/file download) | The channel refused or failed it; `channel_code` is its code. A 502 may be retried; a failed message needs a new send. |
-| `not_implemented` | 501 | Not available through the API (for example requesting an iMessage, SMS or WhatsApp sender: the Flow team connects those). |
+| `not_implemented` | 501 | Not available through the API. `POST /v1/senders` for an iMessage, SMS or WhatsApp sender answers it first, with any key: the Flow team connects those. Build meanwhile on simulated conversations of that channel (`POST /v1/test/conversations`). |
 | `api_error` | 500, 503 | Our side. Retry with backoff and the same key. |
 
 Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code`:
@@ -973,6 +989,36 @@ the window resets). Over the limit you get `429 rate_limited` with `Retry-After`
 are also paced per sender by the send gate: messages per second (`429 rate_limited`)
 and new conversations per hour and per day, growing during a new sender's warm-up
 (`429 new_contact_limit`).
+
+### Sending limits and abuse signals
+
+Defaults for dedicated senders (your own bot, line or number). A sender's `limits`
+(`GET /v1/senders/{sender_id}`: `messages_per_second`, `new_contacts_per_day`,
+`new_contacts_per_hour`) shows its own numbers.
+
+| | Pace | New conversations |
+|---|---|---|
+| Telegram bot | 20 a second, burst 40 | no practical cap (a bot reaches only people who started it) |
+| WhatsApp number | Meta's throughput | 50 a day, 10 an hour, and Meta's tier (`limits.whatsapp_tier`) |
+| SMS number | set by the number's registration (10DLC, toll-free) | 1000 a day, 200 an hour |
+| iMessage line | spaced out by the line's own rules | 4 an hour, and a daily cap that grows over the line's first weeks |
+
+Faster than the pace: `429 rate_limited` with `Retry-After`. Past the budget: `429
+new_contact_limit` with `retry_after`; queue the start, do not loop.
+
+Any of these signals throttles a dedicated sender for 24 hours (`sender.status_changed`,
+`status` `throttled`): starts answer `429 sender_throttled` with `retry_after`, replies
+into existing conversations still go, and it recovers by itself. The start that trips a
+signal still goes.
+
+- The same first message (text or caption, ignoring case and spacing) to 20 new
+  contacts within 60 minutes. Templates and media without a caption do not
+  count: personalise first messages.
+- Of the starts from the last 72 hours that are more than 24 hours old, at
+  least 20, with 80% or more never answered.
+- 10 contacts blocking the sender within 24 hours.
+
+iMessage lines have stricter limits of their own.
 
 ## 11. Channel notes
 
@@ -1096,6 +1142,8 @@ Cursor (`~/.cursor/mcp.json`):
 {"mcpServers": {"flow": {"url": "https://api.flow.engineer/mcp", "headers": {"Authorization": "Bearer ${env:FLOW_MESSAGING_KEY}"}}}}
 ```
 
+Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session). Added with an empty key already? `export FLOW_MESSAGING_KEY=fk_test_...`, then `claude mcp remove flow`, run the add command again, and restart.
+
 Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
 
 Without a key, `/mcp` answers `401` and its `hint` gives the one call that gets a test
@@ -1208,7 +1256,7 @@ ws.close();
 - Register `https://<your-app>/api/flow` once with `POST /v1/webhook_endpoints` and store the `whsec_...` secret as `FLOW_MESSAGING_WEBHOOK_SECRET`. Verify `Flow-Signature` on the raw body (in TypeScript `flow.webhooks.handler(...)` does it), dedupe on `event.id`, answer within 10 seconds.
 - Fast answer: return `{"reply": ...}` in the webhook answer. Slow agent: answer `200 {}` at once, then reply with `POST /v1/conversations/{conversation_id}/messages` (on Vercel inside `waitUntil`). Keep conversation state in your database, keyed by `conversation.id`.
 - Missed deliveries are retried for 3 days; to catch up, read `GET /v1/events?after=evt_...` from a cron job.
-- Previews and local runs: Flow calls only public HTTPS URLs; use a tunnel, or the stream.
+- Previews and local runs: Flow calls only public HTTPS URLs. Locally, no tunnel needed: `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow` reads the stream and `POST`s each event to your handler, signed like a real delivery with `FLOW_MESSAGING_WEBHOOK_SECRET`.
 
 ### Add Flow to the IDE (MCP)
 
@@ -1230,13 +1278,16 @@ Connect its token with a live key (`POST /v1/senders`). Flow sets the bot's webh
 ### Broadcast to many people
 
 - There is no bulk endpoint: one `POST /v1/messages` per person, each with its own `Idempotency-Key` (for example `campaign-7-ct_...`), from a queue of your own.
-- Telegram: a bot can message only people who started it, so a broadcast goes to people who wrote to your bot. Each sender sends about 20 messages a second (burst 40); faster answers `429 rate_limited` with `Retry-After`. The per-key request limit is 600 a minute on the free plan (`RateLimit-*` headers), so 5,000 messages take about 9 minutes.
+- Telegram: a bot can message only people who started it, so a broadcast goes to people who wrote to your bot. Each bot sends about 20 messages a second (burst 40); faster answers `429 rate_limited` with `Retry-After`. The per-key request limit is 600 a minute on the free plan (`RateLimit-*` headers), so 5,000 messages take about 9 minutes.
 - New conversations per sender are budgeted: the sender's `limits` (`new_contacts_per_day`, `new_contacts_per_hour`) show today's numbers; past them a start answers `429 new_contact_limit` with `retry_after`: queue it, do not loop. iMessage lines start no cold conversations; WhatsApp needs a template and Meta's tier caps new contacts a day; SMS needs consent.
+- The same first message to 20 new contacts within an hour throttles a dedicated sender for 24 hours (`429 sender_throttled` on starts; replies still go). Personalise first messages; templates and media without a caption do not count. Limits and signals: quickstart section 10.
 - Every send still ends `message.sent` or `message.failed`: count those, not the `202`s.
 
 ### Delete a person's data (GDPR)
 
 `DELETE /v1/contacts/{contact_id}` (`204`, repeat-safe) erases the contact's name and address, all their message content and files, their events' payloads, pending deliveries and queued sends at once, and emits `contact.deleted`. IDs and timestamps stay. Find the contact ID on their events (`conversation.contact`) or `GET /v1/contacts`; there is no lookup by phone number or username. Content is otherwise kept 30 days.
+
+Erasure removes Flow's copy only: messages already delivered stay on the person's phone. To remove those too, unsend them first (`DELETE /v1/messages/{message_id}`: Telegram within 48 hours, iMessage within 2 minutes; WhatsApp and SMS cannot), wait until each shows `status` `unsent`, then erase. After erasure nothing can be unsent.
 
 ### A leaked API key
 
@@ -1260,8 +1311,16 @@ One app holds many senders: connect each customer's bot with your live key (`POS
 ### Delivery guarantees
 
 - Inbound: every message becomes an event, stored before Flow answers the channel, delivered at least once and in order per conversation (dedupe on `event.id`). Webhooks retry for 3 days (5 s up to 12 h apart); the event log keeps everything for 30 days.
-- Outbound: a `202` means stored and queued; every send then ends `message.sent` or `message.failed`, never silently. One conversation sends one message at a time, in order. Retryable channel errors are retried by Flow. When a send's outcome is unknown (the channel took it but never answered), Flow resends it once, so a rare duplicate is possible on Telegram.
-- Requests: `Idempotency-Key` on every POST makes your own retries safe for 24 hours.
+- Outbound: a `202` means stored and queued; every send then ends `message.sent` or `message.failed`, never silently. One conversation sends one message at a time, in order. Retryable channel errors are retried by Flow. When a send's outcome is unknown (the channel took it but never answered), Flow resends it once, so a rare duplicate is possible on Telegram; if that is unknown too, the message fails with `channel_timeout_unknown_outcome` (it may have arrived: check before sending again).
+- Requests: `Idempotency-Key` on every POST makes your own retries safe for 24 hours; it cannot undo the channel-side resend above.
+
+### Sent but not received: a checklist
+
+1. **Did the send end?** `GET /v1/messages/{message_id}`, or `GET /v1/events?conversation=conv_...&type=message.sent&type=message.failed`. `queued`: still waiting (an earlier message in the conversation, the sender's pace, or a bot whose token Telegram rejected: reconnect it). `sent`: the channel took it (Telegram reports nothing after that). `failed`: read `error.type`, `error.channel_code` and `error.hint`.
+2. **Common `message.failed` codes**: `permission` with `sandbox_contact_left` (the person joined another app on the shared sandbox bot while the message waited: they send your join code again); `channel_error` with `channel_code` `403` on Telegram (the person blocked the bot, or never started it); `outside_window` (iMessage: they have not written recently; WhatsApp: `window_closed`, send a template; `queued_too_long`); `channel_timeout_unknown_outcome` (may have arrived).
+3. **Sandbox (test key)**: the person joined *your* app: opened the sandbox bot's `address.link` and tapped Start, or sent your join code. One person belongs to one app per sandbox bot, so joining another app moves them (sends answer `403 permission`). A key made without an account expires after 7 days and its contact is removed. Allowance refusals are `403 permission` (`sandbox_allowance_used`, `sandbox_contact_limit`).
+4. **Your own bot (live key)**: the person pressed Start on that bot (a Telegram bot cannot write first), and you send with the live key: sandbox conversations belong to the test key and answer `404 not_found` with a live one.
+5. **On the phone**: the chat with the right bot (the sandbox bot and your own bot are different chats) on the Telegram account that joined.
 
 ### Tests in CI, without a phone
 

@@ -15,7 +15,7 @@ Flow never converts content silently. When a channel cannot show what you sent (
 
 - The content type is not supported on the conversation's channel.
 - A file is larger than the channel takes, or of a type Flow does not send.
-- A document or archive (PDF, Office files, zip and the like) was uploaded or sent by `file_id` while malware scanning is not on yet. Send a link to it as text, or an image of it.
+- A document or archive (PDF, Office files, zip and the like) was uploaded or sent by `file_id` while malware scanning is not on yet. Host it yourself and send it by public `https` `url` (`{"type": "media", "kind": "document", "url": "https://..."}`: the channel fetches it), or send a link to it as text, or an image of it.
 
 ## How to fix it
 

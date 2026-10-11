@@ -92,7 +92,7 @@ curl https://api.flow.engineer/v1/files \
   -F file=@receipt.png -F channel=telegram
 ```
 
-Files up to 100 MB are taken; with `channel` set, the file is checked against that channel's limit at once. Until malware scanning is on, uploads of documents and archives (PDF, Office files, zip and the like) are refused with `422` [`unsupported_content`](/errors/unsupported_content), and so are sends of documents people sent you; images, audio and video are not affected. Files are kept for your plan's retention period (30 days by default).
+Files up to 100 MB are taken; with `channel` set, the file is checked against that channel's limit at once. Until malware scanning is on, uploads of documents and archives (PDF, Office files, zip and the like) are refused with `422` [`unsupported_content`](/errors/unsupported_content), and so are sends of documents people sent you; images, audio and video are not affected. To send a document meanwhile, host it yourself and give its public HTTPS `url` (`"kind": "document"`). Files are kept for your plan's retention period (30 days by default).
 
 ## Typing, read receipts, edits and reactions
 

@@ -29,10 +29,10 @@ curl https://api.flow.engineer/v1/senders \
     Sign in to the [dashboard](https://api.flow.engineer/admin) with GitHub, switch to **Live**, and make an `fk_live_...` key on the [Keys page](https://api.flow.engineer/admin/keys?mode=live) (test keys take one call, see [Keys and sign-in](/get-a-key)). Keep it on your server only, in its own variable (for example `FLOW_MESSAGING_LIVE_KEY`) so it does not replace your test key. Live Telegram with your own bot is self-serve; iMessage lines and WhatsApp numbers are arranged with the Flow team.
   </Step>
   <Step title="Get a dedicated sender">
-    Telegram: `POST /v1/senders` with your bot's token; it is `active` at once. iMessage and WhatsApp: the Flow team connects a line or number to your app, and it then appears in `GET /v1/senders` with your live key (`POST /v1/senders` with `"channel": "imessage"` or `"whatsapp"` answers `501 not_implemented`).
+    Telegram: `POST /v1/senders` with your bot's token; it is `active` at once. iMessage and WhatsApp: the Flow team connects a line or number to your app, and it then appears in `GET /v1/senders` with your live key (`POST /v1/senders` with `"channel": "imessage"` or `"whatsapp"` answers `501 not_implemented` with any key; build meanwhile on [simulated conversations](/concepts/test-and-live-mode) of that channel).
   </Step>
   <Step title="Register your webhook with the live key">
-    Webhook endpoints belong to one mode. `POST /v1/webhook_endpoints` again with the live key and store the new `whsec_...` secret.
+    Webhook endpoints and their signing secrets belong to one mode: your test endpoint never receives live events. `POST /v1/webhook_endpoints` again with the live key and store the new `whsec_...` secret where your live deployment reads it; the test endpoint keeps its own secret.
   </Step>
   <Step title="Switch the key">
     Set `FLOW_MESSAGING_KEY` to the live key and deploy. Watch `message.failed` and `sender.status_changed` for the first days.
@@ -91,7 +91,7 @@ Create a bot with **@BotFather** and send its token: `POST /v1/senders` with `ch
 
 ## Before you launch
 
-- Handle `outside_window`, `new_contact_limit` and `sender_throttled` (see [Errors](/errors/outside_window)).
+- Handle `outside_window`, `new_contact_limit` and `sender_throttled` (see [Errors](/errors/outside_window)). Know the [sending limits and abuse signals](/concepts/send-gate#rule-3-abuse-protection): the same first message to many new contacts throttles a sender for 24 hours.
 - Deduplicate webhook deliveries on the event `id`, and use event IDs as idempotency keys.
 - Subscribe your webhook only to the event types you use.
 - Message content and media are kept for your plan's retention period (30 days by default); store anything you need longer yourself.

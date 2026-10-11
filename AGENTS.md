@@ -134,8 +134,8 @@ spec and the error pages. Edit the source, regenerate, commit both:
   `typescript/test/unit/agent-facts.test.ts` fails when the facts differ from the SDK
   and CLI (base URL, MCP URL and name, every `FLOW_*` variable). In the service,
   a generated-code check fails when its copies are stale, and a facts test fails when
-  the facts differ from its code (text caps per channel, allowance defaults, env var
-  names, MCP tool names).
+  the facts differ from its code (text caps per channel, allowance defaults, sending
+  limits and abuse thresholds, env var names, MCP tool names).
 - **MCP rule:** apps use the REST API (or the SDK once
   published) at runtime; the hosted MCP server is an optional development tool.
   Adding it to a developer's coding tools is the project owner's decision: agent docs
