@@ -13,7 +13,8 @@ Environment (set by check-examples.sh):
   E2E_LIVE_KEY_FILE    a file holding a fk_live_ key of a local tenant
   E2E_TS_DIR           a folder with node_modules and each TypeScript example as <name>.ts
   E2E_SDK_DIR          a folder with this repo's SDK installed and each SDK example as <name>.ts
-  E2E_PYTHON           a Python with the Python examples' requirements installed
+  E2E_PYTHON           a Python with the Python examples' requirements and the Python SDK
+                       (python/) installed
   E2E_EXAMPLES         the examples/ folder
 Arguments: scenario names to run (default: all).
 """
@@ -135,6 +136,11 @@ def py(name, *args, env):
     return Proc(f"{name} (Python)", [PYTHON, os.path.join(EXAMPLES, name, "python", "main.py"), *args], env, os.path.join(EXAMPLES, name, "python"))
 
 
+def py_sdk(name, *args, env):
+    """An example written with the Python SDK: examples/<name>/agent.py."""
+    return Proc(f"{name} (Python SDK)", [PYTHON, os.path.join(EXAMPLES, name, "agent.py"), *args], env, os.path.join(EXAMPLES, name))
+
+
 # ---------------------------------------------------------------- the Telegram user
 
 class User:
@@ -250,6 +256,24 @@ def echo(run):
         check(call["params"]["text"] == "You said: hello from the e2e test", f"echo sent {call['params']['text']!r}")
         p.expect(r"^\[conv_\w+\] hello from the e2e test$")
         p.expect(r"^  -> sent msg_\w+$")
+    finally:
+        p.stop()
+    return p
+
+
+def echo_sdk():
+    """examples/echo/agent.py: the echo agent with the Python SDK's event stream."""
+    sk = sandbox_key()
+    p = py_sdk("echo", env={"FLOW_MESSAGING_KEY": sk["key"]})
+    try:
+        p.expect(rf"^Echo agent ready\. .*\(on iMessage, text: join {re.escape(sk['app']['sandbox_join_code'])}\)\.$")
+        u = User()
+        join(u, sk)
+        after = u.seq()
+        u.say("hello from the e2e test")
+        call = u.receive(after)
+        check(call["params"]["text"] == "You said: hello from the e2e test", f"echo sent {call['params']['text']!r}")
+        p.expect(r"^\[telegram\] conv_\w+: hello from the e2e test$")
     finally:
         p.stop()
     return p
@@ -494,6 +518,7 @@ SCENARIOS = {
     "own-telegram-bot/typescript": lambda: own_telegram_bot(ts),
     "ask-and-wait/sdk simulated contact": lambda: ask_and_wait_simulated(sdk),
     "ask-and-wait/sdk telegram": lambda: ask_and_wait_telegram(sdk),
+    "echo/python-sdk": echo_sdk,
 }
 
 

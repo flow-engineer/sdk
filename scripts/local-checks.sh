@@ -6,6 +6,8 @@
 #                                       (scripts/agent-docs.mjs --check) +
 #                                       TypeScript (typecheck, lint, unit tests, build,
 #                                       package contents, integration)
+#                                       + Python (scripts/check-python.sh: generated sources,
+#                                       ruff, mypy, unit tests, build, package contents)
 #                                       + the plain-HTTP examples (scripts/check-examples.sh:
 #                                       typecheck, byte-compile, and run each one end to end)
 #   EXAMPLES=1 scripts/local-checks.sh  also typecheck the SDK examples against their real dependencies
@@ -52,6 +54,9 @@ node -e "require('./dist/index.cjs').FlowMessaging" && node --input-type=module 
 echo "ok"
 step "typescript: package is fit to publish (scripts/check-public.sh --package)"
 "$root/scripts/check-public.sh" --package
+
+step "python: generated sources, ruff, mypy, unit tests, build, package (scripts/check-python.sh)"
+"$root/scripts/check-python.sh"
 
 step "typescript: integration (local Flow Messaging service)"
 server="${FLOW_MESSAGING_DIR:-$root/../flow-messaging}"

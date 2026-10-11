@@ -3,8 +3,10 @@
 #   - typescript/src/generated/openapi.ts is stale (npm run check-generated);
 #   - docs/openapi.yaml is not an identical copy of openapi/openapi.yaml (a real file:
 #     Mintlify builds only the docs/ folder and does not follow a symlink out of it);
-#   - the TypeScript SDK's API_VERSION (sent as Flow-Version), or a `Flow-Version:` date
-#     in the README, llms.txt or the agent files, differs from the spec's info.version.
+#   - the TypeScript or Python SDK's API_VERSION (sent as Flow-Version), or a
+#     `Flow-Version:` date in the README, llms.txt or the agent files, differs from the
+#     spec's info.version.
+# (The Python SDK's generated models are checked by scripts/check-python.sh.)
 # With a service checkout at ${FLOW_MESSAGING_DIR:-../flow-messaging}, it also compares
 # the service's api/openapi.yaml: a difference is a warning (a spec PR lands before the
 # service regenerates), and fails only with STRICT_SERVICE_SPEC=1.
@@ -47,6 +49,12 @@ else
     ok "TypeScript API_VERSION $sdk matches info.version"
   else
     bad "TypeScript API_VERSION is '${sdk:-unset}' but the spec's info.version is $version (typescript/src/core.ts)"
+  fi
+  pysdk=$(sed -n 's/^API_VERSION = "\([^"]*\)".*/\1/p' "$root/python/src/flow_messaging/_constants.py")
+  if [ "$pysdk" = "$version" ]; then
+    ok "Python API_VERSION $pysdk matches info.version"
+  else
+    bad "Python API_VERSION is '${pysdk:-unset}' but the spec's info.version is $version (python/src/flow_messaging/_constants.py)"
   fi
   stale=$(grep -rnoE 'Flow-Version: ?`?[0-9]{4}-[0-9]{2}-[0-9]{2}' "$root/typescript/README.md" "$root/README.md" "$root/llms.txt" "$root/plugin" 2>/dev/null | grep -v "$version" || true)
   if [ -n "$stale" ]; then

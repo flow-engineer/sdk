@@ -1,0 +1,90 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flow-messaging"
+version = "0.1.0"
+description = "Flow Messaging SDK: let an AI agent talk with people on WhatsApp, Telegram and iMessage through one API. Typed sync and async clients, live event stream, webhook verification."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "Flow" }]
+keywords = ["whatsapp", "telegram", "imessage", "messaging", "ai-agent", "agents", "chatbot", "llm", "webhooks", "flow-messaging"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Communications :: Chat",
+  "Typing :: Typed",
+]
+dependencies = [
+  "httpx>=0.27,<1",
+  "pydantic>=2.7,<3",
+  "websockets>=13,<18",
+]
+
+[project.urls]
+Homepage = "https://docs.flow.engineer"
+Repository = "https://github.com/flow-engineer/sdk"
+Issues = "https://github.com/flow-engineer/sdk/issues"
+
+[dependency-groups]
+# The exact generator version keeps src/flow_messaging/_models.py reproducible.
+dev = [
+  "datamodel-code-generator==0.83.0",
+  "pyyaml>=6",
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "respx>=0.21",
+  "ruff>=0.6",
+  "mypy>=1.11",
+  "build>=1.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flow_messaging"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/flow_messaging", "README.md", "LICENSE", "CHANGELOG.md", "pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["src/flow_messaging/_models.py"]
+
+[tool.ruff.format]
+# Generated from _async by scripts/generate.py, which keeps the async layout.
+exclude = ["src/flow_messaging/_sync/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF"]
+ignore = ["E501", "RUF022"]
+
+[tool.ruff.lint.per-file-ignores]
+# Renames in the generated sync code change the import order.
+"src/flow_messaging/_sync/*" = ["I001"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src/flow_messaging"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "flow_messaging._models"
+disable_error_code = ["misc", "assignment"]
