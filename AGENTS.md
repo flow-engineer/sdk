@@ -120,7 +120,8 @@ spec and the error pages. Edit the source, regenerate, commit both:
   installs), `docs/skill.md` and `markdown.instructions` in `docs/docs.json` (from
   `agents/src/docs-instructions.md`), and refills the marked regions (`<!-- agents:name -->`,
   `{/* agents:name */}` in MDX) of `README.md`, `typescript/README.md`, `docs/mcp.md`,
-  `docs/coding-agents.mdx` and `plugin/skills/flow-messaging/reference/cli-mcp.md`.
+  `docs/coding-agents.mdx`, `docs/guides/recipes.mdx` and
+  `plugin/skills/flow-messaging/reference/cli-mcp.md`.
   Text outside the regions in those pages is hand-written.
 - **Copied into the service:** its `make generate` copies every top-level file of
   `agents/` (with `facts.json`), as it copies `docs/errors/`; the service embeds and

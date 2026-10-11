@@ -39,11 +39,13 @@ key_prefixes:
   fk_live_: live mode; your dedicated senders: your own Telegram bot (self-serve, live key from the dashboard), an iMessage line (arranged with the Flow team)
 sandbox_join: open the sandbox sender's address.link (https://t.me/<bot>?start=<code>) and tap Start,
               or send its join_code text ("join wild-otter-04508705")
-simulated_contacts: POST /v1/test/conversations, then POST /v1/test/conversations/{id}/inbound   # test keys; no phone; free (not in the allowance); section 2
+simulated_contacts: POST /v1/test/conversations, then POST /v1/test/conversations/{id}/inbound   # test keys; no phone; free: no contact slot, no messages; simulated: true; section 2
 version_header: "Flow-Version: 2026-11-01"   # optional; pins the API version
 content_type: application/json               # except POST /v1/files (multipart/form-data)
 idempotency_header: "Idempotency-Key: <unique string, max 255 chars>"   # every POST; kept 24 h
-receive_events: webhook (public HTTPS URL) or WebSocket GET wss://api.flow.engineer/v1/stream (no public URL; best for local dev)
+receive_events: webhook (public HTTPS URL) or WebSocket GET wss://api.flow.engineer/v1/stream (no public URL; best for local dev; starts live unless ?after=evt_...)
+event_log: GET /v1/events?after=evt_...&before=evt_...&limit=1..100&type=message.received&type=...&conversation=conv_...   # oldest first; {data, has_more}; section 3c
+recipes: section 14   # ask and wait for a reply, many bots, serverless, files, reminders, broadcasts, GDPR, leaked key, CI tests, ...
 webhook_signature_header: "Flow-Signature: t=<unix>,v1=<hex hmac-sha256>"
 webhook_signed_payload: "t.{t}.{raw body}"   # HMAC key = the endpoint secret, whsec_ prefix included
 webhook_timeout_seconds: 10
@@ -324,7 +326,12 @@ Good to know:
 
 A test key can also play the person's side itself, for automated tests or when no
 phone is at hand. A **simulated contact** exists only inside Flow, on `telegram`,
-`whatsapp`, `imessage` or `sms`:
+`whatsapp`, `imessage` or `sms`. **Simulated conversations are free: they take no
+sandbox contact slot and use no messages**, also on an app made without an account
+(its one contact stays free for your own phone), so test on the app you have; never
+make a second app for it. Real and simulated never mix: simulated conversations,
+contacts and the events' `conversation` carry `simulated: true`, real ones have no
+`simulated` field.
 
 ```bash
 # 1. A conversation with a new simulated contact (201; made-up address, so each call is fresh)
@@ -380,7 +387,7 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
 - A HIPAA account (`hipaa` on the account in `GET /v1/app`) can simulate only SMS:
   a simulated `telegram`, `whatsapp` or `imessage` conversation, or a turn in one made before
   the flag was set, answers `403 permission` (`hipaa_channel_not_covered`).
-- Free: simulated traffic is not in the sandbox allowance. An app has at most 500
+- Limits: an app has at most 500
   simulated conversations (then `403 permission`, `simulated_conversation_limit`:
   reuse conversations, or post an address that has one), and a key makes at most
   120 requests a minute to `/v1/test/` (`429 rate_limited`). A media turn refers
@@ -534,6 +541,28 @@ There is no "send a test event" endpoint. Join the sandbox (section 2) and write
 the bot. When the Flow MCP tools are available to you, `get_webhook_deliveries` (what
 Flow sent, your status code and answer, the next retry) and `replay_event` help too
 (section 12).
+
+### c) Event log: `GET /v1/events` (catch up, poll)
+
+Every event webhooks and the stream deliver is also in the app's event log (kept as
+long as your plan's retention, 30 days today). Read it oldest first:
+
+```bash
+curl -s "https://api.flow.engineer/v1/events?type=message.received&type=message.failed&after=evt_...&limit=100" \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+# {"data": [{"id": "evt_...", "type": "message.received", ...}], "has_more": false}
+```
+
+| Parameter | Meaning |
+|---|---|
+| `after` | An event ID (`evt_...`): only the events after it. Omit to start at the oldest. |
+| `before` | An event ID: only the events before it. |
+| `limit` | 1 to 100 per page. |
+| `type` | Only these event types; repeat it for several (at most 20). |
+| `conversation` | Only events in this conversation (`conv_...`). |
+
+Page on with `after` set to the last `id` while `has_more` is `true`. Reading forward
+with `after` never skips an event. `GET /v1/events/{event_id}` reads one.
 
 ## 4. Verify `Flow-Signature` (webhooks)
 
@@ -956,7 +985,7 @@ and new conversations per hour and per day, growing during a new sender's warm-u
 - **Buttons**: an inline keyboard, up to 10, one per row; a tap arrives as
   `button_reply` content (`button_id`, `label`).
 - **Media** by `https` URL (Telegram fetches it: photos up to 5 MB, other files up to
-  20 MB) or a `file_id` (uploads up to 50 MB); voice notes as OGG/Opus.
+  20 MB) or a `file_id` (images up to 10 MB, other files up to 50 MB); voice notes as OGG/Opus.
 - **Reactions**: Telegram allows a fixed set of reaction emoji.
 - **Typing** (`state: "on"`) shows for about 5 seconds or until a message arrives.
   Bots cannot send read receipts (`read` is skipped).
@@ -1081,7 +1110,168 @@ test key when none is set, writes `.env`, prints the sandbox link and join code)
 published (`npm install @flow-engineer/messaging`); the Python and Go SDKs are not
 published yet, so in those languages build on plain HTTP and the WebSocket as shown here.
 
-## 14. Endpoint index
+## 14. Recipes: common tasks
+
+### Ask, wait for the reply, continue
+
+A program that asks a person one thing on Telegram, waits for the answer and goes on (a CLI, a script, a test). Four rules make it reliable:
+
+1. **Open the stream first.** `GET /v1/stream` without `after` starts at the moment it opens: anything earlier is not replayed. Once it is open, nothing later is missed.
+2. **Then look for a join that already happened.** A person who joined before the program started is already a conversation: `GET /v1/conversations?channel=telegram` (newest first). Skip `simulated: true` ones. Only when there is none, show the join link and wait for `conversation.started`.
+3. **Confirm the send.** The `202` only means queued: wait for `message.sent` or `message.failed` with that message's `id` (Telegram never sends `message.delivered`).
+4. **Wait for the reply with a timeout.** The next `message.received` in that conversation is the answer; give up after a time you choose and tell the person.
+
+```ts
+// ask.mts: Node 22+ (ESM, top-level await), no dependencies. FLOW_MESSAGING_KEY is a test key (or live, with your own bot).
+const BASE = "https://api.flow.engineer";
+const KEY = process.env.FLOW_MESSAGING_KEY!;
+const H = { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
+type Init = { method?: string; headers?: Record<string, string>; body?: string };
+const api = async (path: string, init: Init = {}) => {
+  const res = await fetch(BASE + path, { ...init, headers: { ...H, ...init.headers } });
+  const body = await res.json();
+  if (!res.ok) throw new Error(`${body.error.type}: ${body.error.hint}`); // hint says what to change
+  return body;
+};
+
+// 1. Stream first. Events wait in `inbox` until something takes them.
+const inbox: any[] = [];
+let wake = () => {};
+const ws = new WebSocket(`wss://api.flow.engineer/v1/stream?type=conversation.started` +
+  `&type=message.received&type=message.sent&type=message.failed`, ["flow", "flow.key." + KEY]);
+ws.onmessage = (m) => {
+  const f = JSON.parse(String(m.data));
+  if (f.type === "event") { inbox.push(f.event); wake(); }
+  else if (f.type === "error") console.error(f.error.type, f.error.hint); // then it closes (4401: bad key)
+};
+await new Promise((ok, fail) => { ws.onopen = ok; ws.onerror = fail; });
+
+function next(match: (ev: any) => boolean, ms: number): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`no event within ${ms / 1000}s`)), ms);
+    wake = () => {
+      const i = inbox.findIndex(match);
+      if (i >= 0) { clearTimeout(timer); resolve(inbox.splice(i, 1)[0]); }
+    };
+    wake();
+  });
+}
+
+// 2. A join from before the program started is already a conversation.
+const convs = await api("/v1/conversations?channel=telegram&limit=20");
+let conv: string | undefined = convs.data.find((c: any) => !c.simulated)?.id;
+if (!conv) {
+  const bots = await api("/v1/senders?channel=telegram");
+  console.log(`Open ${bots.data[0].address.link} on your phone and tap Start.`);
+  conv = (await next((e) => e.type === "conversation.started" && !e.conversation.simulated, 10 * 60_000)).conversation.id;
+}
+
+// 3 and 4. Ask, confirm the send, wait for the answer.
+async function ask(text: string, timeoutMs = 5 * 60_000): Promise<string | null> {
+  inbox.splice(0); // what the person wrote before the question is not its answer
+  const msg = await api(`/v1/conversations/${conv}/messages`, {
+    method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() },
+    body: JSON.stringify({ content: { type: "text", text } }),
+  });
+  const outcome = await next((e) => e.data?.message?.id === msg.id &&
+    (e.type === "message.sent" || e.type === "message.failed"), 60_000);
+  if (outcome.type === "message.failed") {
+    const err = outcome.data.message.error;
+    throw new Error(`send failed: ${err.type} ${err.channel_code ?? ""}: ${err.hint}`);
+  }
+  try {
+    const ev = await next((e) => e.type === "message.received" && e.conversation.id === conv, timeoutMs);
+    const c = ev.data.message.content;
+    return c.type === "text" ? c.text : c.type === "button_reply" ? c.label : `[${c.type}]`;
+  } catch {
+    return null; // timed out: say so, or ask again later
+  }
+}
+
+const answer = await ask("Which city should I check the weather for?");
+console.log(answer ?? "No answer in time.");
+ws.close();
+```
+
+- **Long waits**: the stream ends after 24 hours or on a server restart with a `reconnect` frame. Reconnect with `after` set to the last event `id` you saw: it replays what you missed, then goes live.
+- **No WebSocket** (serverless, cron): poll the event log instead, `GET /v1/events?conversation=conv_...&type=message.received&type=message.sent&type=message.failed&after=evt_...` (oldest first; `after` is the last event you handled; page while `has_more`). Or register a webhook and keep the question's state in your store.
+- **In tests without a phone**, post the person's answer with `POST /v1/test/conversations/{conversation_id}/inbound` on a simulated conversation (`POST /v1/test/conversations`): free, and it arrives as the same `message.received`.
+
+### Many Telegram bots (one per customer, brand or language)
+
+- A person creates each bot in Telegram's @BotFather (`/newbot`, a name, a username ending in `bot`); an agent cannot. Ask them: "Create the bot in @BotFather and put its token in `.env` (or your secret store) as `TELEGRAM_BOT_TOKEN_<NAME>`; don't paste it here." Never ask for the token in chat.
+- With a live key, `POST /v1/senders {"channel":"telegram","telegram_bot_token":"..."}` once per bot (`Idempotency-Key` per bot). One bot is one sender; connecting it again updates that sender; connecting it to another of your apps moves it there. There is no limit on bots per app.
+- Send from a bot with `"sender": "snd_..."` on `POST /v1/messages`; replies go into the conversation and leave from its bot. Every event names its `conversation.sender`, so route by sender.
+
+### Serverless (Vercel, Workers, Lambda): webhooks only
+
+- Register `https://<your-app>/api/flow` once with `POST /v1/webhook_endpoints` and store the `whsec_...` secret as `FLOW_MESSAGING_WEBHOOK_SECRET`. Verify `Flow-Signature` on the raw body (in TypeScript `flow.webhooks.handler(...)` does it), dedupe on `event.id`, answer within 10 seconds.
+- Fast answer: return `{"reply": ...}` in the webhook answer. Slow agent: answer `200 {}` at once, then reply with `POST /v1/conversations/{conversation_id}/messages` (on Vercel inside `waitUntil`). Keep conversation state in your database, keyed by `conversation.id`.
+- Missed deliveries are retried for 3 days; to catch up, read `GET /v1/events?after=evt_...` from a cron job.
+- Previews and local runs: Flow calls only public HTTPS URLs; use a tunnel, or the stream.
+
+### Add Flow to the IDE (MCP)
+
+The hosted MCP server is an optional development tool. Adding it is the project owner's decision: show them the command (section 12 of the quickstart, or `docs/mcp`), never add it yourself. The app itself always uses the REST API.
+
+### Send a PDF, receive a voice note
+
+- Uploads (`POST /v1/files`, multipart, up to 100 MB) take images, audio, video and plain text. **Documents and archives (PDF, Office, zip) are refused with `422 unsupported_content`** until uploads can be malware-scanned. To send a PDF today, host it yourself and send `{"type":"media","kind":"document","url":"https://..."}` (Telegram fetches it, up to 20 MB), or send a link as text.
+- A voice note arrives as `message.received` with `{"type":"voice","file_id":"file_...","url":"...","duration_seconds":4}`. Download it with `GET /v1/files/{file_id}` (your API key; it answers `302` to a short-lived signed URL, so follow redirects). Send one with `{"type":"voice","file_id":"file_..."}` (OGG/Opus on Telegram).
+
+### WhatsApp: a reminder the next day
+
+Flow has no scheduled sends: schedule in your own app (cron, queue) and send then. Next day is usually outside WhatsApp's 24-hour window, so only an approved `template` goes (`POST /v1/templates` on your WhatsApp sender with a live key; else `409 outside_window`). Test it now on a simulated WhatsApp conversation: templates on the simulated sender are approved at once. WhatsApp numbers are connected by the Flow team.
+
+### Move a live polling bot to Flow
+
+Connect its token with a live key (`POST /v1/senders`). Flow sets the bot's webhook, which ends `getUpdates` polling: stop the old poller first (Telegram answers its next `getUpdates` with `409 Conflict`). Updates Telegram still holds are delivered to Flow, not dropped. Conversations start fresh in Flow (it has no history from before); people do not need to press Start again. To go back, `DELETE /v1/senders/{sender_id}` removes the webhook.
+
+### Broadcast to many people
+
+- There is no bulk endpoint: one `POST /v1/messages` per person, each with its own `Idempotency-Key` (for example `campaign-7-ct_...`), from a queue of your own.
+- Telegram: a bot can message only people who started it, so a broadcast goes to people who wrote to your bot. Each sender sends about 20 messages a second (burst 40); faster answers `429 rate_limited` with `Retry-After`. The per-key request limit is 600 a minute on the free plan (`RateLimit-*` headers), so 5,000 messages take about 9 minutes.
+- New conversations per sender are budgeted: the sender's `limits` (`new_contacts_per_day`, `new_contacts_per_hour`) show today's numbers; past them a start answers `429 new_contact_limit` with `retry_after`: queue it, do not loop. iMessage lines start no cold conversations; WhatsApp needs a template and Meta's tier caps new contacts a day; SMS needs consent.
+- Every send still ends `message.sent` or `message.failed`: count those, not the `202`s.
+
+### Delete a person's data (GDPR)
+
+`DELETE /v1/contacts/{contact_id}` (`204`, repeat-safe) erases the contact's name and address, all their message content and files, their events' payloads, pending deliveries and queued sends at once, and emits `contact.deleted`. IDs and timestamps stay. Find the contact ID on their events (`conversation.contact`) or `GET /v1/contacts`; there is no lookup by phone number or username. Content is otherwise kept 30 days.
+
+### A leaked API key
+
+1. Make a new key: dashboard (https://api.flow.engineer/admin/keys, `?mode=live` for live keys) > **Create live key** (or test). Put it where the old one was and deploy.
+2. Revoke the old one: Keys > **Revoke** on the key ending in its last four characters. It stops working at once; open streams close within a minute (`4401`).
+3. Read `GET /v1/events` for sends you did not make. A leaked webhook secret: `POST /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret`. A leaked bot token: revoke it in @BotFather and connect the new one (`POST /v1/senders`, same sender).
+
+An app made without an account has no dashboard: get a new sandbox key, or sign in first.
+
+### Prototype to production
+
+1. Sign in to keep the app (`npx @flow-engineer/messaging login`): the app, its data and webhooks stay.
+2. Dashboard > Live > **Create live key**; keep it apart from the test key (`FLOW_MESSAGING_LIVE_KEY`).
+3. Connect your own Telegram bot (`POST /v1/senders`, quickstart section 7); iMessage, SMS and WhatsApp numbers are connected by the Flow team.
+4. Register the webhook again with the live key (endpoints belong to one mode). Nothing else in the code changes.
+
+### Multi-tenant SaaS: one bot per customer
+
+One app holds many senders: connect each customer's bot with your live key (`POST /v1/senders`) and keep the mapping customer to `snd_...` in your database. Events name the sender (`conversation.sender`) and the conversation, so route by those; replies leave from the conversation's own bot. Apps cannot be created through the API or the dashboard today (each sign-in has one app; up to 10 sandbox apps can be claimed), so per-customer apps are not self-serve. A key belongs to one app and one mode.
+
+### Delivery guarantees
+
+- Inbound: every message becomes an event, stored before Flow answers the channel, delivered at least once and in order per conversation (dedupe on `event.id`). Webhooks retry for 3 days (5 s up to 12 h apart); the event log keeps everything for 30 days.
+- Outbound: a `202` means stored and queued; every send then ends `message.sent` or `message.failed`, never silently. One conversation sends one message at a time, in order. Retryable channel errors are retried by Flow. When a send's outcome is unknown (the channel took it but never answered), Flow resends it once, so a rare duplicate is possible on Telegram.
+- Requests: `Idempotency-Key` on every POST makes your own retries safe for 24 hours.
+
+### Tests in CI, without a phone
+
+Use a test key and simulated conversations: `POST /v1/test/conversations`, post the contact's turns to `.../inbound`, assert on your agent's replies with `.../transcript`. Free, no phone, parallel-safe; at most 500 simulated conversations per app (reuse them) and 120 requests a minute to `/v1/test/`. Keep the key in your CI's secret store. In tests, wait for events (stream or `GET /v1/events`), never fixed sleeps.
+
+### Give a cofounder access
+
+Not built yet: an account has one member (whoever signed in), and there are no invitations. Today a cofounder can sign in to get their own account, or you can hand them an API key from your Keys page (it acts as the app, not as them; revoke it when no longer needed).
+
+## 15. Endpoint index
 
 Every operation in the spec (https://api.flow.engineer/openapi.yaml):
 

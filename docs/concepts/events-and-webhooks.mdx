@@ -33,6 +33,18 @@ export const POST = flow.webhooks.handler({
 
 All three read the same log, so you can mix them: for example a webhook in production and `GET /v1/events` to recover after downtime.
 
+### Polling: `GET /v1/events` parameters
+
+| Parameter | Meaning |
+|---|---|
+| `after` | An event ID (`evt_...`): only the events after it. Omit to start at the oldest. |
+| `before` | An event ID: only the events before it. |
+| `limit` | 1 to 100 per page. |
+| `type` | Only these event types; repeat it for several (`type=message.received&type=message.failed`, at most 20). |
+| `conversation` | Only events in this conversation (`conv_...`). |
+
+The answer is `{"data": [...], "has_more": true}`, oldest first: page on with `after` set to the last `id` while `has_more` is `true`. Events are kept for your plan's retention (30 days today; see [Retention](/concepts/data-retention)).
+
 ## The event shape
 
 ```json
@@ -278,7 +290,7 @@ To answer a `message.received` at once, respond `200` with a reply body. Flow se
 
 ## The live stream
 
-`GET /v1/stream` upgrades to a WebSocket. Every frame is one JSON object: the server sends `event`, `ack`, `error` and `reconnect` frames, and you may send `send` and `start` frames with the same bodies as the HTTP send endpoints (`ref` is your idempotency key, echoed in the `ack` or `error`). Pass `after` to resume: the stream first replays everything after that event, then goes live. When the server is about to restart it sends `reconnect`; reconnect with `after` set to the last event you received. The TypeScript SDK does all of this for you in `flow.events.stream()`, and polls `GET /v1/events` where the runtime has no WebSocket.
+`GET /v1/stream` upgrades to a WebSocket. Every frame is one JSON object: the server sends `event`, `ack`, `error` and `reconnect` frames, and you may send `send` and `start` frames with the same bodies as the HTTP send endpoints (`ref` is your idempotency key, echoed in the `ack` or `error`). Without `after` the stream starts live, at the moment it opens: earlier events are not replayed (read them with `GET /v1/events`, or see [Ask and wait for a reply](/guides/recipes#ask-wait-for-the-reply-continue)). Pass `after` to resume: the stream first replays everything after that event, then goes live. When the server is about to restart it sends `reconnect`; reconnect with `after` set to the last event you received. The TypeScript SDK does all of this for you in `flow.events.stream()`, and polls `GET /v1/events` where the runtime has no WebSocket.
 
 Authenticate with the `Authorization` header. Where your WebSocket cannot set headers (a browser's `WebSocket`, and Node's global `WebSocket` on a server), offer the key as a subprotocol instead: offer both `flow` and `flow.key.<api key>`. This is as valid from server-side code as from a browser. The server selects `flow` and never echoes the key; offering the key protocol without `flow` is refused with `400 invalid_request`, and an `Authorization` header, when present, takes precedence. Keys are never accepted in the query string, since URLs end up in logs. The TypeScript SDK offers the subprotocol by itself where the WebSocket cannot send headers.
 

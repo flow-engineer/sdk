@@ -50,8 +50,11 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript -H "
 - Your agent replies with its normal send. It passes the real send gate (content
   support, `fallback`, text limits) and ends `message.sent` on your app's simulated
   sender (`kind: simulated`), which never touches a network.
-- **Free:** simulated traffic does not count against the sandbox allowance, since
-  nothing leaves Flow. The key's request rate limit still applies, and the gate skips
+- **Free:** simulated conversations take no sandbox contact slot and use no
+  messages, since nothing leaves Flow. That holds on an app made without an account
+  too: its one contact stays free for your own phone, so test on the app you have
+  rather than making a second one. Simulated conversations, contacts and the events'
+  `conversation` carry `simulated: true`; real ones have no `simulated` field. The key's request rate limit still applies, and the gate skips
   the rules that protect a real number (pacing, new-contact budgets, abuse
   throttling), so tests can run in parallel.
 - **SMS rules hold for the contact.** Before a simulated SMS contact's first turn,
