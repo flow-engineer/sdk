@@ -7,7 +7,7 @@ import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { installAgentsSnippet, installClaudeMcp, installCodexMcp, installSkill } from "../../src/cli/agentfiles.js";
-import { login } from "../../src/cli/device.js";
+import { login, providerName } from "../../src/cli/device.js";
 import { envValue, ignoreDotenv, parseDotenv, setDotenv } from "../../src/cli/env.js";
 import { init, type InitOptions } from "../../src/cli/init.js";
 import { forwardEvent, readReply } from "../../src/cli/listen.js";
@@ -231,9 +231,16 @@ describe("login", () => {
     expect(parseDotenv(readFileSync(path.join(dir, ".env"), "utf8"))).toEqual({ OTHER: "x", FLOW_MESSAGING_KEY: "fk_test_unitsignedin" });
     const out = lines.join("\n");
     expect(out).toContain("WDJB-MJHT");
+    expect(out).toContain("Signed in as Lin Chen (Flow account).");
     expect(out).toContain('Claimed "My agent"');
     expect(out).toContain("https://api.flow.engineer/admin");
     expect(out).not.toContain("fdc_unitdevice");
+  });
+
+  it("names where the person signed in, and shows a provider it does not know as it came", () => {
+    expect(providerName("flow")).toBe("Flow account");
+    expect(providerName("github")).toBe("GitHub");
+    expect(providerName("a-provider-added-later")).toBe("a-provider-added-later");
   });
 
   it("with --no-wait prints the link and exits, and a second run collects the key", async () => {

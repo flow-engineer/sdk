@@ -4,6 +4,8 @@
    ../openapi/openapi.yaml (datamodel-code-generator, version pinned in pyproject.toml).
    Value constraints (pattern, lengths, ranges) are left out: the API enforces them,
    and a client that re-checked them would refuse answers the API is allowed to give.
+   The enums in OPEN_ENUMS become plain strings, for the same reason: their list
+   grows without a new API version.
 2. src/flow_messaging/_sync/*.py: the synchronous client, written from the async one
    in src/flow_messaging/_async/ by removing async/await and the Async prefix.
 
@@ -18,6 +20,7 @@ import sys
 import tempfile
 import tokenize
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -46,6 +49,13 @@ CONSTRAINTS = {
     "multipleOf",
     "minProperties",
     "maxProperties",
+}
+
+# Enums whose list can grow without a new API version (the closed lists, such as
+# ErrorType and EventType, need one). The spec lists the values known today; the
+# model takes any string, so an answer with a newer value still parses.
+OPEN_ENUMS = {
+    ("SignedInUser", "provider"),
 }
 
 CODEGEN_ARGS = [
@@ -87,8 +97,15 @@ def strip(node: object) -> object:
     return node
 
 
+def open_enums(spec: dict[str, Any]) -> dict[str, Any]:
+    schemas = spec["components"]["schemas"]
+    for name, prop in sorted(OPEN_ENUMS):
+        del schemas[name]["properties"][prop]["enum"]
+    return spec
+
+
 def models() -> str:
-    spec = strip(yaml.safe_load(SPEC.read_text()))
+    spec = open_enums(cast(dict[str, Any], strip(yaml.safe_load(SPEC.read_text()))))
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "openapi.yaml"
         out = Path(tmp) / "models.py"

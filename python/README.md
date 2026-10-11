@@ -169,7 +169,7 @@ for entry in flow.test.transcript(conv.id):
 
 ## Signing in from an agent
 
-A sandbox key expires after 7 days. A person keeps the app by signing in with GitHub:
+A sandbox key expires after 7 days. A person keeps the app by signing in with a Flow account (flow.engineer):
 
 ```python
 token = flow.device.sign_in(

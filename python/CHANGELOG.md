@@ -8,3 +8,5 @@
   endpoints for simulated contacts), Pydantic models generated from the OpenAPI spec,
   typed errors, idempotency keys and retries, cursor pagination, the live event stream
   over a WebSocket with resume, and webhook signature verification.
+- `SignedInUser.provider` is a plain string (`flow`, `github` or `google` today), so a
+  device sign-in answer naming a provider added later still parses.

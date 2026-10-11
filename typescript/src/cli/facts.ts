@@ -4,5 +4,5 @@
 /** What the CLI is for, after its name and version in `--help`. */
 export const CLI_TAGLINE = "Telegram, iMessage and WhatsApp for AI agents.";
 
-/** The sign-in a person uses to keep a sandbox app (only GitHub is enabled). */
-export const SIGN_IN = "GitHub";
+/** The sign-in a person uses to keep a sandbox app. */
+export const SIGN_IN = "a Flow account (flow.engineer)";

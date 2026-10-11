@@ -19,7 +19,7 @@
   "text_counting": { "telegram": "UTF-16 code units", "imessage": "characters", "whatsapp": "characters", "sms": "characters" },
   "caption_cap": 1024,
   "sms_max_segments": 10,
-  "sign_in": "GitHub",
+  "sign_in": "a Flow account (flow.engineer)",
   "sdk_version": "0.2.0",
   "cli_tagline": "Telegram, iMessage and WhatsApp for AI agents.",
   "allowance": {

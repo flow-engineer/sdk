@@ -21,7 +21,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 That loop is a working agent on every live channel, with no per-channel code. Swap the reply for your model's answer and you are done: [Quickstart](/quickstart) takes about 5 minutes.
 
-No account needed to start: one call gets a test key (`curl -X POST https://api.flow.engineer/v1/sandbox/keys`, or `npx @flow-engineer/messaging init`). Sign in with GitHub later to keep the app. See [Keys and sign-in](/get-a-key).
+No account needed to start: one call gets a test key (`curl -X POST https://api.flow.engineer/v1/sandbox/keys`, or `npx @flow-engineer/messaging init`). Sign in with a Flow account (flow.engineer) later to keep the app. See [Keys and sign-in](/get-a-key).
 
 ## How it works
 

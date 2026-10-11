@@ -68,6 +68,18 @@ def test_poll_body(flow: Flow, mock: respx.MockRouter) -> None:
     assert json.loads(route.calls.last.request.read()) == {"device_code": "dc_x"}
 
 
+@pytest.mark.parametrize("provider", ["flow", "github", "google", "a-provider-added-later"])
+def test_poll_accepts_any_sign_in_provider(provider: str, flow: Flow, mock: respx.MockRouter) -> None:
+    # The list of providers grows without a new API version, so a value this SDK
+    # does not know yet still parses.
+    mock.post(TOKEN).respond(
+        json=device_token("approved", key="fk_test_new", user={"name": "Lin", "provider": provider})
+    )
+    tok = flow.device.poll("dc_x")
+    assert tok.user is not None
+    assert tok.user.provider == provider
+
+
 def tokens(route: respx.Route, *answers: httpx.Response | Exception) -> None:
     route.side_effect = list(answers)
 

@@ -30,8 +30,8 @@ cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the
 sandbox_allowance:                           # outbound messages only (inbound is free); GET /v1/app returns allowance
   anonymous: {{allowance.anonymous.contacts}} contact, {{allowance.anonymous.messages_per_contact}} messages in total, Telegram sandbox; the key expires after {{allowance.anonymous.key_ttl_days}} days
   signed_in: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages each, no expiry, one allowance per person over all their apps   # iMessage is in neither
-sign_in: "npx @flow-engineer/messaging login"   # GitHub; or POST /v1/device/authorizations, then poll POST /v1/device/token
-dashboard: https://api.flow.engineer/admin    # sign in with GitHub
+sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v1/device/authorizations, then poll POST /v1/device/token
+dashboard: https://api.flow.engineer/admin    # sign in with a Flow account
 flow_team: [{{team_contacts|comma}}]   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
@@ -144,7 +144,7 @@ one, writes both to `.env`, and prints the sandbox link and join code).
 
 ### Sandbox allowance
 
-| | Without an account (this key) | Signed in (GitHub) |
+| | Without an account (this key) | Signed in (Flow account) |
 |---|---|---|
 | Contacts | {{allowance.anonymous.contacts}} | {{allowance.signed_in.contacts}} |
 | Messages | {{allowance.anonymous.messages_per_contact}} in total | {{allowance.signed_in.messages_per_contact}} per contact |
@@ -160,7 +160,7 @@ person can still claim the app.
 
 ### Sign in to keep the app
 
-A person signs in with GitHub and the app is **claimed**: its data and keys
+A person signs in with {{sign_in}} and the app is **claimed**: its data and keys
 are kept, the expiry is removed, and the app moves under the person's signed-in
 allowance: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages, **one allowance per person**, shared by every
 app they own or claim (a person may claim up to 10 apps). `allowance.scope` is
@@ -210,7 +210,7 @@ Revoked, ask the person for a key from the dashboard's Keys page, or sign in wit
 the device flow above.
 
 Signed-in people see their apps and keys in the dashboard,
-https://api.flow.engineer/admin (sign in with GitHub). There they can make
+https://api.flow.engineer/admin (sign in with {{sign_in}}). There they can make
 **live keys** (`fk_live_...`) themselves (switch to **Live**, then Keys > **Create
 live key**: https://api.flow.engineer/admin/keys?mode=live) and go live on Telegram
 with their own bot (section 7). iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team.

@@ -22,14 +22,14 @@ Channels today: Telegram is live (the shared sandbox bot, or your own bot with a
 
 ## Sandbox allowance and sign-in
 
-| | No account | Signed in (GitHub) |
+| | No account | Signed in (Flow account) |
 |---|---|---|
 | Contacts | 1 | 3 |
 | Messages | 50 in total | 100 per contact |
 | Channels | Telegram sandbox (WhatsApp when its sandbox opens) | the same |
 | Key expiry | 7 days | none |
 
-Only messages your agent sends count; iMessage is in neither. `GET /v1/app` returns `allowance` (what is left). To keep the app, a person signs in with GitHub: run `npx @flow-engineer/messaging login --no-wait`, show them the link and code it prints (they open the page, sign in and type the code), and after they approve run `npx @flow-engineer/messaging login` (it replaces `FLOW_MESSAGING_KEY` in `.env` and drops `FLOW_CLAIM_TOKEN`). By HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_..."}`, show the person `verification_uri` and `user_code` (they type the code on that page), then poll `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `status` is `approved` (`key`), `denied` or `expired`; `429 rate_limited` means wait `retry_after`.
+Only messages your agent sends count; iMessage is in neither. `GET /v1/app` returns `allowance` (what is left). To keep the app, a person signs in with a Flow account (flow.engineer): run `npx @flow-engineer/messaging login --no-wait`, show them the link and code it prints (they open the page, sign in and type the code), and after they approve run `npx @flow-engineer/messaging login` (it replaces `FLOW_MESSAGING_KEY` in `.env` and drops `FLOW_CLAIM_TOKEN`). By HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_..."}`, show the person `verification_uri` and `user_code` (they type the code on that page), then poll `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `status` is `approved` (`key`), `denied` or `expired`; `429 rate_limited` means wait `retry_after`.
 
 Allowance errors: `403 permission` with `channel_code` `sandbox_allowance_used` (allowance used up), `sandbox_contact_limit` (no room for another contact), `sandbox_channel_not_included` (channel not covered, such as iMessage) or `sign_in_required` (needs a signed-in app); `401 authentication` with `sandbox_key_expired`. Do not retry or get more keys: ask the user to sign in (for `sandbox_channel_not_included`, use the Telegram sandbox sender instead). Signed-in users manage keys at https://api.flow.engineer/admin. Details: https://docs.flow.engineer/get-a-key.md
 

@@ -22,7 +22,7 @@ Channels today: Telegram is live (the shared sandbox bot, or your own bot with a
 
 ## Sandbox allowance and sign-in
 
-| | No account | Signed in (GitHub) |
+| | No account | Signed in (Flow account) |
 |---|---|---|
 | Contacts | {{allowance.anonymous.contacts}} | {{allowance.signed_in.contacts}} |
 | Messages | {{allowance.anonymous.messages_per_contact}} in total | {{allowance.signed_in.messages_per_contact}} per contact |

@@ -517,7 +517,7 @@ export interface paths {
          *       you directly.
          *
          *     To get a live key (`fk_live_...`), a person signs in to the dashboard at
-         *     `https://api.flow.engineer/admin` (GitHub), switches to **Live**,
+         *     `https://api.flow.engineer/admin` (with a Flow account), switches to **Live**,
          *     and clicks **Create live key** on the Keys page
          *     (`https://api.flow.engineer/admin/keys?mode=live`). An app made without an
          *     account (`POST /v1/sandbox/keys`) is claimed first, by signing in through the
@@ -932,8 +932,9 @@ export interface paths {
         put?: never;
         /**
          * Start a sign-in from an agent or CLI (device flow)
-         * @description Starts a sign-in that a person finishes in a browser with GitHub
-         *     (the OAuth 2.0 device authorization grant, RFC 8628, in Flow's JSON shape).
+         * @description Starts a sign-in that a person finishes in a browser with a Flow account
+         *     (flow.engineer): the OAuth 2.0 device authorization grant (RFC 8628) in
+         *     Flow's JSON shape.
          *     Show the person `verification_uri` and `user_code`: they open the page,
          *     sign in and type the code you show them. Then poll `POST /v1/device/token`
          *     with `device_code` every `interval` seconds until it returns a key.
@@ -1492,7 +1493,7 @@ export interface components {
          */
         SandboxAllowance: {
             /**
-             * @description `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (GitHub; Google sign-in is not enabled yet).
+             * @description `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (with a Flow account, or GitHub).
              * @enum {string}
              */
             tier: "anonymous" | "signed_in";
@@ -1558,7 +1559,7 @@ export interface components {
             claim_token: string;
             /**
              * Format: uri
-             * @description A page where a person signs in with GitHub and claims the app in the browser, without the CLI. It holds the claim token, so treat it like one. The claim hands out no key and revokes the app's keys unless the person ticks "Keep my agent's current key working"; afterwards they make keys on the dashboard's Keys page.
+             * @description A page where a person signs in to Flow and claims the app in the browser, without the CLI. It holds the claim token, so treat it like one. The claim hands out no key and revokes the app's keys unless the person ticks "Keep my agent's current key working"; afterwards they make keys on the dashboard's Keys page.
              * @example https://api.flow.engineer/admin/claim#token=fct_...
              */
             claim_url: string;
@@ -1646,10 +1647,12 @@ export interface components {
              */
             email?: string;
             /**
-             * @description Where they signed in.
+             * @description Where they signed in: `flow` (a Flow account, flow.engineer), `github` or
+             *     `google`. More may be added later, so treat a value you do not know as a
+             *     sign-in elsewhere rather than an error.
              * @enum {string}
              */
-            provider: "github" | "google";
+            provider: "flow" | "github" | "google";
         };
         /**
          * @description What your agent talks from: a Telegram bot, a WhatsApp number, an iMessage

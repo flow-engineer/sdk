@@ -33,6 +33,10 @@
   spec: the WhatsApp `preview_url` channel option, the typing window on WhatsApp,
   how WhatsApp numbers are connected, and `whatsapp` as a simulated channel for
   `flow.test.createConversation`.
+- Sign-in is with a Flow account (flow.engineer): `login` and `init` say so,
+  `DeviceToken.user.provider` can be `flow` (types regenerated), and `login` names
+  where the person signed in ("Flow account", "GitHub", or a newer provider as the
+  API sent it).
 
 ## 0.1.1
 
