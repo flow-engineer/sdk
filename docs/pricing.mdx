@@ -19,6 +19,7 @@ Message content and media are kept 30 days by default; retention will be set per
 - **Test mode is free**, within the sandbox allowance: without an account 1 contact and 50 messages in total on the Telegram sandbox (the key expires after 7 days); signed in with GitHub, 3 contacts and 100 messages each, shared by all your apps. Only messages your agent sends count. See [Keys and sign-in](/get-a-key).
 - **Test keys take one call**, with no account: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`. Signed in, you make live keys (`fk_live_...`) in the dashboard and go live on Telegram with your own bot. iMessage lines are arranged with the Flow team.
 - **WhatsApp:** on a number Flow provides, WhatsApp's own per-message fees (charged by Meta) are passed through. With a number in your business's own WhatsApp Business Account, Meta bills its fees to your business directly, so the account needs a payment method in WhatsApp Manager.
-- Billing is not live yet; nothing is charged today.
+- Billing is not live yet; nothing is charged today. Payments are coming; prices and dates are not decided.
+- **Your own provider account** (your own SMS provider account, or your own WhatsApp Business Account): the provider bills you directly, and Flow charges nothing while billing is not live.
 
-Questions about pricing or volume: ask the Flow team.
+Questions about pricing or volume: write to the Flow team at samyak@flow.engineer.

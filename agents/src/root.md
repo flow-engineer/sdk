@@ -15,3 +15,4 @@ Build the app on the REST API (paths under /v1/). {{mcp.runtime_rule}}
 - OpenAPI spec: /openapi.yaml
 - MCP server: /mcp, optional, for testing during development. {{mcp.owner_rule}}
 - Dashboard: /admin
+- Flow team ({{team_contact}}): SMS, WhatsApp and iMessage numbers, pricing, support. Never send secrets; see /docs/quickstart.md#what-the-flow-team-arranges-and-how-to-ask

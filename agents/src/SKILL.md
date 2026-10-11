@@ -31,7 +31,8 @@ person opens the sandbox link and taps Start first.
 {{> sign-in}} {{> allowance-errors}} In the SDK these are `PermissionError` (with
 `channelCode`) and `AuthenticationError`. Dashboard: {{dashboard_url}}. Going live:
 signed-in users make `fk_live_` keys in the dashboard and connect their own Telegram
-bot; iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team.
+bot; iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team
+({{team_contact}}; send them your app ID and the number's details, never secrets or tokens).
 If the user asks for WhatsApp, tell them WhatsApp numbers are arranged with the Flow team, and build and test on Telegram meanwhile: the code does not change per channel. Details:
 [CLI and MCP](reference/cli-mcp.md).
 
