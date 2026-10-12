@@ -57,7 +57,7 @@ Keep a trace key in `FLOW_OBSERVE_TRACE_KEY` on your server, never in a browser 
 - Every time a person opens a conversation's text in the dashboard, it is logged.
 - On other channels, the ids you send (conversation, contact, message) are stored only as keyed hashes, so a phone number used as an id is never stored as a phone number. On Flow Messaging, Observe keeps Flow's own ids (`conv_...`, `msg_...`, `ct_...`) and never the person's phone number or handle.
 - The dashboard shows span details (names, models, tokens, timings, errors), not prompts or tool inputs.
-- Dashboard pages load no analytics and no third-party scripts. Sign-in is with Google, limited to the people on your account's list.
+- Dashboard pages load no analytics and no third-party scripts. Sign-in is with your Flow login, limited to the people on your account's list.
 
 ## Related
 
