@@ -1,5 +1,5 @@
 {
-  "$comment": "The facts the agent-facing docs state, in one place. scripts/agent-docs.mjs fills them into agents/src/ templates; the service's own facts test fails when one differs from its code. The API version is read from openapi/openapi.yaml, never written here. sdk_version, cli_tagline and sign_in are checked against the TypeScript SDK and CLI by typescript/test/unit/agent-facts.test.ts.",
+  "$comment": "The facts the agent-facing docs state, in one place. scripts/agent-docs.mjs fills them into agents/src/ templates; the service's own facts test fails when one differs from its code. The API version is read from openapi/openapi.yaml, never written here. sdk_version, cli_tagline and sign_in are checked against the TypeScript SDK and CLI, and python_package against python/pyproject.toml, by typescript/test/unit/agent-facts.test.ts.",
   "base_url": "https://api.flow.engineer",
   "docs_url": "https://docs.flow.engineer",
   "dashboard_url": "https://api.flow.engineer/admin",
@@ -10,6 +10,7 @@
   },
   "team_contacts": ["samyak@flow.engineer", "prabal@flow.engineer"],
   "package": "@flow-engineer/messaging",
+  "python_package": "flow-messaging",
   "env": {
     "api_key": "FLOW_MESSAGING_KEY",
     "live_key": "FLOW_MESSAGING_LIVE_KEY",
@@ -25,7 +26,7 @@
   "text_counting": { "telegram": "UTF-16 code units", "imessage": "characters", "whatsapp": "characters", "sms": "characters" },
   "caption_cap": 1024,
   "sms_max_segments": 10,
-  "sign_in": "a Flow account (flow.engineer: Google or GitHub)",
+  "sign_in": "a Flow account (flow.engineer: Google, GitHub or an email link)",
   "sdk_version": "0.2.0",
   "cli_tagline": "Telegram, iMessage and WhatsApp for AI agents.",
   "allowance": {
@@ -58,7 +59,7 @@
     "url": "https://api.flow.engineer/mcp",
     "server_name": "flow",
     "owner_rule": "Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself.",
-    "runtime_rule": "MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime.",
+    "runtime_rule": "MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript or Python SDK, which wrap it) for everything it does at runtime.",
     "add": {
       "claude": "claude mcp add --transport http flow https://api.flow.engineer/mcp --header \"Authorization: Bearer $FLOW_MESSAGING_KEY\"",
       "codex_toml": "[mcp_servers.flow]\nurl = \"https://api.flow.engineer/mcp\"\nbearer_token_env_var = \"FLOW_MESSAGING_KEY\"",

@@ -1,8 +1,8 @@
 ---
 name: flow-messaging
-description: Give an AI agent two-way Telegram and iMessage conversations with Flow Messaging (one HTTP API at api.flow.engineer, TypeScript SDK @flow-engineer/messaging; WhatsApp numbers are arranged with the Flow team). Use when the user wants their agent, bot or LLM app to receive and reply to Telegram or iMessage messages (or asks about WhatsApp), stream LLM answers into chats, or handle messaging webhooks.
+description: Give an AI agent two-way Telegram and iMessage conversations with Flow Messaging (one HTTP API at api.flow.engineer, TypeScript SDK @flow-engineer/messaging, Python SDK {{python_package}}; WhatsApp numbers are arranged with the Flow team). Use when the user wants their agent, bot or LLM app to receive and reply to Telegram or iMessage messages (or asks about WhatsApp), stream LLM answers into chats, or handle messaging webhooks.
 license: Apache-2.0
-compatibility: TypeScript/JavaScript via @flow-engineer/messaging (Node 18+, Bun, Deno, edge runtimes). Any other language via the HTTP API. Python and Go SDKs are not published yet.
+compatibility: TypeScript/JavaScript via @flow-engineer/messaging (Node 18+, Bun, Deno, edge runtimes). Python 3.10+ via {{python_package}} (pip). Any other language via the HTTP API. The Go SDK is not published yet.
 metadata:
   author: flow-engineer
   version: "{{api_version}}"

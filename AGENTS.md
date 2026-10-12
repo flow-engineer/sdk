@@ -136,8 +136,8 @@ spec and the error pages. Edit the source, regenerate, commit both:
   a generated-code check fails when its copies are stale, and a facts test fails when
   the facts differ from its code (text caps per channel, allowance defaults, sending
   limits and abuse thresholds, env var names, MCP tool names).
-- **MCP rule:** apps use the REST API (or the SDK once
-  published) at runtime; the hosted MCP server is an optional development tool.
+- **MCP rule:** apps use the REST API (or the TypeScript or Python SDK) at
+  runtime; the hosted MCP server is an optional development tool.
   Adding it to a developer's coding tools is the project owner's decision: agent docs
   tell agents to suggest it and show the owner the command, never to add it
   themselves. `init` asks before writing `.mcp.json`; keep that.
@@ -165,4 +165,5 @@ spec and the error pages. Edit the source, regenerate, commit both:
   `own-telegram-bot`) have one `main.ts` and/or `main.py` each and no Flow SDK; the
   others use the TypeScript SDK.
 - `plugin/`, `.claude-plugin/`: the agent files and the plugin marketplace.
-- `python/`, `go/`: the SDKs, not written yet (Python first, then Go).
+- `python/`: `flow-messaging` on PyPI, the Python SDK (`flow_messaging`; see
+  `python/README.md`). `go/`: the Go SDK, not written yet.

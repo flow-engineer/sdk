@@ -241,7 +241,8 @@ const me = await flow("GET", "/v1/app");   // { account, app, api_key, livemode,
 ```
 
 ```python
-# Python 3.9+, pip install requests. Shared helper used by every Python snippet below.
+# Python 3.9+, pip install requests. Shared helper used by every Python snippet below
+# (plain HTTP; the Python SDK, `pip install {{python_package}}`, is in section 13).
 import os, uuid, requests
 
 FLOW = "https://api.flow.engineer"
@@ -1130,8 +1131,29 @@ key (section 0). After `send_test_message`, pass the `cursor` it returned as `af
 The package `@flow-engineer/messaging` has a CLI you run with `npx`: `init` (gets a
 test key when none is set, writes `.env`, prints the sandbox link and join code) and
 `login` (a person signs in to keep the app), both in section 0. Its TypeScript SDK is
-published (`npm install @flow-engineer/messaging`); the Python and Go SDKs are not
-published yet, so in those languages build on plain HTTP and the WebSocket as shown here.
+published (`npm install @flow-engineer/messaging`).
+
+The Python SDK is published too (`pip install {{python_package}}`, Python 3.10+): typed
+sync and async clients, the live event stream and webhook verification. The snippets
+in this file are plain HTTP; with the SDK the same agent is:
+
+```python
+from flow_messaging import Flow, content_text
+
+flow = Flow()  # reads {{env.api_key}}
+for event in flow.events.stream(types=["message.received"]):
+    said = content_text(event.data.message.content)
+    flow.messages.send(event.conversation.id, f"You said: {said}")
+```
+
+Webhooks: `construct_event(raw_body, flow_signature_header)` checks `Flow-Signature`
+(the secret defaults to `{{env.webhook_secret}}`) and returns the typed event;
+`webhook_reply("...")` is the answer that replies at once. Errors raise a subclass of
+`FlowError` per `error.type` (`OutsideWindowError`, `PermissionDeniedError`, ...) with
+`hint`, `doc_url` and `code`. Full reference: https://github.com/flow-engineer/sdk/tree/main/python.
+
+The Go SDK is not published yet: in Go build on plain HTTP and the WebSocket as shown
+here.
 
 ## 14. Recipes: common tasks
 

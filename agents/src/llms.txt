@@ -27,7 +27,7 @@ Key facts for coding agents:
 - Go live on Telegram: with a live key, `POST /v1/senders {"channel":"telegram","telegram_bot_token":"..."}` connects your own bot (`200`, the sender `active`; connecting the same bot again updates that sender), and `DELETE /v1/senders/{sender_id}` disconnects it. Webhook endpoints and their secrets belong to one mode: register the endpoint again with the live key and store its new secret. `POST /v1/senders` for iMessage, SMS or WhatsApp answers `501 not_implemented` first, with any key (the Flow team connects those): build meanwhile on simulated conversations of that channel. Read the token from an env var; never paste it into a chat or commit it.
 - iMessage lines are connected by the Flow team and listed only with a live key. The person always writes first (replies only); get them to write with the line's opt-in link (`address.link` of the sender).
 - SMS (US): in pilot. US numbers are connected by the Flow team (live key only, no sandbox). Starts need the contact's recorded `consent` unless they texted first; STOP opts a contact out (`403 permission`, `contact_opted_out`) until START; quiet hours answer `409 outside_window`, `quiet_hours`, with `retry_after`. Text up to {{text_caps.sms}} characters and {{sms_max_segments}} segments.
-- Build the app on the REST API (HTTP and the WebSocket stream) for everything it does at runtime: receive, reply, start conversations. In TypeScript or JavaScript use the SDK, `npm install @flow-engineer/messaging` (it also has the CLI: `npx ... init`, `login`); Python and Go SDKs are not published yet, so use HTTP there.
+- Build the app on the REST API (HTTP and the WebSocket stream) for everything it does at runtime: receive, reply, start conversations. In TypeScript or JavaScript use the SDK, `npm install @flow-engineer/messaging` (it also has the CLI: `npx ... init`, `login`). In Python use the SDK, `pip install {{python_package}}` (`from flow_messaging import Flow`; `Flow()` reads `{{env.api_key}}`). The Go SDK is not published yet, so use HTTP there.
 - {{> mcp-short}}
 
 ## Flow Observe (see every conversation; early access)
@@ -82,3 +82,5 @@ With the TypeScript SDK (`npm install @flow-engineer/messaging`):
 - [Mastra](https://github.com/flow-engineer/sdk/tree/main/examples/mastra)
 - [LangChain.js](https://github.com/flow-engineer/sdk/tree/main/examples/langchain)
 - [Eve](https://github.com/flow-engineer/sdk/tree/main/examples/eve)
+
+With the Python SDK (`pip install {{python_package}}`): [Echo agent](https://github.com/flow-engineer/sdk/tree/main/examples/echo) (`agent.py`); the [SDK's README](https://github.com/flow-engineer/sdk/tree/main/python) covers sending, events, webhooks, errors and simulated contacts.

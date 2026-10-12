@@ -160,7 +160,7 @@ person can still claim the app.
 
 ### Sign in to keep the app
 
-A person signs in with a Flow account (flow.engineer: Google or GitHub) and the app is **claimed**: its data and keys
+A person signs in with a Flow account (flow.engineer: Google, GitHub or an email link) and the app is **claimed**: its data and keys
 are kept, the expiry is removed, and the app moves under the person's signed-in
 allowance: 3 contacts x 100 messages, **one allowance per person**, shared by every
 app they own or claim (a person may claim up to 10 apps). `allowance.scope` is
@@ -210,7 +210,7 @@ Revoked, ask the person for a key from the dashboard's Keys page, or sign in wit
 the device flow above.
 
 Signed-in people see their apps and keys in the dashboard,
-https://api.flow.engineer/admin (sign in with a Flow account (flow.engineer: Google or GitHub)). There they can make
+https://api.flow.engineer/admin (sign in with a Flow account (flow.engineer: Google, GitHub or an email link)). There they can make
 **live keys** (`fk_live_...`) themselves (switch to **Live**, then Keys > **Create
 live key**: https://api.flow.engineer/admin/keys?mode=live) and go live on Telegram
 with their own bot (section 7). iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team.
@@ -241,7 +241,8 @@ const me = await flow("GET", "/v1/app");   // { account, app, api_key, livemode,
 ```
 
 ```python
-# Python 3.9+, pip install requests. Shared helper used by every Python snippet below.
+# Python 3.9+, pip install requests. Shared helper used by every Python snippet below
+# (plain HTTP; the Python SDK, `pip install flow-messaging`, is in section 13).
 import os, uuid, requests
 
 FLOW = "https://api.flow.engineer"
@@ -1119,7 +1120,7 @@ iMessage lines have stricter limits of their own.
 
 ## 12. MCP server (optional, for development)
 
-**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. Never make the app call the MCP server.
+**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript or Python SDK, which wrap it) for everything it does at runtime. Never make the app call the MCP server.
 
 The hosted MCP server at `https://api.flow.engineer/mcp` (Streamable HTTP, the same API key as a Bearer token) is an optional tool for testing and operating the integration while you build: with a test key it shows the sandbox join link, sends test messages, waits for events, reads webhook deliveries and replays events; with a live key it reads and answers conversations. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to you, use them for sandbox testing.
 
@@ -1158,8 +1159,29 @@ key (section 0). After `send_test_message`, pass the `cursor` it returned as `af
 The package `@flow-engineer/messaging` has a CLI you run with `npx`: `init` (gets a
 test key when none is set, writes `.env`, prints the sandbox link and join code) and
 `login` (a person signs in to keep the app), both in section 0. Its TypeScript SDK is
-published (`npm install @flow-engineer/messaging`); the Python and Go SDKs are not
-published yet, so in those languages build on plain HTTP and the WebSocket as shown here.
+published (`npm install @flow-engineer/messaging`).
+
+The Python SDK is published too (`pip install flow-messaging`, Python 3.10+): typed
+sync and async clients, the live event stream and webhook verification. The snippets
+in this file are plain HTTP; with the SDK the same agent is:
+
+```python
+from flow_messaging import Flow, content_text
+
+flow = Flow()  # reads FLOW_MESSAGING_KEY
+for event in flow.events.stream(types=["message.received"]):
+    said = content_text(event.data.message.content)
+    flow.messages.send(event.conversation.id, f"You said: {said}")
+```
+
+Webhooks: `construct_event(raw_body, flow_signature_header)` checks `Flow-Signature`
+(the secret defaults to `FLOW_MESSAGING_WEBHOOK_SECRET`) and returns the typed event;
+`webhook_reply("...")` is the answer that replies at once. Errors raise a subclass of
+`FlowError` per `error.type` (`OutsideWindowError`, `PermissionDeniedError`, ...) with
+`hint`, `doc_url` and `code`. Full reference: https://github.com/flow-engineer/sdk/tree/main/python.
+
+The Go SDK is not published yet: in Go build on plain HTTP and the WebSocket as shown
+here.
 
 ## 14. Recipes: common tasks
 
@@ -1347,7 +1369,6 @@ Some things are set up by the Flow team, not through the API: SMS numbers, Whats
 | **US SMS** (in pilot), including on your own SMS provider account | `POST /v1/senders` with `"channel": "sms"` answers `501`; the team connects the number. Build on simulated SMS. | Your app ID (`app_...`, from `GET /v1/app` with your live key) and account ID (`account` there); the number in E.164 (`+1` and ten digits), 10DLC or toll-free, and its registration status; whether it is on your own provider account (which provider) or Flow should provide one; what you send and how people opt in. Not the auth token: the team arranges that. |
 | **WhatsApp on your own WhatsApp Business Account** (credentials in your own secret manager is fine) | `POST /v1/senders` with `"channel": "whatsapp"` answers `501`; the team connects the number. Build on simulated WhatsApp (templates are approved at once there). | Your app and account IDs; the phone number ID and WhatsApp Business Account ID (in WhatsApp Manager); whether the number is on your own Meta app. Not the access token or the app secret: the team arranges how they reach Flow. Meta bills you directly, so the account needs a payment method in WhatsApp Manager. |
 | **iMessage** | Lines are connected by the team; they reply only (the person writes first) unless the line is enabled to start conversations. Build on simulated iMessage or Telegram. | Your app and account IDs; what the agent does; expected people per day; whether you need to write first (and why the person expects it). |
-| **Python** | No Python SDK yet (TypeScript first). Use plain HTTP and the WebSocket: the quickstart's snippets come in Python too, and the plain-HTTP examples are tested in Python. | Nothing needed; ask if you want to hear when the SDK ships. |
 | **Pricing and billing** | Billing is not live, so everything is free today. Payments are coming; there are no prices or dates yet. With your own provider account (your own SMS provider account, or your own WhatsApp Business Account), the provider bills you directly and Flow charges nothing while billing is not live. | Expected volume per channel and month, if you want to talk about it. |
 | **Support: "sent but not delivered"** | First read the message: `GET /v1/messages/{message_id}` and its events (`GET /v1/events?conversation=conv_...`). Every send ends `message.sent` or `message.failed` (with `error.type`, `channel_code` and `hint`); Telegram never reports `message.delivered`, so `sent` is the last status there. | The message ID (`msg_...`), conversation ID (`conv_...`), the `request_id` of the call (also the `Flow-Request-Id` header), test or live, the time, and what you expected. Not your API key, and no message content unless asked. |
 

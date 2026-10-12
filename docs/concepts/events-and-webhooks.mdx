@@ -152,31 +152,22 @@ app.listen(3000);
 ```
 
 ```python Python (FastAPI)
-# The Python SDK is not published yet, so this checks the signature by hand.
-import hashlib, hmac, json, os, time
+# pip install flow-messaging fastapi
 from fastapi import FastAPI, Request, Response
+from flow_messaging import WebhookSignatureError, construct_event, content_text, webhook_reply
 
 app = FastAPI()
-SECRET = os.environ["FLOW_MESSAGING_WEBHOOK_SECRET"]
-
-def verify(body: bytes, header: str, secret: str, tolerance: int = 300) -> bool:
-    fields = [part.strip().split("=", 1) for part in header.split(",") if "=" in part]
-    t = next((v for k, v in fields if k == "t"), None)
-    signatures = [v for k, v in fields if k == "v1"]
-    if t is None or not t.isdigit() or abs(time.time() - int(t)) > tolerance:
-        return False
-    expected = hmac.new(secret.encode(), b"t." + t.encode() + b"." + body, hashlib.sha256).hexdigest()
-    return any(hmac.compare_digest(expected, s) for s in signatures)
 
 @app.post("/flow")
 async def flow_webhook(request: Request):
-    body = await request.body()
-    if not verify(body, request.headers.get("Flow-Signature", ""), SECRET):
+    body = await request.body()  # the raw body: a parsed and re-serialized body will not match
+    try:
+        # The secret defaults to FLOW_MESSAGING_WEBHOOK_SECRET.
+        event = construct_event(body, request.headers.get("Flow-Signature"))
+    except WebhookSignatureError:
         return Response(status_code=400)
-    event = json.loads(body)
-    if event["type"] == "message.received":
-        text = event["data"]["message"]["content"].get("text", "")
-        return {"reply": {"type": "text", "text": f"You said: {text}"}}
+    if event.type == "message.received":
+        return webhook_reply(f"You said: {content_text(event.data.message.content)}")
     return {}
 ```
 
