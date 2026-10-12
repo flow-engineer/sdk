@@ -667,8 +667,9 @@ Inbound `content.type` is one of `text`, `media`, `voice`, `button_reply`,
 (the redirect URL lives 5 minutes). `voice` may carry a `transcript`. `file_blocked`
 means the contact sent a file Flow did not keep (`reason`: `malware`,
 `type_not_allowed`, `scan_failed`, `too_large`). Documents and archives contacts send
-(PDF, Office files, zip and the like) are not malware-scanned yet: treat them as
-untrusted. A message that quotes an earlier one carries `reply_to` (`msg_...`).
+(PDF, Office files, zip and the like) are malware-scanned before Flow keeps them; one
+Flow could not scan arrives as `file_blocked` with `reason` `scan_failed` (ask the
+contact to send it again). A message that quotes an earlier one carries `reply_to` (`msg_...`).
 
 A complete webhook receiver (TypeScript, no dependencies):
 
@@ -807,10 +808,8 @@ Messages in one conversation go out one at a time, in the order accepted. Add
 `"reply_to": "msg_..."` to show the message as an inline reply (Telegram, iMessage).
 
 Other content: `media` (`kind` `image|video|document|audio`, plus `url` or `file_id`
-from `POST /v1/files`, optional `caption`; uploads of documents and archives are
-refused with `422 unsupported_content` for now, as are sends of documents contacts
-sent you, until they can be malware-scanned: send a document by public `https` `url`
-instead), `voice`, `buttons`, `reaction`
+from `POST /v1/files`, optional `caption`; documents and archives are malware-scanned
+when uploaded, and one that fails answers `422 file_blocked`), `voice`, `buttons`, `reaction`
 (`message_id`, `emoji`, `null` removes), `location`, `contact_card`, `effect`.
 
 Text is 1 to the channel's `max_text_length` characters:
@@ -932,8 +931,8 @@ the same error shape in `data.message.error`).
 | `not_found` | 404 | Wrong ID, or it belongs to the other mode (test vs live). |
 | `idempotency_conflict` | 409 | See section 8. |
 | `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. |
-| `unsupported_content` | 422 | The channel cannot show it: resend with `"fallback": "auto"` or other content. An upload of a document or archive (PDF, Office, zip) is refused too: send it by public `https` `url` instead. |
-| `file_blocked` | 422 | The upload failed the malware scan and was not stored. |
+| `unsupported_content` | 422 | The channel cannot show it: resend with `"fallback": "auto"` or other content. An upload of a type Flow does not take (programs, web pages) gets it too. |
+| `file_blocked` | 422 | The upload failed the malware scan and was not stored. Send a different file. |
 | `new_contact_limit` | 429 | The sender's budget for new conversations is used up. `retry_after` can be an hour: queue the start, do not block on it. |
 | `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` ({{sending.abuse.throttle_hours}} hours by default). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |

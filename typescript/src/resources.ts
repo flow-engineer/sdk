@@ -226,9 +226,8 @@ export class Files {
   /**
    * Uploads media to send later as `media` or `voice` content by `file_id`. The answer
    * is the stored `File`; its `id` (`file_...`) is the `file_id`. Documents (PDF,
-   * Office, archives) are refused with `UnsupportedContentError` where no malware
-   * scanner runs: send those by public HTTPS `url` instead
-   * (`document("https://example.com/receipt.pdf")`).
+   * Office, archives) are malware-scanned before they are stored: one that fails
+   * throws `FileBlockedError`.
    *
    * ```ts
    * const file = await flow.files.upload({ file: await readFile("receipt.png"), filename: "receipt.png" });

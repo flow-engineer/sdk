@@ -77,8 +77,8 @@ Inbound messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `loca
 - **Media and voice notes** always come with the file: `url` (a Flow file URL that redirects to short-lived signed bytes) and `file_id`. Fetch it with your API key, or with `flow.files.download(url)`.
 - **Voice note transcripts**: Flow does not transcribe voice notes yet (the app setting `transcription` cannot be turned on). On iMessage, a voice note may carry a `transcript` when the channel provides one; on Telegram it never does. The audio is always included.
 - **Button taps** arrive as `button_reply` with `button_id` and `label`.
-- **`file_blocked`** means the person sent a file Flow did not keep: its type is not passed on (programs, web pages), it was too large, or (once malware scanning is on) it failed or could not get the scan. The `reason` says which, and there is no `url`.
-- **Documents are not malware-scanned yet.** Documents and archives people send you (PDF, Office files, zip and the like) are kept unscanned: treat them as untrusted.
+- **`file_blocked`** means the person sent a file Flow did not keep: its type is not passed on (programs, web pages), it was too large, it failed the malware scan, or Flow could not scan it (`scan_failed`: ask them to send it again). The `reason` says which, and there is no `url`.
+- **Documents are malware-scanned.** Documents and archives people send you (PDF, Office files, zip and the like) are scanned before Flow keeps them; images, audio and video are not scanned.
 
 In TypeScript, `contentText(content)` returns the readable text of any content: the text, a caption, a transcript (when there is one) or a tapped button's label.
 
@@ -92,7 +92,7 @@ curl https://api.flow.engineer/v1/files \
   -F file=@receipt.png -F channel=telegram
 ```
 
-Files up to 100 MB are taken; with `channel` set, the file is checked against that channel's limit at once. Until malware scanning is on, uploads of documents and archives (PDF, Office files, zip and the like) are refused with `422` [`unsupported_content`](/errors/unsupported_content), and so are sends of documents people sent you; images, audio and video are not affected. To send a document meanwhile, host it yourself and give its public HTTPS `url` (`"kind": "document"`). Files are kept for your plan's retention period (30 days by default).
+Files up to 100 MB are taken; with `channel` set, the file is checked against that channel's limit at once. Documents and archives (PDF, Office files, zip and the like) are malware-scanned before Flow stores them: one that fails answers `422` [`file_blocked`](/errors/file_blocked) and is not stored, and if the scan cannot run just then the upload answers a retryable `500` [`api_error`](/errors/api_error) with `Retry-After` (retry with the same `Idempotency-Key`; nothing was stored). Images, audio and video are not scanned. Send a document with `"kind": "document"` and its `file_id`, or give a public HTTPS `url` the channel fetches. Files are kept for your plan's retention period (30 days by default).
 
 ## Typing, read receipts, edits and reactions
 
