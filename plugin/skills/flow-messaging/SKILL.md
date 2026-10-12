@@ -101,8 +101,12 @@ simulate only SMS (`hipaa_channel_not_covered`).
 ## See every conversation (Flow Observe, early access)
 
 Flow Observe (https://flow.engineer/observe) grades every reply and groups failures into issues. On
-Flow Messaging it needs no code: the Flow team (samyak@flow.engineer or prabal@flow.engineer) connects it to the
-app. To also see each turn's model and tool calls, export OpenTelemetry traces
+Flow Messaging it needs no code: the user adds the agent on Observe's Setup page with a
+test key of the app. Keys (trace key `otk_test_...`, CI key `oci_...`) are made by the user
+on Observe's Setup page at https://flow.engineer/observe after signing in with their Flow
+login; Observe is in early access, and if it is not on for them, they ask the Flow team
+(samyak@flow.engineer or prabal@flow.engineer). Never invent a key, and never ask the user to paste one into the
+chat. To also see each turn's model and tool calls, export OpenTelemetry traces
 (OTLP/HTTP) to `https://flow.engineer/observe/v1/traces` with
 `Authorization: Bearer $FLOW_OBSERVE_TRACE_KEY` and tag each turn's span:
 

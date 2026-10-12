@@ -7,7 +7,7 @@ keywords: ["OpenTelemetry AI agent", "OTLP HTTP exporter Python", "OpenTelemetry
 
 If your agent talks to people through anything other than [Flow Messaging](/observe/flow-messaging) (your own SMS provider, a web chat, your own WhatsApp integration), your traces are all Flow Observe needs. Send one OpenTelemetry trace per **turn**, the work between a person's message and your agent's reply, with a few `flow.*` attributes on it. From each trace Observe builds the conversation, stores both messages and grades the reply.
 
-Any OpenTelemetry SDK works. You need a trace key (`otk_test_...`) from the Flow team (see [Get access](/observe#get-access)), in `FLOW_OBSERVE_TRACE_KEY`.
+Any OpenTelemetry SDK works. You need a trace key (`otk_test_...`), made in the dashboard (see [Get access](/observe#get-access)), in `FLOW_OBSERVE_TRACE_KEY`.
 
 | | |
 |---|---|
