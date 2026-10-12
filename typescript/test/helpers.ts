@@ -132,7 +132,7 @@ export function deviceAuthorization(interval = 5) {
 }
 
 /** A POST /v1/device/token answer that carries a new key. */
-export function approvedToken(claimed = true) {
+export function approvedToken(claimed = true, provider = "flow") {
   return {
     status: "approved",
     interval: 5,
@@ -140,6 +140,6 @@ export function approvedToken(claimed = true) {
     app: { ...app, name: "My agent" },
     claimed,
     allowance: allowance("signed_in"),
-    user: { name: "octocat", provider: "github" },
+    user: { name: "Lin Chen", provider },
   };
 }

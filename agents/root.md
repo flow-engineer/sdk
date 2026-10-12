@@ -6,7 +6,7 @@ Agents: read /llms.txt. No key? POST /v1/sandbox/keys (no account needed):
 
     curl -X POST https://api.flow.engineer/v1/sandbox/keys
 
-Or with Node: `npx @flow-engineer/messaging init` does the same (writes `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env`, prints the sandbox link and join code), and `npx @flow-engineer/messaging login` lets a person sign in with GitHub to keep the app. TypeScript SDK: `npm install @flow-engineer/messaging`. Python and Go: plain HTTP (no SDK published yet).
+Or with Node: `npx @flow-engineer/messaging init` does the same (writes `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env`, prints the sandbox link and join code), and `npx @flow-engineer/messaging login` lets a person sign in with a Flow account (flow.engineer: Google or GitHub) to keep the app. TypeScript SDK: `npm install @flow-engineer/messaging`. Python and Go: plain HTTP (no SDK published yet).
 
 Build the app on the REST API (paths under /v1/). MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime.
 

@@ -36,7 +36,7 @@ export FLOW_CLAIM_TOKEN=fct_...
 ```
 
 This key allows 1 contact and 50 messages on the Telegram sandbox and expires after 7
-days; a person signs in with GitHub (`npx @flow-engineer/messaging login`) to
+days; a person signs in with a Flow account (`npx @flow-engineer/messaging login`) to
 keep the app and send 100 messages to each of 3 contacts. See
 [Keys and sign-in](https://docs.flow.engineer/get-a-key). Signed in, you make live keys (`fk_live_...`) in the dashboard and go live on Telegram with your own bot; iMessage lines and WhatsApp numbers are arranged with the Flow team.
 

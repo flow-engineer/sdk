@@ -27,7 +27,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ## 1. Get a line
 
-1. Sign in to the [dashboard](https://api.flow.engineer/admin) with GitHub and make a live key (`fk_live_...`) on the [Keys page](https://api.flow.engineer/admin/keys?mode=live). See [Going live](/guides/going-live).
+1. Sign in to the [dashboard](https://api.flow.engineer/admin) with a Flow account and make a live key (`fk_live_...`) on the [Keys page](https://api.flow.engineer/admin/keys?mode=live). See [Going live](/guides/going-live).
 2. Ask the Flow team to connect an iMessage line to your app. iMessage lines are not self-serve: `POST /v1/senders` with `"channel": "imessage"` answers `501 not_implemented`.
 3. With the live key, `GET /v1/senders?channel=imessage` lists the line. Its `address.link`, when set, is the line's opt-in link: it opens Messages with the line and a prefilled text the person sends to start.
 4. Run the code above, text the line from an iPhone or Mac, and your agent answers.

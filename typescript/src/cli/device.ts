@@ -1,4 +1,4 @@
-// `flow-messaging login`: sign in with GitHub from the terminal (the device
+// `flow-messaging login`: sign in with a Flow account from the terminal (the device
 // flow, POST /v1/device/authorizations and POST /v1/device/token on the API base URL).
 // With the FLOW_CLAIM_TOKEN that `init` saved (or the sandbox key as the bearer) the
 // sign-in claims the sandbox app: its keys stop expiring and its allowance is lifted.
@@ -21,6 +21,14 @@ import { projectEnvValue, setDotenv, unsetDotenv } from "./env.js";
 import { SIGN_IN } from "./facts.js";
 
 export const CLIENT_NAME = "flow CLI";
+
+/** How `login` names where a person signed in (`DeviceToken.user.provider`). */
+const PROVIDER_NAMES: Record<string, string> = { flow: "Flow account", github: "GitHub", google: "Google" };
+
+/** The name of a sign-in provider; one this CLI does not know yet is shown as it came. */
+export function providerName(provider: string): string {
+  return PROVIDER_NAMES[provider] ?? provider;
+}
 export const LOGIN_COMMAND = "npx @flow-engineer/messaging login";
 
 export interface LoginOptions {
@@ -139,7 +147,7 @@ export async function login(o: LoginOptions): Promise<"signed_in" | "pending"> {
     setDotenv(envFile, "FLOW_MESSAGING_KEY", t.key);
     const hadClaim = unsetDotenv(envFile, "FLOW_CLAIM_TOKEN");
     clearPending();
-    print(`✓ Signed in${t.user ? ` as ${t.user.name} (${t.user.provider})` : ""}.`);
+    print(`✓ Signed in${t.user ? ` as ${t.user.name} (${providerName(t.user.provider)})` : ""}.`);
     const app = t.app ? `"${t.app.name}"` : "your app";
     print(t.claimed ? `✓ Claimed ${app}: its data and keys are kept, and they no longer expire.` : `✓ A new test key for ${app}.`);
     if (t.allowance) print(`  Sandbox allowance: ${describeAllowance(t.allowance)}.`);
@@ -148,7 +156,7 @@ export async function login(o: LoginOptions): Promise<"signed_in" | "pending"> {
     if (process.env.FLOW_MESSAGING_KEY && process.env.FLOW_MESSAGING_KEY !== t.key) {
       print("! FLOW_MESSAGING_KEY is also set in your environment, which wins over .env: set it to the new key from .env there too.");
     }
-    print(`  Dashboard: ${dashboardURL(o.baseURL)} (sign in with the same ${SIGN_IN} account).`);
+    print(`  Dashboard: ${dashboardURL(o.baseURL)} (sign in with the same account).`);
     return "signed_in";
   };
 

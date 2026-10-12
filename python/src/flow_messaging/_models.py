@@ -1703,7 +1703,7 @@ class SandboxAllowance(BaseModel):
     )
     tier: Literal["anonymous", "signed_in"]
     """
-    `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (GitHub; Google sign-in is not enabled yet).
+    `anonymous`: an app made without an account, whose keys expire. `signed_in`: an app of a person who signed in (with a Flow account).
     """
     scope: Literal["app", "person"]
     """
@@ -1759,7 +1759,7 @@ class SandboxKey(BaseModel):
         str, Field(examples=["https://api.flow.engineer/admin/claim#token=fct_..."])
     ]
     """
-    A page where a person signs in with GitHub and claims the app in the browser, without the CLI. It holds the claim token, so treat it like one. The claim hands out no key and revokes the app's keys unless the person ticks "Keep my agent's current key working"; afterwards they make keys on the dashboard's Keys page.
+    A page where a person signs in to Flow and claims the app in the browser, without the CLI. It holds the claim token, so treat it like one. The claim hands out no key and revokes the app's keys unless the person ticks "Keep my agent's current key working"; afterwards they make keys on the dashboard's Keys page.
     """
     senders: list[Sender]
     """
@@ -2101,9 +2101,13 @@ class SignedInUser(BaseModel):
     """
     Their verified email address, where the provider gave one.
     """
-    provider: Literal["github", "google"]
+    provider: str
     """
-    Where they signed in.
+    Where they signed in: `flow` (a Flow account, flow.engineer: every sign-in
+    today). `github` and `google` are sign-ins made on the Messaging API itself
+    before Flow accounts. More may be added later, so treat a value you do not
+    know as a sign-in elsewhere rather than an error.
+
     """
 
 

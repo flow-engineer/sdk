@@ -290,7 +290,7 @@ def test_typed_errors() -> None:
 def test_device_sign_in_starts(flow: Flow) -> None:
     try:
         auth = flow.device.authorize(client_name="python e2e")
-    except NotImplementedYetError as e:  # a stack without GitHub or Google sign-in configured
+    except NotImplementedYetError as e:  # a stack without any sign-in configured
         pytest.skip(f"sign-in is not configured on this stack: {e.message}")
     assert auth.user_code and auth.verification_uri_complete
     assert flow.device.poll(auth.device_code).status == "pending"
