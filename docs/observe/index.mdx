@@ -14,7 +14,7 @@ Flow Observe shows you what your agent says to people, and which replies went wr
 - **Stats and usage**: conversations, replies, reply time (median and 95th percentile), and the conversation count you are billed on.
 
 <Note>
-Flow Observe is in **early access**. The Flow team creates your account and keys. Your account takes **test data only** until the Flow team enables it for production: send synthetic conversations, never real people's messages, until then.
+Flow Observe is in **early access**. You add your agent and make its keys yourself on Observe's Setup page. Your account takes **test data only** until the Flow team enables it for production: send synthetic conversations, never real people's messages, until then.
 </Note>
 
 ## Two ways in
@@ -28,7 +28,7 @@ Pick the one that matches how your agent talks to people.
 | Where conversations come from | Flow Messaging's event log | Your traces |
 | The text graded | What Flow Messaging delivered and sent | What you report in `flow.user_message` and `flow.agent_reply` |
 | The inside of each turn | When you also send traces | Yes, from the same traces |
-| Test chats | [Simulated contacts](/concepts/test-and-live-mode#simulated-contacts-test-without-a-phone) today | `flow test` (coming, see [Test before you ship](/trust)) |
+| Test chats | [Simulated contacts](/concepts/test-and-live-mode#simulated-contacts-test-without-a-phone) today | `flow test` (early access, see [Test before you ship](/trust)) |
 
 <CardGroup cols={2}>
   <Card title="On Flow Messaging" icon="message" href="/observe/flow-messaging">
@@ -38,6 +38,28 @@ Pick the one that matches how your agent talks to people.
     Send one trace per turn. Python and TypeScript, with or without a framework.
   </Card>
 </CardGroup>
+
+## Works alongside your other tools
+
+Observe takes standard OpenTelemetry over OTLP/HTTP. If you already send traces somewhere, add Observe as a second exporter: the same spans go to both, and nothing in your code is specific to Flow except the `flow.*` attributes. You can try Observe next to what you use today, and stop at any time by removing the exporter.
+
+<CodeGroup>
+```python Python
+provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(  # next to your existing processor
+    endpoint="https://flow.engineer/observe/v1/traces",
+    headers={"Authorization": f"Bearer {os.environ['FLOW_OBSERVE_TRACE_KEY']}"})))
+```
+
+```ts TypeScript
+spanProcessors: [
+  new BatchSpanProcessor(yourExistingExporter),
+  new BatchSpanProcessor(new OTLPTraceExporter({ url: "https://flow.engineer/observe/v1/traces",
+    headers: { Authorization: `Bearer ${process.env.FLOW_OBSERVE_TRACE_KEY}` } })),
+],
+```
+</CodeGroup>
+
+The TypeScript lines go in your provider's constructor (OpenTelemetry JS 2.x). The imports and the rest of the setup are on [Send traces from any agent](/observe/traces#1-set-up-the-exporter).
 
 ## Get access
 
@@ -61,7 +83,7 @@ Pick the one that matches how your agent talks to people.
 
 ## How your data is kept
 
-- Message text and the content of your traces (prompts, tool inputs and results) are encrypted at rest with a key per account, and deleted when your account's retention period ends.
+- Message text and the content of your traces (prompts, tool inputs and results) are encrypted at rest with a key per account. Message text is kept 30 days by default, then deleted. Trace content is deleted no later.
 - Every time a person opens a conversation's text in the dashboard, it is logged.
 - On other channels, the ids you send (conversation, contact, message) are stored only as keyed hashes, so a phone number used as an id is never stored as a phone number. On Flow Messaging, Observe keeps Flow's own ids (`conv_...`, `msg_...`, `ct_...`) and never the person's phone number or handle.
 - The dashboard shows span details (names, models, tokens, timings, errors), not prompts or tool inputs.

@@ -2,7 +2,7 @@
 
 > Flow Messaging is a two-way messaging API for AI agents on Telegram, iMessage and WhatsApp. Flow hosts the senders (bots, lines, numbers), delivers every inbound message to your webhook or WebSocket as a signed, ordered event, and passes every send through one gate that enforces each channel's rules. Base URL: https://api.flow.engineer. Auth: `Authorization: Bearer $FLOW_MESSAGING_KEY` (`fk_test_...` for the sandbox, `fk_live_...` for your own senders).
 
-**Three steps, any agent:** 1. **Talk**: connect your agent to Flow Messaging (everything below). 2. **See**: Flow Observe records and grades every conversation: no code on Flow Messaging; on any other channel (your own SMS provider, web chat), send OpenTelemetry traces ([guide](https://docs.flow.engineer/observe/traces.md)). 3. **Trust**: graded test chats before you ship, a CI check coming ([guide](https://docs.flow.engineer/trust.md)). New to consumer chat? Read [What changes when real people text your bot](https://docs.flow.engineer/guides/real-people.md).
+**Three steps, any agent:** 1. **Talk**: connect your agent to Flow Messaging (everything below). 2. **See**: Flow Observe records and grades every conversation: no code on Flow Messaging; on any other channel (your own SMS provider, web chat), send OpenTelemetry traces ([guide](https://docs.flow.engineer/observe/traces.md)). 3. **Trust**: graded test chats before you ship, and `flow test`, a CI check that fails the build on a failed case ([guide](https://docs.flow.engineer/trust.md)). New to consumer chat? Read [What changes when real people text your bot](https://docs.flow.engineer/guides/real-people.md).
 
 **No key? `curl -X POST https://api.flow.engineer/v1/sandbox/keys`**: no account, no API key sent. Save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once; e.g. in `.env`, gitignored), then show the person a sender's `address.link` and `join_code` from the answer. Check `FLOW_MESSAGING_KEY` first: never get a new key when you already have one.
 
@@ -36,7 +36,7 @@ Key facts for coding agents:
 - On Flow Messaging: no code; the user adds the agent on Observe's Setup page as Flow Messaging, with a test key of the app made just for Observe. Optional traces: set `flow.conversation_id` (`event.conversation.id`, `conv_...`) and `flow.message_id` (`event.data.message.id`, `msg_...`) on a span of each turn.
 - On any other channel: traces only. One OpenTelemetry trace per turn (the person's message to the reply), exported over OTLP/HTTP (protobuf or JSON, not gRPC) to `https://flow.engineer/observe/v1/traces` with `Authorization: Bearer $FLOW_OBSERVE_TRACE_KEY` (`otk_test_...`). On the turn's span (the one that wraps the turn) set `flow.conversation_id` (required: your own thread id, any string up to 256 characters; a phone number is fine, it is stored as a keyed hash; never text), and preferably `flow.message_id` (the inbound message's id; de-duplicates retries), `flow.contact_id`, `flow.channel` (`sms`, `mms`, `whatsapp`, `telegram`, `imessage`, `web`, `voice`, `other`), `flow.user_message` (the person's text as received) and `flow.agent_reply` (the text actually sent, after post-processing and splitting; one span per sent message). Start the turn's span when the message arrives; end the reply's span when it is sent. Flush the exporter before a short-lived process exits.
 - Check it worked: the export answers `200` with `{}` (a `partialSuccess` with `rejectedSpans` says what was refused); the conversation appears in the dashboard at https://flow.engineer/observe within seconds, with each reply's verdict shortly after. `401`: wrong key; `403`: a live key on a test-only account.
-- Tests: every test conversation is graded. On Flow Messaging, play test chats with simulated contacts (above); on another channel, call your message handler with synthetic turns and a test trace key. Test cases, a pass/fail CI check and a `flow test` CLI are coming.
+- Tests: every test conversation is graded. On Flow Messaging, play test chats with simulated contacts (above); on another channel, call your message handler with synthetic turns and a test trace key. Test cases and a pass/fail CI check: the `flow test` CLI (early access, https://docs.flow.engineer/trust.md).
 
 ## Docs
 
@@ -47,7 +47,7 @@ Key facts for coding agents:
 - [Send traces from any agent](https://docs.flow.engineer/observe/traces.md): the trace contract (`flow.*` attributes), Python and TypeScript with no framework, checking it worked, common mistakes.
 - [Traces from agent frameworks](https://docs.flow.engineer/observe/frameworks.md): OpenAI Agents SDK, LangChain and LangGraph, Vercel AI SDK, Claude Agent SDK, Mastra.
 - [Observe on Flow Messaging](https://docs.flow.engineer/observe/flow-messaging.md): no code; the optional trace tag.
-- [Test before you ship](https://docs.flow.engineer/trust.md): what works today, what is coming.
+- [Test before you ship](https://docs.flow.engineer/trust.md): `flow test` in your CI today, and what is coming.
 - [What changes when real people text your bot](https://docs.flow.engineer/guides/real-people.md): consent and STOP, quiet hours, length, duplicates, returning people, media, latency, silent failures, testing.
 
 ## Optional
