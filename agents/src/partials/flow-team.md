@@ -2,7 +2,7 @@ Some things are set up by the Flow team, not through the API: SMS numbers, Whats
 
 **Never send secrets in chat or email, and never paste them to a coding agent or commit them**: API keys, bot tokens, provider auth tokens, access tokens, app secrets. The Flow team tells you how to hand credentials over, and Flow stores them encrypted. A coding agent that finds credentials in `.env` or a secret manager leaves them where they are and tells the person this.
 
-**Build meanwhile on Telegram or simulated conversations.** Your code does not change per channel: you reply into conversations, switch on `content.type` and `error.type`, and set `"fallback": "auto"`. Simulated conversations (`POST /v1/test/conversations` with `"channel": "sms"`, `"whatsapp"` or `"imessage"`) keep each channel's rules (SMS consent and STOP, WhatsApp's 24-hour window and templates, iMessage replies only), are free and need no number. When the number or line is connected, switch to a live key; nothing else changes.
+**Build meanwhile on the Telegram or WhatsApp sandbox, or on simulated conversations.** Your code does not change per channel: you reply into conversations, switch on `content.type` and `error.type`, and set `"fallback": "auto"`. Simulated conversations (`POST /v1/test/conversations` with `"channel": "sms"`, `"whatsapp"` or `"imessage"`) keep each channel's rules (SMS consent and STOP, WhatsApp's 24-hour window and templates, iMessage replies only), are free and need no number. When the number or line is connected, switch to a live key; nothing else changes.
 
 | You want | Today | Send the Flow team |
 |---|---|---|

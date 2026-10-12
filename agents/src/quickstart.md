@@ -150,8 +150,8 @@ one, writes both to `.env`, and prints the sandbox link and join code).
 | Messages | {{allowance.anonymous.messages_per_contact}} in total | {{allowance.signed_in.messages_per_contact}} per contact |
 | Key expires | after {{allowance.anonymous.key_ttl_days}} days | never |
 
-The allowance covers the Telegram sandbox (and WhatsApp's when it opens; it is not
-live yet), not iMessage. Only messages your agent sends count; inbound messages are
+The allowance covers the Telegram and WhatsApp sandboxes, not iMessage; a channel
+whose sandbox is paused is left out of `allowance.channels` until it reopens. Only messages your agent sends count; inbound messages are
 free. `GET /v1/app` returns `allowance`: `tier`, `channels`, `contacts` (`limit`,
 `used`), `messages_per_contact`, `messages` (`limit`, `used`, `remaining`),
 `expires_at`, `upgrade`. When the key expires it stops working (`401 authentication`,
@@ -945,8 +945,12 @@ Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code
 for another contact), `sandbox_channel_not_included` (that sandbox channel is not
 covered, for example iMessage), `sign_in_required` (an app made without an account
 cannot do this). An expired sandbox key is `401 authentication` with
-`sandbox_key_expired`. The fix for all of them: have a person sign in (`npx
-@flow-engineer/messaging login`, section 0), or get a new key.
+`sandbox_key_expired`. The fix for these: have a person sign in (`npx
+@flow-engineer/messaging login`, section 0), or get a new key. `sandbox_paused`
+(`403 permission`, also in `message.failed` for a message queued when it paused): the
+WhatsApp sandbox is paused for now; test on a simulated WhatsApp conversation (`POST
+/v1/test/conversations`) until `allowance.channels` in `GET /v1/app` lists `whatsapp`
+again.
 
 Sends (`POST /v1/messages`, `.../messages`, webhook replies, stream frames) are only
 queued, so channel refusals never come back on the HTTP answer: they arrive as
@@ -1107,7 +1111,20 @@ iMessage lines have stricter limits of their own.
   number appears in `GET /v1/senders` once it is connected. With your own WhatsApp
   Business Account, add a payment method in WhatsApp Manager: Meta bills its fees to
   the business directly. On a number Flow provides, Meta's per-message fees are
-  passed through. The shared WhatsApp sandbox is not open yet.
+  passed through.
+- **Shared WhatsApp sandbox** (test key): `GET /v1/senders?channel=whatsapp` lists the
+  sandbox number with `join_code` and `address.link`
+  (`https://wa.me/<number>?text=join%20<code>`, which opens WhatsApp with the join
+  message filled in). The person sends the join code to it, and `leave` to stop. The
+  number answers only a valid join code and `leave`; other messages from people who
+  have not joined get no reply from it. Replies go out within 24 hours of the
+  contact's last message; there are no templates on the sandbox (test templates on a
+  simulated WhatsApp conversation). When it is busy, a send answers `429 rate_limited`
+  with `retry_after`: wait, then retry with the same `Idempotency-Key`. While it is
+  paused, sends answer `403 permission` with `channel_code` `sandbox_paused` (a message
+  queued when it paused fails with it in `message.failed`): test on a simulated
+  WhatsApp conversation (`POST /v1/test/conversations`) until `allowance.channels` in
+  `GET /v1/app` lists `whatsapp` again.
 - **24-hour window**: free-form content only within 24 hours of the contact's last
   message; outside it, and to write first, only an approved `template` (else `409
   outside_window`).

@@ -150,8 +150,8 @@ one, writes both to `.env`, and prints the sandbox link and join code).
 | Messages | 50 in total | 100 per contact |
 | Key expires | after 7 days | never |
 
-The allowance covers the Telegram sandbox (and WhatsApp's when it opens; it is not
-live yet), not iMessage. Only messages your agent sends count; inbound messages are
+The allowance covers the Telegram and WhatsApp sandboxes, not iMessage; a channel
+whose sandbox is paused is left out of `allowance.channels` until it reopens. Only messages your agent sends count; inbound messages are
 free. `GET /v1/app` returns `allowance`: `tier`, `channels`, `contacts` (`limit`,
 `used`), `messages_per_contact`, `messages` (`limit`, `used`, `remaining`),
 `expires_at`, `upgrade`. When the key expires it stops working (`401 authentication`,
@@ -945,8 +945,12 @@ Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code
 for another contact), `sandbox_channel_not_included` (that sandbox channel is not
 covered, for example iMessage), `sign_in_required` (an app made without an account
 cannot do this). An expired sandbox key is `401 authentication` with
-`sandbox_key_expired`. The fix for all of them: have a person sign in (`npx
-@flow-engineer/messaging login`, section 0), or get a new key.
+`sandbox_key_expired`. The fix for these: have a person sign in (`npx
+@flow-engineer/messaging login`, section 0), or get a new key. `sandbox_paused`
+(`403 permission`, also in `message.failed` for a message queued when it paused): the
+WhatsApp sandbox is paused for now; test on a simulated WhatsApp conversation (`POST
+/v1/test/conversations`) until `allowance.channels` in `GET /v1/app` lists `whatsapp`
+again.
 
 Sends (`POST /v1/messages`, `.../messages`, webhook replies, stream frames) are only
 queued, so channel refusals never come back on the HTTP answer: they arrive as
@@ -1107,7 +1111,20 @@ iMessage lines have stricter limits of their own.
   number appears in `GET /v1/senders` once it is connected. With your own WhatsApp
   Business Account, add a payment method in WhatsApp Manager: Meta bills its fees to
   the business directly. On a number Flow provides, Meta's per-message fees are
-  passed through. The shared WhatsApp sandbox is not open yet.
+  passed through.
+- **Shared WhatsApp sandbox** (test key): `GET /v1/senders?channel=whatsapp` lists the
+  sandbox number with `join_code` and `address.link`
+  (`https://wa.me/<number>?text=join%20<code>`, which opens WhatsApp with the join
+  message filled in). The person sends the join code to it, and `leave` to stop. The
+  number answers only a valid join code and `leave`; other messages from people who
+  have not joined get no reply from it. Replies go out within 24 hours of the
+  contact's last message; there are no templates on the sandbox (test templates on a
+  simulated WhatsApp conversation). When it is busy, a send answers `429 rate_limited`
+  with `retry_after`: wait, then retry with the same `Idempotency-Key`. While it is
+  paused, sends answer `403 permission` with `channel_code` `sandbox_paused` (a message
+  queued when it paused fails with it in `message.failed`): test on a simulated
+  WhatsApp conversation (`POST /v1/test/conversations`) until `allowance.channels` in
+  `GET /v1/app` lists `whatsapp` again.
 - **24-hour window**: free-form content only within 24 hours of the contact's last
   message; outside it, and to write first, only an approved `template` (else `409
   outside_window`).
@@ -1341,7 +1358,7 @@ One app holds many senders: connect each customer's bot with your live key (`POS
 ### Sent but not received: a checklist
 
 1. **Did the send end?** `GET /v1/messages/{message_id}`, or `GET /v1/events?conversation=conv_...&type=message.sent&type=message.failed`. `queued`: still waiting (an earlier message in the conversation, the sender's pace, or a bot whose token Telegram rejected: reconnect it). `sent`: the channel took it (Telegram reports nothing after that). `failed`: read `error.type`, `error.channel_code` and `error.hint`.
-2. **Common `message.failed` codes**: `permission` with `sandbox_contact_left` (the person joined another app on the shared sandbox bot while the message waited: they send your join code again); `channel_error` with `channel_code` `403` on Telegram (the person blocked the bot, or never started it); `outside_window` (iMessage: they have not written recently; WhatsApp: `window_closed`, send a template; `queued_too_long`); `channel_timeout_unknown_outcome` (may have arrived).
+2. **Common `message.failed` codes**: `permission` with `sandbox_contact_left` (the person joined another app on the shared sandbox bot while the message waited: they send your join code again), `permission` with `sandbox_paused` (the WhatsApp sandbox paused while the message was queued: test on a simulated WhatsApp conversation until `allowance.channels` lists `whatsapp` again); `channel_error` with `channel_code` `403` on Telegram (the person blocked the bot, or never started it); `outside_window` (iMessage: they have not written recently; WhatsApp: `window_closed`, send a template; `queued_too_long`); `channel_timeout_unknown_outcome` (may have arrived).
 3. **Sandbox (test key)**: the person joined *your* app: opened the sandbox bot's `address.link` and tapped Start, or sent your join code. One person belongs to one app per sandbox bot, so joining another app moves them (sends answer `403 permission`). A key made without an account expires after 7 days and its contact is removed. Allowance refusals are `403 permission` (`sandbox_allowance_used`, `sandbox_contact_limit`).
 4. **Your own bot (live key)**: the person pressed Start on that bot (a Telegram bot cannot write first), and you send with the live key: sandbox conversations belong to the test key and answer `404 not_found` with a live one.
 5. **On the phone**: the chat with the right bot (the sandbox bot and your own bot are different chats) on the Telegram account that joined.
@@ -1361,7 +1378,7 @@ Some things are set up by the Flow team, not through the API: SMS numbers, Whats
 
 **Never send secrets in chat or email, and never paste them to a coding agent or commit them**: API keys, bot tokens, provider auth tokens, access tokens, app secrets. The Flow team tells you how to hand credentials over, and Flow stores them encrypted. A coding agent that finds credentials in `.env` or a secret manager leaves them where they are and tells the person this.
 
-**Build meanwhile on Telegram or simulated conversations.** Your code does not change per channel: you reply into conversations, switch on `content.type` and `error.type`, and set `"fallback": "auto"`. Simulated conversations (`POST /v1/test/conversations` with `"channel": "sms"`, `"whatsapp"` or `"imessage"`) keep each channel's rules (SMS consent and STOP, WhatsApp's 24-hour window and templates, iMessage replies only), are free and need no number. When the number or line is connected, switch to a live key; nothing else changes.
+**Build meanwhile on the Telegram or WhatsApp sandbox, or on simulated conversations.** Your code does not change per channel: you reply into conversations, switch on `content.type` and `error.type`, and set `"fallback": "auto"`. Simulated conversations (`POST /v1/test/conversations` with `"channel": "sms"`, `"whatsapp"` or `"imessage"`) keep each channel's rules (SMS consent and STOP, WhatsApp's 24-hour window and templates, iMessage replies only), are free and need no number. When the number or line is connected, switch to a live key; nothing else changes.
 
 | You want | Today | Send the Flow team |
 |---|---|---|

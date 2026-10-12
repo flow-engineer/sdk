@@ -6,7 +6,7 @@ keywords: ["WhatsApp API for AI agents", "WhatsApp AI agent", "send WhatsApp mes
 ---
 
 <Note>
-**WhatsApp numbers are connected by the Flow team**, not by API: either a number Flow provides, or a number in your business's own WhatsApp Business Account. `POST /v1/senders` with `"channel": "whatsapp"` answers `501` [`not_implemented`](/errors/not_implemented); the number appears in `GET /v1/senders` once it is connected. The shared WhatsApp sandbox is not open yet, so build and test on [Telegram](/guides/telegram-agent) meanwhile; the code below does not change per channel.
+**WhatsApp numbers are connected by the Flow team**, not by API: either a number Flow provides, or a number in your business's own WhatsApp Business Account. `POST /v1/senders` with `"channel": "whatsapp"` answers `501` [`not_implemented`](/errors/not_implemented); the number appears in `GET /v1/senders` once it is connected. To build and test, use the shared WhatsApp sandbox with a test key ([step 1](#1-try-it-on-the-whatsapp-sandbox)); the code below does not change when you move to your own number.
 </Note>
 
 This page shows how an AI agent answers people on WhatsApp: it receives messages, streams the model's answer back as chat bubbles, uses buttons, and handles WhatsApp's 24-hour window.
@@ -36,15 +36,15 @@ export const POST = flow.webhooks.handler({
 On serverless platforms that stop work when the response is sent, run the reply with your platform's background helper (for example `after()` in Next.js or `waitUntil()`), or answer in the webhook response itself as shown below.
 </Note>
 
-## 1. Build it on Telegram today
+## 1. Try it on the WhatsApp sandbox
 
-There is no WhatsApp sandbox yet. Run the same code on the Telegram sandbox bot:
+Run the code on Flow's shared WhatsApp sandbox number:
 
 1. Get a test key, with no account: `curl -X POST https://api.flow.engineer/v1/sandbox/keys` (or `npx @flow-engineer/messaging init`). Set its `key` as `FLOW_MESSAGING_KEY`. See [Keys and sign-in](/get-a-key).
-2. Join the Telegram sandbox from your phone with the bot's `address.link` (see [Build a Telegram agent](/guides/telegram-agent)).
+2. Join the WhatsApp sandbox from your phone: `GET /v1/senders?channel=whatsapp` lists the sandbox number with its `join_code` and `address.link` (`https://wa.me/<number>?text=join%20<code>`, which opens WhatsApp with the join message filled in). Send the join code; send `leave` to stop. The number answers only a valid join code and `leave`: other messages from people who have not joined get no reply from it.
 3. Register your webhook, or on your laptop read events from the live stream (`GET /v1/stream`, see [Local development](/guides/local-development)), and send a message.
 
-When the WhatsApp sandbox opens, the sandbox allowance will cover it.
+The sandbox allowance covers the WhatsApp sandbox. On it, replies go out within 24 hours of the contact's last message, and there are no templates: test templates on a simulated WhatsApp conversation (`POST /v1/test/conversations`). When the sandbox is busy, a send answers `429 rate_limited` with `retry_after`: wait, then retry with the same `Idempotency-Key`. While the WhatsApp sandbox is paused, sends answer `403 permission` with `channel_code` [`sandbox_paused`](/errors/permission) and `allowance.channels` in `GET /v1/app` leaves `whatsapp` out: test on a simulated WhatsApp conversation until it is listed again.
 
 ## 2. Answer fast: reply in the webhook response
 

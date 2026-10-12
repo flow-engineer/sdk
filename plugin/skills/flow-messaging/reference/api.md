@@ -80,9 +80,10 @@ Every error has `hint` (what to change) and `docUrl` (`https://api.flow.engineer
 Sandbox allowance codes (`err.channelCode`): `PermissionError` with `sandbox_allowance_used`
 (messages used up), `sandbox_contact_limit` (no room for another contact),
 `sandbox_channel_not_included` (channel not covered, such as iMessage: use the Telegram
-sandbox) or `sign_in_required` (needs a signed-in app); `AuthenticationError` with
+or WhatsApp sandbox) or `sign_in_required` (needs a signed-in app); `AuthenticationError` with
 `sandbox_key_expired` (7 days passed). Fix: sign in (`npx @flow-engineer/messaging login`),
-or get a new key.
+or get a new key. `PermissionError` with `sandbox_paused`: the WhatsApp sandbox is paused for
+now; test on a simulated WhatsApp conversation until `allowance.channels` lists `whatsapp` again.
 
 ## HTTP without the SDK
 

@@ -34,7 +34,7 @@ person opens the sandbox link and taps Start first.
 signed-in users make `fk_live_` keys in the dashboard and connect their own Telegram
 bot; iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team
 ({{team_contacts|or}}; send them your app ID and the number's details, never secrets or tokens).
-If the user asks for WhatsApp, tell them WhatsApp numbers are arranged with the Flow team, and build and test on Telegram meanwhile: the code does not change per channel. Details:
+If the user asks for WhatsApp, build and test on the shared WhatsApp sandbox with a test key (the person sends the app's join code to the sandbox number, from `GET /v1/senders?channel=whatsapp`), and tell them their own WhatsApp number is arranged with the Flow team: the code does not change between the two. Details:
 [CLI and MCP](reference/cli-mcp.md).
 
 ## An agent in 10 lines
