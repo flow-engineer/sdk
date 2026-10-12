@@ -91,7 +91,9 @@ export class AuthenticationError extends FlowError {
  * 403 `permission`: the key may not do this (for example a test key using a live sender).
  * Past the sandbox allowance `channelCode` is `sandbox_allowance_used` (also
  * `sandbox_contact_limit`, `sandbox_channel_not_included`, `sign_in_required`): sign in
- * to lift it (`device.signIn`, or `npx @flow-engineer/messaging login`).
+ * to lift it (`device.signIn`, or `npx @flow-engineer/messaging login`). `sandbox_paused`:
+ * the WhatsApp sandbox is paused for now; test on a simulated WhatsApp conversation until
+ * `allowance.channels` lists `whatsapp` again.
  */
 export class PermissionError extends FlowError {
   override name = "PermissionError";

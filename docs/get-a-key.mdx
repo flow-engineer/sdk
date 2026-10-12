@@ -61,13 +61,13 @@ Test keys send only on Flow's shared sandbox senders, and only to people who joi
 |---|---|---|
 | Contacts | 1 | 3 |
 | Messages | 50 in total | 100 per contact |
-| Channels | Telegram sandbox (WhatsApp when its sandbox opens) | Telegram sandbox (WhatsApp when its sandbox opens) |
+| Channels | Telegram and WhatsApp sandboxes | Telegram and WhatsApp sandboxes |
 | Key expiry | 7 days (`api_key.expires_at`) | none |
 
 - Only messages your agent sends count. Inbound messages are free.
 - A contact counts once it joins your app, and keeps counting after it leaves.
 - iMessage is not part of either allowance: iMessage lines are arranged with the Flow team and used with a live key.
-- The WhatsApp sandbox is not open yet; when it opens, the allowance covers it.
+- While the WhatsApp sandbox is paused, `allowance.channels` in `GET /v1/app` leaves `whatsapp` out until it reopens; test on a simulated WhatsApp conversation (`POST /v1/test/conversations`) meanwhile.
 - When a key from `POST /v1/sandbox/keys` expires, its keys stop working and its contact is removed from the sandbox. A person can still sign in and claim the app.
 - Going live: signed in, you make `fk_live_` keys in the dashboard ([Keys, Live](https://api.flow.engineer/admin/keys?mode=live)) and connect your own Telegram bot; iMessage lines and WhatsApp numbers are arranged with the Flow team. See [Going live](/guides/going-live).
 
@@ -179,7 +179,8 @@ Signed-in people manage their apps and keys at [api.flow.engineer/admin](https:/
 |---|---|---|---|
 | `403 permission` | `sandbox_allowance_used` | The app sent all the messages its allowance allows. | Sign in (`login`) for 100 per contact for 3 contacts, shared by all your apps. Signed in already: go live. |
 | `403 permission` | `sandbox_contact_limit` | The allowance has no room for another contact. | Sign in for 3 contacts, or keep testing with the contact who joined. |
-| `403 permission` | `sandbox_channel_not_included` | The send used a sandbox channel the allowance does not cover, such as iMessage. | Use the Telegram sandbox sender. |
+| `403 permission` | `sandbox_channel_not_included` | The send used a sandbox channel the allowance does not cover, such as iMessage. | Use the Telegram or WhatsApp sandbox sender. |
+| `403 permission` | `sandbox_paused` | The WhatsApp sandbox is paused for now (also in `message.failed`, for a message queued when it paused). | Test on a simulated WhatsApp conversation (`POST /v1/test/conversations`) until `allowance.channels` in `GET /v1/app` lists `whatsapp` again. |
 | `403 permission` | `sign_in_required` | An app made without an account tried something that needs a person signed in, such as connecting its own Telegram bot. | Sign in (`login`), then retry. |
 | `401 authentication` | `sandbox_key_expired` | The key from `POST /v1/sandbox/keys` is past its `expires_at` (7 days). | Sign in to claim the app within 30 days of the expiry (the key works again, and you get a new one), or get a new key with `POST /v1/sandbox/keys`. |
 

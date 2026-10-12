@@ -896,7 +896,7 @@ export interface paths {
          *
          *     The key and the `claim_token` are shown **once**: save both. The app has a
          *     sandbox allowance of 1 contact and 50 messages sent in total on the
-         *     Telegram sandbox, and WhatsApp's when it opens (inbound messages are free;
+         *     Telegram and WhatsApp sandboxes (inbound messages are free;
          *     iMessage is not included), and its keys **expire after 7 days**. After expiry the keys
          *     stop working and the contact is removed from the sandbox; a person can
          *     still claim the app.
@@ -1309,7 +1309,7 @@ export interface components {
          *
          *     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
          *     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
-         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join code again).
+         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`), or a send on the WhatsApp sandbox while it is paused (`sandbox_paused`: test on a simulated WhatsApp conversation, `POST /v1/test/conversations`, until `allowance.channels` in `GET /v1/app` lists `whatsapp` again). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join code again), `sandbox_paused` (the WhatsApp sandbox paused while the message was queued).
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
          *     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret; a secret that was lost must be rotated again).
          *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
@@ -1355,7 +1355,10 @@ export interface components {
              *     example `sandbox_allowance_used` (`permission`: the sandbox allowance is
              *     used up), `sandbox_contact_limit` (`permission`: the allowance has no
              *     room for another contact), `sandbox_channel_not_included` (`permission`:
-             *     the allowance does not cover this sandbox channel), `sign_in_required`
+             *     the allowance does not cover this sandbox channel), `sandbox_paused`
+             *     (`permission`: the WhatsApp sandbox is paused for now; test on a
+             *     simulated WhatsApp conversation, `POST /v1/test/conversations`, until
+             *     `allowance.channels` in `GET /v1/app` lists `whatsapp` again), `sign_in_required`
              *     (`permission`: an app made without an account cannot do this) or
              *     `sandbox_key_expired` (`authentication`: a key from `POST
              *     /v1/sandbox/keys` passed its `expires_at`; `permission`, for a send
@@ -1372,7 +1375,8 @@ export interface components {
              *     (`permission`). Simulated conversations (`permission`): `test_mode_only`,
              *     `not_simulated`, `simulated_contact` and `simulated_conversation_limit`.
              *     For a message that failed after it was queued (`message.failed`):
-             *     `sandbox_contact_left` (`permission`), `window_closed` and
+             *     `sandbox_contact_left` and `sandbox_paused` (`permission`: the
+             *     WhatsApp sandbox paused while the message was queued), `window_closed` and
              *     `queued_too_long` (`outside_window`), and
              *     `channel_timeout_unknown_outcome` (`channel_error`: the channel never
              *     confirmed the send, so it may or may not have arrived). From typing and
@@ -1504,7 +1508,7 @@ export interface components {
              * @enum {string}
              */
             scope: "app" | "person";
-            /** @description The sandbox channels the allowance covers whose shared sandbox is open now (Telegram today; WhatsApp when its sandbox opens). Shared senders of other channels (iMessage) are not part of it and refuse its sends. */
+            /** @description The sandbox channels the allowance covers: Telegram and WhatsApp; a channel whose sandbox is paused is left out until it reopens. Shared senders of other channels (iMessage) are not part of it and refuse its sends. */
             channels: components["schemas"]["Channel"][];
             contacts: components["schemas"]["AllowanceCount"];
             /** @description How many messages may be sent to each contact (50 anonymous, so 50 in total; 100 signed in). */

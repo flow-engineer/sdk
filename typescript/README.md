@@ -107,7 +107,9 @@ const token = await flow.device.signIn({
 sends throw `PermissionError` with `channelCode` `sandbox_allowance_used` (also
 `sandbox_contact_limit`, `sandbox_channel_not_included`, `sign_in_required`); an
 expired sandbox key throws `AuthenticationError` with `sandbox_key_expired`. Sign in,
-or get a new key. Signed-in people manage keys at https://api.flow.engineer/admin.
+or get a new key. `channelCode` `sandbox_paused`: the WhatsApp sandbox is paused for now;
+test on a simulated WhatsApp conversation until `allowance.channels` lists `whatsapp`
+again. Signed-in people manage keys at https://api.flow.engineer/admin.
 Full guide: https://docs.flow.engineer/get-a-key.
 
 ## Receiving events
