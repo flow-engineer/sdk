@@ -27,7 +27,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 ```python Python (webhook reply)
 # pip install langchain-openai fastapi
-# There is no Python SDK yet (only TypeScript is published); this answers in the webhook response.
+# Plain HTTP, no Flow SDK; the Python SDK (pip install flow-messaging) wraps the same calls. This answers in the webhook response.
 from fastapi import FastAPI, Request
 from langchain_openai import ChatOpenAI
 

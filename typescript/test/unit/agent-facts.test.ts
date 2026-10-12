@@ -1,6 +1,7 @@
 // The facts the agent docs state (agents/facts.json) match the SDK and CLI: the base
 // URL, the MCP server's URL and name, every environment variable the code reads or
-// writes, the SDK version, and what the CLI says it is for and how a person signs in. The service checks the rest (text caps, allowances, MCP tool names)
+// writes, the SDK version, what the CLI says it is for and how a person signs in, and
+// the Python SDK's package name. The service checks the rest (text caps, allowances, MCP tool names)
 // against its own code in its own tests.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -14,6 +15,7 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../.
 const facts = JSON.parse(readFileSync(path.join(repo, "agents/facts.json"), "utf8")) as {
   base_url: string;
   package: string;
+  python_package: string;
   env: Record<string, string>;
   mcp: { url: string; server_name: string; add: Record<string, string> };
   sdk_version: string;
@@ -37,6 +39,11 @@ describe("agents/facts.json", () => {
     expect(MCP_COMMAND).toContain(pkg.name);
     const spec = readFileSync(path.join(repo, "openapi/openapi.yaml"), "utf8");
     expect(spec).toMatch(new RegExp(`^  version: "${API_VERSION}"$`, "m"));
+  });
+
+  it("matches the Python SDK's package name", () => {
+    const pyproject = readFileSync(path.join(repo, "python/pyproject.toml"), "utf8");
+    expect(pyproject).toMatch(new RegExp(`^name = "${facts.python_package}"$`, "m"));
   });
 
   it("matches the SDK's version everywhere it is written", () => {

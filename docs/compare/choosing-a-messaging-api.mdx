@@ -47,7 +47,7 @@ Pick something else if any of these is true today:
 - **You must self-host, or keep message data on your own infrastructure.** Flow is a hosted service only; its spec and SDKs are open source, the service is not.
 - **You need published prices, a contractual SLA or a compliance certification today.** Flow is in beta and publishes none of these yet.
 - **You run one simple Telegram bot.** The Bot API is free, and a few dozen lines of code may be all you need (see below).
-- **You want a Python or Go SDK today.** Flow's TypeScript SDK is on npm (`@flow-engineer/messaging`); the Python and Go SDKs are coming, so until then other languages call the HTTP API.
+- **You want a Go SDK today.** Flow's TypeScript SDK is on npm (`@flow-engineer/messaging`) and its Python SDK on PyPI (`flow-messaging`); the Go SDK is coming, so until then Go calls the HTTP API.
 
 ## The Telegram Bot API directly
 
@@ -154,7 +154,7 @@ Several APIs give an agent an iMessage phone line instead:
 | Group chats | On select (paid) plans {/* claim: sendblue.facetime-groups */}([source](https://docs.sendblue.com/llms.txt)) | Pro and above (pricing page) | All plans (pricing page) | No: one-to-one |
 | FaceTime | On a purchased FaceTime line (same source) | — | Dedicated plans, on request (pricing page) | No |
 | Webhooks | Retried up to 3 times on 5xx {/* claim: sendblue.webhooks */}([source](https://docs.sendblue.com/getting-started/webhooks)); shared-secret header (`sb-signing-secret`) {/* claim: sendblue.security */}([source](https://docs.sendblue.com/security)) | Standard Webhooks signing; about 10 retries in 30 minutes {/* claim: linq.webhooks */}([source](https://docs.linqapp.com/channel/imessage/guides/webhooks/)) | HMAC-SHA256 {/* claim: blooio.webhooks */}([source](https://docs.blooio.com/webhook-signatures)) | HMAC-SHA256; retried for 3 days; ordered per conversation |
-| SDKs | Node.js/TypeScript, Python; community Go, Rust, Ruby {/* claim: sendblue.sdks */}([source](https://docs.sendblue.com/llms.txt)) | TypeScript/Node.js, Python, Go {/* claim: linq.sdks-mcp */}([source](https://docs.linqapp.com/channel/imessage/guides/resources/faq/)) | Node.js/TypeScript, Python, Java, Go {/* claim: blooio.sdks */}([source](https://blooio.com/llms-full.txt)) | HTTP for any language; TypeScript SDK on npm (`@flow-engineer/messaging`); Python and Go coming |
+| SDKs | Node.js/TypeScript, Python; community Go, Rust, Ruby {/* claim: sendblue.sdks */}([source](https://docs.sendblue.com/llms.txt)) | TypeScript/Node.js, Python, Go {/* claim: linq.sdks-mcp */}([source](https://docs.linqapp.com/channel/imessage/guides/resources/faq/)) | Node.js/TypeScript, Python, Java, Go {/* claim: blooio.sdks */}([source](https://blooio.com/llms-full.txt)) | HTTP for any language; TypeScript SDK on npm (`@flow-engineer/messaging`); Python SDK on PyPI (`flow-messaging`); Go coming |
 | MCP | Local (`npx`) | Local (`npx`) | Hosted | Hosted, optional |
 | Compliance statement | SOC 2 Type II, company-wide; HIPAA on a dedicated HIPAA instance (security page above) | SOC 2 Type I and Type II {/* claim: linq.soc2 */}([source](https://linqapp.com/s/security)) | SOC 2 Type 1 and Type 2 in progress; GDPR and CCPA/CPRA passing {/* claim: blooio.trust */}([source](https://trust.blooio.com)); HIPAA-scoped deployments with a BAA on request {/* claim: blooio.hipaa */}([source](https://blooio.com/llms-full.txt)) | None published |
 
@@ -167,7 +167,7 @@ All sources as of Oct 2026.
 - **Live:** Telegram (sandbox bot, or your own bot once you sign in with a Flow account); the TypeScript SDK on npm (`@flow-engineer/messaging`); iMessage replies on lines arranged with the Flow team; signed, ordered webhooks and a WebSocket stream; the send gate; typed errors with hints; a hosted MCP server, which the project owner can choose to add to their coding tools; test keys with no account (`POST /v1/sandbox/keys`); sign-in with a Flow account (flow.engineer) and a dashboard.
 - **Not available yet:** SMS and voice.
 - **Arranged with the Flow team:** WhatsApp numbers (Flow's number or your own WhatsApp Business Account); no self-serve or WhatsApp sandbox yet.
-- **Coming:** Python and Go SDKs; docs.flow.engineer (not deployed yet; meanwhile see [llms.txt](https://api.flow.engineer/llms.txt) and the [OpenAPI spec](https://api.flow.engineer/openapi.yaml)).
+- **Coming:** a Go SDK; docs.flow.engineer (not deployed yet; meanwhile see [llms.txt](https://api.flow.engineer/llms.txt) and the [OpenAPI spec](https://api.flow.engineer/openapi.yaml)).
 
 ## Related
 

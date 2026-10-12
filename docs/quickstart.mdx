@@ -1,7 +1,7 @@
 ---
 title: "Quickstart: give your AI agent Telegram in 5 minutes"
 sidebarTitle: "Quickstart"
-description: "Get a test key, join the Flow Telegram sandbox from your phone, receive your first message and reply to it, in TypeScript, or over HTTP from Python, Go or curl. Five minutes, no bot of your own needed."
+description: "Get a test key, join the Flow Telegram sandbox from your phone, receive your first message and reply to it, in TypeScript or Python, or over HTTP from Go or curl. Five minutes, no bot of your own needed."
 keywords: ["send WhatsApp message from LLM agent", "AI agent WhatsApp quickstart", "Telegram bot API for AI agents", "iMessage API quickstart", "AI chatbot messaging API tutorial"]
 ---
 
@@ -77,35 +77,16 @@ That one command gets a test key with no account, saves it to `.env` as `FLOW_ME
     }
     ```
 
-    ```python Python (HTTP)
-    # The Python SDK is not published yet; this is the same agent over plain HTTP.
-    # pip install requests
-    import os, time, requests
+    ```python Python
+    # pip install flow-messaging
+    from flow_messaging import Flow, content_text
 
-    API = "https://api.flow.engineer"
-    HEADERS = {
-        "Authorization": f"Bearer {os.environ['FLOW_MESSAGING_KEY']}",
-        "Flow-Version": "2026-11-01",
-    }
+    flow = Flow()  # reads FLOW_MESSAGING_KEY
 
-    after = None
-    while True:
-        params = {"type": "message.received", "limit": 100}
-        if after:
-            params["after"] = after
-        page = requests.get(f"{API}/v1/events", headers=HEADERS, params=params, timeout=30).json()
-        for event in page["data"]:
-            after = event["id"]
-            content = event["data"]["message"]["content"]
-            said = content.get("text") or content.get("caption") or content.get("transcript") or ""
-            requests.post(
-                f"{API}/v1/conversations/{event['conversation']['id']}/messages",
-                headers={**HEADERS, "Idempotency-Key": event["id"]},
-                json={"content": {"type": "text", "text": f"You said: {said}"}},
-                timeout=30,
-            )
-        if not page["has_more"]:
-            time.sleep(1)
+    for event in flow.events.stream(types=["message.received"]):
+        said = content_text(event.data.message.content)
+        print(f"{event.conversation.channel}: {said}")
+        flow.messages.send(event.conversation.id, f"You said: {said}")
     ```
 
     ```go Go (HTTP)

@@ -51,7 +51,7 @@ Then add the SDK to a TypeScript or JavaScript project:
 npm install @flow-engineer/messaging
 ```
 
-The Python and Go SDKs are not published yet: in those languages call the HTTP API directly, as each page's Python and Go examples show.
+In Python, add the SDK with `pip install flow-messaging` (Python 3.10+; `from flow_messaging import Flow`, and `Flow()` reads `FLOW_MESSAGING_KEY`). The Go SDK is not published yet: in Go call the HTTP API directly, as each page's Go examples show.
 
 ## 2. Environment variables
 
@@ -67,7 +67,7 @@ Never hard-code keys, never commit `.env`, and never put a key in browser or mob
 ## 3. The MCP server (optional, for development)
 
 {/* agents:mcp */}
-**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. Never make the app call the MCP server.
+**Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript or Python SDK, which wrap it) for everything it does at runtime. Never make the app call the MCP server.
 
 The hosted MCP server at `https://api.flow.engineer/mcp` (Streamable HTTP, the same API key as a Bearer token) is an optional tool for testing and operating the integration while you build: with a test key it shows the sandbox join link, sends test messages, waits for events, reads webhook deliveries and replays events; with a live key it reads and answers conversations. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to you, use them for sandbox testing.
 

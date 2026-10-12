@@ -1,6 +1,6 @@
 ---
 name: flow-messaging
-description: Use when code must let an AI agent, bot or LLM app send or receive messages on WhatsApp, Telegram or iMessage (answer customers in chat, reply to inbound messages, stream an LLM answer into a chat, notify someone on their phone), or when the task mentions Flow Messaging, api.flow.engineer, @flow-engineer/messaging or {{env.api_key}}. Covers the TypeScript SDK, webhooks, the live event stream, the CLI and the HTTP API. Also covers Flow Observe (grading every conversation, OpenTelemetry traces to flow.engineer/observe, {{env.observe_trace_key}}).
+description: Use when code must let an AI agent, bot or LLM app send or receive messages on WhatsApp, Telegram or iMessage (answer customers in chat, reply to inbound messages, stream an LLM answer into a chat, notify someone on their phone), or when the task mentions Flow Messaging, api.flow.engineer, @flow-engineer/messaging or {{env.api_key}}. Covers the TypeScript SDK, the Python SDK ({{python_package}}), webhooks, the live event stream, the CLI and the HTTP API. Also covers Flow Observe (grading every conversation, OpenTelemetry traces to flow.engineer/observe, {{env.observe_trace_key}}).
 ---
 
 # Flow Messaging
@@ -10,7 +10,8 @@ replies only, on lines the Flow team connects; WhatsApp numbers are connected by
 Flow team too).
 Flow hosts the senders (bots, lines); you get typed events in and send typed
 content out. TypeScript SDK: `@flow-engineer/messaging` (Node 18+, Bun, Deno, edge).
-Other languages: the HTTP API at `https://api.flow.engineer` (spec:
+Python SDK: `pip install {{python_package}}` (`from flow_messaging import Flow`; the same
+API, without the CLI and the LLM-stream bubbles). Other languages: the HTTP API at `https://api.flow.engineer` (spec:
 https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml).
 
 ## Set up (once per project)

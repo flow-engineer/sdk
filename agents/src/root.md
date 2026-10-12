@@ -6,7 +6,7 @@ Agents: read /llms.txt. No key? POST /v1/sandbox/keys (no account needed):
 
     curl -X POST {{base_url}}/v1/sandbox/keys
 
-Or with Node: `npx {{package}} init` does the same (writes `{{env.api_key}}` and `{{env.claim_token}}` to `.env`, prints the sandbox link and join code), and `npx {{package}} login` lets a person sign in with {{sign_in}} to keep the app. TypeScript SDK: `npm install {{package}}`. Python and Go: plain HTTP (no SDK published yet).
+Or with Node: `npx {{package}} init` does the same (writes `{{env.api_key}}` and `{{env.claim_token}}` to `.env`, prints the sandbox link and join code), and `npx {{package}} login` lets a person sign in with {{sign_in}} to keep the app. TypeScript SDK: `npm install {{package}}`. Python SDK: `pip install {{python_package}}` (`from flow_messaging import Flow`). Go: plain HTTP (no SDK published yet).
 
 Build the app on the REST API (paths under /v1/). {{mcp.runtime_rule}}
 
