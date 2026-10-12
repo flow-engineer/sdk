@@ -78,7 +78,7 @@ See [The send gate](/concepts/send-gate).
 |---|---|
 | Text | yes, up to 9999 characters (markdown becomes plain text with `fallback: "auto"`) |
 | Images, video, audio | yes |
-| Documents | received (not malware-scanned yet); sending uploaded documents is refused with `422 unsupported_content` until scanning is on |
+| Documents | yes, sent and received; malware-scanned before Flow keeps them (an upload that fails answers `422 file_blocked`) |
 | Tapbacks | yes, fixed set |
 | Typing | yes, within 5 minutes of the contact's last message (otherwise `409 outside_window`, safe to ignore) |
 | Read receipts | yes, for the whole conversation (`up_to` has no effect) |

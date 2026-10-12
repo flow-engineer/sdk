@@ -262,9 +262,8 @@ const caps = await flow.capabilities.retrieve("conv_..."); // what the channel c
 `Blob`/`File`, a `Uint8Array` (a Node `Buffer` is one) or an `ArrayBuffer` (read a
 stream into one first), and returns the stored `File`. Its `id` (`file_...`) is the
 `file_id` to send in `media` or `voice` content; `channel` checks that channel's size
-limit at upload. Documents (PDF, Office, archives) are refused at upload
-(`UnsupportedContentError`) where no malware scanner runs: send them by public HTTPS
-`url`. Inbound media arrives with a `url`; `flow.files.download(idOrUrl)` gives its
+limit at upload. Documents (PDF, Office, archives) are malware-scanned before they
+are stored: one that fails throws `FileBlockedError`. Inbound media arrives with a `url`; `flow.files.download(idOrUrl)` gives its
 bytes as a `Blob`.
 
 ```ts
