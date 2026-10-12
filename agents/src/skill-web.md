@@ -72,6 +72,13 @@ export const POST = flow.webhooks.handler({
 - Use test keys while building; live keys only on the server.
 - Locally, with no public URL, receive events from `GET /v1/stream` (WebSocket, resumable with `after`) instead of a webhook.
 
+## See every conversation (Flow Observe, early access)
+
+- Flow Observe ({{observe.url}}) stores each conversation, grades every reply and groups failures into issues with a suggested fix. Accounts and keys come from the Flow team ({{team_contacts|or}}); never invent a key. Test data only until the account is enabled for production.
+- On Flow Messaging: no code. Optional traces: set `flow.conversation_id` (`conv_...`) and `flow.message_id` (`msg_...`) of the message being answered on a span of each turn.
+- On any other channel: one OpenTelemetry trace per turn, OTLP/HTTP to `{{observe.traces_url}}`, `Authorization: Bearer ${{env.observe_trace_key}}`, with `flow.conversation_id` (required), `flow.message_id`, `flow.channel`, `flow.user_message` and `flow.agent_reply` (the text actually sent). Guide: {{observe.docs}}. Frameworks: {{docs_url}}/observe/frameworks.md
+- Before shipping: play test chats (simulated contacts on Flow Messaging, synthetic turns elsewhere) and read the verdicts. {{docs_url}}/trust.md
+
 ## MCP server (optional, for development)
 
 {{> mcp}}

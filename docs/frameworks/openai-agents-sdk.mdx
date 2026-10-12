@@ -63,6 +63,7 @@ async def flow_webhook(request: Request, tasks: BackgroundTasks):
 - In Python, answer the webhook with `{}` at once and send the agent's `final_output` afterwards. Text longer than the channel's limit (4096 characters on Telegram) is refused, so split long answers at paragraph breaks ([the bubble rule](/concepts/streaming-replies#the-bubble-rule-for-any-language)) and send each part with its own `Idempotency-Key`.
 - Give the agent the conversation's history from `GET /v1/conversations/{conversation_id}/messages`, or keep your own session keyed by `conversation.id`.
 - Verify webhook signatures as shown in [Events and webhooks](/concepts/events-and-webhooks#verify-the-signature).
+- To see each turn's model and tool calls and get every reply graded, send this agent's traces to Flow Observe: [Traces from agent frameworks](/observe/frameworks).
 
 ## Full example
 

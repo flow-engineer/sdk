@@ -50,6 +50,7 @@ async def flow_webhook(request: Request):
 - Any runnable whose `.stream()` yields message chunks works with `reply()`: chat models, `prompt.pipe(model)` chains, and chains ending in a string output parser.
 - The Python version answers in the webhook response (one round trip). Flow waits 10 seconds for the answer, so this suits fast chains; for slower ones answer `{}` at once and send later with `POST /v1/conversations/{conversation_id}/messages`. `fallback: "auto"` sends the markdown as plain text where a channel has no formatting, and the reply goes out as one message, so keep it within the channel's text limit (4096 characters on Telegram). See [Events and webhooks](/concepts/events-and-webhooks#reply-in-the-webhook-response).
 - Keep chat history per `conversation.id`, or read it from `GET /v1/conversations/{conversation_id}/messages`.
+- To see each turn's model and tool calls and get every reply graded, send this agent's traces to Flow Observe: [Traces from agent frameworks](/observe/frameworks).
 
 ## Full example
 

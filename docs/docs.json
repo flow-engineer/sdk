@@ -42,8 +42,24 @@
               "quickstart",
               "get-a-key",
               "coding-agents",
+              "guides/real-people",
               "mcp",
               "pricing"
+            ]
+          },
+          {
+            "group": "Observe",
+            "pages": [
+              "observe/index",
+              "observe/flow-messaging",
+              "observe/traces",
+              "observe/frameworks"
+            ]
+          },
+          {
+            "group": "Test before you ship",
+            "pages": [
+              "trust"
             ]
           },
           {
@@ -220,6 +236,7 @@
       "The hosted MCP server (https://api.flow.engineer/mcp) is optional, for testing during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. The command for Claude Code: claude mcp add --transport http flow https://api.flow.engineer/mcp --header \"Authorization: Bearer $FLOW_MESSAGING_KEY\" (run it with FLOW_MESSAGING_KEY set, then restart the client). If its tools are already available to you, use them for sandbox testing.",
       "Authenticate with `Authorization: Bearer fk_test_...` (sandbox) or `fk_live_...` (real contacts). Never put a live key in client-side code.",
       "Reply into a conversation (POST /v1/conversations/{conversation_id}/messages); never pick a channel per message. Switch on `error.type`, not the message text.",
+      "Flow Observe (https://flow.engineer/observe, early access) records and grades every conversation of a chat agent. On Flow Messaging it needs no code. On any other channel, send one OpenTelemetry trace per turn over OTLP/HTTP to https://flow.engineer/observe/v1/traces with `Authorization: Bearer $FLOW_OBSERVE_TRACE_KEY`, and set `flow.conversation_id` (required), `flow.message_id`, `flow.user_message` and `flow.agent_reply` (the text actually sent) on the turn's span. Keys come from the Flow team (samyak@flow.engineer or prabal@flow.engineer); never invent one. Test data only until the account is enabled for production. Guide: https://docs.flow.engineer/observe/traces.md",
       "Full documentation for agents: https://docs.flow.engineer/llms-full.txt. OpenAPI spec: https://raw.githubusercontent.com/flow-engineer/sdk/main/openapi/openapi.yaml."
     ]
   },

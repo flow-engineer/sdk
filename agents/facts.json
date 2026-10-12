@@ -3,11 +3,17 @@
   "base_url": "https://api.flow.engineer",
   "docs_url": "https://docs.flow.engineer",
   "dashboard_url": "https://api.flow.engineer/admin",
+  "observe": {
+    "url": "https://flow.engineer/observe",
+    "traces_url": "https://flow.engineer/observe/v1/traces",
+    "docs": "https://docs.flow.engineer/observe/traces.md"
+  },
   "team_contacts": ["samyak@flow.engineer", "prabal@flow.engineer"],
   "package": "@flow-engineer/messaging",
   "env": {
     "api_key": "FLOW_MESSAGING_KEY",
     "live_key": "FLOW_MESSAGING_LIVE_KEY",
+    "observe_trace_key": "FLOW_OBSERVE_TRACE_KEY",
     "claim_token": "FLOW_CLAIM_TOKEN",
     "webhook_secret": "FLOW_MESSAGING_WEBHOOK_SECRET",
     "base_url": "FLOW_MESSAGING_BASE_URL",

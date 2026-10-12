@@ -23,6 +23,22 @@ That loop is a working agent on every live channel, with no per-channel code. Sw
 
 No account needed to start: one call gets a test key (`curl -X POST https://api.flow.engineer/v1/sandbox/keys`, or `npx @flow-engineer/messaging init`). Sign in with a Flow account (flow.engineer) later to keep the app. See [Keys and sign-in](/get-a-key).
 
+## Three steps
+
+<CardGroup cols={3}>
+  <Card title="1. Talk" icon="comments" href="/quickstart">
+    Connect your agent to Flow Messaging: Telegram, WhatsApp, iMessage and SMS, with each channel's rules handled.
+  </Card>
+  <Card title="2. See" icon="eye" href="/observe">
+    Flow Observe grades every conversation and shows the inside of each turn. No code on Flow Messaging; traces on any other channel.
+  </Card>
+  <Card title="3. Trust" icon="shield-check" href="/trust">
+    Graded test chats before you ship, so a worse version never reaches people.
+  </Card>
+</CardGroup>
+
+Already talking to people through your own SMS provider or another channel? Start at step 2: [send traces from any agent](/observe/traces). New to consumer chat? Read [What changes when real people text your bot](/guides/real-people).
+
 ## How it works
 
 1. Flow hosts the **senders**: a Telegram bot, an iMessage line or a WhatsApp number. Start on the shared Telegram sandbox bot; go live with your own Telegram bot, or an iMessage line or WhatsApp number the Flow team connects to your app.
@@ -81,5 +97,11 @@ Flow Messaging is in **beta**. The API shape may still change; changes ship as n
   </Card>
   <Card title="For AI coding agents" icon="robot" href="/coding-agents">
     Let Claude Code or Codex do the integration.
+  </Card>
+  <Card title="See every conversation" icon="eye" href="/observe">
+    Grade every reply and find what goes wrong, on any channel.
+  </Card>
+  <Card title="Test before you ship" icon="shield-check" href="/trust">
+    Graded test chats, and a check in your CI.
   </Card>
 </CardGroup>

@@ -10,4 +10,6 @@ Authenticate with `Authorization: Bearer fk_test_...` (sandbox) or `fk_live_...`
 
 Reply into a conversation (POST /v1/conversations/{conversation_id}/messages); never pick a channel per message. Switch on `error.type`, not the message text.
 
+Flow Observe ({{observe.url}}, early access) records and grades every conversation of a chat agent. On Flow Messaging it needs no code. On any other channel, send one OpenTelemetry trace per turn over OTLP/HTTP to {{observe.traces_url}} with `Authorization: Bearer ${{env.observe_trace_key}}`, and set `flow.conversation_id` (required), `flow.message_id`, `flow.user_message` and `flow.agent_reply` (the text actually sent) on the turn's span. Keys come from the Flow team ({{team_contacts|or}}); never invent one. Test data only until the account is enabled for production. Guide: {{observe.docs}}
+
 Full documentation for agents: {{docs_url}}/llms-full.txt. OpenAPI spec: https://raw.githubusercontent.com/flow-engineer/sdk/main/openapi/openapi.yaml.

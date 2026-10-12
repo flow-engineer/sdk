@@ -66,6 +66,7 @@ async def answer(event: dict):
 - `tools: []` turns off Claude Code's built-in tools, which a customer-facing agent should not have by default; `allowedTools` only pre-approves tools and does not restrict them.
 - Keep one Claude session per Flow conversation (`conversation.id`) to carry context between messages: remember each run's `session_id` and pass it as `resume` next time (the full example does this).
 - Your production agent talks to Flow through the SDK or HTTP. The [hosted MCP server](/mcp) is a separate build-time tool for coding agents; whether a project adds it is the project owner's decision.
+- To see each turn's model and tool calls and get every reply graded, send this agent's traces to Flow Observe: [Traces from agent frameworks](/observe/frameworks).
 
 ## Full example
 

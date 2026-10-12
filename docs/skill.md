@@ -72,6 +72,13 @@ export const POST = flow.webhooks.handler({
 - Use test keys while building; live keys only on the server.
 - Locally, with no public URL, receive events from `GET /v1/stream` (WebSocket, resumable with `after`) instead of a webhook.
 
+## See every conversation (Flow Observe, early access)
+
+- Flow Observe (https://flow.engineer/observe) stores each conversation, grades every reply and groups failures into issues with a suggested fix. Accounts and keys come from the Flow team (samyak@flow.engineer or prabal@flow.engineer); never invent a key. Test data only until the account is enabled for production.
+- On Flow Messaging: no code. Optional traces: set `flow.conversation_id` (`conv_...`) and `flow.message_id` (`msg_...`) of the message being answered on a span of each turn.
+- On any other channel: one OpenTelemetry trace per turn, OTLP/HTTP to `https://flow.engineer/observe/v1/traces`, `Authorization: Bearer $FLOW_OBSERVE_TRACE_KEY`, with `flow.conversation_id` (required), `flow.message_id`, `flow.channel`, `flow.user_message` and `flow.agent_reply` (the text actually sent). Guide: https://docs.flow.engineer/observe/traces.md. Frameworks: https://docs.flow.engineer/observe/frameworks.md
+- Before shipping: play test chats (simulated contacts on Flow Messaging, synthetic turns elsewhere) and read the verdicts. https://docs.flow.engineer/trust.md
+
 ## MCP server (optional, for development)
 
 **Build on the REST API; the MCP server is for development.** MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. Never make the app call the MCP server.

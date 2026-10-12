@@ -28,3 +28,4 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 - Errors are typed classes (`OutsideWindowError`, `UnsupportedContentError`, ...); retries are automatic.
 - Local testing: `npx {{package}} listen --forward-to <url>`, `npx {{package}} send "hi"`.
 - {{> mcp-short}}
+- Flow Observe (early access) grades every conversation: no code on Flow Messaging. To see each turn's model and tool calls, export OpenTelemetry traces to {{observe.traces_url}} (`Authorization: Bearer ${{env.observe_trace_key}}`) with `flow.conversation_id` and `flow.message_id` of the message being answered on the turn's span. {{observe.docs}}

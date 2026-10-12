@@ -48,6 +48,7 @@ Set `FLOW_MESSAGING_KEY`, `FLOW_MESSAGING_WEBHOOK_SECRET` and `OPENAI_API_KEY`, 
 - Tools work as usual (`tools`, `stopWhen`); only the model's text is sent to the person, never tool calls or their results (text the model writes between tool steps is sent too). To show progress during long tool calls, wrap the work in `event.conversation.responding(...)`.
 - The webhook answers at once and `after()` runs the reply, so slow models never cause a timed-out delivery.
 - One handler serves Telegram and iMessage alike; `event.conversation.channel` tells you which one if you want to adapt the tone.
+- To see each turn's model and tool calls and get every reply graded, send this agent's traces to Flow Observe: [Traces from agent frameworks](/observe/frameworks).
 
 ## Full example
 

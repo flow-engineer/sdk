@@ -1,6 +1,6 @@
 ---
 name: flow-messaging
-description: Use when code must let an AI agent, bot or LLM app send or receive messages on WhatsApp, Telegram or iMessage (answer customers in chat, reply to inbound messages, stream an LLM answer into a chat, notify someone on their phone), or when the task mentions Flow Messaging, api.flow.engineer, @flow-engineer/messaging or {{env.api_key}}. Covers the TypeScript SDK, webhooks, the live event stream, the CLI and the HTTP API.
+description: Use when code must let an AI agent, bot or LLM app send or receive messages on WhatsApp, Telegram or iMessage (answer customers in chat, reply to inbound messages, stream an LLM answer into a chat, notify someone on their phone), or when the task mentions Flow Messaging, api.flow.engineer, @flow-engineer/messaging or {{env.api_key}}. Covers the TypeScript SDK, webhooks, the live event stream, the CLI and the HTTP API. Also covers Flow Observe (grading every conversation, OpenTelemetry traces to flow.engineer/observe, {{env.observe_trace_key}}).
 ---
 
 # Flow Messaging
@@ -97,6 +97,27 @@ keyword reply in the transcript); no quiet hours, media goes as MMS. Simulated
 WhatsApp keeps WhatsApp's rules: the contact's turns open the 24-hour window, and
 outside it only a `template` goes (`OutsideWindowError`). A HIPAA account can
 simulate only SMS (`hipaa_channel_not_covered`).
+
+## See every conversation (Flow Observe, early access)
+
+Flow Observe ({{observe.url}}) grades every reply and groups failures into issues. On
+Flow Messaging it needs no code: the Flow team ({{team_contacts|or}}) connects it to the
+app. To also see each turn's model and tool calls, export OpenTelemetry traces
+(OTLP/HTTP) to `{{observe.traces_url}}` with
+`Authorization: Bearer ${{env.observe_trace_key}}` and tag each turn's span:
+
+```ts
+await tracer.startActiveSpan("agent.turn", async (span) => {
+  span.setAttribute("flow.conversation_id", event.conversation.id); // conv_...
+  span.setAttribute("flow.message_id", event.data.message.id);     // msg_...
+  try { await event.conversation.reply(await runAgent(text), { idempotencyKey: event.id }); }
+  finally { span.end(); }
+});
+```
+
+Agents on other channels send traces only: {{observe.docs}}. Test data only until the
+Flow team enables the account for production; every test conversation (simulated
+contacts included) is graded.
 
 ## Rules that save debugging
 
