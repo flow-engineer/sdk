@@ -83,7 +83,7 @@ The TypeScript lines go in your provider's constructor (OpenTelemetry JS 2.x). T
 
 ## How your data is kept
 
-- Message text and the content of your traces (prompts, tool inputs and results) are encrypted at rest with a key per account. Message text is kept 30 days by default, then deleted. Trace content is deleted no later.
+- Message text and the content of your traces (prompts, tool inputs and results) are encrypted at rest with a key per account. Both are deleted when your account's retention period ends.
 - Every time a person opens a conversation's text in the dashboard, it is logged.
 - On other channels, the ids you send (conversation, contact, message) are stored only as keyed hashes, so a phone number used as an id is never stored as a phone number. On Flow Messaging, Observe keeps Flow's own ids (`conv_...`, `msg_...`, `ct_...`) and never the person's phone number or handle.
 - The dashboard shows span details (names, models, tokens, timings, errors), not prompts or tool inputs.
