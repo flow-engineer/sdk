@@ -41,9 +41,17 @@ Pick the one that matches how your agent talks to people.
 
 ## Get access
 
-Observe is in early access, and the Flow team turns it on for you. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer, and say whether your agent talks through Flow Messaging (give your app ID, `app_...`, from `GET /v1/app`) or through another channel (traces). The Flow team sets up your account and your agent, and tells you how you get your keys: a **trace key** (`otk_test_...`) for traces, and a **CI key** (`oci_...`) for [`flow test`](/trust). Never send a key by email or in a chat.
-
-Keep a trace key in `FLOW_OBSERVE_TRACE_KEY` on your server, never in a browser or mobile app, and never in a chat with an AI assistant. Your test conversations then show in the dashboard at [flow.engineer/observe](https://flow.engineer/observe), labelled as test data.
+<Steps>
+  <Step title="Sign in with your Flow login">
+    Open [flow.engineer/observe](https://flow.engineer/observe) and sign in with the same Flow login you use on flow.engineer. Observe is in early access: if it isn't on for you yet, the page says so; ask the Flow team (samyak@flow.engineer or prabal@flow.engineer) to turn it on.
+  </Step>
+  <Step title="Add your agent">
+    In the dashboard, add your agent. On Flow Messaging, choose Flow Messaging and paste a test key of your app (`fk_test_...`; a key made just for Observe is best). On any other channel, choose traces.
+  </Step>
+  <Step title="Make your keys">
+    For traces, make a **trace key** (`otk_test_...`); for `flow test` in CI, a **CI key** (`oci_...`). Each is shown once. Keep a trace key in `FLOW_OBSERVE_TRACE_KEY` on your server, never in a browser or mobile app, and never in a chat with an AI assistant. The dashboard shows your test conversations, labelled as test data.
+  </Step>
+</Steps>
 
 ## Test data and production
 

@@ -74,7 +74,7 @@ export const POST = flow.webhooks.handler({
 
 ## See every conversation (Flow Observe, early access)
 
-- Flow Observe ({{observe.url}}) stores each conversation, grades every reply and groups failures into issues with a suggested fix. Accounts and keys come from the Flow team ({{team_contacts|or}}); never invent a key. Test data only until the account is enabled for production.
+- Flow Observe ({{observe.url}}) stores each conversation, grades every reply and groups failures into issues with a suggested fix. Keys (trace key `otk_test_...`, CI key `oci_...`) are made by the user on Observe's Setup page at https://flow.engineer/observe after signing in with their Flow login; Observe is in early access, and if it is not on for them, they ask the Flow team ({{team_contacts|or}}). Never invent a key, and never ask the user to paste one into the chat. Test data only until the account is enabled for production.
 - On Flow Messaging: no code. Optional traces: set `flow.conversation_id` (`conv_...`) and `flow.message_id` (`msg_...`) of the message being answered on a span of each turn.
 - On any other channel: one OpenTelemetry trace per turn, OTLP/HTTP to `{{observe.traces_url}}`, `Authorization: Bearer ${{env.observe_trace_key}}`, with `flow.conversation_id` (required), `flow.message_id`, `flow.channel`, `flow.user_message` and `flow.agent_reply` (the text actually sent). Guide: {{observe.docs}}. Frameworks: {{docs_url}}/observe/frameworks.md
 - Before shipping: play test chats (simulated contacts on Flow Messaging, synthetic turns elsewhere) and read the verdicts. {{docs_url}}/trust.md

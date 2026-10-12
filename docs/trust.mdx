@@ -10,7 +10,7 @@ A change to a prompt, a model or a tool can fix one reply and break ten others. 
 ## A check in your CI: `flow test`
 
 <Note>
-Early access. The Flow team makes your agent's **CI key**: write to them at samyak@flow.engineer or prabal@flow.engineer ([Get access](/observe#get-access)). The `flow` binary is a public download (below).
+Early access. Make your agent's **CI key** in the Observe dashboard ([Get access](/observe#get-access)); if Observe isn't on for you yet, write to the Flow team at samyak@flow.engineer or prabal@flow.engineer. The `flow` binary is a public download (below).
 </Note>
 
 `flow test` runs your test chats against **your own agent**, sends the transcripts to Observe, and fails the build when a reply breaks a rule or misses what the test expects. Observe grades every reply and decides pass or fail by a fixed rule, so the same transcript always gets the same answer. Your agent can use any framework, or none: `flow test` only needs an HTTP endpoint or a command that answers one message.
