@@ -1,0 +1,88 @@
+---
+title: "Flow Observe on Flow Messaging: no code"
+sidebarTitle: "On Flow Messaging"
+description: "If your agent talks through Flow Messaging, Flow Observe reads its conversations from your app's event log: every reply graded, with no code. Add one tag to your OpenTelemetry traces to see the inside of each turn."
+keywords: ["Flow Messaging observability", "WhatsApp bot monitoring", "Telegram bot analytics", "grade chatbot replies"]
+---
+
+If your agent already talks to people through [Flow Messaging](/quickstart), you write no code for Observe. The Flow team connects Observe to your app, and from then on Observe reads your app's `message.received` and `message.sent` events, stores each conversation, and grades every reply your agent sends.
+
+<Note>
+Early access: the Flow team connects Observe to your app by hand. Observe reads your app with a key of the same mode, so a test key shows test conversations (sandbox and [simulated contacts](/concepts/test-and-live-mode#simulated-contacts-test-without-a-phone)). Live conversations need your account enabled for production.
+</Note>
+
+## What you do
+
+1. Make a test key just for Observe in the [Flow Messaging dashboard](https://api.flow.engineer/admin)'s Keys page, so you can revoke it alone.
+2. Ask the Flow team (samyak@flow.engineer or prabal@flow.engineer) to connect Observe to your app ([Get access](/observe#get-access)). They tell you how to hand over that key; never send it by email or paste it into a chat with an AI assistant.
+3. Talk to your agent (the sandbox from your phone, or simulated contacts from a script). Each conversation appears in the [Observe dashboard](https://flow.engineer/observe) within seconds, and each reply gets its verdict shortly after.
+
+Observe reads your app's whole event log from the start, so conversations from before you connected it appear too.
+
+## Optional: see the inside of each turn
+
+Conversations and grades need nothing more. To also see what your agent did between the person's message and its reply (model calls, tools, errors, retries, timings), send your agent's OpenTelemetry traces to Observe and tag each turn with the Flow ids of the message it answers:
+
+| Attribute | Value |
+|---|---|
+| `flow.conversation_id` | `event.conversation.id` (`conv_...`) of the `message.received` event you are answering |
+| `flow.message_id` | `event.data.message.id` (`msg_...`). For a turn that answers several messages at once, the last one |
+| `flow.agent_version` | Optional: your agent's version (prompt, model, tools), such as `2026-10-12.1` |
+
+Set them on any span of the turn's trace. Observe then links the trace to the conversation and shows its steps under the reply. Do not set `flow.user_message` or `flow.agent_reply` here: Observe already has the messages from Flow Messaging.
+
+Set up the exporter as on [Send traces from any agent](/observe/traces#1-set-up-the-exporter), with your trace key (`otk_test_...` for a test app), then wrap each turn in a span:
+
+<CodeGroup>
+```ts TypeScript
+import { trace } from "@opentelemetry/api";
+import { FlowMessaging, contentText } from "@flow-engineer/messaging";
+import { runAgent } from "./agent"; // your agent: returns a string or an LLM stream
+
+const flow = new FlowMessaging();
+const tracer = trace.getTracer("my-agent");
+
+for await (const event of flow.events.stream({ types: ["message.received"] })) {
+  await tracer.startActiveSpan("agent.turn", async (span) => {
+    span.setAttribute("flow.conversation_id", event.conversation.id);
+    span.setAttribute("flow.message_id", event.data.message.id);
+    try {
+      const input = contentText(event.data.message.content);
+      await event.conversation.reply(await runAgent(input), { idempotencyKey: event.id });
+    } finally {
+      span.end();
+    }
+  });
+}
+```
+
+```python Python (HTTP)
+from opentelemetry import trace
+
+tracer = trace.get_tracer("my-agent")
+
+async def answer(event: dict):
+    message = event["data"]["message"]
+    with tracer.start_as_current_span("agent.turn") as span:
+        span.set_attribute("flow.conversation_id", event["conversation"]["id"])
+        span.set_attribute("flow.message_id", message["id"])
+        reply = await run_agent(message["content"].get("text", ""))  # your agent
+        send_reply(event, reply)  # POST /v1/conversations/{conversation_id}/messages
+```
+</CodeGroup>
+
+Spans your framework makes inside `agent.turn` (model and tool calls) join the same trace. If your framework starts its own traces instead, see [Traces from agent frameworks](/observe/frameworks).
+
+- Only Flow's ids are accepted here: a value that is not a `conv_...` or `msg_...` id is ignored, and the trace is kept but not linked to a conversation.
+- A trace often arrives before Observe has read the message from your event log. It is linked a few seconds later, when the message arrives.
+- You do not need `reply_to` for Observe: it pairs each reply with the message before it. (`reply_to` shows your reply as an inline quote of the person's message on channels that support quotes; use it only if you want that look.)
+
+## What Flow Messaging adds
+
+Because Flow Messaging carries the messages, Observe sees exactly what was delivered and sent, after [bubble splitting](/concepts/streaming-replies) and [fallbacks](/concepts/content-types#nothing-is-converted-silently), with no reporting code that can drift from what your agent really did. And you can test with [simulated contacts](/concepts/test-and-live-mode#simulated-contacts-test-without-a-phone) on Telegram, WhatsApp, iMessage or SMS: their conversations are graded like any other test conversation.
+
+## Related
+
+- [What Observe gives you](/observe)
+- [Send traces from any agent](/observe/traces)
+- [Test before you ship](/trust)

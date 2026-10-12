@@ -53,7 +53,14 @@ const REGIONS = [
 ];
 // Hand-written pages (no generated regions: the service serves docs/errors as they
 // are) that must give the Flow team's contact, checked against facts.team_contacts.
-const CONTACT_PAGES = ["docs/pricing.mdx", "docs/errors/not_implemented.md", "docs/errors/channel_error.md"];
+const CONTACT_PAGES = [
+  "docs/pricing.mdx",
+  "docs/errors/not_implemented.md",
+  "docs/errors/channel_error.md",
+  "docs/observe/index.mdx",
+  "docs/observe/flow-messaging.mdx",
+  "docs/trust.mdx",
+];
 
 const read = (p) => readFileSync(path.join(root, p), "utf8");
 const facts = JSON.parse(read("agents/facts.json"));

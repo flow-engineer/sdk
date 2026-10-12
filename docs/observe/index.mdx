@@ -1,0 +1,67 @@
+---
+title: "Flow Observe: see every conversation your AI agent has"
+sidebarTitle: "What Observe gives you"
+description: "Flow Observe records every conversation your chat agent has, grades every reply, groups failures into issues with a suggested fix, and shows what happened inside each turn. It works with Flow Messaging (no code) or with any other channel (OpenTelemetry traces)."
+keywords: ["AI agent observability", "chat agent monitoring", "LLM conversation grading", "OpenTelemetry AI agent", "SMS bot monitoring", "WhatsApp bot analytics"]
+---
+
+Flow Observe shows you what your agent says to people, and which replies went wrong. It works on any agent, built with any framework or none.
+
+- **Every conversation**, message by message, with how long each reply took.
+- **Every reply graded.** Exact rules run first, then a grading model. Each reply gets a verdict: `good`, `wrong`, `unhelpful` or `unsafe`.
+- **Failures grouped into issues** by a fixed rule (the check that failed, the verdict and the topic), ranked by how many conversations they touch. Each issue links to the replies that show it and comes with a suggested fix you can copy into your prompt or code.
+- **The inside of each turn**, from your agent's traces: model calls (model, tokens), tool calls, retrieval, errors and retries, and how long each step took.
+- **Stats and usage**: conversations, replies, reply time (median and 95th percentile), and the conversation count you are billed on.
+
+<Note>
+Flow Observe is in **early access**. The Flow team creates your account and keys. Your account takes **test data only** until the Flow team enables it for production: send synthetic conversations, never real people's messages, until then.
+</Note>
+
+## Two ways in
+
+Pick the one that matches how your agent talks to people.
+
+| | On Flow Messaging | On any other channel |
+|---|---|---|
+| Your agent talks through | [Flow Messaging](/quickstart) (Telegram, WhatsApp, iMessage, SMS) | Your own SMS provider, web chat, WhatsApp integration or anything else |
+| What you add | Nothing. Optionally one tag on your traces | One OpenTelemetry trace per turn |
+| Where conversations come from | Flow Messaging's event log | Your traces |
+| The text graded | What Flow Messaging delivered and sent | What you report in `flow.user_message` and `flow.agent_reply` |
+| The inside of each turn | When you also send traces | Yes, from the same traces |
+| Test chats | [Simulated contacts](/concepts/test-and-live-mode#simulated-contacts-test-without-a-phone) today | `flow test` (coming, see [Test before you ship](/trust)) |
+
+<CardGroup cols={2}>
+  <Card title="On Flow Messaging" icon="message" href="/observe/flow-messaging">
+    No code. Observe reads your app's conversations.
+  </Card>
+  <Card title="On any other channel" icon="diagram-project" href="/observe/traces">
+    Send one trace per turn. Python and TypeScript, with or without a framework.
+  </Card>
+</CardGroup>
+
+## Get access
+
+Observe is in early access, and the Flow team turns it on for you. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer, and say whether your agent talks through Flow Messaging (give your app ID, `app_...`, from `GET /v1/app`) or through another channel (traces). The Flow team sets up your account and your agent, and tells you how you get your keys: a **trace key** (`otk_test_...`) for traces, and a **CI key** (`oci_...`) for [`flow test`](/trust). Never send a key by email or in a chat.
+
+Keep a trace key in `FLOW_OBSERVE_TRACE_KEY` on your server, never in a browser or mobile app, and never in a chat with an AI assistant. Your test conversations then show in the dashboard at [flow.engineer/observe](https://flow.engineer/observe), labelled as test data.
+
+## Test data and production
+
+- Keys come in two modes, as in Flow Messaging: `otk_test_...` and `otk_live_...` for traces, `fk_test_...` and `fk_live_...` for Flow Messaging apps. Data never crosses between modes.
+- Until the Flow team enables your account for production, Observe accepts test keys and test data only. A live key is refused with `403`.
+- Test conversations are never billed.
+
+## How your data is kept
+
+- Message text and the content of your traces (prompts, tool inputs and results) are encrypted at rest with a key per account, and deleted when your account's retention period ends.
+- Every time a person opens a conversation's text in the dashboard, it is logged.
+- On other channels, the ids you send (conversation, contact, message) are stored only as keyed hashes, so a phone number used as an id is never stored as a phone number. On Flow Messaging, Observe keeps Flow's own ids (`conv_...`, `msg_...`, `ct_...`) and never the person's phone number or handle.
+- The dashboard shows span details (names, models, tokens, timings, errors), not prompts or tool inputs.
+- Dashboard pages load no analytics and no third-party scripts. Sign-in is with Google, limited to the people on your account's list.
+
+## Related
+
+- [Send traces from any agent](/observe/traces)
+- [Traces from agent frameworks](/observe/frameworks)
+- [Test before you ship](/trust)
+- [What changes when real people text your bot](/guides/real-people)

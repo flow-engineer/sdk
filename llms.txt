@@ -2,6 +2,8 @@
 
 > Flow Messaging is a two-way messaging API for AI agents on Telegram, iMessage and WhatsApp. Flow hosts the senders (bots, lines, numbers), delivers every inbound message to your webhook or WebSocket as a signed, ordered event, and passes every send through one gate that enforces each channel's rules. Base URL: https://api.flow.engineer. Auth: `Authorization: Bearer $FLOW_MESSAGING_KEY` (`fk_test_...` for the sandbox, `fk_live_...` for your own senders).
 
+**Three steps, any agent:** 1. **Talk**: connect your agent to Flow Messaging (everything below). 2. **See**: Flow Observe records and grades every conversation: no code on Flow Messaging; on any other channel (your own SMS provider, web chat), send OpenTelemetry traces ([guide](https://docs.flow.engineer/observe/traces.md)). 3. **Trust**: graded test chats before you ship, a CI check coming ([guide](https://docs.flow.engineer/trust.md)). New to consumer chat? Read [What changes when real people text your bot](https://docs.flow.engineer/guides/real-people.md).
+
 **No key? `curl -X POST https://api.flow.engineer/v1/sandbox/keys`**: no account, no API key sent. Save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once; e.g. in `.env`, gitignored), then show the person a sender's `address.link` and `join_code` from the answer. Check `FLOW_MESSAGING_KEY` first: never get a new key when you already have one.
 
 Key facts for coding agents:
@@ -28,11 +30,25 @@ Key facts for coding agents:
 - Build the app on the REST API (HTTP and the WebSocket stream) for everything it does at runtime: receive, reply, start conversations. In TypeScript or JavaScript use the SDK, `npm install @flow-engineer/messaging` (it also has the CLI: `npx ... init`, `login`); Python and Go SDKs are not published yet, so use HTTP there.
 - MCP server (optional, for development): `https://api.flow.engineer/mcp`, with the same key as a Bearer token. MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript SDK, which wraps it) for everything it does at runtime. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. For Claude Code the command is `claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"` (Codex and Cursor: section 12 of https://api.flow.engineer/docs/quickstart.md); `FLOW_MESSAGING_KEY` must be set when it runs (unset, the header is saved as `Bearer ` with no key), and the client loads a new server only after a restart. If its tools are already available to you, use them for sandbox testing; after a test send, wait for `message.sent` or `message.failed`.
 
+## Flow Observe (see every conversation; early access)
+
+- Flow Observe (https://flow.engineer/observe) stores each conversation of a chat agent, grades every reply (`good`, `wrong`, `unhelpful`, `unsafe`), groups failures into issues with a suggested fix, and shows each turn's model and tool calls from OpenTelemetry traces. Accounts and keys are made by the Flow team (samyak@flow.engineer or prabal@flow.engineer): never invent a key. Test data only until the Flow team enables the account for production: send synthetic conversations, never real people's messages.
+- On Flow Messaging: no code; the Flow team connects Observe to the app. Optional traces: set `flow.conversation_id` (`event.conversation.id`, `conv_...`) and `flow.message_id` (`event.data.message.id`, `msg_...`) on a span of each turn.
+- On any other channel: traces only. One OpenTelemetry trace per turn (the person's message to the reply), exported over OTLP/HTTP (protobuf or JSON, not gRPC) to `https://flow.engineer/observe/v1/traces` with `Authorization: Bearer $FLOW_OBSERVE_TRACE_KEY` (`otk_test_...`). On the turn's span (the one that wraps the turn) set `flow.conversation_id` (required: your own thread id, any string up to 256 characters; a phone number is fine, it is stored as a keyed hash; never text), and preferably `flow.message_id` (the inbound message's id; de-duplicates retries), `flow.contact_id`, `flow.channel` (`sms`, `mms`, `whatsapp`, `telegram`, `imessage`, `web`, `voice`, `other`), `flow.user_message` (the person's text as received) and `flow.agent_reply` (the text actually sent, after post-processing and splitting; one span per sent message). Start the turn's span when the message arrives; end the reply's span when it is sent. Flush the exporter before a short-lived process exits.
+- Check it worked: the export answers `200` with `{}` (a `partialSuccess` with `rejectedSpans` says what was refused); the conversation appears in the dashboard at https://flow.engineer/observe within seconds, with each reply's verdict shortly after. `401`: wrong key; `403`: a live key on a test-only account.
+- Tests: every test conversation is graded. On Flow Messaging, play test chats with simulated contacts (above); on another channel, call your message handler with synthetic turns and a test trace key. Test cases, a pass/fail CI check and a `flow test` CLI are coming.
+
 ## Docs
 
 - [Agent quickstart](https://api.flow.engineer/docs/quickstart.md): everything needed to integrate, with curl, TypeScript and Python: getting a key in one call, the sandbox allowance, signing in to keep the app, the Telegram sandbox, the WebSocket stream, the event log, webhooks and signature checks, `message.received`, replies, your own Telegram bot, idempotency, errors, rate limits, channel notes (Telegram, iMessage, SMS), the optional MCP server, recipes for common tasks.
 - [OpenAPI spec](https://api.flow.engineer/openapi.yaml): the full contract (OpenAPI 3.1, version 2026-11-01): every endpoint, schema, event type and error type.
 - [Error types](https://api.flow.engineer/docs/errors): one page per `error.type` (what it means, why it happens, how to fix it), the page each error's `doc_url` points at.
+- [Flow Observe](https://docs.flow.engineer/observe.md): what it gives you, how to get access, test data and production.
+- [Send traces from any agent](https://docs.flow.engineer/observe/traces.md): the trace contract (`flow.*` attributes), Python and TypeScript with no framework, checking it worked, common mistakes.
+- [Traces from agent frameworks](https://docs.flow.engineer/observe/frameworks.md): OpenAI Agents SDK, LangChain and LangGraph, Vercel AI SDK, Claude Agent SDK, Mastra.
+- [Observe on Flow Messaging](https://docs.flow.engineer/observe/flow-messaging.md): no code; the optional trace tag.
+- [Test before you ship](https://docs.flow.engineer/trust.md): what works today, what is coming.
+- [What changes when real people text your bot](https://docs.flow.engineer/guides/real-people.md): consent and STOP, quiet hours, length, duplicates, returning people, media, latency, silent failures, testing.
 
 ## Optional
 

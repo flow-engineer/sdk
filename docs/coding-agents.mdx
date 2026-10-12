@@ -13,6 +13,12 @@ What exists today: Telegram is live (the shared sandbox bot with a test key, the
 Add two-way Telegram messaging (and iMessage replies, if the Flow team has connected a line) to my AI agent using Flow Messaging. Follow https://docs.flow.engineer/coding-agents.md exactly: use FLOW_MESSAGING_KEY if it is set, otherwise get a test key yourself with `npx @flow-engineer/messaging init` (or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`), use the TypeScript SDK `@flow-engineer/messaging` (or the HTTP API at https://api.flow.engineer in other languages), receive `message.received` events, reply with my agent's answer through `event.conversation.reply(...)`, and verify it end to end in the sandbox before you finish. Build on the REST API; the Flow MCP server is an optional development tool that I add myself if I want it.
 </Prompt>
 
+Not on Flow Messaging? To have a coding agent add Flow Observe to an agent that talks through another channel:
+
+<Prompt description="Paste this into Claude Code, Codex or Cursor to send your agent's traces to Flow Observe." actions={["copy", "cursor"]}>
+Send my chat agent's turns to Flow Observe by following https://docs.flow.engineer/observe/traces.md exactly. Use the trace key in FLOW_OBSERVE_TRACE_KEY (never invent one; if it is not set, stop and ask me). Add the OpenTelemetry SDK with an OTLP/HTTP exporter to https://flow.engineer/observe/v1/traces, wrap each turn (from the moment a person's message arrives to the reply being sent) in one span, and set flow.conversation_id, flow.message_id, flow.channel, flow.user_message and flow.agent_reply, where flow.agent_reply is the text my code actually sent, after any post-processing or splitting. If my agent uses a framework, follow https://docs.flow.engineer/observe/frameworks.md for it. Then run one synthetic turn and check that the exporter got 200 and no rejected spans. Use synthetic test data only.
+</Prompt>
+
 ## 1. Get a key and set up
 
 First check for a key: if `FLOW_MESSAGING_KEY` is set (in the environment or `.env`), use it. Otherwise get a test key yourself, with no account, in one call. Do not invent a key, and do not get a second one when you already have one.
@@ -153,4 +159,5 @@ Do not finish until this works:
 | https://docs.flow.engineer/llms-full.txt | The whole documentation in one file |
 | Any page URL + `.md` | That page as Markdown (for example https://docs.flow.engineer/quickstart.md) |
 | https://raw.githubusercontent.com/flow-engineer/sdk/main/openapi/openapi.yaml | The OpenAPI 3.1 spec |
+| https://docs.flow.engineer/observe/traces.md | Flow Observe for agents not on Flow Messaging: the trace contract and examples |
 | https://github.com/flow-engineer/sdk | SDK source and examples |

@@ -84,9 +84,10 @@ describe("agents/facts.json", () => {
     }
     const listed = new Set(Object.values(facts.env));
     for (const v of used) expect(listed.has(v), `${v} is used in typescript/src but not in agents/facts.json env`).toBe(true);
-    // Every listed name is real: used by the SDK or CLI, or by the dashboard (live_key).
+    // Every listed name is real: used by the SDK or CLI, by the dashboard (live_key), or
+    // by the user's own OpenTelemetry setup for Flow Observe (observe_trace_key).
     for (const [name, v] of Object.entries(facts.env)) {
-      if (name === "live_key") continue;
+      if (name === "live_key" || name === "observe_trace_key") continue;
       expect(used.has(v), `facts env.${name} = ${v} is not used in typescript/src`).toBe(true);
     }
   });
