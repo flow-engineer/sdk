@@ -918,7 +918,7 @@ class ErrorBody(BaseModel):
     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join code again).
     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
-    - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret; a secret that was lost must be rotated again).
+    - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
     - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
@@ -994,7 +994,12 @@ class ErrorBody(BaseModel):
     `carrier_filtered`, `unreachable`, `invalid_number`, `landline`,
     `registration_required`, `carrier_error` and `provider_not_configured`
     (`channel_error`). HIPAA accounts: `hipaa_channel_not_covered`
-    (`permission`). Simulated conversations (`permission`): `test_mode_only`,
+    (`permission`). Connecting your own WhatsApp number (`POST
+    /v1/senders`): `whatsapp_token_malformed`, `whatsapp_token_rejected`,
+    `whatsapp_app_secret_malformed` and `whatsapp_number_not_in_account`
+    (`invalid_request`), and `whatsapp_number_taken`,
+    `whatsapp_account_taken` and `whatsapp_number_managed` (`permission`).
+    Simulated conversations (`permission`): `test_mode_only`,
     `not_simulated`, `simulated_contact` and `simulated_conversation_limit`.
     For a message that failed after it was queued (`message.failed`):
     `sandbox_contact_left` (`permission`), `window_closed` and
@@ -1920,6 +1925,7 @@ class Sender(BaseModel):
     WhatsApp only. Meta's quality rating for the number.
     """
     sms: SmsSender | None = None
+    setup: SenderSetup | None = None
     join_code: Annotated[str | None, Field(examples=["join brave-otter-40718263"])] = (
         None
     )
@@ -2033,6 +2039,82 @@ class SenderRequest(BaseModel):
     telegram_bot_token: str | None = None
     """
     Telegram only, and required there. The bot token from BotFather. Stored encrypted; never returned.
+    """
+    whatsapp_phone_number_id: Annotated[str | None, Field(examples=["106540352242922"])] = (
+        None
+    )
+    """
+    WhatsApp only, and required there. The phone number ID of your number (WhatsApp Manager, or App Dashboard > WhatsApp > API Setup), not the phone number itself.
+    """
+    whatsapp_business_account_id: Annotated[
+        str | None, Field(examples=["102290129340398"])
+    ] = None
+    """
+    WhatsApp only, and required there. The ID of the WhatsApp Business Account the number is in.
+    """
+    whatsapp_access_token: str | None = None
+    """
+    WhatsApp only, and required there. A system user access token of your
+    business (it starts with `EAA`) that never expires, with
+    `whatsapp_business_messaging` and `whatsapp_business_management`, and
+    your WhatsApp Business Account and Meta app assigned to the system
+    user. Stored encrypted; never returned.
+
+    """
+    whatsapp_app_secret: str | None = None
+    """
+    WhatsApp only, and required there. The App secret of your Meta app (App settings > Basic, 32 hexadecimal characters); Meta signs the number's webhooks with it. Stored encrypted; never returned.
+    """
+    whatsapp_registration_pin: str | None = None
+    """
+    WhatsApp only, optional. Give it only when the number is not registered
+    for the Cloud API yet: Flow registers the number with this six-digit
+    two-step verification PIN (the number's current PIN, if it has one).
+    Meta allows 10 registrations per number in 72 hours. Stored encrypted;
+    never returned.
+
+    """
+
+
+class SenderSetup(BaseModel):
+    """
+    Only in the answer to `POST /v1/senders` that connected a WhatsApp number:
+    what you still set in your own Meta app, which Flow cannot set for you.
+    Flow already points the number's webhooks at `callback_url` (Meta's
+    phone-number-level override); entering the same URL in your app makes its
+    field subscriptions apply. The verify token is shown only in this answer
+    (connecting the number again shows it again); keep it like a password.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    callback_url: Annotated[
+        str,
+        Field(
+            examples=["https://api.flow.engineer/ingress/whatsapp/snd_01J9ZK3N5B6VQ1M2X4C7R8T9WA"]
+        ),
+    ]
+    """
+    The callback URL to enter in your Meta app (App Dashboard > WhatsApp > Configuration > Webhook).
+    """
+    verify_token: str
+    """
+    The verify token to enter with the callback URL.
+    """
+    webhook_fields: Annotated[
+        list[str],
+        Field(
+            examples=[["messages", "message_template_status_update", "phone_number_quality_update", "account_update", "business_capability_update", "template_category_update", "account_alerts"]]
+        ),
+    ]
+    """
+    The webhook fields to subscribe in the same place.
+    """
+    steps: list[str]
+    """
+    The steps in your Meta app, in order, as plain sentences to show a person.
     """
 
 

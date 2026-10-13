@@ -1,12 +1,12 @@
 ---
 title: "WhatsApp AI agents with Flow Messaging"
 sidebarTitle: "WhatsApp agent"
-description: "How a WhatsApp agent works on Flow Messaging (webhooks, buttons, the 24-hour window and templates) on a WhatsApp number the Flow team connects, and how to build and test it on Telegram with the same code."
+description: "How a WhatsApp agent works on Flow Messaging (webhooks, buttons, the 24-hour window and templates) on your own WhatsApp number, connected self-serve, and how to build and test it on Telegram with the same code."
 keywords: ["WhatsApp API for AI agents", "WhatsApp AI agent", "send WhatsApp message from LLM agent", "WhatsApp chatbot API", "WhatsApp Business API AI", "WhatsApp LLM integration", "connect AI agent to WhatsApp"]
 ---
 
 <Note>
-**WhatsApp numbers are connected by the Flow team**, not by API: either a number Flow provides, or a number in your business's own WhatsApp Business Account. `POST /v1/senders` with `"channel": "whatsapp"` answers `501` [`not_implemented`](/errors/not_implemented); the number appears in `GET /v1/senders` once it is connected. The shared WhatsApp sandbox is not open yet, so build and test on [Telegram](/guides/telegram-agent) meanwhile; the code below does not change per channel.
+**Connect your own WhatsApp number self-serve**: a number in your business's own WhatsApp Business Account, with `POST /v1/senders` (`"channel": "whatsapp"`) and a live key, or on the dashboard's [Senders page](https://api.flow.engineer/admin/senders?mode=live). See [Going live](/guides/going-live#your-own-number). The Flow team can also connect a number for you. The shared WhatsApp sandbox is not open yet, so build and test on [Telegram](/guides/telegram-agent) meanwhile; the code below does not change per channel.
 </Note>
 
 This page shows how an AI agent answers people on WhatsApp: it receives messages, streams the model's answer back as chat bubbles, uses buttons, and handles WhatsApp's 24-hour window.
@@ -126,7 +126,7 @@ Templates are created on your dedicated WhatsApp number with `POST /v1/templates
 
 ## 7. Going live on WhatsApp
 
-WhatsApp numbers are arranged with the Flow team: either a number Flow provides, or a number in your business's own WhatsApp Business Account. With your own account, add a payment method in WhatsApp Manager: Meta bills its fees to your business directly. On a number Flow provides, Meta's per-message fees are passed through (see [Pricing](/pricing)). Once the number is connected it appears in `GET /v1/senders` with your live key, and your agent's code stays the same.
+Connect a number in your business's own WhatsApp Business Account yourself, with `POST /v1/senders` (`"channel": "whatsapp"`) and a live key, or on the dashboard's [Senders page](https://api.flow.engineer/admin/senders?mode=live): see [Going live](/guides/going-live#your-own-number) for the steps in Meta Business Manager and the `setup` to enter in your Meta app. The Flow team can also connect a number for you, either one Flow provides or one in your own account. With your own account, add a payment method in WhatsApp Manager: Meta bills its fees to your business directly. On a number Flow provides, Meta's per-message fees are passed through (see [Pricing](/pricing)). Once the number is connected it appears in `GET /v1/senders` with your live key, and your agent's code stays the same.
 
 <Warning>
 WhatsApp's business policy does not allow general-purpose AI assistants. Your agent must serve your business's own customers (support, orders, bookings, updates). Agents that only reply to people who wrote first, about your business, are the safe pattern.

@@ -14,20 +14,20 @@ This guide helps you pick how to give an AI agent two-way conversations on Teleg
 | If you need... | Consider | Why |
 |---|---|---|
 | One Telegram bot, and you are happy to run its server | The Telegram Bot API directly | Free {/* claim: telegram.free */}([Telegram](https://core.telegram.org/bots), Oct 2026), and nothing sits between you and Telegram |
-| WhatsApp in production today | Twilio, Photon (Business plan), Blooio, Infobip, Sinch, Vonage; Linq (beta) | Flow's WhatsApp numbers are connected by the Flow team (Flow's number or your own WhatsApp Business Account), no self-serve or sandbox yet |
+| WhatsApp in production today | Twilio, Photon (Business plan), Blooio, Infobip, Sinch, Vonage; Linq (beta) | Flow's WhatsApp is self-serve on your own WhatsApp Business Account and Meta app (the Flow team can also connect Flow's number); no sandbox yet |
 | SMS, MMS or voice, in many countries | Twilio, Sinch, Vonage, Infobip | SMS and voice are not available on Flow yet |
 | iMessage where your agent writes first, or group chats | Sendblue, Linq, Blooio, Photon; groups need a paid plan on Sendblue and Linq (table below) | Flow's iMessage line is replies only, one-to-one |
 | FaceTime calls from an API | Sendblue, on a purchased FaceTime line {/* claim: sendblue.facetime-groups */}([source](https://docs.sendblue.com/llms.txt)); Blooio, on dedicated plans by request {/* claim: blooio.pricing */}([source](https://blooio.com/pricing.md)) | Flow has no calling |
 | Apple's official business channel | Apple Messages for Business, through an Apple-approved provider | Apple requires bots to connect through one {/* claim: apple.mfb-msp */}([Apple](https://register.apple.com/resources/messages/messaging-documentation/faq), Oct 2026) |
 | Open source you can self-host | Photon's `spectrum-ts` | MIT, runs without Photon's cloud {/* claim: photon.self-host */}([Photon](https://photon.codes/pricing), Oct 2026) |
-| Any language over plain HTTP, hosted senders, an ordered event log, idempotent sends and channel rules enforced for you, on Telegram and iMessage (replies) | Flow Messaging | One API across its channels, signed webhooks retried for 3 days, one send gate |
+| Any language over plain HTTP, hosted senders, an ordered event log, idempotent sends and channel rules enforced for you, on Telegram, WhatsApp and iMessage (replies) | Flow Messaging | One API across its channels, signed webhooks retried for 3 days, one send gate |
 | A coding agent that can get a key and test on its own, with no account | Flow Messaging | `POST /v1/sandbox/keys` returns a test key and a ready sandbox bot |
 
 ## Side by side
 
 | | Channels | Two-way | MCP server | Pricing model | Free tier or sandbox | Self-host |
 |---|---|---|---|---|---|---|
-| **Flow Messaging** | Telegram; iMessage (replies only, lines arranged with the Flow team); WhatsApp (numbers connected by the Flow team: Flow's number or your own WhatsApp Business Account; no self-serve or sandbox yet) | Yes: webhooks, WebSocket stream, polling | Hosted (`api.flow.engineer/mcp`), optional | Plans; prices not published yet; for WhatsApp, Meta's fees passed through on Flow's number, or billed by Meta to your own WhatsApp Business Account | Test key with no account: 1 contact, 50 messages, 7 days; signed in with a Flow account: 3 contacts, 100 messages each | No |
+| **Flow Messaging** | Telegram; iMessage (replies only, lines arranged with the Flow team); WhatsApp (self-serve with your own WhatsApp Business Account, or Flow's number through the Flow team; no sandbox yet) | Yes: webhooks, WebSocket stream, polling | Hosted (`api.flow.engineer/mcp`), optional | Plans; prices not published yet; for WhatsApp, Meta's fees passed through on Flow's number, or billed by Meta to your own WhatsApp Business Account | Test key with no account: 1 contact, 50 messages, 7 days; signed in with a Flow account: 3 contacts, 100 messages each | No |
 | **Photon** (`spectrum-ts`) | iMessage, WhatsApp Business, Telegram, terminal, SIP voice {/* claim: photon.channels */}([source](https://photon.codes/docs/spectrum-ts/introduction.md)); RCS and SMS fallback (pricing page); the Beta API adds SMS and email {/* claim: photon.beta-http-send */}([source](https://photon.codes/docs/beta/api-reference/messages/send-a-message)) | Yes | Docs search {/* claim: photon.mcp-docs */}([source](https://photon.codes/docs/mcp)); Spectrum skills for AI coding tools {/* claim: photon.skills */}([source](https://photon.codes/docs/spectrum-ts/introduction.md)) | Free; Pro \$25/mo; Business \$250/line/mo; Enterprise custom {/* claim: photon.pricing */}([source](https://photon.codes/pricing)) | Free plan, up to 10 users | Yes (MIT) |
 | **Telegram Bot API** | Telegram | Yes: webhook or `getUpdates` {/* claim: telegram.updates */}([source](https://core.telegram.org/bots/api#getting-updates)) | — | Free | Free | You run the bot; Telegram runs the API |
 | **Twilio** | SMS, MMS, RCS, WhatsApp; Messenger (public beta) {/* claim: twilio.channels */}([source](https://www.twilio.com/docs/messaging)); Apple Messages for Business (private beta) {/* claim: twilio.amb-beta */}([source](https://www.twilio.com/en-us/messaging/channels/apple-messages-for-business)) | Yes: webhooks | Hosted docs search (Public Beta), does not call APIs {/* claim: twilio.mcp */}([source](https://www.twilio.com/docs/ai/mcp)); the open-source `@twilio-alpha/mcp` server calls the APIs {/* claim: twilio.mcp-alpha */}([source](https://github.com/twilio-labs/mcp)) | Per message: US SMS from \$0.0083/segment plus carrier fees; 10DLC registration extra {/* claim: twilio.sms-price */}([source](https://www.twilio.com/en-us/sms/pricing/us)); WhatsApp \$0.005 plus Meta's fees {/* claim: twilio.whatsapp-price */}([source](https://www.twilio.com/en-us/whatsapp/pricing)) | Trial: free units, 30 days, verified numbers only, in your sign-up country {/* claim: twilio.trial */}([source](https://www.twilio.com/docs/usage/tutorials/how-to-use-your-free-trial-account)) | — |
@@ -41,8 +41,8 @@ All sources as of Oct 2026. "—" means the vendor does not document it.
 
 Pick something else if any of these is true today:
 
-- **You need self-serve WhatsApp, or a WhatsApp sandbox, now.** Flow's WhatsApp numbers are connected by the Flow team (Flow's number or your own WhatsApp Business Account), no self-serve or sandbox yet.
-- **You need SMS, RCS, voice, email, Slack, Discord or any channel beyond Telegram and iMessage.** None of these is available on Flow yet. Twilio and the other CPaaS providers cover SMS, RCS and voice, the iMessage APIs below fall back to SMS, and Photon lists more channels than Flow, with RCS and SMS fallback on its plans.
+- **You need a WhatsApp sandbox now.** Flow's WhatsApp is self-serve with your own WhatsApp Business Account, but there is no sandbox yet.
+- **You need SMS, RCS, voice, email, Slack, Discord or any channel beyond Telegram, WhatsApp and iMessage.** None of these is available on Flow yet. Twilio and the other CPaaS providers cover SMS, RCS and voice, the iMessage APIs below fall back to SMS, and Photon lists more channels than Flow, with RCS and SMS fallback on its plans.
 - **Your agent must start iMessage conversations, or use groups or FaceTime calls.** Flow's iMessage line answers people who wrote first, one-to-one, and lines are arranged with the Flow team rather than self-serve.
 - **You must self-host, or keep message data on your own infrastructure.** Flow is a hosted service only; its spec and SDKs are open source, the service is not.
 - **You need published prices, a contractual SLA or a compliance certification today.** Flow is in beta and publishes none of these yet.
@@ -164,9 +164,9 @@ All sources as of Oct 2026.
 
 ## About Flow, today
 
-- **Live:** Telegram (sandbox bot, or your own bot once you sign in with a Flow account); the TypeScript SDK on npm (`@flow-engineer/messaging`); iMessage replies on lines arranged with the Flow team; signed, ordered webhooks and a WebSocket stream; the send gate; typed errors with hints; a hosted MCP server, which the project owner can choose to add to their coding tools; test keys with no account (`POST /v1/sandbox/keys`); sign-in with a Flow account (flow.engineer) and a dashboard.
+- **Live:** Telegram (sandbox bot, or your own bot once you sign in with a Flow account); WhatsApp on a number in your own WhatsApp Business Account (self-serve once you sign in); the TypeScript SDK on npm (`@flow-engineer/messaging`); iMessage replies on lines arranged with the Flow team; signed, ordered webhooks and a WebSocket stream; the send gate; typed errors with hints; a hosted MCP server, which the project owner can choose to add to their coding tools; test keys with no account (`POST /v1/sandbox/keys`); sign-in with a Flow account (flow.engineer) and a dashboard.
 - **Not available yet:** SMS and voice.
-- **Arranged with the Flow team:** WhatsApp numbers (Flow's number or your own WhatsApp Business Account); no self-serve or WhatsApp sandbox yet.
+- **Arranged with the Flow team:** WhatsApp on Flow's number, or help connecting your own; no WhatsApp sandbox yet.
 - **Coming:** a Go SDK; docs.flow.engineer (not deployed yet; meanwhile see [llms.txt](https://api.flow.engineer/llms.txt) and the [OpenAPI spec](https://api.flow.engineer/openapi.yaml)).
 
 ## Related

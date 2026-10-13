@@ -265,12 +265,12 @@ export class Senders {
     return this.http.request({ method: "GET", path: `/v1/senders/${enc(senderId)}`, options });
   }
 
-  /** Requests a dedicated sender (live keys). A Telegram bot connects at once with `telegram_bot_token`. */
+  /** Requests a dedicated sender (live keys). A Telegram bot connects at once with `telegram_bot_token`; your own WhatsApp number with `whatsapp_phone_number_id`, `whatsapp_business_account_id`, `whatsapp_access_token` and `whatsapp_app_secret` (the answer's `setup` says what to set in your Meta app). */
   request(params: SenderRequest, options?: RequestOptions): Promise<Sender> {
     return this.http.request({ method: "POST", path: "/v1/senders", body: params, options });
   }
 
-  /** Disconnects one of your Telegram bots (live keys): removes its webhook and token and retires the sender (status `banned`). */
+  /** Disconnects one of your Telegram bots or WhatsApp numbers (live keys): deletes its stored credentials and retires the sender (status `banned`). */
   disconnect(senderId: string, options?: RequestOptions): Promise<Sender> {
     return this.http.request({ method: "DELETE", path: `/v1/senders/${enc(senderId)}`, options });
   }

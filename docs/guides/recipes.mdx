@@ -119,7 +119,7 @@ The hosted MCP server is an optional development tool. Adding it is the project 
 
 ### WhatsApp: a reminder the next day
 
-Flow has no scheduled sends: schedule in your own app (cron, queue) and send then. Next day is usually outside WhatsApp's 24-hour window, so only an approved `template` goes (`POST /v1/templates` on your WhatsApp sender with a live key; else `409 outside_window`). Test it now on a simulated WhatsApp conversation: templates on the simulated sender are approved at once. WhatsApp numbers are connected by the Flow team.
+Flow has no scheduled sends: schedule in your own app (cron, queue) and send then. Next day is usually outside WhatsApp's 24-hour window, so only an approved `template` goes (`POST /v1/templates` on your WhatsApp sender with a live key; else `409 outside_window`). Test it now on a simulated WhatsApp conversation: templates on the simulated sender are approved at once. Connect your own WhatsApp number with `POST /v1/senders` (quickstart section 11).
 
 ### Move a live polling bot to Flow
 
@@ -151,7 +151,7 @@ An app made without an account has no dashboard: get a new sandbox key, or sign 
 
 1. Sign in to keep the app (`npx @flow-engineer/messaging login`): the app, its data and webhooks stay.
 2. Dashboard > Live > **Create live key**; keep it apart from the test key (`FLOW_MESSAGING_LIVE_KEY`).
-3. Connect your own Telegram bot (`POST /v1/senders`, quickstart section 7); iMessage, SMS and WhatsApp numbers are connected by the Flow team.
+3. Connect your own Telegram bot (`POST /v1/senders`, quickstart section 7) or your own WhatsApp number (`POST /v1/senders`, quickstart section 11); iMessage lines and SMS numbers are connected by the Flow team.
 4. Register the webhook again with the live key (endpoints belong to one mode). Nothing else in the code changes.
 
 ### Multi-tenant SaaS: one bot per customer
@@ -185,7 +185,7 @@ Not built yet: an account has one member (whoever signed in), and there are no i
 ## What the Flow team arranges, and how to ask
 
 {/* agents:flow-team */}
-Some things are set up by the Flow team, not through the API: SMS numbers, WhatsApp numbers (Flow's or your own WhatsApp Business Account), iMessage lines, pricing and support. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer. For each, what to do today, what to build meanwhile, and what to send.
+Some things are set up by the Flow team, not through the API: SMS numbers, iMessage lines, pricing and support. You connect your own WhatsApp number yourself (`POST /v1/senders` with `"channel": "whatsapp"` and a live key, or the dashboard's Senders page; quickstart section 11), and the Flow team can still help with it. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer. For each, what to do today, what to build meanwhile, and what to send.
 
 **Never send secrets in chat or email, and never paste them to a coding agent or commit them**: API keys, bot tokens, provider auth tokens, access tokens, app secrets. The Flow team tells you how to hand credentials over, and Flow stores them encrypted. A coding agent that finds credentials in `.env` or a secret manager leaves them where they are and tells the person this.
 
@@ -194,7 +194,7 @@ Some things are set up by the Flow team, not through the API: SMS numbers, Whats
 | You want | Today | Send the Flow team |
 |---|---|---|
 | **US SMS** (in pilot), including on your own SMS provider account | `POST /v1/senders` with `"channel": "sms"` answers `501`; the team connects the number. Build on simulated SMS. | Your app ID (`app_...`, from `GET /v1/app` with your live key) and account ID (`account` there); the number in E.164 (`+1` and ten digits), 10DLC or toll-free, and its registration status; whether it is on your own provider account (which provider) or Flow should provide one; what you send and how people opt in. Not the auth token: the team arranges that. |
-| **WhatsApp on your own WhatsApp Business Account** (credentials in your own secret manager is fine) | `POST /v1/senders` with `"channel": "whatsapp"` answers `501`; the team connects the number. Build on simulated WhatsApp (templates are approved at once there). | Your app and account IDs; the phone number ID and WhatsApp Business Account ID (in WhatsApp Manager); whether the number is on your own Meta app. Not the access token or the app secret: the team arranges how they reach Flow. Meta bills you directly, so the account needs a payment method in WhatsApp Manager. |
+| **Help with WhatsApp on your own WhatsApp Business Account** (credentials in your own secret manager is fine) | Self-serve: `POST /v1/senders` with `"channel": "whatsapp"` and a live key connects the number at once, and its answer's `setup` says what to set in your Meta app. Ask the team if you want help with it. Build on simulated WhatsApp (templates are approved at once there). | Your app and account IDs; the phone number ID and WhatsApp Business Account ID (in WhatsApp Manager); whether the number is on your own Meta app. Not the access token or the app secret: send those only to `POST /v1/senders`, or ask the team how they reach Flow. Meta bills you directly, so the account needs a payment method in WhatsApp Manager. |
 | **iMessage** | Lines are connected by the team; they reply only (the person writes first) unless the line is enabled to start conversations. Build on simulated iMessage or Telegram. | Your app and account IDs; what the agent does; expected people per day; whether you need to write first (and why the person expects it). |
 | **Pricing and billing** | Billing is not live, so everything is free today. Payments are coming; there are no prices or dates yet. With your own provider account (your own SMS provider account, or your own WhatsApp Business Account), the provider bills you directly and Flow charges nothing while billing is not live. | Expected volume per channel and month, if you want to talk about it. |
 | **Support: "sent but not delivered"** | First read the message: `GET /v1/messages/{message_id}` and its events (`GET /v1/events?conversation=conv_...`). Every send ends `message.sent` or `message.failed` (with `error.type`, `channel_code` and `hint`); Telegram never reports `message.delivered`, so `sent` is the last status there. | The message ID (`msg_...`), conversation ID (`conv_...`), the `request_id` of the call (also the `Flow-Request-Id` header), test or live, the time, and what you expected. Not your API key, and no message content unless asked. |

@@ -30,8 +30,8 @@ install any Flow package.
 | [webhook-receiver](webhook-receiver) | Production webhooks: `Flow-Signature` checks, dedupe on `event.id`, replies in the answer. | yes | yes |
 | [own-telegram-bot](own-telegram-bot) | Go live with your own @BotFather bot (`POST /v1/senders`), then disconnect it. | yes | |
 
-Telegram is live today. iMessage is replies-only and arranged with the Flow team
-(with a live key), and so are WhatsApp numbers. Your code does not change between channels:
+Telegram is live today, and so is WhatsApp on your own number (connected with a live
+key). iMessage is replies-only and arranged with the Flow team (with a live key). Your code does not change between channels:
 you reply into a conversation (`conv_...`) and never pick a channel per message.
 
 These examples are tested: `scripts/check-examples.sh --e2e` runs each one against

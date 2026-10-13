@@ -11,7 +11,7 @@ A **sender** is what your agent talks from: a Telegram bot, an iMessage line or 
 |---|---|---|
 | Telegram | Flow's sandbox bot | Your own bot: connect its token with `POST /v1/senders` |
 | iMessage | None | A line the Flow team connects to your app; replies only |
-| WhatsApp | Not open yet | A number the Flow team connects to your app: one Flow provides, or one in your business's own WhatsApp Business Account |
+| WhatsApp | Not open yet | A number in your business's own WhatsApp Business Account: connect it with `POST /v1/senders`, or the Flow team connects one for you |
 
 ```bash
 curl https://api.flow.engineer/v1/senders \
@@ -47,7 +47,7 @@ curl https://api.flow.engineer/v1/senders \
 | Key | `fk_test_...` | `fk_live_...` |
 | Who it can talk to | Only people who sent your app's join code | Anyone the channel's rules allow |
 | Name people see | Flow's sandbox name | Your brand |
-| How you get it | Already there | Telegram: `POST /v1/senders` with your bot's token. iMessage: ask the Flow team. See [Going live](/guides/going-live) |
+| How you get it | Already there | Telegram: `POST /v1/senders` with your bot's token. WhatsApp: `POST /v1/senders` with your number's IDs, token and app secret. iMessage: ask the Flow team. See [Going live](/guides/going-live) |
 
 A third kind, `simulated`, exists only in test mode: your app's stand-in for a channel,
 used by [simulated contacts](/concepts/test-and-live-mode#simulated-contacts-test-without-a-phone).

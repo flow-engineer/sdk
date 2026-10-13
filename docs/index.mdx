@@ -6,7 +6,7 @@ keywords: ["WhatsApp API for AI agents", "iMessage API for AI agents", "Telegram
 "og:title": "Flow Messaging: one API to give AI agents WhatsApp, Telegram and iMessage"
 ---
 
-Flow Messaging is a two-way messaging API that lets an AI agent talk with people on **Telegram**, **iMessage** and **WhatsApp** through one HTTP API, one event format and one SDK. iMessage lines and WhatsApp numbers are connected by the Flow team.
+Flow Messaging is a two-way messaging API that lets an AI agent talk with people on **Telegram**, **iMessage** and **WhatsApp** through one HTTP API, one event format and one SDK. You connect your own Telegram bot and WhatsApp number yourself; iMessage lines are connected by the Flow team.
 
 ```ts TypeScript
 import { FlowMessaging, contentText } from "@flow-engineer/messaging";
@@ -41,7 +41,7 @@ Already talking to people through your own SMS provider or another channel? Star
 
 ## How it works
 
-1. Flow hosts the **senders**: a Telegram bot, an iMessage line or a WhatsApp number. Start on the shared Telegram sandbox bot; go live with your own Telegram bot, or an iMessage line or WhatsApp number the Flow team connects to your app.
+1. Flow hosts the **senders**: a Telegram bot, an iMessage line or a WhatsApp number. Start on the shared Telegram sandbox bot; go live with your own Telegram bot or WhatsApp number, or an iMessage line the Flow team connects to your app.
 2. A person messages your sender. Flow stores the message and delivers it to you as an **event**: by signed webhook, by a live WebSocket stream, or by polling the event log.
 3. Your agent replies into the **conversation** with typed content (text, media, voice notes, buttons, reactions). Streamed LLM answers become natural chat bubbles.
 4. Every send passes one **send gate** that applies each channel's rules (who may be messaged, new-contact limits, pacing), so your sender stays healthy.
@@ -75,7 +75,7 @@ The SDKs are open source (Apache-2.0) at [github.com/flow-engineer/sdk](https://
 |---|---|---|---|
 | Telegram | Live | Flow's sandbox bot (test key), or your own bot (live key) | Bring a bot token to go live in minutes. |
 | iMessage | Live, replies only | A line the Flow team connects to your app (live key) | The person always writes first; your agent replies. Not part of the sandbox. Ask the Flow team for a line. |
-| WhatsApp | Arranged with the Flow team | A number the Flow team connects to your app (live key): one Flow provides, or one in your business's own WhatsApp Business Account | Free-form replies within 24 hours of the person's last message, templates after that. The shared WhatsApp sandbox is not open yet. |
+| WhatsApp | Live, self-serve | A number in your business's own WhatsApp Business Account, connected with a live key (the Flow team can also connect one for you) | Free-form replies within 24 hours of the person's last message, templates after that. The shared WhatsApp sandbox is not open yet. |
 
 SMS (US) is in pilot: two-way SMS and MMS on US numbers the Flow team registers for a customer, not generally available. There is no voice calling.
 

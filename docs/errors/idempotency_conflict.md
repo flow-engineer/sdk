@@ -19,7 +19,7 @@ Flow keeps each `Idempotency-Key` for 24 hours with the request it came with. A 
 |---|---|---|
 | `body_mismatch` | The key was already used for a different request: another method, path or body (often a constant key instead of a fresh UUID). | Make a new key for the new request. Retrying with this key never works. |
 | `in_progress` | A repeat arrived while the first request with this key was still running. | Wait `retry_after` seconds, then repeat the identical request with the same key and body to get its answer. |
-| `secret_not_kept` | The first request went through and its answer carried a secret that is shown only once (`POST /v1/webhook_endpoints`, `POST /v1/webhook_endpoints/{id}/rotate_secret`). Flow does not keep that answer. | Find the endpoint with `GET /v1/webhook_endpoints`; if you lost its secret, rotate it again with a new key. |
+| `secret_not_kept` | The first request went through and its answer carried a secret that is shown only once (`POST /v1/webhook_endpoints`, `POST /v1/webhook_endpoints/{id}/rotate_secret`, and `POST /v1/senders` connecting a WhatsApp number, whose answer carries its verify token). Flow does not keep that answer. | Find the endpoint with `GET /v1/webhook_endpoints`; if you lost its secret, rotate it again with a new key. For a WhatsApp number, find it with `GET /v1/senders`, and connect it again with a new key to see its verify token. |
 
 ## How to fix it
 

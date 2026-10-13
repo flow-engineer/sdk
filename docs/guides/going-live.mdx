@@ -1,7 +1,7 @@
 ---
 title: "Going live: your own Telegram bot, iMessage lines, WhatsApp numbers and live keys"
 sidebarTitle: "Going live"
-description: "Move your AI agent from the sandbox to production: make a live key, connect your own Telegram bot, get an iMessage line or a WhatsApp number from the Flow team, and switch your key."
+description: "Move your AI agent from the sandbox to production: make a live key, connect your own Telegram bot, connect your own WhatsApp number, get an iMessage line from the Flow team, and switch your key."
 keywords: ["dedicated WhatsApp number for AI agent", "WhatsApp business verification API", "WhatsApp message templates API", "iMessage dedicated line", "go live WhatsApp API"]
 ---
 
@@ -20,16 +20,16 @@ curl https://api.flow.engineer/v1/senders \
 |---|---|
 | Telegram | Self-serve: connect your own bot with a live key (below). |
 | iMessage | Ask the Flow team: they connect a line to your app. Replies only. |
-| WhatsApp | Ask the Flow team: they connect a number to your app, one Flow provides or one in your business's own WhatsApp Business Account. |
+| WhatsApp | Self-serve: connect a number in your own WhatsApp Business Account with a live key (below), or in the [dashboard](https://api.flow.engineer/admin/senders?mode=live). The Flow team can also connect one for you. |
 
 ## Checklist
 
 <Steps>
   <Step title="Get a live key">
-    Sign in to the [dashboard](https://api.flow.engineer/admin) with a Flow account, switch to **Live**, and make an `fk_live_...` key on the [Keys page](https://api.flow.engineer/admin/keys?mode=live) (test keys take one call, see [Keys and sign-in](/get-a-key)). Keep it on your server only, in its own variable (for example `FLOW_MESSAGING_LIVE_KEY`) so it does not replace your test key. Live Telegram with your own bot is self-serve; iMessage lines and WhatsApp numbers are arranged with the Flow team.
+    Sign in to the [dashboard](https://api.flow.engineer/admin) with a Flow account, switch to **Live**, and make an `fk_live_...` key on the [Keys page](https://api.flow.engineer/admin/keys?mode=live) (test keys take one call, see [Keys and sign-in](/get-a-key)). Keep it on your server only, in its own variable (for example `FLOW_MESSAGING_LIVE_KEY`) so it does not replace your test key. Your own Telegram bot and your own WhatsApp number are self-serve; iMessage lines are arranged with the Flow team.
   </Step>
   <Step title="Get a dedicated sender">
-    Telegram: `POST /v1/senders` with your bot's token; it is `active` at once. iMessage and WhatsApp: the Flow team connects a line or number to your app, and it then appears in `GET /v1/senders` with your live key (`POST /v1/senders` with `"channel": "imessage"` or `"whatsapp"` answers `501 not_implemented` with any key; build meanwhile on [simulated conversations](/concepts/test-and-live-mode) of that channel).
+    Telegram: `POST /v1/senders` with your bot's token; it is `active` at once. WhatsApp: `POST /v1/senders` with your number's IDs, token and app secret (see [WhatsApp](#your-own-number)); it is `active` at once. iMessage: the Flow team connects a line to your app, and it then appears in `GET /v1/senders` with your live key (`POST /v1/senders` with `"channel": "imessage"` answers `501 not_implemented` with any key; build meanwhile on [simulated conversations](/concepts/test-and-live-mode) of that channel).
   </Step>
   <Step title="Register your webhook with the live key">
     Webhook endpoints and their signing secrets belong to one mode: your test endpoint never receives live events. `POST /v1/webhook_endpoints` again with the live key and store the new `whsec_...` secret where your live deployment reads it; the test endpoint keeps its own secret.
@@ -41,9 +41,38 @@ curl https://api.flow.engineer/v1/senders \
 
 ## WhatsApp
 
-WhatsApp numbers are connected by the Flow team, not by API: `POST /v1/senders` with `"channel": "whatsapp"` answers `501 not_implemented`, and the number appears in `GET /v1/senders` once it is connected. The Flow team also disconnects it (`DELETE /v1/senders/{sender_id}` answers `501 not_implemented`).
+### Your own number
 
-- **Numbers:** either a number Flow provides, or a number in your business's own WhatsApp Business Account.
+Connect a number in your own WhatsApp Business Account, under your own Meta app, with a live key: `POST /v1/senders`, or the [Senders page](https://api.flow.engineer/admin/senders?mode=live) of the dashboard. The Flow team can also connect a number for you.
+
+First, in Meta Business Manager:
+
+1. Create a Meta app of type Business with the WhatsApp product, and switch it to Live.
+2. Add the phone number to your WhatsApp Business Account, with an approved display name, and add a payment method in WhatsApp Manager (Meta bills its fees to you directly).
+3. Create a system user (Admin), assign it your WhatsApp Business Account (full control) and the app, and generate a token that never expires with `whatsapp_business_messaging` and `whatsapp_business_management`.
+
+Then connect the number. Keep the token and the app secret (App settings > Basic) in environment variables, never in code or a chat:
+
+```bash curl
+export WHATSAPP_ACCESS_TOKEN=...   # the system user token; never commit it
+export WHATSAPP_APP_SECRET=...     # your Meta app's App secret
+
+curl https://api.flow.engineer/v1/senders \
+  -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"channel\": \"whatsapp\", \"whatsapp_phone_number_id\": \"106540352242922\", \"whatsapp_business_account_id\": \"102290129340398\", \"whatsapp_access_token\": \"$WHATSAPP_ACCESS_TOKEN\", \"whatsapp_app_secret\": \"$WHATSAPP_APP_SECRET\"}"
+```
+
+Use your number's phone number ID (WhatsApp Manager, or App Dashboard > WhatsApp > API Setup), not the phone number itself. Add `whatsapp_registration_pin` (six digits) only when the number is not registered for the Cloud API yet, and `display_name` if you like.
+
+- **Answer:** `200` with the sender `active` and, only in this answer, `setup`: enter its `callback_url` and `verify_token` in your Meta app (App Dashboard > WhatsApp > Configuration) and subscribe the `webhook_fields` there, following its `steps`. Flow has already pointed this number's webhooks at Flow (your other numbers keep theirs); the settings in your app make its field subscriptions apply. The verify token is shown only in this answer.
+- **New token:** send the number again the same way. It stays the same sender, with the same verify token.
+- **Disconnect:** `DELETE /v1/senders/{sender_id}` deletes the stored token and app secret and retires the sender. Nothing changes in your Meta app: remove Flow's callback URL there yourself.
+- **Numbers the Flow team connected** are updated and disconnected by the Flow team (`403 permission` with `channel_code` `whatsapp_number_managed`, and `501 not_implemented` on `DELETE`).
+
+### Numbers, quality and fees
+
+- **Numbers:** a number in your business's own WhatsApp Business Account, or a number Flow provides.
 - **Quality and tiers:** the sender shows WhatsApp's `quality_rating` (`green`, `yellow`, `red`) and its messaging tier in `limits.whatsapp_tier`. Replies to people who wrote first are not limited by the tier.
 - **Fees:** on a number Flow provides, WhatsApp's own per-message fees (charged by Meta) are passed through. With your own WhatsApp Business Account, Meta bills its fees to your business directly, so add a payment method in WhatsApp Manager. See [Pricing](/pricing).
 
