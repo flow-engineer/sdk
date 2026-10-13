@@ -22,7 +22,7 @@ The hosted MCP server is an optional development tool. Adding it is the project 
 
 ### WhatsApp: a reminder the next day
 
-Flow has no scheduled sends: schedule in your own app (cron, queue) and send then. Next day is usually outside WhatsApp's 24-hour window, so only an approved `template` goes (`POST /v1/templates` on your WhatsApp sender with a live key; else `409 outside_window`). Test it now on a simulated WhatsApp conversation: templates on the simulated sender are approved at once. WhatsApp numbers are connected by the Flow team.
+Flow has no scheduled sends: schedule in your own app (cron, queue) and send then. Next day is usually outside WhatsApp's 24-hour window, so only an approved `template` goes (`POST /v1/templates` on your WhatsApp sender with a live key; else `409 outside_window`). Test it now on a simulated WhatsApp conversation: templates on the simulated sender are approved at once. Connect your own WhatsApp number with `POST /v1/senders` (quickstart section 11).
 
 ### Move a live polling bot to Flow
 
@@ -54,7 +54,7 @@ An app made without an account has no dashboard: get a new sandbox key, or sign 
 
 1. Sign in to keep the app (`npx {{package}} login`): the app, its data and webhooks stay.
 2. Dashboard > Live > **Create live key**; keep it apart from the test key (`{{env.live_key}}`).
-3. Connect your own Telegram bot (`POST /v1/senders`, quickstart section 7); iMessage, SMS and WhatsApp numbers are connected by the Flow team.
+3. Connect your own Telegram bot (`POST /v1/senders`, quickstart section 7) or your own WhatsApp number (`POST /v1/senders`, quickstart section 11); iMessage lines and SMS numbers are connected by the Flow team.
 4. Register the webhook again with the live key (endpoints belong to one mode). Nothing else in the code changes.
 
 ### Multi-tenant SaaS: one bot per customer

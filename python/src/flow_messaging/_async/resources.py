@@ -267,22 +267,41 @@ class AsyncSenders:
         display_name: str | None = None,
         country: str | None = None,
         telegram_bot_token: str | None = None,
+        whatsapp_phone_number_id: str | None = None,
+        whatsapp_business_account_id: str | None = None,
+        whatsapp_access_token: str | None = None,
+        whatsapp_app_secret: str | None = None,
+        whatsapp_registration_pin: str | None = None,
         idempotency_key: str | None = None,
     ) -> Sender:
-        """Requests a dedicated sender (live keys). A Telegram bot connects at once with ``telegram_bot_token``."""
+        """Requests a dedicated sender (live keys).
+
+        A Telegram bot connects at once with ``telegram_bot_token``. Your own WhatsApp number
+        connects at once with ``whatsapp_phone_number_id``, ``whatsapp_business_account_id``,
+        ``whatsapp_access_token`` and ``whatsapp_app_secret``; the answer's ``setup`` says what
+        to enter in your Meta app.
+        """
         res = await self._http.request(
             "POST",
             "/v1/senders",
             json=body(
-                channel=channel, display_name=display_name, country=country, telegram_bot_token=telegram_bot_token
+                channel=channel,
+                display_name=display_name,
+                country=country,
+                telegram_bot_token=telegram_bot_token,
+                whatsapp_phone_number_id=whatsapp_phone_number_id,
+                whatsapp_business_account_id=whatsapp_business_account_id,
+                whatsapp_access_token=whatsapp_access_token,
+                whatsapp_app_secret=whatsapp_app_secret,
+                whatsapp_registration_pin=whatsapp_registration_pin,
             ),
             idempotency=idempotency_key,
         )
         return parse(Sender, res)
 
     async def disconnect(self, sender_id: str) -> Sender:
-        """Disconnects one of your Telegram bots (live keys): removes its webhook and token
-        and retires the sender (status ``banned``)."""
+        """Disconnects one of your Telegram bots or WhatsApp numbers (live keys): deletes its
+        stored credentials and retires the sender (status ``banned``)."""
         return parse(Sender, await self._http.request("DELETE", _path("/v1/senders", sender_id)))
 
 

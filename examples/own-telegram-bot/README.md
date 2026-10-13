@@ -17,7 +17,8 @@ without an account (`POST /v1/sandbox/keys`), sign in with
 `npx @flow-engineer/messaging login` first: that claims it. Keep the live key in its
 own variable, apart from your test key. Until you go live, build on the sandbox bot
 with a test key ([telegram-echo](../telegram-echo)); your code does not change.
-(iMessage lines and WhatsApp numbers are arranged with the Flow team.)
+(Your own WhatsApp number connects with `POST /v1/senders` and a live key too;
+iMessage lines are arranged with the Flow team.)
 
 ## Run it
 

@@ -18,7 +18,7 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 | `flow.files.upload({ file, filename })` (`file`: Blob, Uint8Array/Buffer or ArrayBuffer; returns a `File` whose `id` is the `file_id`) · `.download(id)` | `POST /v1/files` · `GET /v1/files/{id}` |
 | `flow.webhookEndpoints.create({ url, events })` (+ list, retrieve, update, delete) · `.rotateSecret(id, { overlap_seconds })` | `/v1/webhook_endpoints` · `POST .../{id}/rotate_secret` |
 | `flow.senders.list()` · `flow.contacts.list()` · `flow.templates.list()` · `flow.app.retrieve()` | `/v1/senders` · `/v1/contacts` · `/v1/templates` · `/v1/app` |
-| `flow.senders.request({ channel: "telegram", telegram_bot_token })` · `.disconnect(id)` (live keys) | `POST /v1/senders` · `DELETE /v1/senders/{id}` |
+| `flow.senders.request({ channel: "telegram", telegram_bot_token })` (or `channel: "whatsapp"` with your own number's `whatsapp_*` fields; the answer's `setup` is what to enter in your Meta app) · `.disconnect(id)` (live keys) | `POST /v1/senders` · `DELETE /v1/senders/{id}` |
 | `flow.sandbox.createKey({ name? })` (no key; returns `key`, `claim_token`, `app`, `allowance`, `senders`) | `POST /v1/sandbox/keys` |
 | `flow.device.signIn({ claimToken?, clientName?, prompt })` (start and poll; resolves with the approved token, `.key`; throws `DeviceSignInError`, `reason` `denied` or `expired`) · `.authorize(...)` · `.poll(deviceCode)` | `POST /v1/device/authorizations` · `POST /v1/device/token` |
 | `(await flow.app.retrieve()).allowance` (sandbox allowance: `contacts`, `messages.remaining`, `expires_at`) | `GET /v1/app` |

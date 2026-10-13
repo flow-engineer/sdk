@@ -6,8 +6,8 @@ description: Use when code must let an AI agent, bot or LLM app send or receive 
 # Flow Messaging
 
 One API for an AI agent to talk with people on **Telegram and iMessage** (iMessage:
-replies only, on lines the Flow team connects; WhatsApp numbers are connected by the
-Flow team too).
+replies only, on lines the Flow team connects; WhatsApp on your own number, which you
+connect yourself with a live key).
 Flow hosts the senders (bots, lines); you get typed events in and send typed
 content out. TypeScript SDK: `@flow-engineer/messaging` (Node 18+, Bun, Deno, edge).
 Python SDK: `pip install {{python_package}}` (`from flow_messaging import Flow`; the same
@@ -32,9 +32,10 @@ person opens the sandbox link and taps Start first.
 {{> sign-in}} {{> allowance-errors}} In the SDK these are `PermissionError` (with
 `channelCode`) and `AuthenticationError`. Dashboard: {{dashboard_url}}. Going live:
 signed-in users make `fk_live_` keys in the dashboard and connect their own Telegram
-bot; iMessage lines, SMS numbers and WhatsApp numbers are arranged with the Flow team
+bot or their own WhatsApp number (`POST /v1/senders` with `channel` `whatsapp`, or the
+dashboard's Senders page; the Flow team can still help); iMessage lines and SMS numbers are arranged with the Flow team
 ({{team_contacts|or}}; send them your app ID and the number's details, never secrets or tokens).
-If the user asks for WhatsApp, tell them WhatsApp numbers are arranged with the Flow team, and build and test on Telegram meanwhile: the code does not change per channel. Details:
+If the user asks for WhatsApp, tell them they can connect their own WhatsApp number with a live key, and build and test on simulated WhatsApp conversations or Telegram meanwhile: the code does not change per channel. Details:
 [CLI and MCP](reference/cli-mcp.md).
 
 ## An agent in 10 lines
