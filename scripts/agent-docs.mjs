@@ -30,8 +30,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const check = process.argv.includes("--check");
 const yaml = createRequire(path.join(root, "typescript", "package.json"))("js-yaml");
 
-// Whole files: template -> outputs. agents/<file> (top level) is what the service's
-// `make generate` copies and serves.
+// Whole files: template -> outputs. agents/<file> (top level) is what the service
+// copies and serves.
 const FILES = [
   ["agents/src/llms.txt", ["agents/llms.txt", "llms.txt"]],
   ["agents/src/quickstart.md", ["agents/quickstart.md"]],

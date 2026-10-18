@@ -34,8 +34,9 @@ Telegram is live today, and so is WhatsApp on your own number (connected with a 
 key). iMessage is replies-only and arranged with the Flow team (with a live key). Your code does not change between channels:
 you reply into a conversation (`conv_...`) and never pick a channel per message.
 
-These examples are tested: `scripts/check-examples.sh --e2e` runs each one against
-a local copy of the service and checks what it does.
+These examples are tested: `scripts/check-examples.sh` typechecks and compiles each
+one, and the Flow team runs each one end to end against the API before a change
+lands.
 
 If your owner has added the Flow MCP server, you can also test with it.
 

@@ -53,5 +53,5 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../inbound -H "Aut
 Send each answer the same way once the agent has asked
 (`GET /v1/test/conversations/conv_.../transcript` shows both sides). From code, the
 same is `flow.test.createConversation({ channel: "telegram" })` and
-`flow.test.inbound(conv.id, "Asha")`. `scripts/check-examples.sh --e2e` runs this
-example both ways against a local copy of the service.
+`flow.test.inbound(conv.id, "Asha")`. The Flow team runs this example both ways
+end to end before a change lands.

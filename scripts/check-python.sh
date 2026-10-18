@@ -4,8 +4,6 @@
 #   the sync client from the async one), ruff (lint and format), mypy (strict), the unit
 #   tests (pytest), the build (sdist and wheel), the wheel's contents, and the
 #   public-content check on every file the wheel and sdist would publish.
-# The end-to-end tests (python/tests/e2e) run in scripts/check-examples.sh --e2e, on the
-# local service it starts.
 # Makes python/.venv on first use (uv when installed, else python3 -m venv and pip),
 # with the dev dependencies pinned in python/pyproject.toml. Needs Python 3.10+.
 set -euo pipefail

@@ -365,7 +365,6 @@ LangChain.js, and a note for Eve.
 npm install
 npm run generate          # types from ../openapi/openapi.yaml (src/generated/, never edit by hand)
 npm run typecheck && npm run lint && npm test && npm run build
-npm run test:integration  # against the service run locally (see ../AGENTS.md)
 ```
 
 Apache-2.0. The API is in beta; docs at https://docs.flow.engineer.

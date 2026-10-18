@@ -8,7 +8,7 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 ## The contract
 
 - `openapi/openapi.yaml` (OpenAPI 3.1) **is the contract.** The service
-  (Flow Messaging's server, a separate repository) generates its server stubs from it, and the
+  (Flow Messaging's server) generates its server stubs from it, and the
   TypeScript, Python and Go SDKs are generated from it. An API change starts here.
 - Descriptions in the spec become the docs (Mintlify, `docs/`) and are read by
   developers and by LLMs: write every description as a plain sentence that says what
@@ -25,49 +25,35 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   the spec lint, the spec
   drift check, the agent docs check (`node scripts/agent-docs.mjs --check`, see
   "Agent-facing docs") and, in `typescript/`: typecheck (`tsc`, sources and tests),
-  ESLint, the unit tests (vitest), the build (tsup: ESM, CJS, types, the CLI), the
-  package contents, and the integration test; then `scripts/check-examples.sh`.
-  `EXAMPLES=1` also typechecks the SDK examples against their real dependencies.
-- **The plain-HTTP examples are tested end to end**: `scripts/check-examples.sh`
-  typechecks `examples/*/typescript/main.ts` and byte-compiles
-  `examples/*/python/main.py`; with `--e2e` (what local checks run when a service
-  checkout and Go are there) it starts the service from `FLOW_MESSAGING_DIR` with
-  that checkout's `scripts/local-stack.sh --background --live-key` (Postgres from
-  `initdb` on a unix socket, the Telegram simulator; a checkout without the script is
-  refused), maps the stack's env file onto `scripts/examples-e2e.py`'s inputs and
-  stops the stack on exit; `scripts/examples-e2e.py` runs every example, plays the Telegram user and checks
-  the output and what the bot sent. Change an example and its scenario together; a
-  new example needs a scenario. Keep examples to what the spec guarantees, and
-  never tell an agent to install or configure the MCP server (that is the project
-  owner's choice).
+  ESLint, the unit tests (vitest, every API call answered by a fetch double), the
+  build (tsup: ESM, CJS, types, the CLI) and the package contents; the Python SDK's
+  checks (`scripts/check-python.sh`); then `scripts/check-examples.sh`. `EXAMPLES=1`
+  also typechecks the SDK examples against their real dependencies. Everything runs
+  from this repo alone: no other checkout, service or key.
+- **The examples**: `scripts/check-examples.sh` typechecks
+  `examples/*/typescript/main.ts` (strict) and byte-compiles the Python examples. The
+  Flow team also runs every example end to end against the API before a change
+  lands, so change an example and its README together, and keep examples to what the
+  spec guarantees. Never tell an agent to install or configure the MCP server (that
+  is the project owner's choice).
 - **Spec drift**: `scripts/check-spec-drift.sh` fails when a copy of the spec drifts
   from `openapi/openapi.yaml`: stale generated types (`npm run check-generated`),
   `docs/openapi.yaml` not an identical copy of it (a real file, not a symlink, since
   Mintlify builds only `docs/`; after a spec change run
   `cp openapi/openapi.yaml docs/openapi.yaml`), or the SDK's `API_VERSION` (and any
   `Flow-Version:` date in the READMEs, `llms.txt`, `plugin/`) not the spec's
-  `info.version`. With a service checkout (`FLOW_MESSAGING_DIR`, default
-  `../flow-messaging`) it compares `api/openapi.yaml` there too: a warning, since a spec
-  PR lands before the service regenerates; `STRICT_SERVICE_SPEC=1` makes it fail.
+  `info.version`.
 - **Comparison pages** (`docs/compare/`): every claim about another product is an entry in `docs/compare/claims.yaml` (claim, source URL, date checked, pages), marked on its page with `{/* claim: <id> */}` and linked to its source. `scripts/check-compare.sh` (part of local checks) fails when a claim is older than 90 days (and warns 14 days before) or a marker, link or entry is missing; `--fetch` also flags dead sources.
 - **Public content**: `scripts/check-public.sh` (part of local checks) fails when a
   tracked file, or the npm package about to be published, holds text that does not
   belong in a public repo: internal-only markers, local paths, cloud project IDs,
-  key-shaped strings, source maps with embedded sources (all listed in the script), or a
-  phrase on the denylist kept with the service checkout (`FLOW_MESSAGING_DIR`; skipped
-  with a warning without one, `REQUIRE_PUBLIC_DENYLIST=1` makes that fail).
+  key-shaped strings and source maps with embedded sources (all listed in the
+  script).
 - **Lint with Redocly CLI**: `scripts/lint.sh` (runs `npx @redocly/cli@2.60.0 lint`
   with `redocly.yaml`, `recommended-strict`, so any warning fails). It must be clean
   before a PR.
-- **The integration test runs the real service locally**: it copies
-  `typescript/test/integration/harness/harness_test.go.tmpl` into a checkout of
-  the service (`FLOW_MESSAGING_DIR`, default `../flow-messaging`) and runs it
-  with `go test`, which starts a throwaway Postgres, the API and the Telegram
-  simulator; the copy is removed afterwards. Without a checkout or Go it is skipped
-  (`REQUIRE_INTEGRATION=1` makes that fail).
-- After a spec, error page or agent docs change, regenerate the service (`make
-  generate` in its checkout, with this repo checked out beside it as `../flow-sdk`)
-  and run its checks.
+- After a spec, error page or agent docs change, the service is regenerated from
+  this repo by the Flow team; a PR here lands first.
 
 ## Working rules
 
@@ -123,9 +109,8 @@ spec and the error pages. Edit the source, regenerate, commit both:
   `docs/coding-agents.mdx`, `docs/guides/recipes.mdx` and
   `plugin/skills/flow-messaging/reference/cli-mcp.md`.
   Text outside the regions in those pages is hand-written.
-- **Copied into the service:** its `make generate` copies every top-level file of
-  `agents/` (with `facts.json`), as it copies `docs/errors/`; the service embeds and
-  serves them (`/llms.txt`,
+- **Copied into the service:** the service embeds and serves every top-level file
+  of `agents/` (with `facts.json`) and `docs/errors/` (`/llms.txt`,
   `/docs/quickstart.md`, `GET /`, the MCP instructions).
 - **Checks that fail on drift:** `node scripts/agent-docs.mjs --check` (in
   `scripts/local-checks.sh`) fails when a generated file or region is stale, when a
@@ -156,8 +141,7 @@ spec and the error pages. Edit the source, regenerate, commit both:
 - `docs/`: the Mintlify site later (docs.flow.engineer). `docs/errors/<type>.md` is
   one page per `ErrorType` (what it means, why, how to fix it, code); every error's
   `doc_url` points at it, and the service embeds copies for the MCP tool
-  `explain_error` (its `make generate` copies them, so a new error type needs a
-  page here first). `docs/mcp.md` is the hosted MCP server's page.
+  `explain_error`, so a new error type needs a page here first. `docs/mcp.md` is the hosted MCP server's page.
 - `server.json`: the entry for the official MCP registry (not submitted yet).
 - `typescript/`: `@flow-engineer/messaging`, the SDK and the CLI.
 - `examples/`: runnable agents, each with a README, using the sandbox. The

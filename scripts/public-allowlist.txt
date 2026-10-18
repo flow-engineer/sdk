@@ -1,9 +1,0 @@
-# Exact text this repo may publish although it contains a phrase on the private
-# denylist (scripts/check-public.sh). Only the Flow team's public contact addresses,
-# as decided by the project owner. Each entry must be a full email address; it is
-# matched whole and case-insensitively, so the denylisted name alone, other
-# addresses with it (another domain, a machine name) and longer tokens around the
-# address still fail. One address per line; blank lines and lines starting with #
-# are skipped.
-samyak@flow.engineer
-prabal@flow.engineer

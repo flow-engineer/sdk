@@ -7,9 +7,6 @@
 #     `Flow-Version:` date in the README, llms.txt or the agent files, differs from the
 #     spec's info.version.
 # (The Python SDK's generated models are checked by scripts/check-python.sh.)
-# With a service checkout at ${FLOW_MESSAGING_DIR:-../flow-messaging}, it also compares
-# the service's api/openapi.yaml: a difference is a warning (a spec PR lands before the
-# service regenerates), and fails only with STRICT_SERVICE_SPEC=1.
 # macOS-compatible: plain bash, cmp, grep, sed, awk.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -63,21 +60,6 @@ else
   else
     ok "Flow-Version dates in the READMEs, llms.txt and plugin/ match $version"
   fi
-fi
-
-# 4. The service's copy (warning unless STRICT_SERVICE_SPEC=1).
-server="${FLOW_MESSAGING_DIR:-$root/../flow-messaging}"
-if [ -f "$server/api/openapi.yaml" ]; then
-  if cmp -s "$server/api/openapi.yaml" "$spec"; then
-    ok "service spec at $server/api/openapi.yaml matches"
-  elif [ "${STRICT_SERVICE_SPEC:-0}" = "1" ]; then
-    bad "service spec $server/api/openapi.yaml differs from openapi/openapi.yaml (run make generate there)"
-  else
-    echo "WARNING: service spec $server/api/openapi.yaml differs from openapi/openapi.yaml."
-    echo "         Expected while a spec change waits for the service's make generate; STRICT_SERVICE_SPEC=1 makes this fail."
-  fi
-else
-  echo "skipped: no service checkout at $server (set FLOW_MESSAGING_DIR)"
 fi
 
 if [ "$fail" = 1 ]; then
