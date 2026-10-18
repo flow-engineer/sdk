@@ -1,8 +1,9 @@
 // End to end against the real Flow Messaging service, run locally: the test copies
 // test/integration/harness/harness_test.go.tmpl into a checkout of the service
-// (FLOW_MESSAGING_DIR, default ../../flow-messaging beside this repo) and runs it
+// (FLOW_MESSAGING_DIR, default ../flow-messaging beside this repo) and runs it
 // with `go test`, which starts a throwaway Postgres (initdb), the API, the engine
-// and the Telegram simulator. Skipped when there is no checkout or no Go.
+// and the Telegram simulator. Skipped when there is no checkout or no Go; a
+// FLOW_MESSAGING_DIR that names no service folder fails.
 //
 // Flow: create a webhook endpoint, a simulated Telegram user joins the sandbox and
 // writes, the event arrives on the stream and at the webhook (verified with
@@ -29,7 +30,16 @@ import {
 } from "../../src/index.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const serverDir = path.resolve(process.env.FLOW_MESSAGING_DIR ?? path.join(here, "../../../../flow-messaging"));
+// A relative FLOW_MESSAGING_DIR is taken from the repo root, as in scripts/service-dir.sh.
+const repoRoot = path.resolve(here, "../../..");
+const serverDir = path.resolve(repoRoot, process.env.FLOW_MESSAGING_DIR || "../flow-messaging");
+// A FLOW_MESSAGING_DIR that names no service folder fails here instead of skipping.
+if (process.env.FLOW_MESSAGING_DIR && !existsSync(path.join(serverDir, "api/openapi.yaml"))) {
+  throw new Error(
+    `FLOW_MESSAGING_DIR is ${process.env.FLOW_MESSAGING_DIR}, but ${serverDir} has no api/openapi.yaml, so it is not the service checkout. ` +
+      "Set FLOW_MESSAGING_DIR to the folder that holds the service, or unset it to use ../flow-messaging beside this repo.",
+  );
+}
 const hasGo = (() => {
   try {
     execFileSync("go", ["version"], { stdio: "ignore" });

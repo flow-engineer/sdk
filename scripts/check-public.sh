@@ -18,7 +18,8 @@
 #    addressed to a person.
 # 3. Phrases on a denylist kept outside this repo, so the phrases are never published
 #    here: scripts/public-denylist.txt in the service checkout (FLOW_MESSAGING_DIR,
-#    default ../flow-messaging), or the file PUBLIC_DENYLIST names. One phrase per
+#    default ../flow-messaging; scripts/service-dir.sh), or the file PUBLIC_DENYLIST
+#    names. One phrase per
 #    line, matched case-insensitively; blank lines and lines starting with # are
 #    skipped. Without the file this part is skipped with a warning;
 #    REQUIRE_PUBLIC_DENYLIST=1 makes that fail. Hits print only file and line.
@@ -82,7 +83,8 @@ for p in "${patterns[@]}"; do pattern_args+=(-e "$p"); done
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/flow-public.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 
-server="${FLOW_MESSAGING_DIR:-../flow-messaging}"
+source scripts/service-dir.sh
+server=$(service_dir "$(pwd)")
 list="${PUBLIC_DENYLIST:-$server/scripts/public-denylist.txt}"
 deny=""
 if [ -r "$list" ]; then

@@ -7,7 +7,8 @@
 #                                     and the SDK examples that have a scenario (built SDK),
 #                                     and then the Python SDK's end-to-end tests (python/tests/e2e)
 #   scripts/check-examples.sh --e2e telegram-echo/python ...   only these scenarios
-# --e2e runs the service from a checkout (FLOW_MESSAGING_DIR, default ../flow-messaging)
+# --e2e runs the service from its checkout (FLOW_MESSAGING_DIR, default ../flow-messaging;
+# scripts/service-dir.sh)
 # on this machine with its scripts/local-stack.sh (in the background, with a live key):
 # Postgres from initdb on a unix socket, the Telegram simulator (cmd/telegramsim) in
 # place of Telegram, `server migrate`, `server sandbox-sender`, `server bootstrap`,
@@ -62,10 +63,11 @@ if [ "$e2e" = "0" ]; then
 fi
 
 step "examples: end to end against a local Flow Messaging service"
-server="${FLOW_MESSAGING_DIR:-$root/../flow-messaging}"
+source "$root/scripts/service-dir.sh"
+server=$(service_dir "$root")
 [ -d "$server/cmd/server" ] || { echo "no service checkout at $server (set FLOW_MESSAGING_DIR)"; exit 1; }
 [ -x "$server/scripts/local-stack.sh" ] || {
-  echo "$server has no scripts/local-stack.sh: --e2e needs flow-engineer/messaging with the local stack (update the checkout to its main)"
+  echo "$server has no scripts/local-stack.sh: --e2e needs a service checkout with the local stack (update it to its main, or set FLOW_MESSAGING_DIR)"
   exit 1
 }
 for tool in go initdb pg_ctl psql node python3; do

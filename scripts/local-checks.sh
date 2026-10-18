@@ -12,12 +12,16 @@
 #                                       typecheck, byte-compile, and run each one end to end)
 #   EXAMPLES=1 scripts/local-checks.sh  also typecheck the SDK examples against their real dependencies
 # The integration test and the examples' end-to-end run use the Flow Messaging service
-# from a checkout beside this repo (FLOW_MESSAGING_DIR, default ../flow-messaging; needs
-# Go and Postgres binaries) and are skipped without one. REQUIRE_INTEGRATION=1 makes a
-# skip fail.
+# from its checkout (FLOW_MESSAGING_DIR, default ../flow-messaging beside this repo; see
+# scripts/service-dir.sh; needs Go and Postgres binaries) and are skipped without one.
+# REQUIRE_INTEGRATION=1 makes a skip fail; a FLOW_MESSAGING_DIR that names no service
+# folder fails at once.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root=$(pwd)
+# Where the service checkout is; a FLOW_MESSAGING_DIR that names no service fails here.
+source "$root/scripts/service-dir.sh"
+server=$(service_dir "$root")
 
 step() { printf '\n== %s\n' "$*"; }
 
@@ -59,7 +63,6 @@ step "python: generated sources, ruff, mypy, unit tests, build, package (scripts
 "$root/scripts/check-python.sh"
 
 step "typescript: integration (local Flow Messaging service)"
-server="${FLOW_MESSAGING_DIR:-$root/../flow-messaging}"
 if [ -f "$server/internal/flowtest/flowtest.go" ] && command -v go >/dev/null; then
   FLOW_MESSAGING_DIR="$server" npm run --silent test:integration
 elif [ "${REQUIRE_INTEGRATION:-0}" = "1" ]; then

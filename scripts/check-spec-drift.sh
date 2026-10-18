@@ -7,7 +7,8 @@
 #     `Flow-Version:` date in the README, llms.txt or the agent files, differs from the
 #     spec's info.version.
 # (The Python SDK's generated models are checked by scripts/check-python.sh.)
-# With a service checkout at ${FLOW_MESSAGING_DIR:-../flow-messaging}, it also compares
+# With a service checkout (FLOW_MESSAGING_DIR, default ../flow-messaging; see
+# scripts/service-dir.sh), it also compares
 # the service's api/openapi.yaml: a difference is a warning (a spec PR lands before the
 # service regenerates), and fails only with STRICT_SERVICE_SPEC=1.
 # macOS-compatible: plain bash, cmp, grep, sed, awk.
@@ -66,7 +67,8 @@ else
 fi
 
 # 4. The service's copy (warning unless STRICT_SERVICE_SPEC=1).
-server="${FLOW_MESSAGING_DIR:-$root/../flow-messaging}"
+source "$root/scripts/service-dir.sh"
+server=$(service_dir "$root")
 if [ -f "$server/api/openapi.yaml" ]; then
   if cmp -s "$server/api/openapi.yaml" "$spec"; then
     ok "service spec at $server/api/openapi.yaml matches"

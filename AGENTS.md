@@ -28,6 +28,13 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   ESLint, the unit tests (vitest), the build (tsup: ESM, CJS, types, the CLI), the
   package contents, and the integration test; then `scripts/check-examples.sh`.
   `EXAMPLES=1` also typechecks the SDK examples against their real dependencies.
+- **Where the service is**: the checks that need the private service checkout read
+  its folder from `FLOW_MESSAGING_DIR` (the folder holding the service's
+  `api/openapi.yaml`, `cmd/server` and `scripts/local-stack.sh`; a relative path is
+  taken from this repo's root). Unset, it defaults to `../flow-messaging` beside this
+  repo, and a missing default only skips those checks. Set to a folder that does not
+  exist or does not hold the service, the scripts and the integration test stop with
+  an error naming the variable. `scripts/service-dir.sh` resolves it for every script.
 - **The plain-HTTP examples are tested end to end**: `scripts/check-examples.sh`
   typechecks `examples/*/typescript/main.ts` and byte-compiles
   `examples/*/python/main.py`; with `--e2e` (what local checks run when a service
@@ -54,7 +61,8 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   tracked file, or the npm package about to be published, holds text that does not
   belong in a public repo: internal-only markers, local paths, cloud project IDs,
   key-shaped strings, source maps with embedded sources (all listed in the script), or a
-  phrase on the denylist kept with the service checkout (`FLOW_MESSAGING_DIR`; skipped
+  phrase on the denylist kept with the service checkout (`FLOW_MESSAGING_DIR`, see
+  "Where the service is"; skipped
   with a warning without one, `REQUIRE_PUBLIC_DENYLIST=1` makes that fail).
 - **Lint with Redocly CLI**: `scripts/lint.sh` (runs `npx @redocly/cli@2.60.0 lint`
   with `redocly.yaml`, `recommended-strict`, so any warning fails). It must be clean
@@ -66,8 +74,8 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   simulator; the copy is removed afterwards. Without a checkout or Go it is skipped
   (`REQUIRE_INTEGRATION=1` makes that fail).
 - After a spec, error page or agent docs change, regenerate the service (`make
-  generate` in its checkout, with this repo checked out beside it as `../flow-sdk`)
-  and run its checks.
+  generate` in the service checkout, which reads this repo's spec, error pages and
+  agent docs; its own docs say where it expects this repo) and run its checks.
 
 ## Working rules
 
