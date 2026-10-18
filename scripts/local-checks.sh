@@ -5,16 +5,14 @@
 #                                       spec drift (scripts/check-spec-drift.sh), agent docs
 #                                       (scripts/agent-docs.mjs --check) +
 #                                       TypeScript (typecheck, lint, unit tests, build,
-#                                       package contents, integration)
+#                                       package contents)
 #                                       + Python (scripts/check-python.sh: generated sources,
 #                                       ruff, mypy, unit tests, build, package contents)
 #                                       + the plain-HTTP examples (scripts/check-examples.sh:
-#                                       typecheck, byte-compile, and run each one end to end)
+#                                       typecheck and byte-compile)
 #   EXAMPLES=1 scripts/local-checks.sh  also typecheck the SDK examples against their real dependencies
-# The integration test and the examples' end-to-end run use the Flow Messaging service
-# from a checkout beside this repo (FLOW_MESSAGING_DIR, default ../flow-messaging; needs
-# Go and Postgres binaries) and are skipped without one. REQUIRE_INTEGRATION=1 makes a
-# skip fail.
+# Everything runs from this repo alone: no other checkout, service or key. The unit
+# tests answer every API call with a fetch double (typescript/test/helpers.ts).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root=$(pwd)
@@ -33,7 +31,7 @@ scripts/check-compare.sh
 cd "$root/typescript"
 step "typescript: install"
 if [ ! -d node_modules ]; then npm ci --no-audit --no-fund; fi
-step "spec drift (generated types, docs/openapi.yaml, Flow-Version, service copy)"
+step "spec drift (generated types, docs/openapi.yaml, Flow-Version)"
 "$root/scripts/check-spec-drift.sh"
 step "agent docs (agents/src + agents/facts.json -> llms.txt, quickstart, skill, AGENTS snippet, regions)"
 node "$root/scripts/agent-docs.mjs" --check
@@ -58,26 +56,9 @@ step "typescript: package is fit to publish (scripts/check-public.sh --package)"
 step "python: generated sources, ruff, mypy, unit tests, build, package (scripts/check-python.sh)"
 "$root/scripts/check-python.sh"
 
-step "typescript: integration (local Flow Messaging service)"
-server="${FLOW_MESSAGING_DIR:-$root/../flow-messaging}"
-if [ -f "$server/internal/flowtest/flowtest.go" ] && command -v go >/dev/null; then
-  FLOW_MESSAGING_DIR="$server" npm run --silent test:integration
-elif [ "${REQUIRE_INTEGRATION:-0}" = "1" ]; then
-  echo "no service checkout at $server (set FLOW_MESSAGING_DIR) or no Go"; exit 1
-else
-  echo "skipped: no service checkout at $server or no Go (set FLOW_MESSAGING_DIR)"
-fi
-
 cd "$root"
-step "examples: plain HTTP examples (typecheck, compile, end to end against the local service)"
-if [ -f "$server/cmd/telegramsim/main.go" ] && command -v go >/dev/null; then
-  FLOW_MESSAGING_DIR="$server" scripts/check-examples.sh --e2e
-elif [ "${REQUIRE_INTEGRATION:-0}" = "1" ]; then
-  echo "no service checkout at $server (set FLOW_MESSAGING_DIR) or no Go"; exit 1
-else
-  scripts/check-examples.sh
-  echo "end to end skipped: no service checkout at $server or no Go (set FLOW_MESSAGING_DIR)"
-fi
+step "examples: plain HTTP examples (typecheck, compile)"
+scripts/check-examples.sh
 
 if [ "${EXAMPLES:-0}" = "1" ]; then
   step "examples: typecheck against their dependencies"
