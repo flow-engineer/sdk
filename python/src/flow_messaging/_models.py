@@ -246,9 +246,11 @@ class ButtonsContent(BaseModel):
     With a media `header`, Telegram sends one message: the photo, video or
     document with `text` as its caption and the inline keyboard under it, so
     `text` must then fit Telegram's caption limit of 1024 UTF-16 code units. With
-    `fallback: auto` on iMessage and SMS, a media header is sent as its own media
-    message before the numbered text (as `media` content would be), and a text
-    header becomes the first line of the text.
+    `fallback: auto` on iMessage and SMS, a media header goes as one media message
+    whose caption is the numbered text (`delivered_as` type `media`), and a text
+    header becomes the first line of the numbered text. SMS (MMS) carries no
+    documents: a `document` header there is refused with `unsupported_content`, as
+    `media` content is.
 
     """
 
@@ -338,9 +340,10 @@ class CarouselContent(BaseModel):
     `template` content). Telegram, iMessage and SMS have no carousels: with
     `fallback: auto` Flow sends `text`, then each card as its own message (on
     Telegram the photo or video with the card's text as its caption and its
-    buttons; elsewhere the channel's fallback for media and buttons, reply
-    buttons numbered across the whole carousel), in order, each one after the
-    channel acknowledged the one before. `delivered_as` reports it, and
+    buttons as an inline keyboard; on iMessage and SMS the photo or video with
+    the card's text and its numbered buttons as its caption, reply buttons
+    numbered across the whole carousel), in order, each one after the channel
+    acknowledged the one before. `delivered_as` reports it (type `media`), and
     `channel_message_id` is the first of those messages.
 
     """
@@ -1481,7 +1484,7 @@ class Message(BaseModel):
     | media | yes | yes | yes | images, audio, video as MMS (no documents) | none |
     | voice | yes | yes | yes | as an MMS audio file | audio file |
     | buttons | inline keyboard | up to 3 buttons, else a list; one URL button as a call-to-action link | no | no | numbered text |
-    | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media, then numbered text |
+    | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
     | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
     | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
     | reaction | yes | yes | tapbacks, other emoji as emoji reactions | no | closest tapback, else skipped (SMS: none) |
@@ -1944,7 +1947,7 @@ class SendMessageRequest(BaseModel):
     | media | yes | yes | yes | images, audio, video as MMS (no documents) | none |
     | voice | yes | yes | yes | as an MMS audio file | audio file |
     | buttons | inline keyboard | up to 3 buttons, else a list; one URL button as a call-to-action link | no | no | numbered text |
-    | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media, then numbered text |
+    | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
     | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
     | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
     | reaction | yes | yes | tapbacks, other emoji as emoji reactions | no | closest tapback, else skipped (SMS: none) |
@@ -2505,7 +2508,7 @@ class StartConversationRequest(BaseModel):
     | media | yes | yes | yes | images, audio, video as MMS (no documents) | none |
     | voice | yes | yes | yes | as an MMS audio file | audio file |
     | buttons | inline keyboard | up to 3 buttons, else a list; one URL button as a call-to-action link | no | no | numbered text |
-    | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media, then numbered text |
+    | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
     | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
     | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
     | reaction | yes | yes | tapbacks, other emoji as emoji reactions | no | closest tapback, else skipped (SMS: none) |

@@ -111,6 +111,23 @@ CONTENT_TEXT: list[tuple[dict[str, Any], str]] = [
     ({"type": "voice", "url": "https://example.test/v.ogg", "transcript": "call me"}, "call me"),
     ({"type": "voice", "url": "https://example.test/v.ogg"}, ""),
     ({"type": "button_reply", "button_id": "s", "label": "Small"}, "Small"),
+    (
+        {
+            "type": "carousel",
+            "text": "Picks",
+            "cards": [
+                {
+                    "header": {"type": "image", "url": "https://example.test/a.jpg"},
+                    "buttons": [{"id": "a", "label": "A"}],
+                },
+                {
+                    "header": {"type": "image", "url": "https://example.test/b.jpg"},
+                    "buttons": [{"id": "b", "label": "B"}],
+                },
+            ],
+        },
+        "Picks",
+    ),
     ({"type": "location", "lat": 1.0, "lng": 2.0, "name": "Office", "address": "Main St 1"}, "Office, Main St 1"),
     ({"type": "location", "lat": 1.0, "lng": 2.0, "address": "Main St 1"}, "Main St 1"),
     ({"type": "location", "lat": 1.0, "lng": 2.0}, ""),
