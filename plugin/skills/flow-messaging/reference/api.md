@@ -50,7 +50,12 @@ returns the readable text of any content.
 
 Per channel: buttons are native on Telegram and WhatsApp (3 buttons, else a list) and
 need `fallback: "auto"` on iMessage (numbered text; replies still come back as
-`button_reply`). Templates are WhatsApp only. Edit and unsend: Telegram and iMessage
+`button_reply`). A buttons message may carry a `header` (image, video, document, or a
+60-character title); with a media header its text is at most 1024. `carousel` content
+(2 to 10 cards, each an image or video, up to 160 characters of text, the same 1 to 2
+reply buttons or one URL button) is native on WhatsApp only; elsewhere `fallback: "auto"`
+sends the text and then one message per card. Templates are WhatsApp only (carousel
+templates take `params.cards`). Edit and unsend: Telegram and iMessage
 (iMessage: edit within 15 minutes, unsend within 2). Text is at most the channel's
 `max_text_length` (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 and 10 segments on SMS, which is in pilot in the US; Telegram counts UTF-16 code units, so an emoji is often 2; media captions 1024). `channel_options`
 keys outside each channel's allowlist are dropped.

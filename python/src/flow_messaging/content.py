@@ -130,7 +130,7 @@ def content_text(content: Any) -> str:
         return ""
     c = content.model_dump() if isinstance(content, BaseModel) else dict(content)
     kind = c.get("type")
-    if kind in ("text", "effect", "buttons"):
+    if kind in ("text", "effect", "buttons", "carousel"):
         return str(c.get("text") or "")
     if kind in ("media", "file_blocked"):
         return str(c.get("caption") or "")

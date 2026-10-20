@@ -4339,14 +4339,8 @@ components:
       required: [header, buttons]
       properties:
         header:
-          allOf:
-            - $ref: "#/components/schemas/ContentHeader"
-            - type: object
-              properties:
-                type:
-                  type: string
-                  enum: [image, video]
-          description: The card's image or video (`ContentHeader` of type `image` or `video`).
+          $ref: "#/components/schemas/ContentHeader"
+          description: The card's image or video, a `ContentHeader` of type `image` or `video` only (by `url` or `file_id`); any other type is refused with `invalid_request` at `content.cards[i].header.type`.
         text:
           type: string
           minLength: 1
