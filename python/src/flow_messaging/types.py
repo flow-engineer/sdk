@@ -30,6 +30,8 @@ from ._models import (
     ButtonReplyContent,
     ButtonsContent,
     Capabilities,
+    CarouselCard,
+    CarouselContent,
     ChannelLimits,
     ChannelOptions,
     Consent,
@@ -39,6 +41,7 @@ from ._models import (
     ContactConsent,
     ContactDeletedData,
     ContactDeletedEvent,
+    ContentHeader,
     ContentSupport,
     Conversation,
     ConversationAction,
@@ -90,6 +93,7 @@ from ._models import (
     Template,
     TemplateButton,
     TemplateButtonParam,
+    TemplateCardParams,
     TemplateComponent,
     TemplateContent,
     TemplateCreateRequest,
@@ -127,6 +131,7 @@ ContentType = Literal[
     "voice",
     "buttons",
     "button_reply",
+    "carousel",
     "reaction",
     "template",
     "location",
@@ -162,6 +167,7 @@ Content = Annotated[
     | VoiceContent
     | ButtonsContent
     | ButtonReplyContent
+    | CarouselContent
     | ReactionContent
     | TemplateContent
     | LocationContent
@@ -223,6 +229,8 @@ __all__ = [
     "AppSettings",
     "ButtonReplyContent",
     "ButtonsContent",
+    "CarouselCard",
+    "CarouselContent",
     "Capabilities",
     "Channel",
     "ChannelLimits",
@@ -234,6 +242,7 @@ __all__ = [
     "ContactConsent",
     "ContactDeletedData",
     "ContactDeletedEvent",
+    "ContentHeader",
     "Content",
     "ContentSupport",
     "ContentType",
@@ -296,6 +305,7 @@ __all__ = [
     "Template",
     "TemplateButton",
     "TemplateButtonParam",
+    "TemplateCardParams",
     "TemplateComponent",
     "TemplateContent",
     "TemplateCreateRequest",

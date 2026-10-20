@@ -2181,7 +2181,7 @@ export interface components {
              * @description The content type actually shown, or `none` when nothing was shown.
              * @enum {string}
              */
-            type: "text" | "media" | "voice" | "buttons" | "reaction" | "template" | "location" | "contact_card" | "effect" | "typing" | "read" | "edit" | "unsend" | "none";
+            type: "text" | "media" | "voice" | "buttons" | "carousel" | "reaction" | "template" | "location" | "contact_card" | "effect" | "typing" | "read" | "edit" | "unsend" | "none";
             /** @description Why, in one sentence (for example "iMessage cannot show buttons; sent numbered text"). */
             reason: string;
         };
@@ -2197,7 +2197,8 @@ export interface components {
          *
          *     - `"auto"`: use the documented default for the content type (markdown becomes
          *       plain text, buttons become numbered text whose replies are matched back to
-         *       the button IDs, a voice note becomes an audio file, a location becomes a
+         *       the button IDs, a carousel becomes its text and then one message per card,
+         *       a voice note becomes an audio file, a location becomes a
          *       maps link, a contact card becomes text, an effect becomes plain text, a
          *       reaction becomes the closest tapback or is skipped).
          *     - A `Content` object: send exactly this instead.
@@ -2291,19 +2292,25 @@ export interface components {
          * @description The kinds of content. Each is described in its own schema, with the direction it travels in.
          * @enum {string}
          */
-        ContentType: "text" | "media" | "voice" | "buttons" | "button_reply" | "reaction" | "template" | "location" | "contact_card" | "effect" | "typing" | "read" | "edit" | "unsend" | "file_blocked";
+        ContentType: "text" | "media" | "voice" | "buttons" | "button_reply" | "carousel" | "reaction" | "template" | "location" | "contact_card" | "effect" | "typing" | "read" | "edit" | "unsend" | "file_blocked";
         /**
          * @description One piece of content, in either direction. `type` selects the shape. Inbound
          *     messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `location`,
          *     `contact_card` and `file_blocked`; sends use every type except `button_reply`
          *     and `file_blocked`.
          *
+         *     A buttons message may carry a `header` (`ContentHeader`): an image, video,
+         *     document or a short title shown with the text and buttons.
+         *
          *     | type | Telegram | WhatsApp | iMessage | SMS (US, pilot) | `fallback: "auto"` |
          *     |---|---|---|---|---|---|
          *     | text | yes | yes | yes | yes (at most 10 segments) | markdown to plain |
          *     | media | yes | yes | yes | images, audio, video as MMS (no documents) | none |
          *     | voice | yes | yes | yes | as an MMS audio file | audio file |
-         *     | buttons | inline keyboard | up to 3 buttons, else a list | no | no | numbered text |
+         *     | buttons | inline keyboard | up to 3 buttons, else a list; one URL button as a call-to-action link | no | no | numbered text |
+         *     | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
+         *     | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
+         *     | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
          *     | reaction | yes | yes | tapbacks, other emoji as emoji reactions | no | closest tapback, else skipped (SMS: none) |
          *     | template | no | yes | no | no | none |
          *     | location | yes | yes | no | no | maps link as text |
@@ -2314,7 +2321,7 @@ export interface components {
          *     | edit | yes | no | yes (within 15 minutes) | no | none |
          *     | unsend | yes (within 48 hours) | no | yes (within 2 minutes) | no | none |
          */
-        Content: components["schemas"]["TextContent"] | components["schemas"]["MediaContent"] | components["schemas"]["VoiceContent"] | components["schemas"]["ButtonsContent"] | components["schemas"]["ButtonReplyContent"] | components["schemas"]["ReactionContent"] | components["schemas"]["TemplateContent"] | components["schemas"]["LocationContent"] | components["schemas"]["ContactCardContent"] | components["schemas"]["EffectContent"] | components["schemas"]["TypingContent"] | components["schemas"]["ReadContent"] | components["schemas"]["EditContent"] | components["schemas"]["UnsendContent"] | components["schemas"]["FileBlockedContent"];
+        Content: components["schemas"]["TextContent"] | components["schemas"]["MediaContent"] | components["schemas"]["VoiceContent"] | components["schemas"]["ButtonsContent"] | components["schemas"]["ButtonReplyContent"] | components["schemas"]["CarouselContent"] | components["schemas"]["ReactionContent"] | components["schemas"]["TemplateContent"] | components["schemas"]["LocationContent"] | components["schemas"]["ContactCardContent"] | components["schemas"]["EffectContent"] | components["schemas"]["TypingContent"] | components["schemas"]["ReadContent"] | components["schemas"]["EditContent"] | components["schemas"]["UnsendContent"] | components["schemas"]["FileBlockedContent"];
         /** @description Text, both ways. With `format` `markdown`, Flow renders it in each channel's own formatting; a channel without formatting needs `fallback`. */
         TextContent: {
             /**
@@ -2390,11 +2397,26 @@ export interface components {
             readonly transcript?: string;
         };
         /**
-         * @description Text with buttons, sent only. Telegram shows an inline keyboard; WhatsApp shows
-         *     up to 3 reply buttons, or a list for more; iMessage has no buttons (use
-         *     `fallback`). A tap arrives as a `message.received` event with `button_reply`
-         *     content carrying the button's `id`. URL buttons open a link and send nothing
-         *     back.
+         * @description Text with buttons, sent only, optionally under a `header`. Telegram shows an
+         *     inline keyboard; WhatsApp shows up to 3 reply buttons, or a list for more;
+         *     iMessage and SMS have no buttons (use `fallback`). A tap arrives as a
+         *     `message.received` event with `button_reply` content carrying the button's
+         *     `id`. URL buttons open a link and send nothing back.
+         *
+         *     On WhatsApp, a message whose only button is one `UrlButton` (no reply buttons)
+         *     goes as a call-to-action URL message: the text, the header if given, and one
+         *     button that opens the link. A list (more than 3 reply buttons) takes only a
+         *     `text` header; a media header there is refused with `invalid_request`. Footers
+         *     are not supported.
+         *
+         *     With a media `header`, Telegram sends one message: the photo, video or
+         *     document with `text` as its caption and the inline keyboard under it, so
+         *     `text` must then fit Telegram's caption limit of 1024 UTF-16 code units. With
+         *     `fallback: auto` on iMessage and SMS, a media header goes as one media message
+         *     whose caption is the numbered text (`delivered_as` type `media`), and a text
+         *     header becomes the first line of the numbered text. SMS (MMS) carries no
+         *     documents: a `document` header there is refused with `unsupported_content`, as
+         *     `media` content is.
          */
         ButtonsContent: {
             /**
@@ -2402,17 +2424,55 @@ export interface components {
              * @enum {string}
              */
             type: "buttons";
+            header?: components["schemas"]["ContentHeader"];
             /**
              * @description The text above the buttons: at most 4096 characters on Telegram (the same
-             *     as a text message, in UTF-16 code units; Telegram's 1024 limit is for media
-             *     captions only) and 1024 on WhatsApp (its limit for messages with buttons). On iMessage,
-             *     `fallback: auto` sends the text and the numbered choices as one text
-             *     message, which must fit the channel's `max_text_length`. Longer text is
-             *     refused with `invalid_request`.
+             *     as a text message, in UTF-16 code units), or 1024 when the message has a
+             *     media `header` (Telegram's caption limit), and 1024 on WhatsApp (its limit
+             *     for messages with buttons). On iMessage, `fallback: auto` sends the text and
+             *     the numbered choices as one text message, which must fit the channel's
+             *     `max_text_length`. Longer text is refused with `invalid_request`.
              */
             text: string;
             /** @description 1 to 10 buttons, in order. */
             buttons: components["schemas"]["Button"][];
+        };
+        /**
+         * @description What is shown above a message's text: an image, a video, a document or a
+         *     short title. A media header takes exactly one of `url` (an HTTPS URL Flow
+         *     fetches) or `file_id` (from `POST /v1/files`), and is fetched, checked and
+         *     converted for the channel like `media` content (so WebP and other formats
+         *     work); a `text` header takes `text`. Anything else, or a value over a limit,
+         *     is refused with `invalid_request` naming the field in `param`.
+         *
+         *     WhatsApp shows the header at the top of the same message bubble. Telegram
+         *     sends one message: the media with the text as its caption and the buttons
+         *     under it; a `text` header becomes the message's first line, in bold.
+         * @example {
+         *       "type": "image",
+         *       "url": "https://example.com/menu.webp"
+         *     }
+         * @example {
+         *       "type": "text",
+         *       "text": "Your order"
+         *     }
+         */
+        ContentHeader: {
+            /**
+             * @description What the header holds.
+             * @enum {string}
+             */
+            type: "image" | "video" | "document" | "text";
+            /**
+             * Format: uri
+             * @description Media headers only. An HTTPS URL of the media, which Flow fetches.
+             */
+            url?: string;
+            file_id?: components["schemas"]["FileId"];
+            /** @description `text` headers only. The title, 1 to 60 characters (WhatsApp's header limit). */
+            text?: string;
+            /** @description `document` headers only. The file's name, shown with the document. */
+            filename?: string;
         };
         /** @description A reply button (`id` and `label`) or a link button (`url` and `label`). */
         Button: components["schemas"]["ReplyButton"] | components["schemas"]["UrlButton"];
@@ -2447,6 +2507,79 @@ export interface components {
             message_id?: components["schemas"]["MessageId"];
         };
         /**
+         * @description A row of 2 to 10 cards the contact scrolls sideways, under one text, sent
+         *     only. Each card has an image or video, optional text, and its own buttons. A
+         *     tap on a reply button arrives as `button_reply` content carrying the button's
+         *     `id`, as for `buttons`; URL buttons open a link and send nothing back.
+         *
+         *     Rules, each refused with `invalid_request` when broken: every card has the
+         *     same number and kind of buttons; a card has either exactly one URL button or
+         *     1 to 2 reply buttons; reply button `id`s are unique across the carousel.
+         *
+         *     WhatsApp shows one interactive carousel message, inside the 24-hour window
+         *     like any message that is not a template (a carousel template is sent as
+         *     `template` content). Telegram, iMessage and SMS have no carousels: with
+         *     `fallback: auto` Flow sends `text`, then each card as its own message (on
+         *     Telegram the photo or video with the card's text as its caption and its
+         *     buttons as an inline keyboard; on iMessage and SMS the photo or video with
+         *     the card's text and its numbered buttons as its caption, reply buttons
+         *     numbered across the whole carousel), in order, each one after the channel
+         *     acknowledged the one before. `delivered_as` reports it (type `media`), and
+         *     `channel_message_id` is the first of those messages.
+         * @example {
+         *       "type": "carousel",
+         *       "text": "Three picks for you",
+         *       "cards": [
+         *         {
+         *           "header": {
+         *             "type": "image",
+         *             "url": "https://example.com/a.jpg"
+         *           },
+         *           "text": "Linen shirt, 1,499",
+         *           "buttons": [
+         *             {
+         *               "id": "buy_a",
+         *               "label": "Buy"
+         *             }
+         *           ]
+         *         },
+         *         {
+         *           "header": {
+         *             "type": "image",
+         *             "url": "https://example.com/b.jpg"
+         *           },
+         *           "text": "Denim jacket, 2,999",
+         *           "buttons": [
+         *             {
+         *               "id": "buy_b",
+         *               "label": "Buy"
+         *             }
+         *           ]
+         *         }
+         *       ]
+         *     }
+         */
+        CarouselContent: {
+            /**
+             * @description Always `carousel`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            type: "carousel";
+            /** @description The message text shown above the cards, 1 to 1024 characters. Longer text is refused with `invalid_request`. */
+            text: string;
+            /** @description 2 to 10 cards, in the order shown (left to right). */
+            cards: components["schemas"]["CarouselCard"][];
+        };
+        /** @description One card of a carousel. */
+        CarouselCard: {
+            /** @description The card's image or video, a `ContentHeader` of type `image` or `video` only (by `url` or `file_id`); any other type is refused with `invalid_request` at `content.cards[i].header.type`. */
+            header: components["schemas"]["ContentHeader"];
+            /** @description The card's text, at most 160 characters and 2 line breaks. */
+            text?: string;
+            /** @description Exactly one URL button, or 1 to 2 reply buttons; the same number and kind on every card. Labels are at most 20 characters. */
+            buttons: components["schemas"]["Button"][];
+        };
+        /**
          * @description A reaction to a message, both ways. Set `emoji` to `null` to remove your
          *     reaction. iMessage has a fixed set of tapbacks; with `fallback: "auto"` the
          *     closest tapback is used, or the reaction is skipped and reported in
@@ -2467,6 +2600,10 @@ export interface components {
          * @description A WhatsApp message template, sent only. Required to start a WhatsApp
          *     conversation or to write after the 24-hour window closed. The template must be
          *     `approved`.
+         *
+         *     A media card carousel template (marketing category) is sent the same way, with
+         *     one entry per card in `params.cards`. Inside the 24-hour window a carousel needs
+         *     no template: send `carousel` content.
          */
         TemplateContent: {
             /**
@@ -2485,6 +2622,37 @@ export interface components {
             /** @description Values for the body's `{{1}}`, `{{2}}`, ... in order. */
             body?: string[];
             /** @description Values for buttons that take one (URL suffixes, quick-reply payloads). */
+            buttons?: components["schemas"]["TemplateButtonParam"][];
+            /** @description Carousel templates only. Values for each card's header, body placeholders and buttons. */
+            cards?: components["schemas"]["TemplateCardParams"][];
+        };
+        /**
+         * @description The values for one card of a carousel template.
+         * @example {
+         *       "card_index": 0,
+         *       "header": {
+         *         "kind": "image",
+         *         "url": "https://example.com/a.jpg"
+         *       },
+         *       "body": [
+         *         "Linen shirt"
+         *       ],
+         *       "buttons": [
+         *         {
+         *           "index": 0,
+         *           "value": "buy_a"
+         *         }
+         *       ]
+         *     }
+         */
+        TemplateCardParams: {
+            /** @description The card's position in the template, from 0. */
+            card_index: number;
+            /** @description The card's image or video (`kind` `image` or `video`, by `url` or `file_id`). */
+            header?: components["schemas"]["TemplateHeaderParam"];
+            /** @description Values for the card body's `{{1}}`, `{{2}}`, ... in order. */
+            body?: string[];
+            /** @description Values for the card's buttons that take one (URL suffixes, quick-reply payloads). */
             buttons?: components["schemas"]["TemplateButtonParam"][];
         };
         /** @description The value of a template's header, when it has a placeholder or media. */
@@ -3079,6 +3247,8 @@ export interface components {
             max_text_length?: number;
             /** @description SMS only. The most segments one text may take (10); see `SmsSegments`. A text of more segments is refused with `invalid_request`: 1530 GSM-7 characters (fewer when it uses GSM-7's two-unit characters such as `{` or `€`), or 670 when it holds an emoji or other character outside GSM-7. */
             max_sms_segments?: number;
+            /** @description The longest caption a media message may carry, and the longest `text` of a buttons message with a media `header` (1024; Telegram counts UTF-16 code units). */
+            max_caption_length?: number;
             /** @description The most buttons one message may carry natively. */
             max_buttons?: number;
             /** @description The largest file one message may carry. */

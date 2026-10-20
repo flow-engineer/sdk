@@ -809,8 +809,13 @@ Messages in one conversation go out one at a time, in the order accepted. Add
 
 Other content: `media` (`kind` `image|video|document|audio`, plus `url` or `file_id`
 from `POST /v1/files`, optional `caption`; documents and archives are malware-scanned
-when uploaded, and one that fails answers `422 file_blocked`), `voice`, `buttons`, `reaction`
-(`message_id`, `emoji`, `null` removes), `location`, `contact_card`, `effect`.
+when uploaded, and one that fails answers `422 file_blocked`), `voice`, `buttons`
+(optional `header`: `{"type": "image|video|document", "url" or "file_id"}` or
+`{"type": "text", "text": "<=60 chars"}`; with a media header `text` is at most 1024),
+`carousel` (WhatsApp: `text` plus 2 to 10 `cards`, each an image or video `header`,
+optional `text` up to 160 and the same 1 to 2 reply buttons or one URL button; other
+channels need `"fallback": "auto"`, which sends the text and then one message per card),
+`reaction` (`message_id`, `emoji`, `null` removes), `location`, `contact_card`, `effect`.
 
 Text is 1 to the channel's `max_text_length` characters:
 **4096 on Telegram, 9999 on iMessage** (4096 on WhatsApp). Telegram counts

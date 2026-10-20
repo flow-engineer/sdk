@@ -103,6 +103,7 @@ export function contentText(content: Content | undefined): string {
     case "button_reply":
       return content.label;
     case "buttons":
+    case "carousel":
       return content.text;
     case "location":
       return [content.name, content.address].filter(Boolean).join(", ");
