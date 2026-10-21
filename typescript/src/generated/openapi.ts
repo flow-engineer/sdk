@@ -2197,7 +2197,7 @@ export interface components {
          *
          *     - `"auto"`: use the documented default for the content type (markdown becomes
          *       plain text, buttons become numbered text whose replies are matched back to
-         *       the button IDs, a carousel becomes its text and then one message per card,
+         *       the button IDs (by number, or by a label only one of the buttons has), a carousel becomes its text and then one message per card,
          *       a voice note becomes an audio file, a location becomes a
          *       maps link, a contact card becomes text, an effect becomes plain text, a
          *       reaction becomes the closest tapback or is skipped).
@@ -2478,7 +2478,13 @@ export interface components {
         Button: components["schemas"]["ReplyButton"] | components["schemas"]["UrlButton"];
         /** @description A button that sends its `id` back as a `button_reply` when tapped. */
         ReplyButton: {
-            /** @description Your ID for the button, returned in `button_reply`. */
+            /**
+             * @description Your ID for the button, returned in `button_reply` as `button_id`: 1 to 64
+             *     bytes (Telegram's limit for a button's data), so at most 64 ASCII
+             *     characters and fewer for other characters. Labels may repeat; the ID is
+             *     what tells the taps apart, so buttons that share a label (a "Details" on
+             *     every card) get their own IDs, such as `details:listing-17`.
+             */
             id: string;
             /** @description The button's text. WhatsApp shows at most 20 characters. */
             label: string;
@@ -2515,6 +2521,8 @@ export interface components {
          *     Rules, each refused with `invalid_request` when broken: every card has the
          *     same number and kind of buttons; a card has either exactly one URL button or
          *     1 to 2 reply buttons; reply button `id`s are unique across the carousel.
+         *     Labels may repeat across cards (every card's "Buy"): the `id` says which
+         *     card's button was tapped.
          *
          *     WhatsApp shows one interactive carousel message, inside the 24-hour window
          *     like any message that is not a template (a carousel template is sent as
