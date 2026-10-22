@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Every check, run locally before a PR (no CI jobs: minutes are paid).
 #   scripts/local-checks.sh             public-repo content (scripts/check-public.sh), spec lint,
-#                                       comparison claims (scripts/check-compare.sh),
 #                                       spec drift (scripts/check-spec-drift.sh), agent docs
 #                                       (scripts/agent-docs.mjs --check) +
 #                                       TypeScript (typecheck, lint, unit tests, build,
@@ -27,13 +26,10 @@ scripts/check-public.sh
 step "spec lint (Redocly)"
 scripts/lint.sh
 
-step "comparison claims (docs/compare/claims.yaml)"
-scripts/check-compare.sh
-
 cd "$root/typescript"
 step "typescript: install"
 if [ ! -d node_modules ]; then npm ci --no-audit --no-fund; fi
-step "spec drift (generated types, docs/openapi.yaml, Flow-Version, service copy)"
+step "spec drift (generated types, Flow-Version, service copy)"
 "$root/scripts/check-spec-drift.sh"
 step "agent docs (agents/src + agents/facts.json -> llms.txt, quickstart, skill, AGENTS snippet, regions)"
 node "$root/scripts/agent-docs.mjs" --check

@@ -12,16 +12,16 @@
 // {{endpoint_table}} come from the spec. An unknown name fails the build.
 // Hand-written pages keep shared blocks between markers, refilled from a partial:
 //   <!-- agents:name --> ... <!-- /agents:name -->        (.md outside docs/)
-//   {/* agents:name */} ... {/* /agents:name */}          (anything under docs/, and .mdx)
-// Mintlify parses every page under docs/ as MDX, where an HTML comment fails the build.
-// docs/docs.json's markdown.instructions come from agents/src/docs-instructions.md.
+//   {/* agents:name */} ... {/* /agents:name */}          (.mdx)
+// --export-docs prints rendered website guidance as JSON for the private docs repo;
+// it does not write files or require a local copy of the Mintlify site.
 // Every output must state the MCP owner and runtime rules (facts mcp.owner_rule and
 // mcp.runtime_rule) and name only env vars listed in facts.env. Hand-written pages that
 // give the Flow team's contact (CONTACT_PAGES) must give every address in
 // facts.team_contacts as {{team_contacts|or}} renders it, and no page names another
 // @flow.engineer address. scripts/check-public.sh
 // checks every output for text that does not belong in public.
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,26 +40,18 @@ const FILES = [
   ["agents/src/mcp-instructions-live.txt", ["agents/mcp-instructions-live.txt"]],
   ["agents/src/SKILL.md", ["plugin/skills/flow-messaging/SKILL.md"]],
   ["agents/src/AGENTS-snippet.md", ["plugin/AGENTS-snippet.md"]],
-  ["agents/src/skill-web.md", ["docs/skill.md"]],
 ];
 // Hand-written pages with generated regions.
 const REGIONS = [
   "README.md",
   "typescript/README.md",
-  "docs/mcp.md",
-  "docs/coding-agents.mdx",
   "plugin/skills/flow-messaging/reference/cli-mcp.md",
-  "docs/guides/recipes.mdx",
 ];
 // Hand-written pages (no generated regions: the service serves docs/errors as they
 // are) that must give the Flow team's contact, checked against facts.team_contacts.
 const CONTACT_PAGES = [
-  "docs/pricing.mdx",
   "docs/errors/not_implemented.md",
   "docs/errors/channel_error.md",
-  "docs/observe/index.mdx",
-  "docs/observe/flow-messaging.mdx",
-  "docs/trust.mdx",
 ];
 
 const read = (p) => readFileSync(path.join(root, p), "utf8");
@@ -170,20 +162,25 @@ function lint(file, text, mustState) {
   }
 }
 
-// docs/docs.json: Mintlify adds markdown.instructions to every Markdown page; each
-// paragraph of agents/src/docs-instructions.md is one instruction.
-function fillDocsJson(text) {
-  const src = "agents/src/docs-instructions.md";
-  const rendered = render(read(src), src);
-  lint(src, rendered, true);
-  const items = rendered.trim().split(/\n\s*\n/).map((p) => p.replace(/\s*\n\s*/g, " "));
-  const re = /("markdown": \{\s*"instructions": \[)[\s\S]*?(\n {4}\])/;
-  if (!re.test(text)) throw new Error("docs/docs.json: no markdown.instructions array");
-  return text.replace(re, (_, open, close) => open + "\n" + items.map((i) => "      " + JSON.stringify(i)).join(",\n") + close);
+// The shared Mintlify site lives in flow-engineer/docs, not in this repository.
+if (process.argv.includes("--export-docs")) {
+  const src = "agents/src/skill-web.md";
+  const skill = render(read(src), src);
+  lint(src, skill, true);
+  const regions = Object.fromEntries(readdirSync(path.join(root, "agents/src/partials"))
+    .filter(name => name.endsWith(".md"))
+    .map(name => {
+      const key = name.slice(0, -3);
+      const text = partial(key, src);
+      lint(name, text, false);
+      return [key, text];
+    }));
+  if (problems.length) throw new Error(problems.join("\n"));
+  process.stdout.write(JSON.stringify({ skill, regions }) + "\n");
+  process.exit(0);
 }
 
 const outputs = new Map();
-outputs.set("docs/docs.json", fillDocsJson(read("docs/docs.json")));
 for (const [src, outs] of FILES) {
   const text = render(read(src), src);
   for (const o of outs) outputs.set(o, text);
@@ -192,7 +189,7 @@ for (const [src, outs] of FILES) {
 for (const file of REGIONS) {
   const text = fillRegions(file, read(file));
   outputs.set(file, text);
-  lint(file, text, file === "docs/mcp.md" || file === "docs/coding-agents.mdx" || file.endsWith("cli-mcp.md"));
+  lint(file, text, file.endsWith("cli-mcp.md"));
 }
 
 for (const file of CONTACT_PAGES) {

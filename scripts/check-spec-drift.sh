@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # Fails when a copy of the spec in this repo drifts from openapi/openapi.yaml:
 #   - typescript/src/generated/openapi.ts is stale (npm run check-generated);
-#   - docs/openapi.yaml is not an identical copy of openapi/openapi.yaml (a real file:
-#     Mintlify builds only the docs/ folder and does not follow a symlink out of it);
 #   - the TypeScript or Python SDK's API_VERSION (sent as Flow-Version), or a
 #     `Flow-Version:` date in the README, llms.txt or the agent files, differs from the
 #     spec's info.version.
+# The private flow-engineer/docs repository checks its published spec copy.
 # (The Python SDK's generated models are checked by scripts/check-python.sh.)
 # With a service checkout at ${FLOW_MESSAGING_DIR:-../flow-messaging}, it also compares
 # the service's api/openapi.yaml: a difference is a warning (a spec PR lands before the
@@ -25,19 +24,6 @@ ok() { echo "ok: $*"; }
   if [ ! -d node_modules ]; then npm ci --no-audit --no-fund >/dev/null; fi
   npm run --silent check-generated
 ) || bad "typescript/src/generated/openapi.ts is stale (cd typescript && npm run generate)"
-
-# 2. docs/openapi.yaml.
-docs="$root/docs/openapi.yaml"
-fix="cp openapi/openapi.yaml docs/openapi.yaml"
-if [ -L "$docs" ]; then
-  bad "docs/openapi.yaml is a symlink; Mintlify builds only docs/ and needs a real copy ($fix)"
-elif [ -f "$docs" ] && cmp -s "$docs" "$spec"; then
-  ok "docs/openapi.yaml is identical to openapi/openapi.yaml"
-elif [ -f "$docs" ]; then
-  bad "docs/openapi.yaml differs from openapi/openapi.yaml ($fix)"
-else
-  bad "docs/openapi.yaml is missing ($fix)"
-fi
 
 # 3. The API version.
 version=$(awk '/^info:/ { inside = 1; next } inside && /^[^ ]/ { exit } inside && /^  version:/ { gsub(/["'\'' ]/, "", $2); print $2; exit }' "$spec")

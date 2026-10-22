@@ -10,7 +10,7 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 - `openapi/openapi.yaml` (OpenAPI 3.1) **is the contract.** The service
   (Flow Messaging's server, a separate repository) generates its server stubs from it, and the
   TypeScript, Python and Go SDKs are generated from it. An API change starts here.
-- Descriptions in the spec become the docs (Mintlify, `docs/`) and are read by
+- Descriptions in the spec become the published API reference and are read by
   developers and by LLMs: write every description as a plain sentence that says what
   the thing is and when it applies. Add an example where a shape is not obvious.
 - The error types (`ErrorType`), event types (`EventType`) and content types
@@ -42,14 +42,10 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   owner's choice).
 - **Spec drift**: `scripts/check-spec-drift.sh` fails when a copy of the spec drifts
   from `openapi/openapi.yaml`: stale generated types (`npm run check-generated`),
-  `docs/openapi.yaml` not an identical copy of it (a real file, not a symlink, since
-  Mintlify builds only `docs/`; after a spec change run
-  `cp openapi/openapi.yaml docs/openapi.yaml`), or the SDK's `API_VERSION` (and any
-  `Flow-Version:` date in the READMEs, `llms.txt`, `plugin/`) not the spec's
-  `info.version`. With a service checkout (`FLOW_MESSAGING_DIR`, default
+  the SDK's `API_VERSION` (and any `Flow-Version:` date in the READMEs, `llms.txt`,
+  `plugin/`) not the spec's `info.version`. With a service checkout (`FLOW_MESSAGING_DIR`, default
   `../flow-messaging`) it compares `api/openapi.yaml` there too: a warning, since a spec
   PR lands before the service regenerates; `STRICT_SERVICE_SPEC=1` makes it fail.
-- **Comparison pages** (`docs/compare/`): every claim about another product is an entry in `docs/compare/claims.yaml` (claim, source URL, date checked, pages), marked on its page with `{/* claim: <id> */}` and linked to its source. `scripts/check-compare.sh` (part of local checks) fails when a claim is older than 90 days (and warns 14 days before) or a marker, link or entry is missing; `--fetch` also flags dead sources.
 - **Public content**: `scripts/check-public.sh` (part of local checks) fails when a
   tracked file, or the npm package about to be published, holds text that does not
   belong in a public repo: internal-only markers, local paths, cloud project IDs,
@@ -68,6 +64,20 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 - After a spec, error page or agent docs change, regenerate the service (`make
   generate` in its checkout, with this repo checked out beside it as `../flow-sdk`)
   and run its checks.
+
+## Documentation: update it with the code
+
+- Public documentation is maintained in the private GitHub repository **flow-engineer/docs**.
+  Do not create or maintain a separate documentation site in this repository or assume a local
+  checkout location. Follow the docs repository's agent instructions and writing conventions.
+- Every change to a public API, CLI command, configuration, authentication flow, default,
+  limitation or user-visible behavior must include the corresponding update in the docs repository
+  before release. New features need a working example and an expected result. Link the companion
+  documentation change in the implementation PR; explain explicitly when no docs change is needed.
+- Keep documentation concise, accurate and useful to people and coding agents. Check examples
+  against current code, preserve safety rules and limitations, and run the docs repository's checks.
+- Keep package- and service-embedded guidance consistent with the published guides. These runtime
+  assets remain here for compatibility; they are not a second hand-written website.
 
 ## Working rules
 
@@ -104,8 +114,8 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
 
 ## Agent-facing docs: one source
 
-This repo is the single source of every page a coding agent reads, as it is for the
-spec and the error pages. Edit the source, regenerate, commit both:
+This repo owns the contract and the generated guidance embedded in packages and the service.
+The private docs repository owns the website. Edit sources, regenerate and update both together:
 
 - **Canonical (edit these):** `agents/facts.json` (base URL, env var names, text caps
   per channel, sandbox allowances, the MCP server's URL, owner commands and tool
@@ -117,11 +127,10 @@ spec and the error pages. Edit the source, regenerate, commit both:
   `agents/mcp-instructions-{test,live}.txt` (the MCP server's `initialize`
   instructions), the root `llms.txt` (the same as `agents/llms.txt`),
   `plugin/skills/flow-messaging/SKILL.md`, `plugin/AGENTS-snippet.md` (what `init`
-  installs), `docs/skill.md` and `markdown.instructions` in `docs/docs.json` (from
-  `agents/src/docs-instructions.md`), and refills the marked regions (`<!-- agents:name -->`,
-  `{/* agents:name */}` in MDX) of `README.md`, `typescript/README.md`, `docs/mcp.md`,
-  `docs/coding-agents.mdx`, `docs/guides/recipes.mdx` and
-  `plugin/skills/flow-messaging/reference/cli-mcp.md`.
+  installs), and refills the marked regions (`<!-- agents:name -->`) of `README.md`,
+  `typescript/README.md` and `plugin/skills/flow-messaging/reference/cli-mcp.md`.
+  `node scripts/agent-docs.mjs --export-docs` exports rendered website guidance as JSON for
+  the docs repository to verify; it does not recreate a local Mintlify site.
   Text outside the regions in those pages is hand-written.
 - **Copied into the service:** its `make generate` copies every top-level file of
   `agents/` (with `facts.json`), as it copies `docs/errors/`; the service embeds and
@@ -153,11 +162,10 @@ spec and the error pages. Edit the source, regenerate, commit both:
 - `openapi/openapi.yaml`: the spec. `redocly.yaml`: lint rules.
 - `agents/`: the one source of the agent-facing docs (see "Agent-facing docs").
   `scripts/agent-docs.mjs` generates and checks them.
-- `docs/`: the Mintlify site later (docs.flow.engineer). `docs/errors/<type>.md` is
-  one page per `ErrorType` (what it means, why, how to fix it, code); every error's
-  `doc_url` points at it, and the service embeds copies for the MCP tool
-  `explain_error` (its `make generate` copies them, so a new error type needs a
-  page here first). `docs/mcp.md` is the hosted MCP server's page.
+- `docs/errors/`: service-embedded error explanations, one per `ErrorType`. The service
+  copies them during generation for `explain_error` and each error's `doc_url`. Preserve
+  this runtime input and coordinate changes with the published error guide in the private docs
+  repository. This is not a Mintlify site.
 - `server.json`: the entry for the official MCP registry (not submitted yet).
 - `typescript/`: `@flow-engineer/messaging`, the SDK and the CLI.
 - `examples/`: runnable agents, each with a README, using the sandbox. The
