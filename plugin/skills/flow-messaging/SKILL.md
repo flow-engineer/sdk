@@ -16,11 +16,11 @@ https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml).
 
 ## Set up (once per project)
 
-Check for `FLOW_MESSAGING_KEY` (environment or `.env`) first; never get a second key when you have one. No key yet? Get a test key with no account, in one call: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`, then save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once) in a git-ignored `.env`. Or run `npx @flow-engineer/messaging init`: it does the same and prints the sandbox link and join code, then asks before installing agent files or the MCP server. That answer is the project owner's, so never pass `--yes` for them. Never invent or hard-code keys.
+Check for `FLOW_MESSAGING_KEY` (environment or `.env`) first; never get a second key when you have one. No key yet? Get a test key with no account, in one call: `curl -X POST https://api.flow.engineer/v1/sandbox/keys`, then save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once) in a git-ignored `.env`. Or run `npx @flow-engineer/messaging init`: it does the same and prints the sandbox link and join message, then asks before installing agent files or the MCP server. That answer is the project owner's, so never pass `--yes` for them. Never invent or hard-code keys.
 
 ```sh
 npx @flow-engineer/messaging init   # gets a test key, writes FLOW_MESSAGING_KEY and FLOW_CLAIM_TOKEN to .env,
-                                    # prints the sandbox link and join code (asks the owner before adding agent files)
+                                    # prints the sandbox link and join message (asks the owner before adding agent files)
 npm install @flow-engineer/messaging
 ```
 

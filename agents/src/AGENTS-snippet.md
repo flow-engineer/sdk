@@ -4,7 +4,7 @@ This project talks with people on Telegram and iMessage through Flow
 Messaging (`{{package}}`, API at {{base_url}}, docs at
 {{docs_url}}). The key is `{{env.api_key}}` in `.env` (`fk_test_` keys
 reach only the sandbox: a person opens the sandbox link and taps Start, or sends the
-join code, such as `join wild-otter-04508705`).
+sender's `join_code` message, such as `Hi Sandbox app (ref wild-otter-04508705)`).
 
 {{> get-a-key}}
 

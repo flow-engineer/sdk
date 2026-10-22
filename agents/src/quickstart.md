@@ -26,7 +26,7 @@ spec: https://api.flow.engineer/openapi.yaml   # OpenAPI 3.1, version {{api_vers
 llms_txt: https://api.flow.engineer/llms.txt
 mcp_server: https://api.flow.engineer/mcp     # optional, for development only; the project owner adds it (section 12)
 get_a_key: "curl -X POST https://api.flow.engineer/v1/sandbox/keys"   # no account, no key sent; 201: key, claim_token (shown once), senders
-cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the sandbox link and join code
+cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the sandbox link and join message
 sandbox_allowance:                           # outbound messages only (inbound is free); GET /v1/app returns allowance
   anonymous: {{allowance.anonymous.contacts}} contact, {{allowance.anonymous.messages_per_contact}} messages in total, Telegram sandbox; the key expires after {{allowance.anonymous.key_ttl_days}} days
   signed_in: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages each, no expiry, one allowance per person over all their apps   # iMessage is in neither
@@ -39,7 +39,8 @@ key_prefixes:
   fk_test_: test mode; the shared sandbox senders (Telegram bot), only contacts who joined your app
   fk_live_: live mode; your dedicated senders: your own Telegram bot or WhatsApp number (self-serve, live key from the dashboard), an iMessage line (arranged with the Flow team)
 sandbox_join: open the sandbox sender's address.link (https://t.me/<bot>?start=<code>) and tap Start,
-              or send its join_code text ("join wild-otter-04508705")
+              or send its join_code text as is ("Hi Sandbox app (ref wild-otter-04508705)");
+              then conversation.started (via sandbox_join), then the join as the first message.received
 simulated_contacts: POST /v1/test/conversations, then POST /v1/test/conversations/{id}/inbound   # test keys; no phone; free: no contact slot, no messages; simulated: true; section 2
 version_header: "Flow-Version: {{api_version}}"   # optional; pins the API version
 content_type: application/json               # except POST /v1/files (multipart/form-data)
@@ -116,7 +117,7 @@ No API key is sent. The answer (`201`, abridged):
   "senders": [{"id": "snd_...", "channel": "telegram", "kind": "shared",
                "address": {"username": "FlowSandboxBot",
                            "link": "https://t.me/FlowSandboxBot?start=wild-otter-04508705"},
-               "join_code": "join wild-otter-04508705"}]
+               "join_code": "Hi Sandbox app (ref wild-otter-04508705)"}]
 }
 ```
 
@@ -140,7 +141,7 @@ else echo "$R"; fi   # 429 rate_limited: wait error.retry_after
 ```
 
 The CLI does the same: `npx @flow-engineer/messaging init` (with no key set it gets
-one, writes both to `.env`, and prints the sandbox link and join code).
+one, writes both to `.env`, and prints the sandbox link and join message).
 
 ### Sandbox allowance
 
@@ -293,7 +294,7 @@ curl -s "https://api.flow.engineer/v1/senders?channel=telegram" -H "Authorizatio
     "status": "active",
     "address": {"username": "FlowSandboxBot",
                 "link": "https://t.me/FlowSandboxBot?start=wild-otter-04508705"},
-    "join_code": "join wild-otter-04508705",
+    "join_code": "Hi Sandbox app (ref wild-otter-04508705)",
     "limits": {"new_contacts_per_day": 100000, "new_contacts_per_hour": 10000},
     "created_at": "2026-10-09T08:00:00Z"
   }],
@@ -302,15 +303,20 @@ curl -s "https://api.flow.engineer/v1/senders?channel=telegram" -H "Authorizatio
 ```
 
 The code (`wild-otter-04508705`: two words and eight digits) is your app's; every
-app has its own.
+app has its own. `join_code` is the whole join message: `Hi `, your app's name, then
+the code in brackets after `ref`. Show it to the person as is.
 
 1. Open `address.link` on your phone (or make it a QR code) and tap **Start** in
    Telegram. That alone joins: Telegram sends `/start wild-otter-04508705` for you.
-   Typing the `join_code` text (`join wild-otter-04508705`) to the bot works too.
+   Sending the `join_code` text (`Hi Sandbox app (ref wild-otter-04508705)`) to the bot works too; any message
+   of at most 160 characters that ends with `(ref <code>)` joins.
 2. The bot answers "You're connected to <your app name>." (Flow sends that itself;
    your app sends nothing) and your app gets `conversation.started` (`data.via` =
-   `sandbox_join`) with the new `conv_...`. The join message is not a `message.received`.
-3. Now write anything (say "hi"): that arrives as `message.received` (section 5).
+   `sandbox_join`) with the new `conv_...`.
+3. Then the join itself arrives as the person's first `message.received` (section 5),
+   with the code taken out: `/start` from the link, `Hi Sandbox app` from the join
+   message (`Hi` when nothing is left before the brackets). Answer it like any first
+   message; everything the person writes next arrives the same way.
 
 Good to know:
 - A Telegram account is joined to one app at a time on the sandbox bot; sending
@@ -1164,7 +1170,7 @@ key (section 0). After `send_test_message`, pass the `cursor` it returned as `af
 ## 13. SDKs
 
 The package `@flow-engineer/messaging` has a CLI you run with `npx`: `init` (gets a
-test key when none is set, writes `.env`, prints the sandbox link and join code) and
+test key when none is set, writes `.env`, prints the sandbox link and join message) and
 `login` (a person signs in to keep the app), both in section 0. Its TypeScript SDK is
 published (`npm install @flow-engineer/messaging`).
 
