@@ -4652,6 +4652,7 @@ components:
         - `sender.status_changed`: a sender was throttled, flagged, banned or restored, or its WhatsApp quality rating changed.
         - `template.status_changed`: Meta approved, rejected or paused a template.
         - `contact.deleted`: a contact was deleted with `DELETE /v1/contacts/{contact_id}`. Carries only the contact's ID; delete what you keep about them too.
+        - `contact.left`: a person on a shared sender (the sandbox) joined another app, or the other mode of your app, by sending its join code. Nothing more reaches you from them, and sends to them fail with `sandbox_contact_left`, until they send your join code again.
       enum:
         - message.received
         - message.sent
@@ -4667,6 +4668,7 @@ components:
         - sender.status_changed
         - template.status_changed
         - contact.deleted
+        - contact.left
     Timing:
       type: object
       description: |
@@ -4735,6 +4737,7 @@ components:
         - $ref: "#/components/schemas/SenderStatusChangedEvent"
         - $ref: "#/components/schemas/TemplateStatusChangedEvent"
         - $ref: "#/components/schemas/ContactDeletedEvent"
+        - $ref: "#/components/schemas/ContactLeftEvent"
       discriminator:
         propertyName: type
         mapping:
@@ -4752,6 +4755,7 @@ components:
           sender.status_changed: "#/components/schemas/SenderStatusChangedEvent"
           template.status_changed: "#/components/schemas/TemplateStatusChangedEvent"
           contact.deleted: "#/components/schemas/ContactDeletedEvent"
+          contact.left: "#/components/schemas/ContactLeftEvent"
     MessageEventData:
       type: object
       description: The message the event is about.
@@ -5019,6 +5023,40 @@ components:
               description: Always `contact.deleted`.
             data:
               $ref: "#/components/schemas/ContactDeletedData"
+    ContactLeftData:
+      type: object
+      description: The contact who left, the shared sender they left, and why.
+      required: [contact, sender, reason]
+      properties:
+        contact:
+          $ref: "#/components/schemas/ContactId"
+        sender:
+          $ref: "#/components/schemas/SenderId"
+        reason:
+          type: string
+          enum: [joined_other_app]
+          description: |
+            Why the contact left. `joined_other_app`: they sent the join code of
+            another app on the shared sender, or of your app's other mode (test or live).
+    ContactLeftEvent:
+      description: |
+        A person on a shared sender (the sandbox) joined another app, or the other
+        mode of your app, by sending its join code. Nothing more reaches you from
+        them, and sends to them fail with `permission` (`channel_code`
+        `sandbox_contact_left`), until they send your join code again, which starts
+        a new `conversation.started`. The contact and their history are kept;
+        `conversation` is the conversation they left.
+      allOf:
+        - $ref: "#/components/schemas/EventBase"
+        - type: object
+          required: [type, data, conversation]
+          properties:
+            type:
+              type: string
+              enum: [contact.left]
+              description: Always `contact.left`.
+            data:
+              $ref: "#/components/schemas/ContactLeftData"
     EventList:
       type: object
       description: A page of events, oldest first.
