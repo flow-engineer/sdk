@@ -33,7 +33,8 @@ WebSocket, no Flow SDK.
    ```
 
 3. On your phone, open the link it prints and tap **Start** (that joins the sandbox
-   bot to your app), then write to the bot.
+   bot to your app), then write to the bot. The join itself reaches the agent as your
+   first message (`/start`), so it answers that too.
 
 The test key allows 1 contact and 50 messages sent, for 7 days. Keep the
 `claim_token` from step 1 if you want to keep the app later.
@@ -48,8 +49,10 @@ The test key allows 1 contact and 50 messages sent, for 7 days. Keep the
 ## Expected output
 
 ```text
-Write to https://t.me/<sandbox_bot>?start=brave-otter-40718263 (or send "join brave-otter-40718263")
+Write to https://t.me/<sandbox_bot>?start=brave-otter-40718263 (or send "Hi Sandbox app (ref brave-otter-40718263)")
 Echo agent ready.
+[conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1] /start
+  -> sent msg_01JB8ZC9H2K4N6Q8S0U2W4Y6A8
 [conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1] hello
   -> sent msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2
 ```
