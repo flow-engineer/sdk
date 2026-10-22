@@ -277,9 +277,20 @@ To answer a `message.received` at once, respond `200` with a reply body. Flow se
 - **Answer `2xx` within 10 seconds.** Anything else, or no answer, is a failed delivery.
 - **Retries:** failed deliveries are retried with backoff for 3 days. After that the event stays in the log, marked failed, and you can read it again with `GET /v1/events`.
 - **At least once:** a delivery can repeat. Deduplicate on the event's `id` (also in `Flow-Event-Id`).
-- **Ordered per conversation:** events in one conversation arrive in order, one at a time. Later events in that conversation wait behind a failing one, so a slow endpoint holds back only its own conversations.
+- **Ordered per conversation:** events in one conversation arrive in order, one at a time. Later events in that conversation wait behind a failing one, so a slow endpoint holds back only its own conversations. See [Order per person](#order-per-person).
 - **Ordering in the log:** events are ordered by commit, not by `created_at`. Reading forward with `after` never skips an event.
 - **Disabled endpoints** keep their place: nothing is lost from the log.
+
+## Order per person
+
+Order is kept per conversation, and a conversation is one person on one of your senders. The same person on two channels, or on two of your senders, is two conversations, with no order between them.
+
+- **What you send** goes out one message at a time per conversation, in the order Flow accepted it. A send the channel refuses for now is retried in its place, and later messages to that person wait for it. A send that fails (`message.failed`) holds nothing back: the next one goes at once.
+- **As the person sees it:** a message sent as several channel messages (a carousel on a channel without carousels) goes out part by part, in order. On WhatsApp, a message with media holds the next one briefly until WhatsApp reports on it, so the person sees them in the order you sent them.
+- **What the person sends** becomes events in the channel's order, one at a time per conversation. On Telegram that is Telegram's own update order: a later message waits briefly for an earlier one still on its way. On WhatsApp it is WhatsApp's timestamp: each message is held briefly so one whose webhook comes late can still go first. A message that arrives after that wait is delivered when it arrives.
+- **On iMessage**, inbound messages carry no order from the channel, so they become events in the order Flow receives them. Two messages the person sends within about a second of each other can arrive swapped.
+- **Webhook retries never reorder a conversation:** its next event waits until the one before is delivered, or marked failed after 3 days of retries.
+- **The stream and `GET /v1/events`** give your app's events in log order, so one conversation's events come in order there too.
 
 ## The live stream
 
