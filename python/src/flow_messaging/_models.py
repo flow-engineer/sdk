@@ -156,7 +156,7 @@ class App(BaseModel):
         None
     )
     """
-    The app's sandbox join code on its own, without the word `join`: two words and eight digits, for example `brave-otter-40718263`. A contact joins this app by sending `join ` followed by it to a shared sandbox sender (`join brave-otter-40718263`); each shared sender's `join_code` gives that whole message.
+    The app's sandbox join code on its own: two words and eight digits, for example `brave-otter-40718263`. A contact joins this app by sending a shared sandbox sender the join message, which ends with this code in brackets after `ref` (`Hi Sandbox app (ref brave-otter-40718263)`), or on Telegram by opening the bot's link with the code (`https://t.me/<bot>?start=brave-otter-40718263`, which sends `/start brave-otter-40718263`). Each shared sender's `join_code` gives the whole message: show that to testers, not this code.
 
     """
     created_at: datetime
@@ -810,7 +810,7 @@ class ConversationStartedData(BaseModel):
     conversation: Conversation
     via: Literal["inbound", "sandbox_join", "outbound"]
     """
-    `inbound` (the contact wrote first), `sandbox_join` (they sent your app's join code) or `outbound` (you started it).
+    `inbound` (the contact wrote first), `sandbox_join` (they sent your app's join message or opened its Telegram link) or `outbound` (you started it).
     """
 
 
@@ -1043,7 +1043,7 @@ class ErrorBody(BaseModel):
 
     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
-    - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join code, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join code again).
+    - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
@@ -1193,11 +1193,15 @@ class ConversationStartedEvent(EventBase):
     """
     A new conversation began. Sent before the first `message.received` of a new
     contact, or, when you started the conversation (`data.via` `outbound`), with
-    your first send to the contact. A sandbox join (`data.via` `sandbox_join`) also starts one: the join
-    message itself is not delivered as `message.received`, and the sandbox bot's
-    confirmation ("You're connected to <your app>") is sent by Flow itself, not
-    by your app, and counts against no allowance. Joining again in a
-    conversation that already exists sends no new `conversation.started`.
+    your first send to the contact. A sandbox join (`data.via` `sandbox_join`) also starts one: the
+    sandbox bot's confirmation ("You're connected to <your app>") is sent by Flow
+    itself, not by your app, and counts against no allowance. Then the join
+    message reaches your app as the contact's first `message.received`, after
+    this event, with the code taken out: the words before `(ref <code>)`,
+    trimmed (`Hi Sandbox app`), or `Hi` when nothing is left; a Telegram link's
+    start arrives as `/start`. Answer it like any first message. Joining again
+    in a conversation that already exists sends no new `conversation.started`;
+    the join message is still delivered as a `message.received`.
 
     """
 
@@ -2071,11 +2075,11 @@ class Sender(BaseModel):
     """
     sms: SmsSender | None = None
     setup: SenderSetup | None = None
-    join_code: Annotated[str | None, Field(examples=["join brave-otter-40718263"])] = (
-        None
-    )
+    join_code: Annotated[
+        str | None, Field(examples=["Hi Sandbox app (ref brave-otter-40718263)"])
+    ] = None
     """
-    Shared senders only. The whole message a contact sends to this sender to join your app: `join `, a space, then the app's `sandbox_join_code` (from `GET /v1/app`), for example `join brave-otter-40718263`. Show it to testers as is.
+    Shared senders only. The whole message a contact sends to this sender to join your app: `Hi `, the app's name (`there` when it has none), then the app's `sandbox_join_code` (from `GET /v1/app`) in brackets after `ref`, for example `Hi Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets.
 
     """
     created_at: datetime
