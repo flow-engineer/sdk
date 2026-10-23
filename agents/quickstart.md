@@ -29,7 +29,8 @@ get_a_key: "curl -X POST https://api.flow.engineer/v1/sandbox/keys"   # no accou
 cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the sandbox link and join message
 sandbox_allowance:                           # outbound messages only (inbound is free); GET /v1/app returns allowance
   anonymous: 1 contact, 50 messages in total, Telegram sandbox; the key expires after 7 days
-  signed_in: 3 contacts x 100 messages each, no expiry, one allowance per person over all their apps   # iMessage is in neither
+  signed_in: 3 contacts x 100 messages each, no expiry, one allowance per person over the apps they claimed   # iMessage is in neither
+  own_account: the free trial instead, from your first sign-in: 25 people per channel on the shared Telegram, WhatsApp and iMessage senders   # no allowance in GET /v1/app
 sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v1/device/authorizations, then poll POST /v1/device/token
 dashboard: https://api.flow.engineer/admin    # sign in with a Flow account
 flow_team: [samyak@flow.engineer, prabal@flow.engineer]   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
@@ -146,11 +147,13 @@ one, writes both to `.env`, and prints the sandbox link and join message).
 
 ### Sandbox allowance
 
-| | Without an account (this key) | Signed in (Flow account) |
+| | Without an account (this key) | Claimed (signed in) |
 |---|---|---|
 | Contacts | 1 | 3 |
 | Messages | 50 in total | 100 per contact |
 | Key expires | after 7 days | never |
+
+Apps of your own Flow account (made in the dashboard or by `npx @flow-engineer/flow setup`) get the free trial instead, started at your first sign-in: 25 people per channel on Flow's shared Telegram, WhatsApp and iMessage senders, over all the account's apps, and `GET /v1/app` shows no `allowance`.
 
 The allowance covers the Telegram sandbox (and WhatsApp's when it opens; it is not
 live yet), not iMessage. Only messages your agent sends count; inbound messages are
@@ -165,7 +168,7 @@ person can still claim the app.
 A person signs in with a Flow account (flow.engineer: Google, GitHub or an email link) and the app is **claimed**: its data and keys
 are kept, the expiry is removed, and the app moves under the person's signed-in
 allowance: 3 contacts x 100 messages, **one allowance per person**, shared by every
-app they own or claim (a person may claim up to 10 apps). `allowance.scope` is
+app they claim (a person may claim up to 10 apps). `allowance.scope` is
 `person` and its counts are the person's, over all those apps.
 
 ```bash

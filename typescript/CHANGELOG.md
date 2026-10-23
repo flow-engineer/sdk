@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.3.0
+
+Types regenerated from the spec, and the agent docs that ship in the package updated:
+
+- iMessage groups: `Conversation.type` (`direct` or `group`, `direct` when absent),
+  `Conversation.group` (name and participants; a group conversation has no
+  `contact`), `ConversationRef.type` and `group_name` on events, `Message.from` on
+  inbound messages and `from` on reactions (who in the group wrote). In a group, a
+  reaction answers `422 unsupported_content` with `channel_code`
+  `group_unsupported`, and typing and read receipts are skipped. `GET
+  /v1/capabilities` reports `groups`. Simulated iMessage groups in
+  `flow.test.createConversation` (`group`) and inbound turns that name their writer
+  (`from`). The `Conversation` handle documents group conversations.
+- iMessage lines: `Sender.imessage` (`fallback`, `call_forwarding`,
+  `can_initiate`), `Message.network` (`imessage`, `sms` or `rcs`: which network
+  carried the message on a line with SMS/RCS fallback), and the `call.received`
+  event for FaceTime call attempts (`CallReceivedEvent`, `Call`). Edits and unsends
+  of a message that went by SMS or RCS answer `422 unsupported_content` with
+  `channel_code` `not_on_sms`. A message that goes by SMS or RCS may lose its
+  styles, effect and subject, or show markup as written.
+- Send options: `link_preview` on sends and starts, `TextContent.subject` (a title
+  before the text), and rich text in markdown: `~~strike~~` plus `<u>`, `<big>`,
+  `<small>` and the animation tags, with what each channel renders in
+  `text_styles` (`GET /v1/capabilities`).
+- Plans: `Account.plan` gains `free`, `shared` and `dedicated`; `Account.people`
+  (`PeopleLimits`, `ChannelPeople`, `PeopleWindow`) shows the plan's caps on people
+  per channel and pool of senders, what is used and who is held.
+- Other spec changes since 0.2.0: reply button ids are 1 to 64 bytes and labels may
+  repeat; the `contact.left` event, when a sandbox contact joins another app; the
+  join message is `Hi <name> (ref <code>)`.
+- Agent docs: Flow's shared iMessage line is self-serve. A sign-in at flow.engineer
+  (or `npx @flow-engineer/flow setup`) starts the account's free trial: every app
+  of the account sees the line, people join with the app's join message, up to 25
+  people per channel, and the next person is held until a contact is deleted. The
+  apps of your own account get that trial instead of the signed-in allowance; the
+  allowance (3 contacts x 100 messages) applies to apps claimed from a sandbox key.
+
 ## 0.2.0
 
 - Send, wait for the reply, continue, without a polling loop:

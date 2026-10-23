@@ -76,7 +76,7 @@ const sandbox = await flow.sandbox.createKey({ name: "Support agent" });
 **Sandbox allowance.** What an app may send on the sandbox for free
 (`(await flow.app.retrieve()).allowance` shows what is left):
 
-| | No account | Signed in (Flow account) |
+| | No account | Claimed (signed in) |
 |---|---|---|
 | Contacts | 1 | 3 |
 | Messages | 50 in total | 100 per contact |
@@ -84,6 +84,8 @@ const sandbox = await flow.sandbox.createKey({ name: "Support agent" });
 | Key expiry | 7 days | none |
 
 Only messages your agent sends count; inbound is free. iMessage is not part of either.
+Your own account's apps get the free trial instead, from your first sign-in: 25 people
+per channel on Flow's shared Telegram, WhatsApp and iMessage senders, and no `allowance`.
 
 **Sign in to keep the app.** `npx @flow-engineer/messaging login` reads
 `FLOW_CLAIM_TOKEN`, prints a link and a short code, opens the browser and waits; once

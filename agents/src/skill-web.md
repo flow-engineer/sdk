@@ -24,14 +24,14 @@ Channels today: Telegram is live (the shared sandbox bot, or your own bot with a
 
 ## Sandbox allowance and sign-in
 
-| | No account | Signed in (Flow account) |
+| | No account | Claimed (signed in) |
 |---|---|---|
 | Contacts | {{allowance.anonymous.contacts}} | {{allowance.signed_in.contacts}} |
 | Messages | {{allowance.anonymous.messages_per_contact}} in total | {{allowance.signed_in.messages_per_contact}} per contact |
 | Channels | Telegram sandbox (WhatsApp when its sandbox opens) | the same |
 | Key expiry | {{allowance.anonymous.key_ttl_days}} days | none |
 
-Only messages your agent sends count; iMessage is in neither (the shared iMessage line comes with the free trial a sign-in starts, above). `GET /v1/app` returns `allowance` (what is left). {{> sign-in}} By HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_..."}`, show the person `verification_uri` and `user_code` (they type the code on that page), then poll `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `status` is `approved` (`key`), `denied` or `expired`; `429 rate_limited` means wait `retry_after`.
+Only messages your agent sends count; iMessage is in neither. Apps of your own Flow account (made in the dashboard or by `{{trial.cli_setup}}`) get the free trial instead, started at your first sign-in: {{trial.people_per_channel}} people per channel on Flow's shared Telegram, WhatsApp and iMessage senders, over all the account's apps, and `GET /v1/app` shows no `allowance`. `GET /v1/app` returns `allowance` (what is left). {{> sign-in}} By HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_..."}`, show the person `verification_uri` and `user_code` (they type the code on that page), then poll `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `status` is `approved` (`key`), `denied` or `expired`; `429 rate_limited` means wait `retry_after`.
 
 Allowance errors: `403 permission` with `channel_code` `sandbox_allowance_used` (allowance used up), `sandbox_contact_limit` (no room for another contact), `sandbox_channel_not_included` (channel not covered, such as iMessage) or `sign_in_required` (needs a signed-in app); `401 authentication` with `sandbox_key_expired`. Do not retry or get more keys: ask the user to sign in (for `sandbox_channel_not_included` on iMessage, the shared line comes with the free trial a sign-in at flow.engineer or `{{trial.cli_setup}}` starts; meanwhile use the Telegram sandbox sender). Signed-in users manage keys at https://api.flow.engineer/admin. Details: https://docs.flow.engineer/get-a-key.md
 
