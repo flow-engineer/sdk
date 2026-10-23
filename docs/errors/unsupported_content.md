@@ -14,6 +14,8 @@ Flow never converts content silently. When a channel cannot show what you sent (
 ## Why it happens
 
 - The content type is not supported on the conversation's channel.
+- A reaction in an iMessage group conversation (`channel_code` `group_unsupported`, `param` `content.type`): groups take no reactions from your line. Leave it out, or set `fallback: "auto"` to skip it. Typing and read receipts in groups are skipped, not refused.
+- An edit or unsend of an iMessage message that went by SMS or RCS (its `network` is `sms` or `rcs`; `channel_code` `not_on_sms`): those networks cannot change a sent message. Send a new message instead.
 - A file is larger than the channel takes, or of a type Flow does not send.
 - A document or archive a contact sent before Flow malware-scanned documents was sent again by `file_id`: Flow sends only documents it scanned. Ask the contact to send it again, or send a link to it as text.
 

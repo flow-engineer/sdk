@@ -6,7 +6,8 @@ description: Use when code must let an AI agent, bot or LLM app send or receive 
 # Flow Messaging
 
 One API for an AI agent to talk with people on **Telegram and iMessage** (iMessage:
-replies only, on lines the Flow team connects; WhatsApp on your own number, which you
+on lines the Flow team connects, replying after the person writes unless writing
+first is arranged; WhatsApp on your own number, which you
 connect yourself with a live key).
 Flow hosts the senders (bots, lines); you get typed events in and send typed
 content out. TypeScript SDK: `@flow-engineer/messaging` (Node 18+, Bun, Deno, edge).

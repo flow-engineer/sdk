@@ -18,6 +18,9 @@ export type App = S["App"];
 export type AppSettings = S["AppSettings"];
 export type ApiKey = S["ApiKey"];
 export type AppContext = S["AppContext"];
+export type PeopleLimits = S["PeopleLimits"];
+export type ChannelPeople = S["ChannelPeople"];
+export type PeopleWindow = S["PeopleWindow"];
 
 export type SandboxAllowance = S["SandboxAllowance"];
 export type AllowanceCount = S["AllowanceCount"];
@@ -36,6 +39,8 @@ export type SenderStatus = S["SenderStatus"];
 export type SenderAddress = S["SenderAddress"];
 export type SenderLimits = S["SenderLimits"];
 export type SenderRequest = S["SenderRequest"];
+export type ImessageSender = S["ImessageSender"];
+export type CallForwarding = S["CallForwarding"];
 
 export type Contact = S["Contact"];
 export type ContactAddress = S["ContactAddress"];
@@ -43,11 +48,15 @@ export type Recipient = S["Recipient"];
 
 export type Conversation = S["Conversation"];
 export type ConversationRef = S["ConversationRef"];
+export type ConversationType = S["ConversationType"];
+export type Group = S["Group"];
+export type GroupParticipant = S["GroupParticipant"];
 export type ConversationAction = S["ConversationAction"];
 
 export type Message = S["Message"];
 export type MessageStatus = S["MessageStatus"];
 export type MessageDirection = S["MessageDirection"];
+export type MessageNetwork = S["MessageNetwork"];
 export type DeliveredAs = S["DeliveredAs"];
 export type Fallback = S["Fallback"];
 export type ChannelOptions = S["ChannelOptions"];
@@ -102,12 +111,15 @@ export type ConversationStartedEvent = S["ConversationStartedEvent"];
 export type ConversationWindowClosingEvent = S["ConversationWindowClosingEvent"];
 export type SenderStatusChangedEvent = S["SenderStatusChangedEvent"];
 export type TemplateStatusChangedEvent = S["TemplateStatusChangedEvent"];
+export type CallReceivedEvent = S["CallReceivedEvent"];
+export type Call = S["Call"];
 /** The event whose `type` is `T`. */
 export type EventOf<T extends EventType> = Extract<Event, { type: T }>;
 
 export type StreamFrame = S["StreamFrame"];
 export type Capabilities = S["Capabilities"];
 export type ContentSupport = S["ContentSupport"];
+export type GroupSupport = S["GroupSupport"];
 export type File = S["File"];
 export type Template = S["Template"];
 export type TemplateStatus = S["TemplateStatus"];
@@ -119,6 +131,8 @@ export type WebhookSecretRotateRequest = S["WebhookSecretRotateRequest"];
 export type WebhookReply = S["WebhookReply"];
 export type TestConversationRequest = S["TestConversationRequest"];
 export type TestContactAddress = S["TestContactAddress"];
+export type TestGroupRequest = S["TestGroupRequest"];
+export type TestGroupParticipant = S["TestGroupParticipant"];
 export type SimulatedInboundRequest = S["SimulatedInboundRequest"];
 export type SimulatedInboundContent = S["SimulatedInboundContent"];
 export type SimulatedButtonTap = S["SimulatedButtonTap"];

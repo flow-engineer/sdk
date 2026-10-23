@@ -26,10 +26,28 @@ class Account(BaseModel):
     """
     The company's name.
     """
-    plan: Literal["free", "pro", "business", "enterprise"]
+    plan: Literal["free", "shared", "dedicated", "pro", "business", "enterprise"]
     """
-    The account's plan.
+    The account's plan, set by the Flow team (there is no self-serve
+    checkout). Each plan caps how many people your apps may talk with per
+    channel; `people` shows the caps and what is used.
+
+    - `free`: a small number of people per channel in total (25 today).
+    - `shared`: Flow's shared senders, with caps per channel a day and a
+      month (200 a day and 300 a month today).
+    - `dedicated`: your own iMessage line, with a daily cap on it and no
+      monthly cap (1,000 a day today); on Flow's shared senders it has
+      `shared`'s caps, counted apart (`people` shows each `pool`).
+
+    The numbers are settings and may change; read the caps that apply
+    now from `people`, not from this list.
+    - `pro`, `business`, `enterprise`: older plans, kept for accounts that
+      have them; they have no people caps.
+
+    New values may be added; treat one you do not know like `free`.
+
     """
+    people: PeopleLimits | None = None
     hipaa: bool | None = None
     """
     `true` when the account handles protected health information under a
@@ -278,6 +296,53 @@ class ButtonsContent(BaseModel):
     """
 
 
+class Call(BaseModel):
+    """
+    One call attempt to an iMessage line.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    contact: Annotated[str, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])]
+    """
+    The contact who called.
+    """
+    network: Literal["facetime"]
+    """
+    How they called. `facetime` (a FaceTime call) today.
+    """
+
+
+class CallData(BaseModel):
+    """
+    The call the contact tried to make.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    call: Call
+
+
+class CallForwarding(BaseModel):
+    """
+    Dedicated lines only: where phone calls to the line's number are
+    forwarded, set up with the Flow team. Forwarded calls send no event.
+    FaceTime calls are not forwarded; they arrive as `call.received`. Absent
+    when calls are not forwarded (always on shared lines).
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    phone: Annotated[str, Field(examples=["+15555550123"])]
+    """
+    The E.164 number calls are forwarded to.
+    """
+
+
 class Capabilities(BaseModel):
     """
     What a conversation's channel supports now.
@@ -300,6 +365,18 @@ class Capabilities(BaseModel):
     One entry per content type that can be sent.
     """
     limits: ChannelLimits | None = None
+    groups: GroupSupport | None = None
+    text_styles: list[Literal["bold", "italic", "underline", "strikethrough", "size", "animation"]] | None = (
+        None
+    )
+    """
+    The `markdown` styles the channel renders (see `TextContent.format`);
+    others are stripped to their text and reported in `delivered_as`.
+    iMessage: all of them (none when the conversation's messages go by SMS
+    or RCS); Telegram: `bold`, `italic`, `underline`, `strikethrough`;
+    WhatsApp: `bold`, `italic`, `strikethrough`; SMS: none.
+
+    """
 
 
 class CarouselCard(BaseModel):
@@ -418,7 +495,8 @@ class ChannelOptions(BaseModel):
       `foursquare_type`, `google_place_id`, `google_place_type`, `vcard`,
       `is_big` (reactions).
     - **iMessage**: on messages, `subject`, `effect`, `preview`,
-      `reply_to_id` and `contact_file`; on `typing` content, `typing` (how long
+      `reply_to_id` and `contact_file` (the typed `TextContent.subject` and
+      `link_preview` win over `subject` and `preview`); on `typing` content, `typing` (how long
       to show it, 1 to 60 seconds). Reactions, read receipts, edits and unsends
       take none.
     - **WhatsApp**: on `text` content, `preview_url` (show a link preview;
@@ -430,6 +508,36 @@ class ChannelOptions(BaseModel):
     model_config = ConfigDict(
         extra="allow",
     )
+
+
+class ChannelPeople(BaseModel):
+    """
+    The caps on people for one channel and one pool of senders, and how many
+    people are held. A channel can appear twice, once per pool, since each
+    pool is counted apart (a `dedicated` account has `shared`'s caps on Flow's
+    shared senders and its own cap on its own line).
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    channel: Literal["telegram", "whatsapp", "imessage", "sms"] | None = None
+    """
+    A messaging channel. `sms` is US SMS and MMS (in pilot), from dedicated numbers only.
+    """
+    pool: Literal["shared", "own"]
+    """
+    `shared`: Flow's shared senders on this channel. `own`: the account's own senders on it (a dedicated line, its own bot or number). Counted apart.
+    """
+    limits: list[PeopleWindow]
+    """
+    Each window the plan caps (`free`: `total`; `shared`: `day` and `month`; `dedicated`: `day`).
+    """
+    held: int
+    """
+    People held now because a cap is reached; their messages wait and are delivered when a place frees or the window rolls over.
+    """
 
 
 class Consent(BaseModel):
@@ -702,7 +810,10 @@ class ContentSupport(BaseModel):
 
 class Conversation(BaseModel):
     """
-    One sender talking with one contact. Holds the window state and whether the contact opted in.
+    One sender talking with one contact (`type` `direct`), or with an iMessage
+    group chat (`type` `group`). Holds the window state and whether the contact
+    opted in.
+
     """
 
     model_config = ConfigDict(
@@ -716,6 +827,16 @@ class Conversation(BaseModel):
     """
     An app ID, `app_` and a ULID.
     """
+    type: Literal["direct", "group"] | None = "direct"
+    """
+    Flow always sends it; read a missing one as `direct` (answers from
+    before groups existed). `direct`: one sender and one contact (every
+    channel). `group`: a group chat
+    one of your dedicated iMessage lines was added to; it has `group` and no
+    `contact`. Flow's shared iMessage line ignores group chats, so they never
+    reach your app from it.
+
+    """
     channel: Literal["telegram", "whatsapp", "imessage", "sms"]
     """
     A messaging channel. `sms` is US SMS and MMS (in pilot), from dedicated numbers only.
@@ -724,10 +845,13 @@ class Conversation(BaseModel):
     """
     A sender ID, `snd_` and a ULID.
     """
-    contact: Annotated[str, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])]
+    contact: Annotated[str | None, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])] = (
+        None
+    )
     """
-    A contact ID, `ct_` and a ULID.
+    The contact the conversation is with. Always set when `type` is `direct`; absent on group conversations (each message's `from` says who wrote).
     """
+    group: Group | None = None
     livemode: bool
     """
     Whether the conversation belongs to live mode.
@@ -742,7 +866,7 @@ class Conversation(BaseModel):
     """
     opted_in: bool
     """
-    Whether the contact has agreed to receive messages (wrote first, joined the sandbox, or you recorded consent).
+    Whether the contact has agreed to receive messages (wrote first, joined the sandbox, or you recorded consent). Always `true` on group conversations, which begin with the group writing.
     """
     simulated: bool | None = None
     """
@@ -791,7 +915,7 @@ class ConversationList(BaseModel):
 
 class ConversationRef(BaseModel):
     """
-    The conversation an event happened in, inlined so most handlers need no extra call.
+    The conversation an event happened in, inlined so most handlers need no extra call. A group's participants are not inlined; read the conversation for them.
     """
 
     model_config = ConfigDict(
@@ -801,6 +925,16 @@ class ConversationRef(BaseModel):
     """
     A conversation ID, `conv_` and a ULID.
     """
+    type: Literal["direct", "group"] | None = "direct"
+    """
+    Flow always sends it; read a missing one as `direct` (answers from
+    before groups existed). `direct`: one sender and one contact (every
+    channel). `group`: a group chat
+    one of your dedicated iMessage lines was added to; it has `group` and no
+    `contact`. Flow's shared iMessage line ignores group chats, so they never
+    reach your app from it.
+
+    """
     channel: Literal["telegram", "whatsapp", "imessage", "sms"]
     """
     A messaging channel. `sms` is US SMS and MMS (in pilot), from dedicated numbers only.
@@ -809,9 +943,15 @@ class ConversationRef(BaseModel):
     """
     A sender ID, `snd_` and a ULID.
     """
-    contact: Annotated[str, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])]
+    contact: Annotated[str | None, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])] = (
+        None
+    )
     """
-    A contact ID, `ct_` and a ULID.
+    The contact the conversation is with. Always set when `type` is `direct`; absent on group conversations (the message's `from` says who wrote).
+    """
+    group_name: str | None = None
+    """
+    Group conversations only. The group chat's name, when it has one.
     """
     window_open_until: datetime | None = None
     """
@@ -1071,7 +1211,7 @@ class ErrorBody(BaseModel):
     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-    - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
+    - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. In an iMessage group conversation, a reaction answers it with `param` `content.type` and `channel_code` `group_unsupported` (groups take no reactions from your line): leave it out, or set `fallback: "auto"` to skip it. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file. (When the scan cannot run at all, the upload answers a retryable `500 api_error` with `Retry-After` instead.)
@@ -1156,7 +1296,10 @@ class ErrorBody(BaseModel):
     `sandbox_contact_left` (`permission`), `window_closed` and
     `queued_too_long` (`outside_window`), and
     `channel_timeout_unknown_outcome` (`channel_error`: the channel never
-    confirmed the send, so it may or may not have arrived). From typing and
+    confirmed the send, so it may or may not have arrived). iMessage
+    (`unsupported_content`): `group_unsupported` (a reaction in a group
+    conversation; `param` `content.type`) and
+    `not_on_sms` (an edit or unsend of a message that went by SMS or RCS). From typing and
     read receipts, `unknown_outcome` (`channel_error`: the call timed out after
     it was sent).
 
@@ -1193,6 +1336,31 @@ class EventBase(BaseModel):
     """
     conversation: ConversationRef | None = None
     timing: Timing
+
+
+class CallReceivedEvent(EventBase):
+    """
+    iMessage only. A contact tried to FaceTime one of your lines. The line
+    cannot take calls, so nothing is answered. `conversation` is the direct conversation with the contact, made if it is
+    new (with `conversation.started`, `via` `inbound`). A call is not a
+    message: it does not count toward plan caps on people, and it does not
+    open the conversation for a reply-only line (a send there before the
+    contact writes is a start, refused with `403 permission` unless
+    `Sender.imessage.can_initiate` is on). Phone calls forwarded by
+    `Sender.imessage.call_forwarding` send no event. Delivered only to webhook
+    endpoints that list `call.received` in `events`.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["call.received"]
+    """
+    Always `call.received`.
+    """
+    data: CallData
+    conversation: ConversationRef
 
 
 class ContactDeletedEvent(EventBase):
@@ -1286,7 +1454,7 @@ class EventList(BaseModel):
     )
     data: list[
         Annotated[
-            MessageReceivedEvent | MessageSentEvent | MessageDeliveredEvent | MessageReadEvent | MessageFailedEvent | ReactionAddedEvent | ReactionRemovedEvent | TypingStartedEvent | TypingStoppedEvent | ConversationStartedEvent | ConversationWindowClosingEvent | SenderStatusChangedEvent | TemplateStatusChangedEvent | ContactDeletedEvent | ContactLeftEvent,
+            MessageReceivedEvent | MessageSentEvent | MessageDeliveredEvent | MessageReadEvent | MessageFailedEvent | ReactionAddedEvent | ReactionRemovedEvent | TypingStartedEvent | TypingStoppedEvent | ConversationStartedEvent | ConversationWindowClosingEvent | SenderStatusChangedEvent | TemplateStatusChangedEvent | ContactDeletedEvent | ContactLeftEvent | CallReceivedEvent,
             Field(discriminator="type"),
         ]
     ]
@@ -1405,6 +1573,112 @@ class FileUpload(BaseModel):
     """
 
 
+class Group(BaseModel):
+    """
+    Group conversations only (iMessage): the group chat as Flow saw it last.
+    People who join or leave change `participants` without an event; Flow
+    updates the list when the group next writes. The channel's own group ID is
+    never exposed: use the conversation's ID.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    name: str | None = None
+    """
+    The group chat's name, when it has one.
+    """
+    participants: list[GroupParticipant]
+    """
+    The people in the group other than your line, each a contact on the channel (made the first time Flow sees them, like a one-to-one contact).
+    """
+
+
+class GroupParticipant(BaseModel):
+    """
+    One person in a group chat.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    contact: Annotated[str, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])]
+    """
+    A contact ID, `ct_` and a ULID.
+    """
+    address: ContactAddress
+    name: str | None = None
+    """
+    The person's display name, as the channel reports it. May be missing.
+    """
+
+
+class GroupSupport(BaseModel):
+    """
+    What the conversation's sender does with group chats. Dedicated iMessage
+    lines receive and reply in groups; Flow's shared iMessage line ignores
+    group chats (`receive` and `reply` `false`), and the other channels do
+    neither today. No channel lets the API
+    create a group or change who is in it (`manage` is always `false`).
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    receive: bool
+    """
+    Whether messages from group chats your sender is in reach your app, as `group` conversations.
+    """
+    reply: bool
+    """
+    Whether you can send into a group conversation. Reactions are refused there (`422 unsupported_content`, `channel_code` `group_unsupported`), and typing and read receipts are skipped (`delivered_as.type` `none`).
+    """
+    manage: bool
+    """
+    Whether the API can create a group, rename it, or add or remove people. Always `false`.
+    """
+
+
+class ImessageSender(BaseModel):
+    """
+    iMessage senders only: what the line can do beyond replying in iMessage.
+    Set by the Flow team (ask them to change it); absent on other channels.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    fallback: bool
+    """
+    Whether messages to a contact who cannot get iMessage go by SMS or RCS
+    instead. The network is chosen for each message when it is sent, never
+    by your app; the message's `network` says which one carried it.
+    Included on Flow's shared lines; on a dedicated line, an add-on
+    arranged with the Flow team. Off, a message to a contact who is not on
+    iMessage fails (`message.failed`). On SMS and RCS the text goes as
+    plain text (styles dropped, `subject` as its first line) and effects
+    are dropped; edits and unsends of such a message answer `422
+    unsupported_content` with `channel_code` `not_on_sms` (see
+    `Message.network`).
+
+    """
+    call_forwarding: CallForwarding | None = None
+    can_initiate: bool
+    """
+    Whether the line may write first: start a conversation with
+    `POST /v1/messages` with a contact who has not messaged it. Off (the
+    default), the line only replies and a start answers `403 permission`.
+    Writing first is available on request from the Flow team, on dedicated
+    lines only (always `false` on shared lines); a line that starts
+    conversations spends its new-contact budget (`limits`), which grows
+    during warm-up.
+
+    """
+
+
 class LocationContent(BaseModel):
     """
     A place, both ways. Inbound, a location the contact shared. Channels without locations need `fallback` (`auto` sends a maps link).
@@ -1506,6 +1780,12 @@ class Message(BaseModel):
     """
     `in` from the contact, `out` from your app.
     """
+    from_: Annotated[
+        str | None, Field(alias="from", examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])
+    ] = None
+    """
+    Inbound messages only, on every channel. The contact who wrote it; in a group conversation, which participant. Absent on your own messages.
+    """
     status: Literal["received", "queued", "sent", "delivered", "read", "failed", "unsent"]
     """
     - `received`: inbound from the contact.
@@ -1539,15 +1819,28 @@ class Message(BaseModel):
     | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
     | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
     | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
-    | reaction | yes | yes | tapbacks, other emoji as emoji reactions | no | closest tapback, else skipped (SMS: none) |
+    | reaction | yes | yes | tapbacks, other emoji as emoji reactions (not in groups) | no | closest tapback, else skipped (SMS: none) |
     | template | no | yes | no | no | none |
     | location | yes | yes | no | no | maps link as text |
     | contact_card | yes | yes | no | no | text |
     | effect | no | no | yes | no | plain text |
-    | typing | yes | yes | yes (within 5 minutes of the contact's last message) | no | skipped |
-    | read | no (bots) | yes | yes (the whole conversation) | no | skipped |
-    | edit | yes | no | yes (within 15 minutes) | no | none |
-    | unsend | yes (within 48 hours) | no | yes (within 2 minutes) | no | none |
+    | typing | yes | yes | yes (within 5 minutes of the contact's last message; skipped in groups) | no | skipped |
+    | read | no (bots) | yes | yes (the whole conversation; skipped in groups) | no | skipped |
+    | edit | yes | no | yes (within 15 minutes; not when it went by SMS or RCS) | no | none |
+    | unsend | yes (within 48 hours) | no | yes (within 2 minutes; not when it went by SMS or RCS) | no | none |
+
+    """
+    network: Literal["imessage", "sms", "rcs"] | None = None
+    """
+    iMessage channel only: the network that carried the message. `imessage`,
+    or `sms` or `rcs` when the line has fallback (`Sender.imessage.fallback`)
+    and the contact could not get iMessage. Set on inbound messages, and on
+    your messages once the channel reports it (in `message.sent`,
+    `message.delivered` or `message.failed`, as `data.message.network`);
+    absent before that and on other channels. On `sms` and `rcs` the text is
+    sent plain (styles and effects dropped, reported in `delivered_as`), and
+    edits and unsends of the message answer `422 unsupported_content` with
+    `channel_code` `not_on_sms`.
 
     """
     delivered_as: DeliveredAs | None = None
@@ -1684,6 +1977,58 @@ class MessageSentEvent(EventBase):
     data: MessageEventData
 
 
+class PeopleLimits(BaseModel):
+    """
+    The account's plan caps on people, and what is used now. A person counts
+    once in a window, with their first inbound message in it on that channel's
+    sender, whether one-to-one or in a group chat; group members who never
+    write, calls, and your own sends do not count. A person past a cap is
+    **held**: their messages are kept but not delivered to your app, and are
+    delivered once a place frees or the window rolls over. Absent when the
+    account's plan has no people caps. These numbers are the source of truth
+    for the caps; they are settings and can change.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    per: Literal["channel", "account"]
+    """
+    `channel`: each channel has its own caps (every plan today). `account`: one set of caps over all channels, with no `channel` on its entry.
+    """
+    channels: list[ChannelPeople]
+    """
+    One entry per channel the caps apply to (one entry without `channel` when `per` is `account`).
+    """
+
+
+class PeopleWindow(BaseModel):
+    """
+    One capped window and how many people it has used.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    window: Literal["total", "day", "month"]
+    """
+    `total`: since the account began (never resets). `day`: the UTC day. `month`: the UTC calendar month.
+    """
+    limit: int
+    """
+    How many people may write in the window.
+    """
+    used: int
+    """
+    How many distinct people wrote in the window so far.
+    """
+    resets_at: datetime | None = None
+    """
+    When the window rolls over and `used` starts again. Absent for `total`.
+    """
+
+
 class QuietHours(BaseModel):
     """
     The hours, in the contact's local time zone (worked out from their area
@@ -1760,6 +2105,12 @@ class ReactionEventData(BaseModel):
     model_config = ConfigDict(
         extra="allow",
     )
+    from_: Annotated[
+        str | None, Field(alias="from", examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])
+    ] = None
+    """
+    The contact who reacted, where the channel reports it (in a group conversation, which participant).
+    """
     message_id: Annotated[str, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])]
     """
     A message ID, `msg_` and a ULID.
@@ -2007,15 +2358,15 @@ class SendMessageRequest(BaseModel):
     | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
     | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
     | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
-    | reaction | yes | yes | tapbacks, other emoji as emoji reactions | no | closest tapback, else skipped (SMS: none) |
+    | reaction | yes | yes | tapbacks, other emoji as emoji reactions (not in groups) | no | closest tapback, else skipped (SMS: none) |
     | template | no | yes | no | no | none |
     | location | yes | yes | no | no | maps link as text |
     | contact_card | yes | yes | no | no | text |
     | effect | no | no | yes | no | plain text |
-    | typing | yes | yes | yes (within 5 minutes of the contact's last message) | no | skipped |
-    | read | no (bots) | yes | yes (the whole conversation) | no | skipped |
-    | edit | yes | no | yes (within 15 minutes) | no | none |
-    | unsend | yes (within 48 hours) | no | yes (within 2 minutes) | no | none |
+    | typing | yes | yes | yes (within 5 minutes of the contact's last message; skipped in groups) | no | skipped |
+    | read | no (bots) | yes | yes (the whole conversation; skipped in groups) | no | skipped |
+    | edit | yes | no | yes (within 15 minutes; not when it went by SMS or RCS) | no | none |
+    | unsend | yes (within 48 hours) | no | yes (within 2 minutes; not when it went by SMS or RCS) | no | none |
 
     """
     reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
@@ -2049,6 +2400,15 @@ class SendMessageRequest(BaseModel):
     - `null`: no fallback, the same as leaving it out.
 
     The message's `delivered_as` reports what was used.
+
+    """
+    link_preview: bool | None = True
+    """
+    Whether links in the text show a rich preview. On by default; `false`
+    sends links as plain text. iMessage and WhatsApp follow it on text
+    messages, Telegram on text messages; SMS never shows previews. It
+    wins over a `channel_options` key that sets the same thing (`preview`,
+    `preview_url`, `link_preview_options`, `disable_web_page_preview`).
 
     """
     channel_options: ChannelOptions | None = None
@@ -2120,6 +2480,7 @@ class Sender(BaseModel):
     WhatsApp only. Meta's quality rating for the number.
     """
     sms: SmsSender | None = None
+    imessage: ImessageSender | None = None
     setup: SenderSetup | None = None
     join_code: Annotated[
         str | None, Field(examples=["Hi Sandbox app (ref brave-otter-40718263)"])
@@ -2463,6 +2824,12 @@ class SimulatedInboundRequest(BaseModel):
     from `POST /v1/files`. Other types answer `400 invalid_request`.
 
     """
+    from_: Annotated[
+        str | None, Field(alias="from", examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])
+    ] = None
+    """
+    Simulated group conversations only, and required there. The participant who writes this turn (a `contact` in the conversation's `group.participants`); another contact answers `400 invalid_request` with `param` `from`. Refused the same way on one-to-one conversations.
+    """
     reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
         None
     )
@@ -2533,7 +2900,10 @@ class StartConversationRequest(BaseModel):
     """
     The first message from one of your senders to a contact. A field not listed
     here is refused with `400 invalid_request` naming it in `param`, never
-    ignored. There are no scheduled sends: to start a conversation later, wait
+    ignored. On iMessage the sender must be able to write first
+    (`Sender.imessage.can_initiate`, available on request); otherwise the start
+    answers `403 permission`. A start always makes a `direct` conversation:
+    there is no way to start a group. There are no scheduled sends: to start a conversation later, wait
     in your own code and send then.
 
     """
@@ -2568,15 +2938,15 @@ class StartConversationRequest(BaseModel):
     | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
     | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
     | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
-    | reaction | yes | yes | tapbacks, other emoji as emoji reactions | no | closest tapback, else skipped (SMS: none) |
+    | reaction | yes | yes | tapbacks, other emoji as emoji reactions (not in groups) | no | closest tapback, else skipped (SMS: none) |
     | template | no | yes | no | no | none |
     | location | yes | yes | no | no | maps link as text |
     | contact_card | yes | yes | no | no | text |
     | effect | no | no | yes | no | plain text |
-    | typing | yes | yes | yes (within 5 minutes of the contact's last message) | no | skipped |
-    | read | no (bots) | yes | yes (the whole conversation) | no | skipped |
-    | edit | yes | no | yes (within 15 minutes) | no | none |
-    | unsend | yes (within 48 hours) | no | yes (within 2 minutes) | no | none |
+    | typing | yes | yes | yes (within 5 minutes of the contact's last message; skipped in groups) | no | skipped |
+    | read | no (bots) | yes | yes (the whole conversation; skipped in groups) | no | skipped |
+    | edit | yes | no | yes (within 15 minutes; not when it went by SMS or RCS) | no | none |
+    | unsend | yes (within 48 hours) | no | yes (within 2 minutes; not when it went by SMS or RCS) | no | none |
 
     """
     fallback: Literal["auto"] | TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent | None = (
@@ -2596,6 +2966,15 @@ class StartConversationRequest(BaseModel):
     - `null`: no fallback, the same as leaving it out.
 
     The message's `delivered_as` reports what was used.
+
+    """
+    link_preview: bool | None = True
+    """
+    Whether links in the text show a rich preview. On by default; `false`
+    sends links as plain text. iMessage and WhatsApp follow it on text
+    messages, Telegram on text messages; SMS never shows previews. It
+    wins over a `channel_options` key that sets the same thing (`preview`,
+    `preview_url`, `link_preview_options`, `disable_web_page_preview`).
 
     """
     channel_options: ChannelOptions | None = None
@@ -2657,7 +3036,7 @@ class StreamEventFrame(BaseModel):
     Always `event`.
     """
     event: Annotated[
-        MessageReceivedEvent | MessageSentEvent | MessageDeliveredEvent | MessageReadEvent | MessageFailedEvent | ReactionAddedEvent | ReactionRemovedEvent | TypingStartedEvent | TypingStoppedEvent | ConversationStartedEvent | ConversationWindowClosingEvent | SenderStatusChangedEvent | TemplateStatusChangedEvent | ContactDeletedEvent | ContactLeftEvent,
+        MessageReceivedEvent | MessageSentEvent | MessageDeliveredEvent | MessageReadEvent | MessageFailedEvent | ReactionAddedEvent | ReactionRemovedEvent | TypingStartedEvent | TypingStoppedEvent | ConversationStartedEvent | ConversationWindowClosingEvent | SenderStatusChangedEvent | TemplateStatusChangedEvent | ContactDeletedEvent | ContactLeftEvent | CallReceivedEvent,
         Field(discriminator="type"),
     ]
     """
@@ -3094,7 +3473,46 @@ class TestConversationRequest(BaseModel):
     contact: TestContactAddress | None = None
     name: str | None = None
     """
-    The simulated contact's display name, as a channel would report it.
+    The simulated contact's display name, as a channel would report it. Not with `group`.
+    """
+    group: TestGroupRequest | None = None
+
+
+class TestGroupParticipant(BaseModel):
+    """
+    One simulated person in a simulated group.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    address: TestContactAddress | None = None
+    name: str | None = None
+    """
+    The participant's display name.
+    """
+
+
+class TestGroupRequest(BaseModel):
+    """
+    `imessage` only: make a simulated group conversation (`type` `group`)
+    instead of a one-to-one one, with these participants. Not with `contact`
+    or `name`. Each turn names the participant who writes (`from` on
+    `POST /v1/test/conversations/{conversation_id}/inbound`). Another channel
+    answers `400 invalid_request` with `param` `group`.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    name: str | None = None
+    """
+    The group chat's name. Leave it out for an unnamed group.
+    """
+    participants: list[TestGroupParticipant]
+    """
+    The people in the group other than your line. Each becomes a simulated contact; a participant without `address` gets a made-up one.
     """
 
 
@@ -3135,7 +3553,41 @@ class TextContent(BaseModel):
     """
     format: Literal["plain", "markdown"] | None = "plain"
     """
-    How to read `text`. `markdown` is CommonMark (`**bold**`, `*italic*`); Flow converts it to each channel's marks. `plain` is sent as written, so a channel's own marks (WhatsApp's `*bold*`) work with `plain`. Inbound text is always `plain`.
+    How to read `text`. `plain` is sent as written, so a channel's own marks
+    (WhatsApp's `*bold*`) work with `plain`. Inbound text is always `plain`.
+
+    `markdown` is CommonMark (`**bold**`, `*italic*`) with GFM
+    strikethrough (`~~strike~~`) and Flow's tags, each written
+    `<name>text</name>`: `<u>` (underline), `<big>` and `<small>` (text
+    size), and the animations `<shake>`, `<nod>`, `<explode>`, `<ripple>`,
+    `<bloom>` and `<jitter>`. Flow converts them to each channel's own marks:
+
+    | style | iMessage | WhatsApp | Telegram |
+    |---|---|---|---|
+    | bold, italic | yes | yes | yes |
+    | `~~strike~~` | yes | yes | yes |
+    | `<u>` | yes | stripped | yes |
+    | `<big>`, `<small>` | yes | stripped | stripped |
+    | animations | yes | stripped | stripped |
+
+    A stripped style keeps its text and loses only the style, and the
+    message reports it in `delivered_as` (`type` `text`, `reason` naming
+    what was dropped); it never needs `fallback`. An iMessage message that
+    goes by SMS or RCS (`Message.network`) has every style stripped the same
+    way. On the SMS channel, markdown needs `fallback` as before (`auto`
+    sends the plain text). Tags must be closed and may nest; an unknown or
+    unclosed tag is sent as written. `GET /v1/capabilities` lists what a
+    channel renders in `text_styles`.
+
+    """
+    subject: str | None = None
+    """
+    Sends only: a title shown before the text. iMessage shows it as its
+    bold subject line; WhatsApp and Telegram send it as a bold first line;
+    SMS, and iMessage sent as SMS or RCS, as a plain first line. It counts
+    toward the channel's text limit on channels that send it as a line.
+    Ignored in edits. Inbound text has none.
+
     """
 
 
@@ -3359,7 +3811,7 @@ class WebhookEndpoint(BaseModel):
     """
     The HTTPS URL events are posted to.
     """
-    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted", "contact.left"]]
+    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted", "contact.left", "call.received"]]
     """
     The event types delivered to this endpoint.
     """
@@ -3401,7 +3853,7 @@ class WebhookEndpointCreateRequest(BaseModel):
     """
     An HTTPS URL on a public address.
     """
-    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted", "contact.left"]]
+    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted", "contact.left", "call.received"]]
     """
     The event types to deliver.
     """
@@ -3438,7 +3890,7 @@ class WebhookEndpointUpdateRequest(BaseModel):
     """
     An HTTPS URL on a public address.
     """
-    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted", "contact.left"]] | None = (
+    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted", "contact.left", "call.received"]] | None = (
         None
     )
     """
