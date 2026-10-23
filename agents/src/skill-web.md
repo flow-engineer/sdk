@@ -12,7 +12,7 @@ metadata:
 
 Flow Messaging is one API for AI agents to hold conversations on Telegram, iMessage and WhatsApp. Flow hosts the senders (bots, lines), delivers every inbound message as an event, and passes every send through one gate that applies each channel's rules.
 
-Channels today: Telegram is live (the shared sandbox bot, or your own bot with a live key). iMessage is live for replies only, on lines the Flow team connects to your app: the person always writes first. WhatsApp: on your own number, in your business's WhatsApp Business Account and Meta app, which you connect yourself with a live key (`POST /v1/senders` with `channel` `whatsapp`, or the dashboard's Senders page; the Flow team can still help); the shared WhatsApp sandbox is not open yet. If the user asks for WhatsApp, tell them they can connect their own WhatsApp number with a live key, and build and test on simulated WhatsApp conversations or Telegram meanwhile: the code does not change per channel. SMS (US): in pilot, on US numbers the Flow team registers for a customer; not generally available. There is no voice calling. To ask the Flow team for a number or line, about pricing (billing is not live: free today) or for support, write to {{team_contacts|or}} with your app ID and the details; never send secrets or tokens.
+Channels today: Telegram is live (the shared sandbox bot, or your own bot with a live key). iMessage is live on lines the Flow team connects to your app: it replies after the person writes first (writing first is available on request for dedicated lines), in one-to-one chats and, on dedicated lines, group chats. WhatsApp: on your own number, in your business's WhatsApp Business Account and Meta app, which you connect yourself with a live key (`POST /v1/senders` with `channel` `whatsapp`, or the dashboard's Senders page; the Flow team can still help); the shared WhatsApp sandbox is not open yet. If the user asks for WhatsApp, tell them they can connect their own WhatsApp number with a live key, and build and test on simulated WhatsApp conversations or Telegram meanwhile: the code does not change per channel. SMS (US): in pilot, on US numbers the Flow team registers for a customer; not generally available. There is no voice calling. To ask the Flow team for a number or line, about pricing (billing is not live: free today) or for support, write to {{team_contacts|or}} with your app ID and the details; never send secrets or tokens.
 
 ## Set up
 
@@ -65,7 +65,7 @@ export const POST = flow.webhooks.handler({
 
 - Reply into the conversation; never choose a channel per message; never assume a contact has a phone number.
 - Verify webhook signatures on the raw body; deduplicate on event `id`; answer within 10 seconds.
-- iMessage: reply only; never message a contact first.
+- iMessage: reply only unless the sender's `imessage.can_initiate` is on; never message a contact first otherwise.
 - WhatsApp: free-form only within 24 hours of the person's last message, else a `template` (`409 outside_window`).
 - Content a channel cannot show fails with `422 unsupported_content` unless `fallback` is set (`"auto"` is usually right).
 - Switch on `error.type`; each error has `hint` and `doc_url` (`https://api.flow.engineer/docs/errors/<type>`).

@@ -24,7 +24,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 - Webhooks: `flow.webhooks.handler({ secret, onEvent })` for Request/Response
   frameworks, or `await flow.webhooks.constructEvent(rawBody, signature, secret)`.
 - Reply into a conversation; never choose a channel per message. Contacts may have no phone number.
-- iMessage is reply-only. Connect your own WhatsApp number with a live key (`POST /v1/senders`, `channel` `whatsapp`). SMS numbers and iMessage lines are arranged with the Flow team at {{team_contacts|or}} (never send them secrets; build and test on Telegram meanwhile; the code is the same); on WhatsApp, outside 24 h needs a `template`. Unsupported content needs `fallback: "auto"`.
+- iMessage replies only (the person writes first) unless the line can write first, on request. Connect your own WhatsApp number with a live key (`POST /v1/senders`, `channel` `whatsapp`). SMS numbers and iMessage lines are arranged with the Flow team at {{team_contacts|or}} (never send them secrets; build and test on Telegram meanwhile; the code is the same); on WhatsApp, outside 24 h needs a `template`. Unsupported content needs `fallback: "auto"`.
 - Errors are typed classes (`OutsideWindowError`, `UnsupportedContentError`, ...); retries are automatic.
 - Local testing: `npx {{package}} listen --forward-to <url>`, `npx {{package}} send "hi"`.
 - {{> mcp-short}}

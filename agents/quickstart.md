@@ -1061,9 +1061,22 @@ iMessage lines have stricter limits of their own.
 - **iMessage lines are connected by the Flow team**, not through the API, and are
   listed only with a live key (`GET /v1/senders?channel=imessage` with a test key is
   an empty list, not an error).
-- **Replies only** (unless your line is enabled for starting conversations): the
-  person texts the line first and your agent replies. `POST /v1/messages` to someone
-  who never wrote fails with `403 permission`. No cold outreach or bulk sends.
+- **Replies only** unless the line can write first (`sender.imessage.can_initiate`,
+  available on request for dedicated lines): the person texts the line first and
+  your agent replies. `POST /v1/messages` to someone who never wrote fails with
+  `403 permission`. No cold outreach or bulk sends.
+- **Group chats** (dedicated lines; the shared line ignores them): a group the line
+  was added to is one conversation with `type` `group`, no `contact`, and
+  `group.participants`; each inbound message's `from` names who wrote. Reply with the
+  normal send. Reactions in groups answer `422 unsupported_content`
+  (`channel_code` `group_unsupported`); typing and read receipts are skipped. The
+  API cannot create a group or change who is in it.
+- **SMS and RCS fallback**: when `sender.imessage.fallback` is on, a contact who
+  cannot get iMessage gets SMS or RCS instead; `message.network` says which. Styles
+  and effects are dropped there, and edits and unsends answer `422
+  unsupported_content` (`channel_code` `not_on_sms`).
+- **FaceTime calls** to the line arrive as `call.received` (`data.call.contact`); the
+  line cannot answer them, and a call does not count as the person writing.
 - **Get people to write first** with the line's opt-in link (or its QR code): the
   sender's `address.link`. It opens Messages with the line and a prefilled text.
   Their first message gives `conversation.started` (`data.via` = `inbound`), then
@@ -1075,7 +1088,10 @@ iMessage lines have stricter limits of their own.
   `address.phone` only for a number). iMessage reaches Apple devices only.
 - **Statuses**: `message.sent`, `message.delivered` and `message.failed` (a message can
   fail after `sent`). No `message.read` and no typing events.
-- **Text** up to 9999 characters, plain (markdown needs `"fallback": "auto"`).
+- **Text** up to 9999 characters. `format: "markdown"` renders bold,
+  italic, `~~strike~~`, and Flow's tags `<u>`, `<big>`, `<small>` and the animations
+  `<shake>`, `<nod>`, `<explode>`, `<ripple>`, `<bloom>`, `<jitter>`; `subject` adds a
+  bold title, and `link_preview: false` turns off link previews.
   No buttons: with `"fallback": "auto"` they go as numbered text and a numeric answer
   comes back as `button_reply`. Locations and contact cards need `"fallback": "auto"`.
   Screen and bubble effects (`effect` content). Media up to 100 MB, by `url` (HTTPS, at

@@ -36,8 +36,8 @@ class Account(BaseModel):
     - `shared`: Flow's shared senders, with caps per channel a day and a
       month (200 a day and 300 a month today).
     - `dedicated`: your own iMessage line, with a daily cap on it and no
-      monthly cap (1,000 a day today); on Flow's shared WhatsApp and
-      Telegram senders it has `shared`'s caps.
+      monthly cap (1,000 a day today); on Flow's shared senders it has
+      `shared`'s caps, counted apart (`people` shows each `pool`).
 
     The numbers are settings and may change; read the caps that apply
     now from `people`, not from this list.
@@ -512,7 +512,11 @@ class ChannelOptions(BaseModel):
 
 class ChannelPeople(BaseModel):
     """
-    The caps on people for one channel, and how many people are held.
+    The caps on people for one channel and one pool of senders, and how many
+    people are held. A channel can appear twice, once per pool, since each
+    pool is counted apart (a `dedicated` account has `shared`'s caps on Flow's
+    shared senders and its own cap on its own line).
+
     """
 
     model_config = ConfigDict(
@@ -521,6 +525,10 @@ class ChannelPeople(BaseModel):
     channel: Literal["telegram", "whatsapp", "imessage", "sms"] | None = None
     """
     A messaging channel. `sms` is US SMS and MMS (in pilot), from dedicated numbers only.
+    """
+    pool: Literal["shared", "own"]
+    """
+    `shared`: Flow's shared senders on this channel. `own`: the account's own senders on it (a dedicated line, its own bot or number). Counted apart.
     """
     limits: list[PeopleWindow]
     """
