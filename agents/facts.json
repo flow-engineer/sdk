@@ -8,7 +8,10 @@
     "traces_url": "https://flow.engineer/observe/v1/traces",
     "docs": "https://docs.flow.engineer/observe/traces.md"
   },
-  "team_contacts": ["samyak@flow.engineer", "prabal@flow.engineer"],
+  "team_contacts": [
+    "samyak@flow.engineer",
+    "prabal@flow.engineer"
+  ],
   "package": "@flow-engineer/messaging",
   "python_package": "flow-messaging",
   "env": {
@@ -22,27 +25,59 @@
     "cli_device_code": "FLOW_DEVICE_CODE",
     "cli_device_url": "FLOW_DEVICE_URL"
   },
-  "text_caps": { "telegram": 4096, "imessage": 9999, "whatsapp": 4096, "sms": 1530 },
-  "text_counting": { "telegram": "UTF-16 code units", "imessage": "characters", "whatsapp": "characters", "sms": "characters" },
+  "text_caps": {
+    "telegram": 4096,
+    "imessage": 9999,
+    "whatsapp": 4096,
+    "sms": 1530
+  },
+  "text_counting": {
+    "telegram": "UTF-16 code units",
+    "imessage": "characters",
+    "whatsapp": "characters",
+    "sms": "characters"
+  },
   "caption_cap": 1024,
   "sms_max_segments": 10,
   "sign_in": "a Flow account (flow.engineer: Google, GitHub or an email link)",
   "sdk_version": "0.2.0",
   "cli_tagline": "Telegram, iMessage and WhatsApp for AI agents.",
   "allowance": {
-    "anonymous": { "contacts": 1, "messages_per_contact": 50, "key_ttl_days": 7 },
-    "signed_in": { "contacts": 3, "messages_per_contact": 100 },
-    "channels": ["telegram", "whatsapp"],
+    "anonymous": {
+      "contacts": 1,
+      "messages_per_contact": 50,
+      "key_ttl_days": 7
+    },
+    "signed_in": {
+      "contacts": 3,
+      "messages_per_contact": 100
+    },
+    "channels": [
+      "telegram",
+      "whatsapp"
+    ],
     "claims_per_person": 10,
     "expired_key_grace_days": 30
+  },
+  "trial": {
+    "$comment": "The free trial on Flow's shared senders that a sign-in at flow.engineer (or the Flow CLI's setup) starts, once per account: people per channel over all the account's apps and both modes; the next person is held, not refused.",
+    "people_per_channel": 25,
+    "cli_setup": "npx @flow-engineer/flow setup"
   },
   "webhook_timeout_seconds": 10,
   "sending": {
     "$comment": "The send gate's defaults for dedicated senders; a sender's own limits (its `limits`) win. messages_per_second and burst: Telegram bots' pacing. new_contacts_*: conversations a sender may start, per channel (Telegram's are effectively unlimited). abuse: the signals that throttle a dedicated sender (iMessage lines have stricter ones of their own).",
     "messages_per_second": 20,
     "burst": 40,
-    "new_contacts_per_day": { "whatsapp": 50, "sms": 1000 },
-    "new_contacts_per_hour": { "whatsapp": 10, "sms": 200, "imessage": 4 },
+    "new_contacts_per_day": {
+      "whatsapp": 50,
+      "sms": 1000
+    },
+    "new_contacts_per_hour": {
+      "whatsapp": 10,
+      "sms": 200,
+      "imessage": 4
+    },
     "abuse": {
       "same_text_contacts": 20,
       "same_text_window_minutes": 60,
@@ -66,9 +101,29 @@
       "cursor_json": "{\"mcpServers\": {\"flow\": {\"url\": \"https://api.flow.engineer/mcp\", \"headers\": {\"Authorization\": \"Bearer ${env:FLOW_MESSAGING_KEY}\"}}}}"
     },
     "tools": {
-      "common": ["whoami", "capabilities", "explain_error"],
-      "test": ["sandbox_join", "send_test_message", "simulate_inbound", "get_test_transcript", "wait_for_event", "list_events", "get_webhook_deliveries", "replay_event"],
-      "live": ["send_message", "reply", "react", "typing", "list_conversations", "get_conversation_messages"]
+      "common": [
+        "whoami",
+        "capabilities",
+        "explain_error"
+      ],
+      "test": [
+        "sandbox_join",
+        "send_test_message",
+        "simulate_inbound",
+        "get_test_transcript",
+        "wait_for_event",
+        "list_events",
+        "get_webhook_deliveries",
+        "replay_event"
+      ],
+      "live": [
+        "send_message",
+        "reply",
+        "react",
+        "typing",
+        "list_conversations",
+        "get_conversation_messages"
+      ]
     }
   }
 }
