@@ -11,8 +11,10 @@ info:
     every send through one gate that enforces each channel's rules. You never handle
     vendor keys or channel webhooks.
 
-    Channels today: Telegram is live. iMessage is live for replies only, on lines the
-    Flow team connects to your app. WhatsApp numbers are connected by the Flow team
+    Channels today: Telegram is live. iMessage is live on lines the Flow team
+    connects to your app: it replies to people who write first, in one-to-one
+    conversations and in group chats people add the line to; writing first is
+    available on request on dedicated lines (`Sender.imessage.can_initiate`). WhatsApp numbers are connected by the Flow team
     too, either a number Flow provides or one in your business's own WhatsApp
     Business Account, and the WhatsApp-only parts (templates, the 24-hour window)
     apply on them; the shared WhatsApp sandbox is not open yet.
@@ -30,8 +32,10 @@ info:
     - A **contact** is a person on one channel. There is no cross-channel identity: a
       contact on Telegram and a contact on WhatsApp are different contacts, even if
       they are the same person. Never assume a contact has a phone number.
-    - A **conversation** is one sender talking with one contact. You reply into a
-      conversation; you never pick a channel per message.
+    - A **conversation** is one sender talking with one contact (`type` `direct`),
+      or, on iMessage, with a group chat the line was added to (`type` `group`,
+      see Groups). You reply into a conversation; you never pick a channel per
+      message.
     - A **message** carries one piece of typed **content** (text, media, voice,
       buttons, a reaction, a template, ...). The same content union is used in both
       directions.
@@ -161,11 +165,13 @@ info:
     - **WhatsApp**: free-form messages only while the contact's last message is less
       than 24 hours old (the window); otherwise only a `template`
       (`409 outside_window`).
-    - **iMessage**: a line may only reply unless it can start conversations; a new
-      conversation from a reply-only line is refused (`403 permission`). A line that
-      can start conversations spends the sender's new-contact budget, and a contact
-      who has never messaged the line (or opted in) gets a `message.failed` event
-      with `outside_window`.
+    - **iMessage**: a line may only reply unless it can start conversations
+      (`Sender.imessage.can_initiate`, available on request on dedicated lines); a
+      new conversation from a reply-only line is refused (`403 permission`). A line
+      that can start conversations spends the sender's new-contact budget, with a
+      warm-up curve, and a contact who has never messaged the line (or opted in)
+      gets a `message.failed` event with `outside_window`. Group conversations
+      always begin with the group writing; a start never makes one.
     - **Telegram**: the contact must have started the bot; Telegram enforces this.
     - **SMS (US, in pilot)**: a conversation starts only with a contact who texted
       one of your numbers before, or whose consent you record with the start
@@ -204,6 +210,28 @@ info:
     `sender.status_changed`: until the sender's `throttled_until`, starts fail with
     `429 sender_throttled`, while replies into existing conversations still go. The
     sender recovers by itself, with another `sender.status_changed`.
+
+    ## Groups (iMessage)
+
+    When someone adds one of your dedicated iMessage lines to a group chat (Flow's
+    shared iMessage line ignores group chats), the group is one
+    conversation with `type` `group`. It has no `contact`; `group` lists the
+    participants (`participants`, each a Flow contact on the channel, made the first
+    time Flow sees them) and the group's name when it has one. Every inbound
+    message carries `from`, the contact who wrote it. Participants who join or
+    leave change the list without an event: read the conversation
+    (`GET /v1/conversations/{conversation_id}`) for the current list.
+
+    Reply with the normal send (`POST /v1/conversations/{conversation_id}/messages`).
+    Text (with `format`, `subject` and `link_preview`), media, voice, effects,
+    `reply_to`, edits and unsends work in groups. Groups have no reactions, typing
+    indicator or read receipts from your line: a reaction answers `422
+    unsupported_content` with `param` `content.type` and `channel_code`
+    `group_unsupported` (with `fallback: "auto"` it is skipped instead), and typing
+    and read receipts are skipped, as on any channel without them (`202`,
+    `delivered_as.type` `none`). A group cannot be started, renamed, or have people added or
+    removed through the API. `GET /v1/capabilities` reports it per channel in
+    `groups`.
 
     ## Content a channel cannot show
 
@@ -661,8 +689,8 @@ paths:
       description: |
         Turns the typing indicator on or off in a conversation. Channels clear it by
         themselves after a few seconds, so keep turning it on while your agent works.
-        Where a channel has no typing indicator the call succeeds and `delivered_as`
-        says it was skipped.
+        Where a channel has no typing indicator, and in iMessage group
+        conversations, the call succeeds and `delivered_as` says it was skipped.
 
         The call goes to the channel at once, not behind the conversation's queued
         messages, so the channel's answer is the call's answer. It fails with
@@ -716,7 +744,8 @@ paths:
       description: |
         Shows the contact that their messages were read, up to and including
         `up_to` (default: the latest inbound message). Telegram bots cannot send read
-        receipts, so there `delivered_as` says it was skipped. iMessage has no
+        receipts, so there `delivered_as` says it was skipped, as it does in iMessage
+        group conversations. iMessage has no
         per-message read receipt: the whole conversation is marked read, and `up_to`
         is accepted but has no effect there.
 
@@ -2128,6 +2157,13 @@ paths:
         (`via` `outbound`). `conversation.started` comes before that message's
         `message.received` or `message.sent`.
 
+        On iMessage, `group` makes a simulated group conversation instead (`type`
+        `group`, with the participants as simulated contacts), so you can test how
+        your agent handles groups: each turn names its writer in `from`, and the
+        gate applies the group rules (reactions refused with `channel_code`
+        `group_unsupported`, typing and read receipts skipped). Each call with
+        `group` makes a new group.
+
         Give `contact` to choose the simulated contact's address; giving an address
         that already has a simulated conversation returns that conversation (`200`).
         Without `contact`, Flow makes a new contact with a made-up address (phone
@@ -2163,6 +2199,9 @@ paths:
               telegram:
                 summary: A Telegram contact with a chosen user ID
                 value: {channel: telegram, contact: {telegram_user_id: "700100200"}, name: Asha}
+              imessage_group:
+                summary: An iMessage group chat with two people
+                value: {channel: imessage, group: {name: "Weekend trip", participants: [{name: Asha}, {name: Ben, address: {phone: "+15555550142"}}]}}
       responses:
         "201":
           description: The simulated conversation was created.
@@ -2808,7 +2847,7 @@ components:
         - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
         - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
         - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-        - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
+        - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. In an iMessage group conversation, a reaction answers it with `param` `content.type` and `channel_code` `group_unsupported` (groups take no reactions from your line): leave it out, or set `fallback: "auto"` to skip it. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
         - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
         - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
         - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file. (When the scan cannot run at all, the upload answers a retryable `500 api_error` with `Retry-After` instead.)
@@ -2898,7 +2937,10 @@ components:
             `sandbox_contact_left` (`permission`), `window_closed` and
             `queued_too_long` (`outside_window`), and
             `channel_timeout_unknown_outcome` (`channel_error`: the channel never
-            confirmed the send, so it may or may not have arrived). From typing and
+            confirmed the send, so it may or may not have arrived). iMessage
+            (`unsupported_content`): `group_unsupported` (a reaction in a group
+            conversation; `param` `content.type`) and
+            `not_on_sms` (an edit or unsend of a message that went by SMS or RCS). From typing and
             read receipts, `unknown_outcome` (`channel_error`: the call timed out after
             it was sent).
         request_id:
@@ -2925,8 +2967,28 @@ components:
           description: The company's name.
         plan:
           type: string
-          description: The account's plan.
-          enum: [free, pro, business, enterprise]
+          description: |
+            The account's plan, set by the Flow team (there is no self-serve
+            checkout). Each plan caps how many people your apps may talk with per
+            channel; `people` shows the caps and what is used.
+
+            - `free`: a small number of people per channel in total (25 today).
+            - `shared`: Flow's shared senders, with caps per channel a day and a
+              month (200 a day and 300 a month today).
+            - `dedicated`: your own iMessage line, with a daily cap on it and no
+              monthly cap (1,000 a day today); on Flow's shared WhatsApp and
+              Telegram senders it has `shared`'s caps.
+
+            The numbers are settings and may change; read the caps that apply
+            now from `people`, not from this list.
+            - `pro`, `business`, `enterprise`: older plans, kept for accounts that
+              have them; they have no people caps.
+
+            New values may be added; treat one you do not know like `free`.
+          enum: [free, shared, dedicated, pro, business, enterprise]
+          x-enum-varnames: [Free, PlanShared, PlanDedicated, Pro, Business, Enterprise]
+        people:
+          $ref: "#/components/schemas/PeopleLimits"
         hipaa:
           type: boolean
           readOnly: true
@@ -2947,6 +3009,67 @@ components:
           type: string
           format: date-time
           description: When the account was created.
+    PeopleLimits:
+      type: object
+      readOnly: true
+      description: |
+        The account's plan caps on people, and what is used now. A person counts
+        once in a window, with their first inbound message in it on that channel's
+        sender, whether one-to-one or in a group chat; group members who never
+        write, calls, and your own sends do not count. A person past a cap is
+        **held**: their messages are kept but not delivered to your app, and are
+        delivered once a place frees or the window rolls over. Absent when the
+        account's plan has no people caps. These numbers are the source of truth
+        for the caps; they are settings and can change.
+      required: [per, channels]
+      properties:
+        per:
+          type: string
+          description: "`channel`: each channel has its own caps (every plan today). `account`: one set of caps over all channels, with no `channel` on its entry."
+          enum: [channel, account]
+        channels:
+          type: array
+          description: One entry per channel the caps apply to (one entry without `channel` when `per` is `account`).
+          items:
+            $ref: "#/components/schemas/ChannelPeople"
+    ChannelPeople:
+      type: object
+      description: The caps on people for one channel, and how many people are held.
+      required: [limits, held]
+      properties:
+        channel:
+          $ref: "#/components/schemas/Channel"
+        limits:
+          type: array
+          description: "Each window the plan caps (`free`: `total`; `shared`: `day` and `month`; `dedicated`: `day`)."
+          items:
+            $ref: "#/components/schemas/PeopleWindow"
+        held:
+          type: integer
+          minimum: 0
+          description: People held now because a cap is reached; their messages wait and are delivered when a place frees or the window rolls over.
+    PeopleWindow:
+      type: object
+      description: One capped window and how many people it has used.
+      required: [window, limit, used]
+      properties:
+        window:
+          type: string
+          description: "`total`: since the account began (never resets). `day`: the UTC day. `month`: the UTC calendar month."
+          enum: [total, day, month]
+          x-enum-varnames: [PeopleWindowTotal, PeopleWindowDay, PeopleWindowMonth]
+        limit:
+          type: integer
+          minimum: 0
+          description: How many people may write in the window.
+        used:
+          type: integer
+          minimum: 0
+          description: How many distinct people wrote in the window so far.
+        resets_at:
+          type: string
+          format: date-time
+          description: When the window rolls over and `used` starts again. Absent for `total`.
     App:
       type: object
       description: One agent integration. Owns API keys (per mode), webhook endpoints and settings.
@@ -3298,6 +3421,8 @@ components:
           enum: [green, yellow, red, unknown]
         sms:
           $ref: "#/components/schemas/SmsSender"
+        imessage:
+          $ref: "#/components/schemas/ImessageSender"
         setup:
           $ref: "#/components/schemas/SenderSetup"
         join_code:
@@ -3369,6 +3494,53 @@ components:
           description: Whether the number sends and receives MMS (images, audio and video). Without it, `media` and `voice` sends answer `422 unsupported_content`.
         quiet_hours:
           $ref: "#/components/schemas/QuietHours"
+    ImessageSender:
+      type: object
+      readOnly: true
+      description: |
+        iMessage senders only: what the line can do beyond replying in iMessage.
+        Set by the Flow team (ask them to change it); absent on other channels.
+      required: [fallback, can_initiate]
+      properties:
+        fallback:
+          type: boolean
+          description: |
+            Whether messages to a contact who cannot get iMessage go by SMS or RCS
+            instead. The network is chosen for each message when it is sent, never
+            by your app; the message's `network` says which one carried it.
+            Included on Flow's shared lines; on a dedicated line, an add-on
+            arranged with the Flow team. Off, a message to a contact who is not on
+            iMessage fails (`message.failed`). On SMS and RCS the text goes as
+            plain text (styles dropped, `subject` as its first line) and effects
+            are dropped; edits and unsends of such a message answer `422
+            unsupported_content` with `channel_code` `not_on_sms` (see
+            `Message.network`).
+        call_forwarding:
+          $ref: "#/components/schemas/CallForwarding"
+        can_initiate:
+          type: boolean
+          description: |
+            Whether the line may write first: start a conversation with
+            `POST /v1/messages` with a contact who has not messaged it. Off (the
+            default), the line only replies and a start answers `403 permission`.
+            Writing first is available on request from the Flow team, on dedicated
+            lines only (always `false` on shared lines); a line that starts
+            conversations spends its new-contact budget (`limits`), which grows
+            during warm-up.
+    CallForwarding:
+      type: object
+      description: |
+        Dedicated lines only: where phone calls to the line's number are
+        forwarded, set up with the Flow team. Forwarded calls send no event.
+        FaceTime calls are not forwarded; they arrive as `call.received`. Absent
+        when calls are not forwarded (always on shared lines).
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          description: The E.164 number calls are forwarded to.
+          pattern: "^\\+[1-9][0-9]{6,14}$"
+          examples: ["+15555550123"]
     QuietHours:
       type: object
       description: |
@@ -3665,21 +3837,41 @@ components:
           description: iMessage. A phone number or an email address.
 
     # ---------------------------------------------------------------- conversations
+    ConversationType:
+      type: string
+      description: |
+        Flow always sends it; read a missing one as `direct` (answers from
+        before groups existed). `direct`: one sender and one contact (every
+        channel). `group`: a group chat
+        one of your dedicated iMessage lines was added to; it has `group` and no
+        `contact`. Flow's shared iMessage line ignores group chats, so they never
+        reach your app from it.
+      enum: [direct, group]
+      default: direct
+      x-enum-varnames: [ConversationDirect, ConversationGroup]
     Conversation:
       type: object
-      description: One sender talking with one contact. Holds the window state and whether the contact opted in.
-      required: [id, app, channel, sender, contact, livemode, opted_in, created_at]
+      description: |
+        One sender talking with one contact (`type` `direct`), or with an iMessage
+        group chat (`type` `group`). Holds the window state and whether the contact
+        opted in.
+      required: [id, app, channel, sender, livemode, opted_in, created_at]
       properties:
         id:
           $ref: "#/components/schemas/ConversationId"
         app:
           $ref: "#/components/schemas/AppId"
+        type:
+          $ref: "#/components/schemas/ConversationType"
         channel:
           $ref: "#/components/schemas/Channel"
         sender:
           $ref: "#/components/schemas/SenderId"
         contact:
           $ref: "#/components/schemas/ContactId"
+          description: The contact the conversation is with. Always set when `type` is `direct`; absent on group conversations (each message's `from` says who wrote).
+        group:
+          $ref: "#/components/schemas/Group"
         livemode:
           type: boolean
           description: Whether the conversation belongs to live mode.
@@ -3693,7 +3885,7 @@ components:
           description: WhatsApp only. Until when free-form messages may be sent; after it, only templates. Absent when the window is closed or the channel has none.
         opted_in:
           type: boolean
-          description: Whether the contact has agreed to receive messages (wrote first, joined the sandbox, or you recorded consent).
+          description: Whether the contact has agreed to receive messages (wrote first, joined the sandbox, or you recorded consent). Always `true` on group conversations, which begin with the group writing.
         simulated:
           type: boolean
           readOnly: true
@@ -3706,17 +3898,23 @@ components:
           description: When the conversation began.
     ConversationRef:
       type: object
-      description: The conversation an event happened in, inlined so most handlers need no extra call.
-      required: [id, channel, sender, contact]
+      description: The conversation an event happened in, inlined so most handlers need no extra call. A group's participants are not inlined; read the conversation for them.
+      required: [id, channel, sender]
       properties:
         id:
           $ref: "#/components/schemas/ConversationId"
+        type:
+          $ref: "#/components/schemas/ConversationType"
         channel:
           $ref: "#/components/schemas/Channel"
         sender:
           $ref: "#/components/schemas/SenderId"
         contact:
           $ref: "#/components/schemas/ContactId"
+          description: The contact the conversation is with. Always set when `type` is `direct`; absent on group conversations (the message's `from` says who wrote).
+        group_name:
+          type: string
+          description: Group conversations only. The group chat's name, when it has one.
         window_open_until:
           type: string
           format: date-time
@@ -3725,6 +3923,36 @@ components:
           type: boolean
           readOnly: true
           description: "`true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise."
+    Group:
+      type: object
+      readOnly: true
+      description: |
+        Group conversations only (iMessage): the group chat as Flow saw it last.
+        People who join or leave change `participants` without an event; Flow
+        updates the list when the group next writes. The channel's own group ID is
+        never exposed: use the conversation's ID.
+      required: [participants]
+      properties:
+        name:
+          type: string
+          description: The group chat's name, when it has one.
+        participants:
+          type: array
+          description: The people in the group other than your line, each a contact on the channel (made the first time Flow sees them, like a one-to-one contact).
+          items:
+            $ref: "#/components/schemas/GroupParticipant"
+    GroupParticipant:
+      type: object
+      description: One person in a group chat.
+      required: [contact, address]
+      properties:
+        contact:
+          $ref: "#/components/schemas/ContactId"
+        address:
+          $ref: "#/components/schemas/ContactAddress"
+        name:
+          type: string
+          description: The person's display name, as the channel reports it. May be missing.
     ConversationList:
       type: object
       description: A page of conversations.
@@ -3779,10 +4007,16 @@ components:
           $ref: "#/components/schemas/ConversationId"
         direction:
           $ref: "#/components/schemas/MessageDirection"
+        from:
+          $ref: "#/components/schemas/ContactId"
+          readOnly: true
+          description: Inbound messages only, on every channel. The contact who wrote it; in a group conversation, which participant. Absent on your own messages.
         status:
           $ref: "#/components/schemas/MessageStatus"
         content:
           $ref: "#/components/schemas/Content"
+        network:
+          $ref: "#/components/schemas/MessageNetwork"
         delivered_as:
           $ref: "#/components/schemas/DeliveredAs"
         error:
@@ -3834,6 +4068,21 @@ components:
           type: string
           description: "`gsm7` or `ucs2`."
           enum: [gsm7, ucs2]
+    MessageNetwork:
+      type: string
+      readOnly: true
+      description: |
+        iMessage channel only: the network that carried the message. `imessage`,
+        or `sms` or `rcs` when the line has fallback (`Sender.imessage.fallback`)
+        and the contact could not get iMessage. Set on inbound messages, and on
+        your messages once the channel reports it (in `message.sent`,
+        `message.delivered` or `message.failed`, as `data.message.network`);
+        absent before that and on other channels. On `sms` and `rcs` the text is
+        sent plain (styles and effects dropped, reported in `delivered_as`), and
+        edits and unsends of the message answer `422 unsupported_content` with
+        `channel_code` `not_on_sms`.
+      enum: [imessage, sms, rcs]
+      x-enum-varnames: [NetworkImessage, NetworkSms, NetworkRcs]
     MessageDirection:
       type: string
       description: "`in` from the contact, `out` from your app."
@@ -3920,7 +4169,8 @@ components:
           `foursquare_type`, `google_place_id`, `google_place_type`, `vcard`,
           `is_big` (reactions).
         - **iMessage**: on messages, `subject`, `effect`, `preview`,
-          `reply_to_id` and `contact_file`; on `typing` content, `typing` (how long
+          `reply_to_id` and `contact_file` (the typed `TextContent.subject` and
+          `link_preview` win over `subject` and `preview`); on `typing` content, `typing` (how long
           to show it, 1 to 60 seconds). Reactions, read receipts, edits and unsends
           take none.
         - **WhatsApp**: on `text` content, `preview_url` (show a link preview;
@@ -3954,6 +4204,15 @@ components:
             accepted, the reply goes out as a normal message.
         fallback:
           $ref: "#/components/schemas/Fallback"
+        link_preview:
+          type: boolean
+          default: true
+          description: |
+            Whether links in the text show a rich preview. On by default; `false`
+            sends links as plain text. iMessage and WhatsApp follow it on text
+            messages, Telegram on text messages; SMS never shows previews. It
+            wins over a `channel_options` key that sets the same thing (`preview`,
+            `preview_url`, `link_preview_options`, `disable_web_page_preview`).
         channel_options:
           $ref: "#/components/schemas/ChannelOptions"
         metadata:
@@ -3963,7 +4222,10 @@ components:
       description: |
         The first message from one of your senders to a contact. A field not listed
         here is refused with `400 invalid_request` naming it in `param`, never
-        ignored. There are no scheduled sends: to start a conversation later, wait
+        ignored. On iMessage the sender must be able to write first
+        (`Sender.imessage.can_initiate`, available on request); otherwise the start
+        answers `403 permission`. A start always makes a `direct` conversation:
+        there is no way to start a group. There are no scheduled sends: to start a conversation later, wait
         in your own code and send then.
       required: [sender, to, content]
       additionalProperties: false
@@ -3976,6 +4238,15 @@ components:
           $ref: "#/components/schemas/Content"
         fallback:
           $ref: "#/components/schemas/Fallback"
+        link_preview:
+          type: boolean
+          default: true
+          description: |
+            Whether links in the text show a rich preview. On by default; `false`
+            sends links as plain text. iMessage and WhatsApp follow it on text
+            messages, Telegram on text messages; SMS never shows previews. It
+            wins over a `channel_options` key that sets the same thing (`preview`,
+            `preview_url`, `link_preview_options`, `disable_web_page_preview`).
         channel_options:
           $ref: "#/components/schemas/ChannelOptions"
         metadata:
@@ -4017,15 +4288,15 @@ components:
         | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
         | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
         | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
-        | reaction | yes | yes | tapbacks, other emoji as emoji reactions | no | closest tapback, else skipped (SMS: none) |
+        | reaction | yes | yes | tapbacks, other emoji as emoji reactions (not in groups) | no | closest tapback, else skipped (SMS: none) |
         | template | no | yes | no | no | none |
         | location | yes | yes | no | no | maps link as text |
         | contact_card | yes | yes | no | no | text |
         | effect | no | no | yes | no | plain text |
-        | typing | yes | yes | yes (within 5 minutes of the contact's last message) | no | skipped |
-        | read | no (bots) | yes | yes (the whole conversation) | no | skipped |
-        | edit | yes | no | yes (within 15 minutes) | no | none |
-        | unsend | yes (within 48 hours) | no | yes (within 2 minutes) | no | none |
+        | typing | yes | yes | yes (within 5 minutes of the contact's last message; skipped in groups) | no | skipped |
+        | read | no (bots) | yes | yes (the whole conversation; skipped in groups) | no | skipped |
+        | edit | yes | no | yes (within 15 minutes; not when it went by SMS or RCS) | no | none |
+        | unsend | yes (within 48 hours) | no | yes (within 2 minutes; not when it went by SMS or RCS) | no | none |
       oneOf:
         - $ref: "#/components/schemas/TextContent"
         - $ref: "#/components/schemas/MediaContent"
@@ -4080,7 +4351,42 @@ components:
           type: string
           enum: [plain, markdown]
           default: plain
-          description: How to read `text`. `markdown` is CommonMark (`**bold**`, `*italic*`); Flow converts it to each channel's marks. `plain` is sent as written, so a channel's own marks (WhatsApp's `*bold*`) work with `plain`. Inbound text is always `plain`.
+          description: |
+            How to read `text`. `plain` is sent as written, so a channel's own marks
+            (WhatsApp's `*bold*`) work with `plain`. Inbound text is always `plain`.
+
+            `markdown` is CommonMark (`**bold**`, `*italic*`) with GFM
+            strikethrough (`~~strike~~`) and Flow's tags, each written
+            `<name>text</name>`: `<u>` (underline), `<big>` and `<small>` (text
+            size), and the animations `<shake>`, `<nod>`, `<explode>`, `<ripple>`,
+            `<bloom>` and `<jitter>`. Flow converts them to each channel's own marks:
+
+            | style | iMessage | WhatsApp | Telegram |
+            |---|---|---|---|
+            | bold, italic | yes | yes | yes |
+            | `~~strike~~` | yes | yes | yes |
+            | `<u>` | yes | stripped | yes |
+            | `<big>`, `<small>` | yes | stripped | stripped |
+            | animations | yes | stripped | stripped |
+
+            A stripped style keeps its text and loses only the style, and the
+            message reports it in `delivered_as` (`type` `text`, `reason` naming
+            what was dropped); it never needs `fallback`. An iMessage message that
+            goes by SMS or RCS (`Message.network`) has every style stripped the same
+            way. On the SMS channel, markdown needs `fallback` as before (`auto`
+            sends the plain text). Tags must be closed and may nest; an unknown or
+            unclosed tag is sent as written. `GET /v1/capabilities` lists what a
+            channel renders in `text_styles`.
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: |
+            Sends only: a title shown before the text. iMessage shows it as its
+            bold subject line; WhatsApp and Telegram send it as a bold first line;
+            SMS, and iMessage sent as SMS or RCS, as a plain first line. It counts
+            toward the channel's text limit on channels that send it as a line.
+            Ignored in edits. Inbound text has none.
     MediaContent:
       type: object
       description: |
@@ -4654,6 +4960,7 @@ components:
         - `template.status_changed`: Meta approved, rejected or paused a template.
         - `contact.deleted`: a contact was deleted with `DELETE /v1/contacts/{contact_id}`. Carries only the contact's ID; delete what you keep about them too.
         - `contact.left`: a person on a shared sender (the sandbox) joined another app, or the other mode of your app, by sending its join message. Nothing more reaches you from them, and sends to them fail with `sandbox_contact_left`, until they send your join message again.
+        - `call.received`: iMessage only. A contact tried to FaceTime the line. The line cannot answer it, and the call does not count as the contact writing: a reply-only line can message them only after they write.
       enum:
         - message.received
         - message.sent
@@ -4670,6 +4977,7 @@ components:
         - template.status_changed
         - contact.deleted
         - contact.left
+        - call.received
     Timing:
       type: object
       description: |
@@ -4739,6 +5047,7 @@ components:
         - $ref: "#/components/schemas/TemplateStatusChangedEvent"
         - $ref: "#/components/schemas/ContactDeletedEvent"
         - $ref: "#/components/schemas/ContactLeftEvent"
+        - $ref: "#/components/schemas/CallReceivedEvent"
       discriminator:
         propertyName: type
         mapping:
@@ -4757,6 +5066,7 @@ components:
           template.status_changed: "#/components/schemas/TemplateStatusChangedEvent"
           contact.deleted: "#/components/schemas/ContactDeletedEvent"
           contact.left: "#/components/schemas/ContactLeftEvent"
+          call.received: "#/components/schemas/CallReceivedEvent"
     MessageEventData:
       type: object
       description: The message the event is about.
@@ -4834,6 +5144,9 @@ components:
       description: A reaction the contact added or removed.
       required: [message_id, emoji]
       properties:
+        from:
+          $ref: "#/components/schemas/ContactId"
+          description: The contact who reacted, where the channel reports it (in a group conversation, which participant).
         message_id:
           $ref: "#/components/schemas/MessageId"
         emoji:
@@ -5062,6 +5375,48 @@ components:
               description: Always `contact.left`.
             data:
               $ref: "#/components/schemas/ContactLeftData"
+    CallData:
+      type: object
+      description: The call the contact tried to make.
+      required: [call]
+      properties:
+        call:
+          $ref: "#/components/schemas/Call"
+    Call:
+      type: object
+      description: One call attempt to an iMessage line.
+      required: [contact, network]
+      properties:
+        contact:
+          $ref: "#/components/schemas/ContactId"
+          description: The contact who called.
+        network:
+          type: string
+          description: How they called. `facetime` (a FaceTime call) today.
+          enum: [facetime]
+          x-enum-varnames: [CallNetworkFacetime]
+    CallReceivedEvent:
+      description: |
+        iMessage only. A contact tried to FaceTime one of your lines. The line
+        cannot take calls, so nothing is answered. `conversation` is the direct conversation with the contact, made if it is
+        new (with `conversation.started`, `via` `inbound`). A call is not a
+        message: it does not count toward plan caps on people, and it does not
+        open the conversation for a reply-only line (a send there before the
+        contact writes is a start, refused with `403 permission` unless
+        `Sender.imessage.can_initiate` is on). Phone calls forwarded by
+        `Sender.imessage.call_forwarding` send no event. Delivered only to webhook
+        endpoints that list `call.received` in `events`.
+      allOf:
+        - $ref: "#/components/schemas/EventBase"
+        - type: object
+          required: [type, data, conversation]
+          properties:
+            type:
+              type: string
+              enum: [call.received]
+              description: Always `call.received`.
+            data:
+              $ref: "#/components/schemas/CallData"
     EventList:
       type: object
       description: A page of events, oldest first.
@@ -5200,6 +5555,39 @@ components:
             $ref: "#/components/schemas/ContentSupport"
         limits:
           $ref: "#/components/schemas/ChannelLimits"
+        groups:
+          $ref: "#/components/schemas/GroupSupport"
+        text_styles:
+          type: array
+          description: |
+            The `markdown` styles the channel renders (see `TextContent.format`);
+            others are stripped to their text and reported in `delivered_as`.
+            iMessage: all of them (none when the conversation's messages go by SMS
+            or RCS); Telegram: `bold`, `italic`, `underline`, `strikethrough`;
+            WhatsApp: `bold`, `italic`, `strikethrough`; SMS: none.
+          items:
+            type: string
+            enum: [bold, italic, underline, strikethrough, size, animation]
+            x-enum-varnames: [TextStyleBold, TextStyleItalic, TextStyleUnderline, TextStyleStrikethrough, TextStyleSize, TextStyleAnimation]
+    GroupSupport:
+      type: object
+      description: |
+        What the conversation's sender does with group chats. Dedicated iMessage
+        lines receive and reply in groups; Flow's shared iMessage line ignores
+        group chats (`receive` and `reply` `false`), and the other channels do
+        neither today. No channel lets the API
+        create a group or change who is in it (`manage` is always `false`).
+      required: [receive, reply, manage]
+      properties:
+        receive:
+          type: boolean
+          description: Whether messages from group chats your sender is in reach your app, as `group` conversations.
+        reply:
+          type: boolean
+          description: Whether you can send into a group conversation. Reactions are refused there (`422 unsupported_content`, `channel_code` `group_unsupported`), and typing and read receipts are skipped (`delivered_as.type` `none`).
+        manage:
+          type: boolean
+          description: Whether the API can create a group, rename it, or add or remove people. Always `false`.
     WindowState:
       type: object
       description: Whether free-form messages can be sent now.
@@ -5428,7 +5816,42 @@ components:
           type: string
           minLength: 1
           maxLength: 64
-          description: The simulated contact's display name, as a channel would report it.
+          description: The simulated contact's display name, as a channel would report it. Not with `group`.
+        group:
+          $ref: "#/components/schemas/TestGroupRequest"
+    TestGroupRequest:
+      type: object
+      description: |
+        `imessage` only: make a simulated group conversation (`type` `group`)
+        instead of a one-to-one one, with these participants. Not with `contact`
+        or `name`. Each turn names the participant who writes (`from` on
+        `POST /v1/test/conversations/{conversation_id}/inbound`). Another channel
+        answers `400 invalid_request` with `param` `group`.
+      required: [participants]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: The group chat's name. Leave it out for an unnamed group.
+        participants:
+          type: array
+          minItems: 2
+          maxItems: 32
+          description: The people in the group other than your line. Each becomes a simulated contact; a participant without `address` gets a made-up one.
+          items:
+            $ref: "#/components/schemas/TestGroupParticipant"
+    TestGroupParticipant:
+      type: object
+      description: One simulated person in a simulated group.
+      properties:
+        address:
+          $ref: "#/components/schemas/TestContactAddress"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: The participant's display name.
     TestContactAddress:
       type: object
       description: |
@@ -5463,6 +5886,9 @@ components:
             `contact_card` or `button_reply` (a tap on a reply button, named by the
             buttons message and the button's `id`). Media and voice take a `file_id`
             from `POST /v1/files`. Other types answer `400 invalid_request`.
+        from:
+          $ref: "#/components/schemas/ContactId"
+          description: Simulated group conversations only, and required there. The participant who writes this turn (a `contact` in the conversation's `group.participants`); another contact answers `400 invalid_request` with `param` `from`. Refused the same way on one-to-one conversations.
         reply_to:
           $ref: "#/components/schemas/MessageId"
           description: A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`.

@@ -77,15 +77,19 @@ export function toSendRequest(input: SendInput): SendMessageRequest {
 }
 
 /**
- * A conversation you can act in: one sender talking with one contact. Events from
+ * A conversation you can act in: one sender talking with one contact, or with an
+ * iMessage group chat (`type` `group`, no `contact`). Events from
  * `flow.events.stream()` carry one as `event.conversation`; get one for any ID with
  * `flow.conversation(id)`.
  */
 export class ConversationHandle {
   readonly id: string;
+  readonly type: ConversationRef["type"] | undefined;
   readonly channel: Channel | undefined;
   readonly sender: string | undefined;
+  /** The contact; absent on group conversations (each message's `from` says who wrote). */
   readonly contact: string | undefined;
+  readonly group_name: string | undefined;
   readonly window_open_until: string | undefined;
   readonly #flow: FlowMessaging;
   /** Where `waitForReply` starts by default: a message or event ID, or none (the moment of the call). */
@@ -100,12 +104,14 @@ export class ConversationHandle {
     this.#after = options.after;
     const r = typeof ref === "string" ? { id: ref } : ref;
     this.id = r.id;
+    this.type = r.type;
     this.channel = r.channel;
     this.sender = r.sender;
     this.contact = r.contact;
+    this.group_name = r.group_name;
     this.window_open_until = r.window_open_until;
     // Keep JSON output identical to the API's ConversationRef.
-    for (const k of ["channel", "sender", "contact", "window_open_until"] as const) {
+    for (const k of ["type", "channel", "sender", "contact", "group_name", "window_open_until"] as const) {
       if (this[k] === undefined) delete (this as Record<string, unknown>)[k];
     }
   }
