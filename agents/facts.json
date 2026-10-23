@@ -120,6 +120,8 @@
         "send_message",
         "reply",
         "react",
+        "edit_message",
+        "unsend_message",
         "typing",
         "list_conversations",
         "get_conversation_messages"

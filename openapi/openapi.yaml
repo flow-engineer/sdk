@@ -606,12 +606,27 @@ paths:
         caption of a media message, which takes at most 1024 characters where a text
         message takes 4096). Telegram and iMessage support edits (iMessage:
         within 15 minutes of sending, and not the message that started the
-        conversation); WhatsApp does not (`422 unsupported_content`).
+        conversation; Telegram: no time limit); WhatsApp and SMS do not (`422
+        unsupported_content`).
+
+        Flow checks the channel's limits when you call, from its own record of
+        when the message was sent: an edit past the limit answers `422
+        unsupported_content` with `channel_code` `edit_window_closed`, and an
+        iMessage edit of the message that started the conversation with
+        `first_message_not_editable`. The error's `message` states the limit and
+        how long ago the message was sent, for example "iMessage allows edits
+        within 15 minutes of sending; this message was sent 22 minutes ago." Send
+        the corrected text as a new message instead. Flow gives a few seconds'
+        allowance at the limit, so a call the channel would still take is never
+        refused.
 
         The edit passes the send gate and goes out in order with the conversation's
         other messages. The answer shows the message with its new content; the stored
         message takes it once the channel accepted the edit. If the channel refuses
-        it, you receive `message.failed` for an `edit` message naming this one.
+        it after Flow accepted the call (for example when the edit waited behind the
+        conversation's earlier messages until the limit passed), you receive
+        `message.failed` for an `edit` message naming this one, and the message
+        keeps its earlier text.
         Only your app's outbound messages can be edited: an inbound message's ID
         answers `400 invalid_request` (`param` `message_id`). The gate's sender and
         contact checks apply as for a send, so the edit can answer `403 permission`
@@ -651,17 +666,38 @@ paths:
       summary: Unsend a message
       description: |
         Removes one of your outbound messages from the contact's chat, where the
-        channel allows it (Telegram: yes, within 48 hours; iMessage: yes, within
-        2 minutes of sending; WhatsApp: no, `422 unsupported_content`). The unsend passes the send gate and goes out in order with the
-        conversation's other messages; the message stays in your history and takes
-        status `unsent` once the channel removed it. Repeating the call is safe.
+        channel allows it (Telegram: yes, within 48 hours of sending; iMessage:
+        yes, within 2 minutes of sending; WhatsApp and SMS: no, `422
+        unsupported_content`). Flow never sends anything in its place.
+
+        Flow checks the channel's limit when you call, from its own record of when
+        the message was sent: an unsend past it answers `422 unsupported_content`
+        with `channel_code` `unsend_window_closed`, and the error's `message`
+        states the limit and how long ago the message was sent, for example
+        "iMessage allows unsends within 2 minutes of sending; this message was sent
+        6 minutes ago." Flow gives a few seconds' allowance at the limit, so a call
+        the channel would still take is never refused.
+
+        A `200` means Flow accepted the unsend, not that the message is gone yet.
+        The unsend passes the send gate and goes out in order with the
+        conversation's other messages. When the channel removed it, you receive
+        `message.sent` for the `unsend` message (its `content.message_id` names
+        this one), and this message takes status `unsent`. If the channel refuses
+        it after Flow accepted the call (for example when the unsend waited behind
+        the conversation's earlier messages until the limit passed), you receive
+        `message.failed` for the `unsend` message, with the channel's reason in
+        `error`, and this message keeps its status: it stays in the contact's chat.
+        Repeating the call is safe.
         Only your app's outbound messages can be unsent: an inbound message's ID
         answers `400 invalid_request` (`param` `message_id`). The gate's sender and
         contact checks apply as for a send, so the unsend can answer `403
         permission` (for example a sandbox contact who has since joined another app).
       responses:
         "200":
-          description: The message was unsent.
+          description: |
+            The unsend was accepted. The message is answered as it is now: its
+            `status` becomes `unsent` once the channel removed it (a message that
+            is already `unsent` is answered as it is).
           content:
             application/json:
               schema:
@@ -2850,7 +2886,7 @@ components:
         - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
         - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
         - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-        - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. In an iMessage group conversation, a reaction answers it with `param` `content.type` and `channel_code` `group_unsupported` (groups take no reactions from your line): leave it out, or set `fallback: "auto"` to skip it. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
+        - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. In an iMessage group conversation, a reaction answers it with `param` `content.type` and `channel_code` `group_unsupported` (groups take no reactions from your line): leave it out, or set `fallback: "auto"` to skip it. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
         - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
         - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
         - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file. (When the scan cannot run at all, the upload answers a retryable `500 api_error` with `Retry-After` instead.)
@@ -2943,7 +2979,11 @@ components:
             confirmed the send, so it may or may not have arrived). iMessage
             (`unsupported_content`): `group_unsupported` (a reaction in a group
             conversation; `param` `content.type`) and
-            `not_on_sms` (an edit or unsend of a message that went by SMS or RCS). From typing and
+            `not_on_sms` (an edit or unsend of a message that went by SMS or RCS).
+            Edits and unsends (`unsupported_content`): `edit_window_closed` and
+            `unsend_window_closed` (the message is older than the channel allows
+            for the change) and `first_message_not_editable` (iMessage: the message
+            that started the conversation). From typing and
             read receipts, `unknown_outcome` (`channel_error`: the call timed out after
             it was sent).
         request_id:
