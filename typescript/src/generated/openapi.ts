@@ -1626,7 +1626,8 @@ export interface components {
          *     joins an app on a sandbox sender, and keeps counting after it leaves. Sends
          *     past the allowance answer `403 permission` with `channel_code`
          *     `sandbox_allowance_used`; a join past `contacts.limit` is refused in the
-         *     chat.
+         *     chat. Absent on an account with the free trial (your own account, from
+         *     your first sign-in), which replaces it, and on paid plans.
          */
         SandboxAllowance: {
             /**
@@ -1903,9 +1904,10 @@ export interface components {
              *     by your app; the message's `network` says which one carried it.
              *     Included on Flow's shared lines; on a dedicated line, an add-on
              *     arranged with the Flow team. Off, a message to a contact who is not on
-             *     iMessage fails (`message.failed`). On SMS and RCS the text goes as
-             *     plain text (styles dropped, `subject` as its first line) and effects
-             *     are dropped; edits and unsends of such a message answer `422
+             *     iMessage fails (`message.failed`). Flow sends every message as for
+             *     iMessage, since the network is picked after the send: one that goes
+             *     by SMS or RCS may lose its styles, effect and `subject`, or show
+             *     markup as written. Edits and unsends of such a message answer `422
              *     unsupported_content` with `channel_code` `not_on_sms` (see
              *     `Message.network`).
              */
@@ -2331,9 +2333,10 @@ export interface components {
          *     and the contact could not get iMessage. Set on inbound messages, and on
          *     your messages once the channel reports it (in `message.sent`,
          *     `message.delivered` or `message.failed`, as `data.message.network`);
-         *     absent before that and on other channels. On `sms` and `rcs` the text is
-         *     sent plain (styles and effects dropped, reported in `delivered_as`), and
-         *     edits and unsends of the message answer `422 unsupported_content` with
+         *     absent before that and on other channels. A message that went by `sms`
+         *     or `rcs` was sent as for iMessage, so it may have lost its styles, effect
+         *     and `subject`, or shown markup as written (`delivered_as` does not report
+         *     it); edits and unsends of it answer `422 unsupported_content` with
          *     `channel_code` `not_on_sms`.
          * @enum {string}
          */
@@ -2557,8 +2560,8 @@ export interface components {
              *     A stripped style keeps its text and loses only the style, and the
              *     message reports it in `delivered_as` (`type` `text`, `reason` naming
              *     what was dropped); it never needs `fallback`. An iMessage message that
-             *     goes by SMS or RCS (`Message.network`) has every style stripped the same
-             *     way. On the SMS channel, markdown needs `fallback` as before (`auto`
+             *     goes by SMS or RCS (`Message.network`) may lose its styles or show the
+             *     markup as written. On the SMS channel, markdown needs `fallback` as before (`auto`
              *     sends the plain text). Tags must be closed and may nest; an unknown or
              *     unclosed tag is sent as written. `GET /v1/capabilities` lists what a
              *     channel renders in `text_styles`.
@@ -2569,7 +2572,8 @@ export interface components {
             /**
              * @description Sends only: a title shown before the text. iMessage shows it as its
              *     bold subject line; WhatsApp and Telegram send it as a bold first line;
-             *     SMS, and iMessage sent as SMS or RCS, as a plain first line. It counts
+             *     SMS as a plain first line. An iMessage message that goes by SMS or RCS
+             *     (`Message.network`) may lose it. It counts
              *     toward the channel's text limit on channels that send it as a line.
              *     Ignored in edits. Inbound text has none.
              */

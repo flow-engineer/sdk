@@ -29,7 +29,8 @@ get_a_key: "curl -X POST https://api.flow.engineer/v1/sandbox/keys"   # no accou
 cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the sandbox link and join message
 sandbox_allowance:                           # outbound messages only (inbound is free); GET /v1/app returns allowance
   anonymous: {{allowance.anonymous.contacts}} contact, {{allowance.anonymous.messages_per_contact}} messages in total, Telegram sandbox; the key expires after {{allowance.anonymous.key_ttl_days}} days
-  signed_in: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages each, no expiry, one allowance per person over all their apps   # iMessage is in neither
+  signed_in: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages each, no expiry, one allowance per person over the apps they claimed   # iMessage is in neither
+  own_account: the free trial instead, from your first sign-in: {{trial.people_per_channel}} people per channel on the shared Telegram, WhatsApp and iMessage senders   # no allowance in GET /v1/app
 sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v1/device/authorizations, then poll POST /v1/device/token
 dashboard: https://api.flow.engineer/admin    # sign in with a Flow account
 flow_team: [{{team_contacts|comma}}]   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
@@ -146,11 +147,13 @@ one, writes both to `.env`, and prints the sandbox link and join message).
 
 ### Sandbox allowance
 
-| | Without an account (this key) | Signed in (Flow account) |
+| | Without an account (this key) | Claimed (signed in) |
 |---|---|---|
 | Contacts | {{allowance.anonymous.contacts}} | {{allowance.signed_in.contacts}} |
 | Messages | {{allowance.anonymous.messages_per_contact}} in total | {{allowance.signed_in.messages_per_contact}} per contact |
 | Key expires | after {{allowance.anonymous.key_ttl_days}} days | never |
+
+Apps of your own Flow account (made in the dashboard or by `{{trial.cli_setup}}`) get the free trial instead, started at your first sign-in: {{trial.people_per_channel}} people per channel on Flow's shared Telegram, WhatsApp and iMessage senders, over all the account's apps, and `GET /v1/app` shows no `allowance`.
 
 The allowance covers the Telegram sandbox (and WhatsApp's when it opens; it is not
 live yet), not iMessage. Only messages your agent sends count; inbound messages are
@@ -165,7 +168,7 @@ person can still claim the app.
 A person signs in with {{sign_in}} and the app is **claimed**: its data and keys
 are kept, the expiry is removed, and the app moves under the person's signed-in
 allowance: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages, **one allowance per person**, shared by every
-app they own or claim (a person may claim up to 10 apps). `allowance.scope` is
+app they claim (a person may claim up to {{allowance.claims_per_person}} apps). `allowance.scope` is
 `person` and its counts are the person's, over all those apps.
 
 ```bash
