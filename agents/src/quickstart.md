@@ -843,6 +843,17 @@ actions: `POST /v1/conversations/{id}/read` (body optional, `{"up_to": "msg_..."
 `PATCH /v1/messages/{id}` (`{"content": {"type": "text", "text": "..."}}`, edit),
 `DELETE /v1/messages/{id}` (unsend).
 
+Edits and unsends are checked against the channel's limits when you call
+(Telegram: unsend within 48 hours; iMessage: edit within 15 minutes, not the
+message that started the conversation, and unsend within 2 minutes). Past a
+limit the call answers `422 unsupported_content` with `channel_code`
+`edit_window_closed`, `unsend_window_closed` or `first_message_not_editable`,
+and `message` says the limit and the message's age; send a new message instead.
+A `200` means accepted: the change goes out in order behind the conversation's
+earlier messages, and ends `message.sent` (an unsent message then shows `status`
+`unsent`) or, if the channel still refuses, `message.failed` for the `edit` or
+`unsend` message, the original left as it was.
+
 ## 7. Go live with your own Telegram bot
 
 1. In Telegram, talk to [@BotFather](https://t.me/BotFather): `/newbot`, pick a name
@@ -1053,7 +1064,7 @@ iMessage lines have stricter limits of their own.
 - **Reactions**: Telegram allows a fixed set of reaction emoji.
 - **Typing** (`state: "on"`) shows for about 5 seconds or until a message arrives.
   Bots cannot send read receipts (`read` is skipped).
-- **Edit** text (up to {{text_caps.telegram}}) or a media caption (up to {{caption_cap}}); **unsend** within 48 hours.
+- **Edit** text (up to {{text_caps.telegram}}) or a media caption (up to {{caption_cap}}), with no time limit; **unsend** within 48 hours of sending (later: `422 unsupported_content`, `unsend_window_closed`).
 - **Contacts**: `address.username` (when set) and `address.telegram_user_id`; no
   phone number.
 - A bot can only message people who started it: reply to people who wrote, or (in
@@ -1104,8 +1115,10 @@ iMessage lines have stricter limits of their own.
   `reaction.removed`; other emoji go as emoji reactions.
 - **Typing** shows only within 5 minutes of the contact's last message; **read** marks
   the whole conversation read. **Edit** within 15 minutes (not the message that
-  started the conversation); **unsend** within 2 minutes. If iMessage refuses, a
-  `message.failed` follows.
+  started the conversation); **unsend** within 2 minutes. Past those, the call
+  answers `422 unsupported_content` (`edit_window_closed`,
+  `first_message_not_editable`, `unsend_window_closed`); if iMessage still refuses
+  one Flow accepted, a `message.failed` follows.
 
 ### SMS (US): in pilot
 

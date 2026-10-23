@@ -55,8 +55,11 @@ need `fallback: "auto"` on iMessage (numbered text; replies still come back as
 (2 to 10 cards, each an image or video, up to 160 characters of text, the same 1 to 2
 reply buttons or one URL button) is native on WhatsApp only; elsewhere `fallback: "auto"`
 sends the text and then one message per card. Templates are WhatsApp only (carousel
-templates take `params.cards`). Edit and unsend: Telegram and iMessage
-(iMessage: edit within 15 minutes, unsend within 2). Text is at most the channel's
+templates take `params.cards`). Edit and unsend: Telegram (unsend within 48 hours)
+and iMessage (edit within 15 minutes, not the conversation's first message; unsend
+within 2); past a limit `422 unsupported_content` with `channel_code`
+`edit_window_closed`, `unsend_window_closed` or `first_message_not_editable`, so send
+a new message instead. Text is at most the channel's
 `max_text_length` (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 and 10 segments on SMS, which is in pilot in the US; Telegram counts UTF-16 code units, so an emoji is often 2; media captions 1024). `channel_options`
 keys outside each channel's allowlist are dropped.
 
