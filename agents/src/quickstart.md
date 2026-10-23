@@ -36,8 +36,8 @@ flow_team: [{{team_contacts|comma}}]   # SMS, WhatsApp and iMessage numbers, pri
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
 key_prefixes:
-  fk_test_: test mode; the shared sandbox senders (Telegram bot), only contacts who joined your app
-  fk_live_: live mode; your dedicated senders: your own Telegram bot or WhatsApp number (self-serve, live key from the dashboard), an iMessage line (arranged with the Flow team)
+  fk_test_: test mode; the shared sandbox senders (Telegram bot; Flow's shared iMessage line once a sign-in has started the account's free trial), only contacts who joined your app
+  fk_live_: live mode; your dedicated senders: your own Telegram bot or WhatsApp number (self-serve, live key from the dashboard), a dedicated iMessage line (arranged with the Flow team)
 sandbox_join: open the sandbox sender's address.link (https://t.me/<bot>?start=<code>) and tap Start,
               or send its join_code text as is ("Hi Sandbox app (ref wild-otter-04508705)");
               then conversation.started (via sandbox_join), then the join as the first message.received
@@ -67,7 +67,7 @@ send_outcome: every send ends message.sent or message.failed (Telegram never sen
 rate_limit_headers: [RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After]
 id_prefixes: {app: app_, sender: snd_, contact: ct_, conversation: conv_, message: msg_,
               event: evt_, file: file_, webhook_endpoint: we_}
-channels_live: [telegram, whatsapp, imessage]   # connect your own WhatsApp number with POST /v1/senders (live key); US SMS (pilot) numbers are connected by the Flow team, like iMessage lines (POST /v1/senders answers 501 not_implemented)
+channels_live: [telegram, whatsapp, imessage]   # connect your own WhatsApp number with POST /v1/senders (live key); US SMS (pilot) numbers are connected by the Flow team, like dedicated iMessage lines (POST /v1/senders answers 501 not_implemented)
 ```
 
 ## Rules for the agent writing the integration
@@ -215,7 +215,7 @@ Signed-in people see their apps and keys in the dashboard,
 https://api.flow.engineer/admin (sign in with {{sign_in}}). There they can make
 **live keys** (`fk_live_...`) themselves (switch to **Live**, then Keys > **Create
 live key**: https://api.flow.engineer/admin/keys?mode=live) and go live on Telegram
-with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API or the dashboard's Senders page; the Flow team can still help. iMessage lines and SMS numbers are arranged with the Flow team.
+with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API or the dashboard's Senders page; the Flow team can still help. Dedicated iMessage lines and SMS numbers are arranged with the Flow team; Flow's shared iMessage line comes with the free trial a sign-in starts (section 11, iMessage).
 
 ## 1. Authenticate
 
@@ -955,7 +955,7 @@ the same error shape in `data.message.error`).
 Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code`:
 `sandbox_allowance_used` (the messages are used up), `sandbox_contact_limit` (no room
 for another contact), `sandbox_channel_not_included` (that sandbox channel is not
-covered, for example iMessage), `sign_in_required` (an app made without an account
+covered, for example iMessage before a sign-in has started the free trial that brings the shared line), `sign_in_required` (an app made without an account
 cannot do this). An expired sandbox key is `401 authentication` with
 `sandbox_key_expired`. The fix for all of them: have a person sign in (`npx
 @flow-engineer/messaging login`, section 0), or get a new key.
@@ -1058,9 +1058,10 @@ iMessage lines have stricter limits of their own.
 
 ### iMessage
 
-- **iMessage lines are connected by the Flow team**, not through the API, and are
-  listed only with a live key (`GET /v1/senders?channel=imessage` with a test key is
-  an empty list, not an error).
+- {{> shared-imessage}}
+- **Dedicated iMessage lines are connected by the Flow team**, not through the API, and
+  are listed only with a live key. Without the trial or a grant,
+  `GET /v1/senders?channel=imessage` with a test key is an empty list, not an error.
 - **Replies only** unless the line can write first (`sender.imessage.can_initiate`,
   available on request for dedicated lines): the person texts the line first and
   your agent replies. `POST /v1/messages` to someone who never wrote fails with
