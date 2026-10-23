@@ -593,6 +593,30 @@ class ContactDeletedData(BaseModel):
     """
 
 
+class ContactLeftData(BaseModel):
+    """
+    The contact who left, the shared sender they left, and why.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    contact: Annotated[str, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])]
+    """
+    A contact ID, `ct_` and a ULID.
+    """
+    sender: Annotated[str, Field(examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
+    """
+    A sender ID, `snd_` and a ULID.
+    """
+    reason: Literal["joined_other_app"]
+    """
+    Why the contact left. `joined_other_app`: they sent the join message of
+    another app on the shared sender, or of your app's other mode (test or live).
+
+    """
+
+
 class ContactList(BaseModel):
     """
     A page of contacts.
@@ -1189,6 +1213,28 @@ class ContactDeletedEvent(EventBase):
     data: ContactDeletedData
 
 
+class ContactLeftEvent(EventBase):
+    """
+    A person on a shared sender (the sandbox) joined another app, or the other
+    mode of your app, by sending its join message. Nothing more reaches you from
+    them, and sends to them fail with `permission` (`channel_code`
+    `sandbox_contact_left`), until they send your join message again, which starts
+    a new `conversation.started`. The contact and their history are kept;
+    `conversation` is the conversation they left.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["contact.left"]
+    """
+    Always `contact.left`.
+    """
+    data: ContactLeftData
+    conversation: ConversationRef
+
+
 class ConversationStartedEvent(EventBase):
     """
     A new conversation began. Sent before the first `message.received` of a new
@@ -1240,7 +1286,7 @@ class EventList(BaseModel):
     )
     data: list[
         Annotated[
-            MessageReceivedEvent | MessageSentEvent | MessageDeliveredEvent | MessageReadEvent | MessageFailedEvent | ReactionAddedEvent | ReactionRemovedEvent | TypingStartedEvent | TypingStoppedEvent | ConversationStartedEvent | ConversationWindowClosingEvent | SenderStatusChangedEvent | TemplateStatusChangedEvent | ContactDeletedEvent,
+            MessageReceivedEvent | MessageSentEvent | MessageDeliveredEvent | MessageReadEvent | MessageFailedEvent | ReactionAddedEvent | ReactionRemovedEvent | TypingStartedEvent | TypingStoppedEvent | ConversationStartedEvent | ConversationWindowClosingEvent | SenderStatusChangedEvent | TemplateStatusChangedEvent | ContactDeletedEvent | ContactLeftEvent,
             Field(discriminator="type"),
         ]
     ]
@@ -2611,7 +2657,7 @@ class StreamEventFrame(BaseModel):
     Always `event`.
     """
     event: Annotated[
-        MessageReceivedEvent | MessageSentEvent | MessageDeliveredEvent | MessageReadEvent | MessageFailedEvent | ReactionAddedEvent | ReactionRemovedEvent | TypingStartedEvent | TypingStoppedEvent | ConversationStartedEvent | ConversationWindowClosingEvent | SenderStatusChangedEvent | TemplateStatusChangedEvent | ContactDeletedEvent,
+        MessageReceivedEvent | MessageSentEvent | MessageDeliveredEvent | MessageReadEvent | MessageFailedEvent | ReactionAddedEvent | ReactionRemovedEvent | TypingStartedEvent | TypingStoppedEvent | ConversationStartedEvent | ConversationWindowClosingEvent | SenderStatusChangedEvent | TemplateStatusChangedEvent | ContactDeletedEvent | ContactLeftEvent,
         Field(discriminator="type"),
     ]
     """
@@ -3313,7 +3359,7 @@ class WebhookEndpoint(BaseModel):
     """
     The HTTPS URL events are posted to.
     """
-    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted"]]
+    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted", "contact.left"]]
     """
     The event types delivered to this endpoint.
     """
@@ -3355,7 +3401,7 @@ class WebhookEndpointCreateRequest(BaseModel):
     """
     An HTTPS URL on a public address.
     """
-    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted"]]
+    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted", "contact.left"]]
     """
     The event types to deliver.
     """
@@ -3392,7 +3438,7 @@ class WebhookEndpointUpdateRequest(BaseModel):
     """
     An HTTPS URL on a public address.
     """
-    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted"]] | None = (
+    events: list[Literal["message.received", "message.sent", "message.delivered", "message.read", "message.failed", "reaction.added", "reaction.removed", "typing.started", "typing.stopped", "conversation.started", "conversation.window_closing", "sender.status_changed", "template.status_changed", "contact.deleted", "contact.left"]] | None = (
         None
     )
     """

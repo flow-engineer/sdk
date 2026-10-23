@@ -66,7 +66,10 @@ keys outside each channel's allowlist are dropped.
 (`data.message`, `.error` on failed), `reaction.added|removed` (`data.message_id`,
 `data.emoji`), `typing.started|stopped`, `conversation.started` (`data.via`),
 `conversation.window_closing` (WhatsApp), `sender.status_changed`,
-`template.status_changed`, `contact.deleted` (`data.contact`). Every event but the last three has `conversation`.
+`template.status_changed`, `contact.deleted` (`data.contact`), `contact.left` (`data.contact`,
+`data.sender`, `data.reason`: a sandbox contact joined another app; sends fail with
+`sandbox_contact_left` until they send your join message again). Every event but
+`sender.status_changed`, `template.status_changed` and `contact.deleted` has `conversation`.
 Handlers get a `FlowEvent` (type them with `FlowEvent` or `FlowEventOf<"message.received">`),
 whose `conversation` is a handle with `reply`; `Event` is the plain JSON from `flow.events.list()`.
 Not every channel reports `message.delivered`: to confirm a send, wait for `message.sent` or `message.failed`.

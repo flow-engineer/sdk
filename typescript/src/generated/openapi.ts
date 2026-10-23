@@ -2817,9 +2817,10 @@ export interface components {
          *     - `sender.status_changed`: a sender was throttled, flagged, banned or restored, or its WhatsApp quality rating changed.
          *     - `template.status_changed`: Meta approved, rejected or paused a template.
          *     - `contact.deleted`: a contact was deleted with `DELETE /v1/contacts/{contact_id}`. Carries only the contact's ID; delete what you keep about them too.
+         *     - `contact.left`: a person on a shared sender (the sandbox) joined another app, or the other mode of your app, by sending its join message. Nothing more reaches you from them, and sends to them fail with `sandbox_contact_left`, until they send your join message again.
          * @enum {string}
          */
-        EventType: "message.received" | "message.sent" | "message.delivered" | "message.read" | "message.failed" | "reaction.added" | "reaction.removed" | "typing.started" | "typing.stopped" | "conversation.started" | "conversation.window_closing" | "sender.status_changed" | "template.status_changed" | "contact.deleted";
+        EventType: "message.received" | "message.sent" | "message.delivered" | "message.read" | "message.failed" | "reaction.added" | "reaction.removed" | "typing.started" | "typing.stopped" | "conversation.started" | "conversation.window_closing" | "sender.status_changed" | "template.status_changed" | "contact.deleted" | "contact.left";
         /**
          * @description When the event moved through Flow, to measure Flow's overhead
          *     (`delivered_at` minus `received_at`).
@@ -2868,7 +2869,7 @@ export interface components {
          *     conversation (all but `sender.status_changed`, `template.status_changed` and
          *     `contact.deleted`).
          */
-        Event: components["schemas"]["MessageReceivedEvent"] | components["schemas"]["MessageSentEvent"] | components["schemas"]["MessageDeliveredEvent"] | components["schemas"]["MessageReadEvent"] | components["schemas"]["MessageFailedEvent"] | components["schemas"]["ReactionAddedEvent"] | components["schemas"]["ReactionRemovedEvent"] | components["schemas"]["TypingStartedEvent"] | components["schemas"]["TypingStoppedEvent"] | components["schemas"]["ConversationStartedEvent"] | components["schemas"]["ConversationWindowClosingEvent"] | components["schemas"]["SenderStatusChangedEvent"] | components["schemas"]["TemplateStatusChangedEvent"] | components["schemas"]["ContactDeletedEvent"];
+        Event: components["schemas"]["MessageReceivedEvent"] | components["schemas"]["MessageSentEvent"] | components["schemas"]["MessageDeliveredEvent"] | components["schemas"]["MessageReadEvent"] | components["schemas"]["MessageFailedEvent"] | components["schemas"]["ReactionAddedEvent"] | components["schemas"]["ReactionRemovedEvent"] | components["schemas"]["TypingStartedEvent"] | components["schemas"]["TypingStoppedEvent"] | components["schemas"]["ConversationStartedEvent"] | components["schemas"]["ConversationWindowClosingEvent"] | components["schemas"]["SenderStatusChangedEvent"] | components["schemas"]["TemplateStatusChangedEvent"] | components["schemas"]["ContactDeletedEvent"] | components["schemas"]["ContactLeftEvent"];
         /** @description The message the event is about. */
         MessageEventData: {
             message: components["schemas"]["Message"];
@@ -3143,6 +3144,39 @@ export interface components {
              * @enum {string}
              */
             type: "contact.deleted";
+        };
+        /** @description The contact who left, the shared sender they left, and why. */
+        ContactLeftData: {
+            contact: components["schemas"]["ContactId"];
+            sender: components["schemas"]["SenderId"];
+            /**
+             * @description Why the contact left. `joined_other_app`: they sent the join message of
+             *     another app on the shared sender, or of your app's other mode (test or live).
+             * @enum {string}
+             */
+            reason: "joined_other_app";
+        };
+        /**
+         * @description A person on a shared sender (the sandbox) joined another app, or the other
+         *     mode of your app, by sending its join message. Nothing more reaches you from
+         *     them, and sends to them fail with `permission` (`channel_code`
+         *     `sandbox_contact_left`), until they send your join message again, which starts
+         *     a new `conversation.started`. The contact and their history are kept;
+         *     `conversation` is the conversation they left.
+         */
+        ContactLeftEvent: components["schemas"]["EventBase"] & {
+            /**
+             * @description Always `contact.left`.
+             * @enum {string}
+             */
+            type: "contact.left";
+            data: components["schemas"]["ContactLeftData"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "contact.left";
         };
         /** @description A page of events, oldest first. */
         EventList: {

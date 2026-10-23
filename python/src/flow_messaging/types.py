@@ -41,6 +41,8 @@ from ._models import (
     ContactConsent,
     ContactDeletedData,
     ContactDeletedEvent,
+    ContactLeftData,
+    ContactLeftEvent,
     ContentHeader,
     ContentSupport,
     Conversation,
@@ -158,6 +160,7 @@ EventType = Literal[
     "sender.status_changed",
     "template.status_changed",
     "contact.deleted",
+    "contact.left",
 ]
 
 #: One piece of content, in either direction; ``type`` selects the shape.
@@ -196,7 +199,8 @@ Event = Annotated[
     | ConversationWindowClosingEvent
     | SenderStatusChangedEvent
     | TemplateStatusChangedEvent
-    | ContactDeletedEvent,
+    | ContactDeletedEvent
+    | ContactLeftEvent,
     Field(discriminator="type"),
 ]
 
@@ -242,6 +246,8 @@ __all__ = [
     "ContactConsent",
     "ContactDeletedData",
     "ContactDeletedEvent",
+    "ContactLeftData",
+    "ContactLeftEvent",
     "ContentHeader",
     "Content",
     "ContentSupport",
