@@ -26,7 +26,7 @@ spec: https://api.flow.engineer/openapi.yaml   # OpenAPI 3.1, version 2026-11-01
 llms_txt: https://api.flow.engineer/llms.txt
 mcp_server: https://api.flow.engineer/mcp     # optional, for development only; the project owner adds it (section 12)
 get_a_key: "curl -X POST https://api.flow.engineer/v1/sandbox/keys"   # no account, no key sent; 201: key, claim_token (shown once), senders
-cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the sandbox link and join code
+cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the sandbox link and join message
 sandbox_allowance:                           # outbound messages only (inbound is free); GET /v1/app returns allowance
   anonymous: 1 contact, 50 messages in total, Telegram sandbox; the key expires after 7 days
   signed_in: 3 contacts x 100 messages each, no expiry, one allowance per person over all their apps   # iMessage is in neither
@@ -39,7 +39,8 @@ key_prefixes:
   fk_test_: test mode; the shared sandbox senders (Telegram bot), only contacts who joined your app
   fk_live_: live mode; your dedicated senders: your own Telegram bot or WhatsApp number (self-serve, live key from the dashboard), an iMessage line (arranged with the Flow team)
 sandbox_join: open the sandbox sender's address.link (https://t.me/<bot>?start=<code>) and tap Start,
-              or send its join_code text ("join wild-otter-04508705")
+              or send its join_code text as is ("Hi Sandbox app (ref wild-otter-04508705)");
+              then conversation.started (via sandbox_join), then the join as the first message.received
 simulated_contacts: POST /v1/test/conversations, then POST /v1/test/conversations/{id}/inbound   # test keys; no phone; free: no contact slot, no messages; simulated: true; section 2
 version_header: "Flow-Version: 2026-11-01"   # optional; pins the API version
 content_type: application/json               # except POST /v1/files (multipart/form-data)
@@ -117,7 +118,7 @@ No API key is sent. The answer (`201`, abridged):
   "senders": [{"id": "snd_...", "channel": "telegram", "kind": "shared",
                "address": {"username": "FlowSandboxBot",
                            "link": "https://t.me/FlowSandboxBot?start=wild-otter-04508705"},
-               "join_code": "join wild-otter-04508705"}]
+               "join_code": "Hi Sandbox app (ref wild-otter-04508705)"}]
 }
 ```
 
@@ -141,7 +142,7 @@ else echo "$R"; fi   # 429 rate_limited: wait error.retry_after
 ```
 
 The CLI does the same: `npx @flow-engineer/messaging init` (with no key set it gets
-one, writes both to `.env`, and prints the sandbox link and join code).
+one, writes both to `.env`, and prints the sandbox link and join message).
 
 ### Sandbox allowance
 
@@ -294,7 +295,7 @@ curl -s "https://api.flow.engineer/v1/senders?channel=telegram" -H "Authorizatio
     "status": "active",
     "address": {"username": "FlowSandboxBot",
                 "link": "https://t.me/FlowSandboxBot?start=wild-otter-04508705"},
-    "join_code": "join wild-otter-04508705",
+    "join_code": "Hi Sandbox app (ref wild-otter-04508705)",
     "limits": {"new_contacts_per_day": 100000, "new_contacts_per_hour": 10000},
     "created_at": "2026-10-09T08:00:00Z"
   }],
@@ -303,15 +304,20 @@ curl -s "https://api.flow.engineer/v1/senders?channel=telegram" -H "Authorizatio
 ```
 
 The code (`wild-otter-04508705`: two words and eight digits) is your app's; every
-app has its own.
+app has its own. `join_code` is the whole join message: `Hi `, your app's name, then
+the code in brackets after `ref`. Show it to the person as is.
 
 1. Open `address.link` on your phone (or make it a QR code) and tap **Start** in
    Telegram. That alone joins: Telegram sends `/start wild-otter-04508705` for you.
-   Typing the `join_code` text (`join wild-otter-04508705`) to the bot works too.
+   Sending the `join_code` text (`Hi Sandbox app (ref wild-otter-04508705)`) to the bot works too; any message
+   of at most 160 characters that ends with `(ref <code>)` joins.
 2. The bot answers "You're connected to <your app name>." (Flow sends that itself;
    your app sends nothing) and your app gets `conversation.started` (`data.via` =
-   `sandbox_join`) with the new `conv_...`. The join message is not a `message.received`.
-3. Now write anything (say "hi"): that arrives as `message.received` (section 5).
+   `sandbox_join`) with the new `conv_...`.
+3. Then the join itself arrives as the person's first `message.received` (section 5),
+   with the code taken out: `/start` from the link, `Hi Sandbox app` from the join
+   message (`Hi` when nothing is left before the brackets). Answer it like any first
+   message; everything the person writes next arrives the same way.
 
 Good to know:
 - A Telegram account is joined to one app at a time on the sandbox bot; sending
@@ -1193,7 +1199,7 @@ key (section 0). After `send_test_message`, pass the `cursor` it returned as `af
 ## 13. SDKs
 
 The package `@flow-engineer/messaging` has a CLI you run with `npx`: `init` (gets a
-test key when none is set, writes `.env`, prints the sandbox link and join code) and
+test key when none is set, writes `.env`, prints the sandbox link and join message) and
 `login` (a person signs in to keep the app), both in section 0. Its TypeScript SDK is
 published (`npm install @flow-engineer/messaging`).
 
@@ -1226,7 +1232,7 @@ here.
 A program that asks a person one thing on Telegram, waits for the answer and goes on (a CLI, a script, a test). Four rules make it reliable:
 
 1. **Open the stream first.** `GET /v1/stream` without `after` starts at the moment it opens: anything earlier is not replayed. Once it is open, nothing later is missed.
-2. **Then look for a join that already happened.** A person who joined before the program started is already a conversation: `GET /v1/conversations?channel=telegram` (newest first). Skip `simulated: true` ones. Only when there is none, show the join link and wait for `conversation.started`.
+2. **Then look for a join that already happened.** A person who joined before the program started is already a conversation: `GET /v1/conversations?channel=telegram` (newest first). Skip `simulated: true` ones. Only when there is none, show the join link and wait for `conversation.started`, then for that conversation's first `message.received`: the join itself (`/start` from the link, or the join message without its code), so it is not read as an answer.
 3. **Confirm the send.** The `202` only means queued: wait for `message.sent` or `message.failed` with that message's `id` (Telegram never sends `message.delivered`).
 4. **Wait for the reply with a timeout.** The next `message.received` in that conversation is the answer; give up after a time you choose and tell the person.
 
@@ -1273,6 +1279,8 @@ if (!conv) {
   const bots = await api("/v1/senders?channel=telegram");
   console.log(`Open ${bots.data[0].address.link} on your phone and tap Start.`);
   conv = (await next((e) => e.type === "conversation.started" && !e.conversation.simulated, 10 * 60_000)).conversation.id;
+  // The join itself arrives next, as their first message.received ("/start"): take it.
+  await next((e) => e.type === "message.received" && e.conversation.id === conv, 60_000);
 }
 
 // 3 and 4. Ask, confirm the send, wait for the answer.
@@ -1372,14 +1380,15 @@ One app holds many senders: connect each customer's bot with your live key (`POS
 ### Delivery guarantees
 
 - Inbound: every message becomes an event, stored before Flow answers the channel, delivered at least once and in order per conversation (dedupe on `event.id`). Webhooks retry for 3 days (5 s up to 12 h apart); the event log keeps everything for 30 days.
-- Outbound: a `202` means stored and queued; every send then ends `message.sent` or `message.failed`, never silently. One conversation sends one message at a time, in order. Retryable channel errors are retried by Flow. When a send's outcome is unknown (the channel took it but never answered), Flow resends it once, so a rare duplicate is possible on Telegram; if that is unknown too, the message fails with `channel_timeout_unknown_outcome` (it may have arrived: check before sending again).
+- Order per person: kept per conversation (one person on one sender; the same person on two channels or senders is two conversations, unordered between them). Inbound follows the channel's order (Telegram's update order; WhatsApp's timestamp, after a short hold for late webhooks). On iMessage the channel gives no order, so inbound goes in the order Flow receives it: two messages sent within about a second can arrive swapped. A webhook retry never reorders a conversation: its next event waits until the one before is delivered or marked failed.
+- Outbound: a `202` means stored and queued; every send then ends `message.sent` or `message.failed`, never silently. One conversation sends one message at a time, in order. Retryable channel errors are retried by Flow in place, and later sends to that person wait; a failed send holds nothing back. When a send's outcome is unknown (the channel took it but never answered), Flow resends it once, so a rare duplicate is possible on Telegram; if that is unknown too, the message fails with `channel_timeout_unknown_outcome` (it may have arrived: check before sending again).
 - Requests: `Idempotency-Key` on every POST makes your own retries safe for 24 hours; it cannot undo the channel-side resend above.
 
 ### Sent but not received: a checklist
 
 1. **Did the send end?** `GET /v1/messages/{message_id}`, or `GET /v1/events?conversation=conv_...&type=message.sent&type=message.failed`. `queued`: still waiting (an earlier message in the conversation, the sender's pace, or a bot whose token Telegram rejected: reconnect it). `sent`: the channel took it (Telegram reports nothing after that). `failed`: read `error.type`, `error.channel_code` and `error.hint`.
-2. **Common `message.failed` codes**: `permission` with `sandbox_contact_left` (the person joined another app on the shared sandbox bot while the message waited: they send your join code again); `channel_error` with `channel_code` `403` on Telegram (the person blocked the bot, or never started it); `outside_window` (iMessage: they have not written recently; WhatsApp: `window_closed`, send a template; `queued_too_long`); `channel_timeout_unknown_outcome` (may have arrived).
-3. **Sandbox (test key)**: the person joined *your* app: opened the sandbox bot's `address.link` and tapped Start, or sent your join code. One person belongs to one app per sandbox bot, so joining another app moves them (sends answer `403 permission`). A key made without an account expires after 7 days and its contact is removed. Allowance refusals are `403 permission` (`sandbox_allowance_used`, `sandbox_contact_limit`).
+2. **Common `message.failed` codes**: `permission` with `sandbox_contact_left` (the person joined another app on the shared sandbox bot while the message waited: they send your app's `join_code` message again); `channel_error` with `channel_code` `403` on Telegram (the person blocked the bot, or never started it); `outside_window` (iMessage: they have not written recently; WhatsApp: `window_closed`, send a template; `queued_too_long`); `channel_timeout_unknown_outcome` (may have arrived).
+3. **Sandbox (test key)**: the person joined *your* app: opened the sandbox bot's `address.link` and tapped Start, or sent the sender's `join_code` message. The join is also the conversation's first `message.received` (`/start`, or the join message without its code), right after `conversation.started`. One person belongs to one app per sandbox bot, so joining another app moves them (sends answer `403 permission`). A key made without an account expires after 7 days and its contact is removed. Allowance refusals are `403 permission` (`sandbox_allowance_used`, `sandbox_contact_limit`).
 4. **Your own bot (live key)**: the person pressed Start on that bot (a Telegram bot cannot write first), and you send with the live key: sandbox conversations belong to the test key and answer `404 not_found` with a live one.
 5. **On the phone**: the chat with the right bot (the sandbox bot and your own bot are different chats) on the Telegram account that joined.
 6. **Still stuck?** Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer with the message ID (`msg_...`), conversation ID (`conv_...`), the call's `request_id`, test or live, and the time. Never your API key.

@@ -7,14 +7,14 @@ from flow_messaging import Flow, content_text
 
 flow = Flow()  # reads FLOW_MESSAGING_KEY
 
-app = flow.app.retrieve().app
+# Where to join: each sandbox sender's link, and its join message (join_code) to send as is.
+for s in flow.senders.list():
+    if s.kind == "shared":
+        where = s.address.link or s.address.handle or s.address.phone or s.id
+        print(f"{s.channel}: {where}" + (f' (or send "{s.join_code}")' if s.join_code else ""), flush=True)
 
 with flow.events.stream(types=["message.received"]) as events:  # connected from here on
-    print(
-        "Echo agent ready. From your phone, open the sandbox link and tap Start "
-        f"(on iMessage, text: join {app.sandbox_join_code}).",
-        flush=True,
-    )
+    print("Echo agent ready. From your phone, open the sandbox link and tap Start, or send the join message.", flush=True)
     for event in events:
         content = event.data.message.content
         said = content_text(content) or f"a {content.type}"

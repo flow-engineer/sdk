@@ -211,6 +211,7 @@ const since = new Date(); // before showing the link, so a quick join still coun
 console.log("Open the sandbox link and tap Start");
 
 const conv = await flow.conversations.waitForNew({ since, timeoutMs: 10 * 60_000 });
+await conv.waitForReply(); // their first message: the join itself ("/start"), or what they wrote first
 try {
   const name = contentText((await conv.ask("Hi! What's your name?")).content);
   const city = contentText((await conv.ask(`Thanks, ${name}. Which city are you in?`)).content);
@@ -224,7 +225,10 @@ try {
 - `flow.conversations.waitForNew({ since?, after?, channel?, sender?, via? })` resolves
   with a handle to the next conversation that begins: a contact who joins the sandbox
   or writes first (`via`, add `"outbound"` for ones you start). One that began at or
-  after `since` (a `Date`, ISO string or epoch ms; default: the call) counts too.
+  after `since` (a `Date`, ISO string or epoch ms; default: the call) counts too. The
+  contact's first message follows: a sandbox join arrives as one (`/start` from the
+  link, or the join message without its code), so take it with `waitForReply()`
+  before you `ask`.
 - `conversation.ask(input)` sends and resolves with the contact's next message after
   it, or throws the question's typed error if it fails.
 - `conversation.waitForReply({ after? })` resolves with the contact's next message. It

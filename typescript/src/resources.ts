@@ -187,12 +187,15 @@ export class Conversations {
    * Throws `WaitTimeoutError` after `timeoutMs` (default 5 minutes).
    *
    * The handle's `waitForReply()` then starts from the `conversation.started` event, so
-   * the contact's first message is not missed.
+   * the contact's first message is not missed. After a sandbox join that first message
+   * is the join itself (`/start` from the link, or the join message without its code):
+   * take it before you `ask`, or it is read as the answer.
    *
    * ```ts
    * const since = new Date();
    * console.log("Open the sandbox link and tap Start");
    * const conv = await flow.conversations.waitForNew({ since, timeoutMs: 10 * 60_000 });
+   * await conv.waitForReply(); // the join itself, or what they wrote first
    * const name = await conv.ask("Hi! What's your name?");
    * ```
    */

@@ -172,16 +172,17 @@ export async function init(o: InitOptions): Promise<void> {
   if (joinCode && shared.length) {
     print("Try it now, from your phone:");
     for (const s of shared) {
-      const code = s.join_code ?? `join ${joinCode}`;
+      // The sender's join_code is the whole join message ("Hi <app> (ref <code>)"): shown as is.
+      const code = s.join_code;
       if (s.channel === "telegram" && s.address.link) {
-        print(`  ${s.channel.padEnd(9)} ${s.address.link}   open it and tap Start (or send: ${code})`);
+        print(`  ${s.channel.padEnd(9)} ${s.address.link}   open it and tap Start${code ? ` (or send: ${code})` : ""}`);
         continue;
       }
       const where = s.address.link ?? (s.address.username ? `https://t.me/${s.address.username}` : (s.address.phone ?? s.address.handle ?? s.id));
-      print(`  ${s.channel.padEnd(9)} ${where}   send: ${code}`);
+      print(`  ${s.channel.padEnd(9)} ${where}${code ? `   send: ${code}` : ""}`);
     }
   } else if (joinCode) {
-    print(`Your sandbox join code: join ${joinCode}`);
+    print(`Your sandbox join code: ${joinCode} (GET /v1/senders gives each sandbox sender's join message, join_code)`);
   }
 
   // 6. The allowance, and how to keep a sandbox app.

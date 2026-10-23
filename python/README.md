@@ -19,11 +19,13 @@ from flow_messaging import Flow, content_text
 sandbox = Flow().sandbox.create_key()  # a test key, no account; save sandbox.key as FLOW_MESSAGING_KEY
 flow = Flow(sandbox.key)
 bot = next(s for s in flow.senders.list(channel="telegram") if s.kind == "shared")
-with flow.events.stream(types=["conversation.started", "message.received"]) as events:
+with flow.events.stream(types=["message.received"]) as events:
     print(f"On your phone, open {bot.address.link} and tap Start (or send: {bot.join_code})")
+    greeted = False
     for event in events:
-        if event.type == "conversation.started":  # you joined the sandbox
+        if not greeted:  # the join itself arrives as your first message ("/start")
             flow.messages.send(event.conversation.id, "Hi! Write me something.")
+            greeted = True
         else:
             print("They said:", content_text(event.data.message.content))
             break

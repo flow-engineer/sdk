@@ -1,7 +1,7 @@
 A program that asks a person one thing on Telegram, waits for the answer and goes on (a CLI, a script, a test). Four rules make it reliable:
 
 1. **Open the stream first.** `GET /v1/stream` without `after` starts at the moment it opens: anything earlier is not replayed. Once it is open, nothing later is missed.
-2. **Then look for a join that already happened.** A person who joined before the program started is already a conversation: `GET /v1/conversations?channel=telegram` (newest first). Skip `simulated: true` ones. Only when there is none, show the join link and wait for `conversation.started`.
+2. **Then look for a join that already happened.** A person who joined before the program started is already a conversation: `GET /v1/conversations?channel=telegram` (newest first). Skip `simulated: true` ones. Only when there is none, show the join link and wait for `conversation.started`, then for that conversation's first `message.received`: the join itself (`/start` from the link, or the join message without its code), so it is not read as an answer.
 3. **Confirm the send.** The `202` only means queued: wait for `message.sent` or `message.failed` with that message's `id` (Telegram never sends `message.delivered`).
 4. **Wait for the reply with a timeout.** The next `message.received` in that conversation is the answer; give up after a time you choose and tell the person.
 
@@ -48,6 +48,8 @@ if (!conv) {
   const bots = await api("/v1/senders?channel=telegram");
   console.log(`Open ${bots.data[0].address.link} on your phone and tap Start.`);
   conv = (await next((e) => e.type === "conversation.started" && !e.conversation.simulated, 10 * 60_000)).conversation.id;
+  // The join itself arrives next, as their first message.received ("/start"): take it.
+  await next((e) => e.type === "message.received" && e.conversation.id === conv, 60_000);
 }
 
 // 3 and 4. Ask, confirm the send, wait for the answer.

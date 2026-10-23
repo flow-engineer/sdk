@@ -6,6 +6,7 @@ confirms once the last message is sent. See [agent.ts](agent.ts).
 
 ```ts
 const conv = await flow.conversations.waitForNew({ since });            // the next contact to join or write
+await conv.waitForReply();                                               // their first message: the join itself, or what they wrote
 const name = contentText((await conv.ask("What's your name?")).content); // send, then their next message
 await conv.sendAndWait(`Thanks, ${name}!`);                              // resolves once sent, throws if it fails
 ```
@@ -24,13 +25,13 @@ runs out.
    `FLOW_MESSAGING_KEY` to `.env`. (Have a key already? `init --key fk_test_...`.)
 4. `npm start` (Node 22.18 or later: it runs `agent.ts` directly). It prints the
    sandbox link.
-5. On your phone, open the link and tap Start (or send the bot the join code), then
+5. On your phone, open the link and tap Start (or send the bot the join message), then
    answer the two questions.
 
 Expected output:
 
 ```
-Join: https://t.me/FlowSandboxBot?start=wild-otter-04508705 (or send "join wild-otter-04508705")
+Join: https://t.me/FlowSandboxBot?start=wild-otter-04508705 (or send "Hi Sandbox app (ref wild-otter-04508705)")
 Waiting for someone to join or write...
 [conv_...] joined on telegram
 [conv_...] name: Asha

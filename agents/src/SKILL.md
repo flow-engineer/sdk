@@ -20,7 +20,7 @@ https://github.com/flow-engineer/sdk/blob/main/openapi/openapi.yaml).
 
 ```sh
 npx {{package}} init   # gets a test key, writes {{env.api_key}} and {{env.claim_token}} to .env,
-                                    # prints the sandbox link and join code (asks the owner before adding agent files)
+                                    # prints the sandbox link and join message (asks the owner before adding agent files)
 npm install {{package}}
 ```
 

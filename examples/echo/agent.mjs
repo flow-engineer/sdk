@@ -4,8 +4,11 @@ import { FlowMessaging, contentText } from "@flow-engineer/messaging";
 
 const flow = new FlowMessaging(); // reads FLOW_MESSAGING_KEY
 
-const { app } = await flow.app.retrieve();
-console.log(`Echo agent ready. From your phone, open the sandbox link and tap Start (on iMessage, text: join ${app.sandbox_join_code}).`);
+// Where to join: each sandbox sender's link, and its join message (join_code) to send as is.
+for await (const s of flow.senders.list()) {
+  if (s.kind === "shared") console.log(`${s.channel}: ${s.address.link ?? s.address.handle ?? s.address.phone ?? s.id}` + (s.join_code ? ` (or send "${s.join_code}")` : ""));
+}
+console.log("Echo agent ready. From your phone, open the sandbox link and tap Start, or send the join message.");
 
 for await (const event of flow.events.stream({ types: ["message.received"] })) {
   const content = event.data.message.content;

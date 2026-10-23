@@ -160,23 +160,34 @@ describe.skipIf(!available)("against the local Flow Messaging service", () => {
       const events = stream[Symbol.asyncIterator]();
       const nextEvent = events.next();
 
-      // The user joins the sandbox through this app, then writes.
-      const join = await userSays(`join ${h.join_code}`, 1);
+      // The user joins the sandbox through this app by sending the sandbox sender's
+      // join message as shown (its join_code), then writes.
+      const sandboxSender = (await flow.senders.list().toArray()).find((s) => s.id === h.sender_id);
+      const joinMessage = sandboxSender?.join_code ?? "";
+      expect(joinMessage).toContain(h.join_code);
+      const twoDeliveries = new Promise<void>((r) => (delivered = () => deliveries.length >= 2 && r()));
+      const join = await userSays(joinMessage, 1);
       expect(join.body).toContain("connected to");
-      const firstDelivery = new Promise<void>((r) => (delivered = r));
       await userSays("hello", 2);
 
-      // Via the stream.
-      const ev = (await nextEvent).value as FlowEvent;
+      // Via the stream: the join reaches the app first, as the person's first
+      // message without its code, then "hello" in the same conversation.
+      const joined = (await nextEvent).value as FlowEvent;
+      expect(joined.type).toBe("message.received");
+      if (joined.type !== "message.received") throw new Error("narrowing");
+      expect(contentText(joined.data.message.content)).not.toContain(h.join_code);
+      const ev = (await events.next()).value as FlowEvent;
       expect(ev.type).toBe("message.received");
       if (ev.type !== "message.received") throw new Error("narrowing");
       expect(contentText(ev.data.message.content)).toBe("hello");
       expect(ev.conversation.channel).toBe("telegram");
       expect(ev.conversation.id).toMatch(/^conv_/);
+      expect(ev.conversation.id).toBe(joined.conversation.id);
 
-      // Via the webhook, verified.
-      await firstDelivery;
-      const d = deliveries[0]!;
+      // Via the webhook, verified: in order, the join's delivery first.
+      await twoDeliveries;
+      expect(deliveries[0]!.body.toString()).toContain(joined.id);
+      const d = deliveries[1]!;
       const hooked = await flow.webhooks.constructEvent(d.body, d.signature, secret);
       expect(hooked.id).toBe(ev.id);
       expect(hooked.type).toBe("message.received");
@@ -244,7 +255,8 @@ describe.skipIf(!available)("against the local Flow Messaging service", () => {
     const env = { ...process.env, FLOW_MESSAGING_KEY: "", FLOW_MESSAGING_BASE_URL: h.base_url };
     const out = execFileSync("node", [cli, "init", "--key", h.test_key, "--dir", dir, "--no-codex", "--yes"], { env, encoding: "utf8" });
     expect(out).toContain("Key works");
-    expect(out).toMatch(/telegram\s+https:\/\/t\.me\/\S+\?start=\S+\s+open it and tap Start \(or send: join /);
+    // The sender's join message as the service gives it (join_code), with the code in it.
+    expect(out).toMatch(/telegram\s+https:\/\/t\.me\/\S+\?start=(\S+)\s+open it and tap Start \(or send: [^\n]*\1/);
     expect(readFileSync(path.join(dir, ".env"), "utf8")).toContain(`FLOW_MESSAGING_KEY=${h.test_key}`);
     expect(existsSync(path.join(dir, ".claude/skills/flow-messaging/SKILL.md"))).toBe(true);
     expect(readFileSync(path.join(dir, "AGENTS.md"), "utf8")).toContain("flow-messaging:start");

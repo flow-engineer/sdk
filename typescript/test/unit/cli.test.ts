@@ -83,8 +83,8 @@ describe("init", () => {
       res.end(
         JSON.stringify({
           data: [
-            { id: "snd_1", kind: "shared", channel: "telegram", join_code: "join wild-otter-04508705", address: { username: "FlowSandboxBot", link: "https://t.me/FlowSandboxBot?start=wild-otter-04508705" } },
-            { id: "snd_2", kind: "shared", channel: "imessage", join_code: "join wild-otter-04508705", address: { handle: "sandbox@example.com" } },
+            { id: "snd_1", kind: "shared", channel: "telegram", join_code: "Hi Sandbox app (ref wild-otter-04508705)", address: { username: "FlowSandboxBot", link: "https://t.me/FlowSandboxBot?start=wild-otter-04508705" } },
+            { id: "snd_2", kind: "shared", channel: "imessage", join_code: "Hi Sandbox app (ref wild-otter-04508705)", address: { handle: "sandbox@example.com" } },
           ],
           has_more: false,
         }),
@@ -132,7 +132,7 @@ describe("init", () => {
     expect(out).toContain("codex mcp add flow -- npx -y @flow-engineer/messaging mcp");
     expect(out).toContain("init --yes");
     expect(out).toMatch(/telegram\s+https:\/\/t\.me\/FlowSandboxBot\?start=wild-otter-04508705\s+open it and tap Start/);
-    expect(out).toMatch(/imessage\s+sandbox@example\.com\s+send: join wild-otter-04508705/);
+    expect(out).toMatch(/imessage\s+sandbox@example\.com\s+send: Hi Sandbox app \(ref wild-otter-04508705\)/);
   });
 
   it("installs everything after a yes, or with --yes without asking", async () => {

@@ -196,9 +196,15 @@ def revoke(sk):
                    check=True, stdout=subprocess.DEVNULL)
 
 
-def join(user, sk):
-    """The user taps the sandbox link (/start <code>), which joins them to the app."""
+def join(user, sk, answer=None):
+    """The user taps the sandbox link (/start <code>), which joins them to the app. Flow
+    confirms the join, then delivers it to the app as the user's first message.received
+    ("/start"). With `answer`, waits for the app's answer to that message, so the
+    scenario's next receive starts after it."""
+    after = user.seq()
     user.say("/start " + sk["app"]["sandbox_join_code"])
+    if answer is not None:
+        receive_text(user, after, answer)
 
 
 def check(cond, what):
@@ -246,10 +252,10 @@ def echo(run):
     sk = sandbox_key()
     p = run("telegram-echo", env={"FLOW_MESSAGING_KEY": sk["key"]})
     try:
-        p.expect(r'^Write to https://t\.me/\w+\?start=[\w-]+ \(or send "join [\w-]+"\)$')
+        p.expect(r'^Write to https://t\.me/\w+\?start=([\w-]+) \(or send "Hi .+ \(ref \1\)"\)$')
         p.expect(r"^Echo agent ready\.$")
         u = User()
-        join(u, sk)
+        join(u, sk, "You said: /start")
         after = u.seq()
         u.say("hello from the e2e test")
         call = u.receive(after)
@@ -266,9 +272,10 @@ def echo_sdk():
     sk = sandbox_key()
     p = py_sdk("echo", env={"FLOW_MESSAGING_KEY": sk["key"]})
     try:
-        p.expect(rf"^Echo agent ready\. .*\(on iMessage, text: join {re.escape(sk['app']['sandbox_join_code'])}\)\.$")
+        p.expect(rf'^telegram: https://t\.me/\w+\?start=[\w-]+ \(or send "Hi .+ \(ref {re.escape(sk['app']['sandbox_join_code'])}\)"\)$')
+        p.expect(r"^Echo agent ready\. ")
         u = User()
-        join(u, sk)
+        join(u, sk, "You said: /start")
         after = u.seq()
         u.say("hello from the e2e test")
         call = u.receive(after)
@@ -330,16 +337,16 @@ def ai_agent(run, fake_llm):
     stub = None
     if fake_llm:
         p = run("telegram-ai-agent", "--fake-llm", env={"FLOW_MESSAGING_KEY": sk["key"], "ANTHROPIC_API_KEY": ""})
-        first, second = '(fake LLM) Answer 1: you said "Where is my order?"', "(fake LLM) Answer 2:"
+        joined, first, second = '(fake LLM) Answer 1: you said "/start"', '(fake LLM) Answer 2: you said "Where is my order?"', "(fake LLM) Answer 3:"
     else:
         stub = StubLLM()
         p = run("telegram-ai-agent", env={"FLOW_MESSAGING_KEY": sk["key"], "ANTHROPIC_API_KEY": "stub-not-a-key",
                                           "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{stub.server_address[1]}"})
-        first, second = "Stub answer 1", "Stub answer 2"
+        joined, first, second = "Stub answer 1", "Stub answer 2", "Stub answer 3"
     try:
         p.expect(r"^Support agent ready( \(fake LLM\))?\. Write to your sandbox bot\.$")
         u = User()
-        join(u, sk)
+        join(u, sk, joined)  # the join is the conversation's first message: the agent answers it
         after = u.seq()
         u.say("Where is my order?")
         call = u.receive(after)
@@ -358,7 +365,8 @@ def ai_agent(run, fake_llm):
             check(last["model"] == "claude-sonnet-5-5", f"the agent asked model {last['model']!r}")
             check("support agent" in json.dumps(last.get("system")), "the agent sent no system prompt")
             turns = [(m["role"], m["content"]) for m in last["messages"]]
-            want = [("user", "Where is my order?"), ("assistant", "Stub answer 1"), ("user", "It is order 1042")]
+            want = [("user", "/start"), ("assistant", "Stub answer 1"), ("user", "Where is my order?"),
+                    ("assistant", "Stub answer 2"), ("user", "It is order 1042")]
             check(turns == want, f"the agent sent the LLM {turns}")
 
         after = u.seq()
@@ -392,7 +400,7 @@ def webhook_receiver(run):
     try:
         p.expect(rf"Listening on http://localhost:{port}/flow/webhook$|Uvicorn running on http://0\.0\.0\.0:{port} ")
         u = User()
-        join(u, sk)
+        join(u, sk, "You said: /start")
         after = u.seq()
         u.say("hi webhook")
         call = u.receive(after)  # the reply in the webhook answer
@@ -484,7 +492,7 @@ def ask_and_wait_telegram(run):
     sk = sandbox_key()
     p = run("ask-and-wait", env={"FLOW_MESSAGING_KEY": sk["key"]})
     try:
-        p.expect(r'^Join: https://t\.me/\w+\?start=[\w-]+ \(or send "join [\w-]+"\)$')
+        p.expect(r'^Join: https://t\.me/\w+\?start=([\w-]+) \(or send "Hi .+ \(ref \1\)"\)$')
         p.expect(r"^Waiting for someone to join or write\.\.\.$")
         u = User()
         after = u.seq()
