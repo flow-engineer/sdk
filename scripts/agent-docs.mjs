@@ -40,14 +40,13 @@ const FILES = [
   ["agents/src/mcp-instructions-live.txt", ["agents/mcp-instructions-live.txt"]],
   ["agents/src/SKILL.md", ["plugin/skills/flow-messaging/SKILL.md"]],
   ["agents/src/AGENTS-snippet.md", ["plugin/AGENTS-snippet.md"]],
-  // The dashboard's "Copy prompt" texts: a person pastes one into their coding agent.
-  // They name no MCP server, so they skip the MCP rules (PROMPTS).
+  // The dashboard's "Copy prompt" text: a person pastes it into their coding agent.
+  // It names no MCP server, so it skips the MCP rules (PROMPTS).
   ["agents/src/prompt-imessage.md", ["agents/prompt-imessage.md"]],
-  ["agents/src/prompt-imessage-cli.md", ["agents/prompt-imessage-cli.md"]],
 ];
 // Outputs that are prompts a person pastes, not pages an agent reads: they must not
 // mention MCP at all instead of stating its rules.
-const PROMPTS = new Set(["agents/src/prompt-imessage.md", "agents/src/prompt-imessage-cli.md"]);
+const PROMPTS = new Set(["agents/src/prompt-imessage.md"]);
 // Hand-written pages with generated regions.
 const REGIONS = [
   "README.md",
