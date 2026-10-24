@@ -264,7 +264,9 @@ info:
     `text` is sent exactly as written on every channel: Flow does not read
     markdown, strip marks or warn. Style it in the channel's own terms:
     `telegram.parse_mode`, `imessage.styles`; WhatsApp's app reads its own
-    `*bold*` and `_italic_`.
+    `*bold*` and `_italic_`. With `telegram.parse_mode`, Telegram's length limits
+    count the text after its tags or marks are parsed, as Telegram counts them, so
+    a styled text may be longer than the limit before parsing.
 
     ## Order and duplicates
 
