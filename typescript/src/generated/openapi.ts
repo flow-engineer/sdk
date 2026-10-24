@@ -2136,7 +2136,7 @@ export interface components {
         };
         /** @description Per-app behaviour. The Flow team sets it for now; ask them to change it. */
         AppSettings: {
-            /** @description When on, inbound voice notes carry a `transcript` (adds about 1 to 2 seconds to voice notes only). */
+            /** @description Not used yet. Flow makes no transcripts of its own on any channel; on iMessage, a received voice note carries the transcript iMessage made of it, whatever this setting says. */
             transcription: boolean;
             /** @description When on, Flow marks inbound messages as read as soon as your endpoint accepts them. */
             auto_read: boolean;
@@ -3256,8 +3256,8 @@ export interface components {
          * @description A voice note, in either direction (`POST
          *     /v0/conversations/{conversation_id}/voice`). When sending, give `url` or
          *     `file_id` of an audio file. Inbound voice notes always come with the audio
-         *     file (`url`, `file_id`) and, when the app has transcription on, a
-         *     `transcript`.
+         *     file (`url`, `file_id`). On iMessage, a received voice note also carries
+         *     a `transcript` when iMessage made one of it; no other channel has one.
          */
         VoiceMessage: {
             /**
@@ -3276,7 +3276,7 @@ export interface components {
             metadata?: components["schemas"]["Metadata"];
             /** @description Inbound only. The voice note's length. */
             readonly duration_seconds?: number;
-            /** @description Inbound only, when transcription is on. What was said. */
+            /** @description Inbound only, on iMessage, when iMessage made a transcript of the voice note. What was said. */
             readonly transcript?: string;
         };
         /**

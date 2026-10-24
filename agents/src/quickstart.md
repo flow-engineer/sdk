@@ -679,7 +679,7 @@ Inbound `content.kind` is one of `basic` (`text` and/or one `media` file), `voic
 `button_reply` (a tap on a button or list row: `button_id`, `label`), `reaction`,
 `location`, `contact_card`, `file_blocked`. A basic message's `media` (`type`
 `image|video|document|audio`) and a `voice` note carry `url` and `file_id`: `GET /v0/files/{file_id}` with your key redirects to the bytes
-(the redirect URL lives 5 minutes). `voice` may carry a `transcript`. `file_blocked`
+(the redirect URL lives 5 minutes). `voice` may carry a `transcript` (iMessage only, when iMessage made one). `file_blocked`
 means the contact sent a file Flow did not keep (`reason`: `malware`,
 `type_not_allowed`, `scan_failed`, `too_large`). Documents and archives contacts send
 (PDF, Office files, zip and the like) are malware-scanned before Flow keeps them; one
