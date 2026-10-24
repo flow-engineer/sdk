@@ -150,7 +150,11 @@ class OutsideWindowError(FlowError):
 
 
 class UnsupportedContentError(FlowError):
-    """422 ``unsupported_content``: the channel cannot show this content; pass ``fallback="auto"`` or send something else."""
+    """422 ``unsupported_content``: the conversation's channel cannot take this kind or
+    field, and Flow converts nothing. ``param`` names what was refused (``kind``, a field,
+    a channel block) and ``hint`` says what to send instead. The answer is kept under the
+    request's ``Idempotency-Key``, so send the replacement with a new key: the refused
+    one's plus what it is (``evt_123:card:2:basic``)."""
 
 
 class NewContactLimitError(FlowError):

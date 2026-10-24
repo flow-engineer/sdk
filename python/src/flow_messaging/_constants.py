@@ -3,7 +3,7 @@
 #: The API version this SDK's models were generated from; sent as ``Flow-Version``.
 API_VERSION = "2026-11-01"
 #: This package's version.
-SDK_VERSION = "0.1.0"
+SDK_VERSION = "0.2.0"
 DEFAULT_BASE_URL = "https://api.flow.engineer"
 
 #: The API key, ``fk_test_...`` or ``fk_live_...``.

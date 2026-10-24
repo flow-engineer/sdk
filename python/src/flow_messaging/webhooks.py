@@ -11,6 +11,7 @@ request body, before parsing it.
     event = construct_event(raw_body, request.headers.get("Flow-Signature"), secret)
     if event.type == "message.received":
         return webhook_reply("Got it!")   # answer the delivery with this JSON
+        # or several pieces, up to 11: webhook_reply(["Here you go:", content.image(url)])
 """
 
 from __future__ import annotations
@@ -21,10 +22,10 @@ import time
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from ._base import jsonable, read_env
+from ._base import read_env, sendable
 from ._constants import ENV_WEBHOOK_SECRET
 from .errors import WebhookSignatureError
-from .types import Event, parse_event
+from .types import Event, WebhookReply, parse_event
 
 SIGNATURE_HEADER = "Flow-Signature"
 #: Seconds a signature's timestamp may differ from now (the API's 5-minute replay window).
@@ -123,15 +124,27 @@ def construct_event(
     return parse_event(_bytes(body))
 
 
-def webhook_reply(reply: Any = None, *, fallback: Any = None) -> dict[str, Any]:
-    """The JSON to answer a ``message.received`` delivery with to reply at once: text, a
-    piece of content, or a list of up to 10. None answers ``{}`` (send nothing now)."""
-    if reply is None or (isinstance(reply, (list, tuple)) and not reply):
+#: The most pieces one webhook reply may hold.
+MAX_REPLY_PIECES = 11
+
+
+def webhook_reply(reply: Any = None) -> dict[str, Any]:
+    """The JSON to answer a ``message.received`` delivery with to reply at once
+    (``{"reply": ...}``): a kind object (a dict with ``kind``, a model, or a builder from
+    ``flow_messaging.content``), a string (short for basic text), or a list of 1 to 11 of
+    those, sent in order as given; nothing is converted. None or an empty list answers
+    ``{}`` (send nothing now). Raises ``ValueError`` for a piece without a ``kind`` that can
+    be sent, or for more than 11 pieces, so a bad reply is caught in your handler."""
+    if reply is None:
         return {}
-    out: dict[str, Any] = {"reply": jsonable(reply)}
-    if fallback is not None:
-        out["fallback"] = jsonable(fallback)
-    return out
+    if isinstance(reply, (list, tuple)):
+        if len(reply) > MAX_REPLY_PIECES:
+            raise ValueError(f"A webhook reply holds at most {MAX_REPLY_PIECES} pieces; this one has {len(reply)}.")
+        return {"reply": [sendable(p) for p in reply]} if reply else {}
+    if isinstance(reply, WebhookReply) or (isinstance(reply, Mapping) and "reply" in reply and "kind" not in reply):
+        inner = reply.reply if isinstance(reply, WebhookReply) else reply["reply"]
+        return webhook_reply(inner)
+    return {"reply": sendable(reply)}
 
 
 class Webhooks:
@@ -155,8 +168,9 @@ class Webhooks:
             return False
         return True
 
-    def reply(self, reply: Any = None, *, fallback: Any = None) -> dict[str, Any]:
-        return webhook_reply(reply, fallback=fallback)
+    def reply(self, reply: Any = None) -> dict[str, Any]:
+        """``webhook_reply``: the body that answers a delivery with a reply."""
+        return webhook_reply(reply)
 
     @staticmethod
     def header(headers: Mapping[str, str]) -> str | None:
@@ -169,6 +183,7 @@ class Webhooks:
 
 __all__ = [
     "DEFAULT_TOLERANCE",
+    "MAX_REPLY_PIECES",
     "SIGNATURE_HEADER",
     "Webhooks",
     "construct_event",

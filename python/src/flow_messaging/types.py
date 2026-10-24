@@ -1,16 +1,23 @@
 """The API's shapes as Pydantic models, generated from the OpenAPI spec
 (``_models.py``; never edit it), plus the unions and closed lists under friendly names.
 
-Every model keeps fields the API adds later (``extra="allow"``), and ``Event`` and
-``Content`` are discriminated unions on ``type``:
+Every model keeps fields the API adds later (``extra="allow"``). ``Event`` is a
+discriminated union on ``type``; ``MessageContent`` (a message's ``content``) and
+``OutboundKind`` (one message to send) are discriminated unions on ``kind``. Each
+member of ``MessageContent`` is a subclass of its kind's model, so ``isinstance`` checks
+read naturally:
 
 .. code-block:: python
 
-    from flow_messaging.types import Event, MessageReceivedEvent
+    from flow_messaging.types import BasicMessage, ButtonReplyMessage, Event, MessageReceivedEvent
 
     def on_event(event: Event) -> None:
         if isinstance(event, MessageReceivedEvent):
-            print(event.data.message.content)
+            content = event.data.message.content
+            if isinstance(content, BasicMessage):
+                print(content.text)
+            elif isinstance(content, ButtonReplyMessage):
+                print("tapped", content.button_id)
 """
 
 from __future__ import annotations
@@ -27,29 +34,33 @@ from ._models import (
     App,
     AppContext,
     AppSettings,
-    ButtonReplyContent,
-    ButtonsContent,
+    BasicImessageOptions,
+    BasicKind,
+    BasicMessage,
+    BasicTelegramOptions,
+    ButtonReplyMessage,
+    ButtonsKind,
+    ButtonsMessage,
+    ButtonsTelegramOptions,
     Call,
     CallData,
     CallForwarding,
     CallReceivedEvent,
-    Capabilities,
     CarouselCard,
-    CarouselContent,
-    ChannelLimits,
-    ChannelOptions,
+    CarouselKind,
+    CarouselMessage,
     ChannelPeople,
     Consent,
     Contact,
     ContactAddress,
-    ContactCardContent,
+    ContactCardKind,
+    ContactCardMessage,
     ContactConsent,
     ContactDeletedData,
     ContactDeletedEvent,
     ContactLeftData,
     ContactLeftEvent,
     ContentHeader,
-    ContentSupport,
     Conversation,
     ConversationAction,
     ConversationRef,
@@ -57,22 +68,46 @@ from ._models import (
     ConversationStartedEvent,
     ConversationWindowClosingEvent,
     Deleted,
-    DeliveredAs,
     DeviceAuthorization,
     DeviceToken,
-    EditContent,
-    EffectContent,
+    EditImessageOptions,
+    EditMessage,
+    EditMessageRequest,
+    EditTelegramOptions,
+    EffectKind,
+    EffectMessage,
     ErrorBody,
     EventBase,
     File,
-    FileBlockedContent,
+    FileBlockedMessage,
     Group,
     GroupParticipant,
-    GroupSupport,
     ImessageSender,
-    LocationContent,
-    MediaContent,
+    ImessageStyle,
+    ListKind,
+    ListMessage,
+    ListRow,
+    ListSection,
+    LocationKind,
+    LocationMessage,
+    Media,
     Message,
+    MessageContent1,
+    MessageContent2,
+    MessageContent3,
+    MessageContent4,
+    MessageContent5,
+    MessageContent6,
+    MessageContent7,
+    MessageContent8,
+    MessageContent9,
+    MessageContent10,
+    MessageContent11,
+    MessageContent12,
+    MessageContent13,
+    MessageContent14,
+    MessageContent15,
+    MessageContent16,
     MessageDeliveredEvent,
     MessageEventData,
     MessageFailedEvent,
@@ -83,10 +118,13 @@ from ._models import (
     PeopleWindow,
     QuietHours,
     ReactionAddedEvent,
-    ReactionContent,
     ReactionEventData,
+    ReactionKind,
+    ReactionMessage,
     ReactionRemovedEvent,
-    ReadContent,
+    ReactionTelegramOptions,
+    ReadKind,
+    ReadMessage,
     Recipient,
     ReplyButton,
     SandboxAllowance,
@@ -94,43 +132,56 @@ from ._models import (
     Sender,
     SenderAddress,
     SenderLimits,
+    SenderRequest,
+    SenderSetup,
     SenderStatusChangedData,
     SenderStatusChangedEvent,
-    SendMessageRequest,
     SignedInUser,
     SimulatedButtonTap,
     SimulatedInbound,
+    SimulatedInboundRequest,
     SmsSegments,
     SmsSender,
-    StartConversationRequest,
+    StartBasicMessage,
+    StartConversationTarget,
+    StartTemplateMessage,
+    StreamSendFrame,
+    StreamStartFrame,
     Template,
     TemplateButton,
     TemplateButtonParam,
     TemplateCardParams,
     TemplateComponent,
-    TemplateContent,
     TemplateCreateRequest,
     TemplateHeaderParam,
+    TemplateKind,
+    TemplateMessage,
     TemplateParams,
     TemplateStatusChangedData,
     TemplateStatusChangedEvent,
     TestContactAddress,
+    TestConversationRequest,
     TestGroupParticipant,
     TestGroupRequest,
-    TextContent,
+    TestTranscript,
     Timing,
     TranscriptEntry,
-    TypingContent,
     TypingEventData,
+    TypingImessageOptions,
+    TypingKind,
+    TypingMessage,
     TypingStartedEvent,
     TypingStoppedEvent,
-    UnsendContent,
+    UnsendMessage,
     UrlButton,
-    VoiceContent,
+    VoiceKind,
+    VoiceMessage,
     WebhookEndpoint,
+    WebhookEndpointCreateRequest,
+    WebhookEndpointUpdateRequest,
     WebhookReply,
+    WebhookSecretRotateRequest,
     WindowClosingData,
-    WindowState,
 )
 from .errors import ErrorType
 
@@ -142,22 +193,25 @@ MessageDirection = Literal["in", "out"]
 MessageStatus = Literal["received", "queued", "sent", "delivered", "read", "failed", "unsent"]
 MessageNetwork = Literal["imessage", "sms", "rcs"]
 ConversationType = Literal["direct", "group"]
-ContentType = Literal[
-    "text",
-    "media",
+#: The kinds of message (a closed list). Each kind you send has its own endpoint and
+#: model (``BasicMessage``, ``ButtonsMessage``, ...); ``button_reply`` and
+#: ``file_blocked`` are inbound only.
+MessageKind = Literal[
+    "basic",
     "voice",
     "buttons",
-    "button_reply",
+    "list",
     "carousel",
-    "reaction",
     "template",
-    "location",
     "contact_card",
+    "location",
     "effect",
+    "reaction",
     "typing",
     "read",
     "edit",
     "unsend",
+    "button_reply",
     "file_blocked",
 ]
 EventType = Literal[
@@ -179,25 +233,60 @@ EventType = Literal[
     "call.received",
 ]
 
-#: One piece of content, in either direction; ``type`` selects the shape.
-Content = Annotated[
-    TextContent
-    | MediaContent
-    | VoiceContent
-    | ButtonsContent
-    | ButtonReplyContent
-    | CarouselContent
-    | ReactionContent
-    | TemplateContent
-    | LocationContent
-    | ContactCardContent
-    | EffectContent
-    | TypingContent
-    | ReadContent
-    | EditContent
-    | UnsendContent
-    | FileBlockedContent,
-    Field(discriminator="type"),
+#: A button of a ``buttons`` message or a carousel card: a reply button or a URL button.
+Button = ReplyButton | UrlButton
+
+#: A message's ``content``: one kind object, in either direction, with ``kind`` saying
+#: which. Each member subclasses its kind's model (the ``basic`` member is a
+#: ``BasicKind``, so a ``BasicMessage``; ``button_reply`` a ``ButtonReplyMessage``).
+MessageContent = Annotated[
+    MessageContent1
+    | MessageContent2
+    | MessageContent3
+    | MessageContent4
+    | MessageContent5
+    | MessageContent6
+    | MessageContent7
+    | MessageContent8
+    | MessageContent9
+    | MessageContent10
+    | MessageContent11
+    | MessageContent12
+    | MessageContent13
+    | MessageContent14
+    | MessageContent15
+    | MessageContent16,
+    Field(discriminator="kind"),
+]
+
+#: One message to send where no URL names the kind (``messages.send``, a webhook reply
+#: piece, a stream ``send`` frame): a kind object with ``kind`` set.
+OutboundKind = Annotated[
+    BasicKind
+    | VoiceKind
+    | ButtonsKind
+    | ListKind
+    | CarouselKind
+    | TemplateKind
+    | ContactCardKind
+    | LocationKind
+    | EffectKind
+    | ReactionKind
+    | TypingKind
+    | ReadKind
+    | EditMessage
+    | UnsendMessage,
+    Field(discriminator="kind"),
+]
+
+#: The body of ``POST /v0/messages`` (``messages.start``): a ``basic`` or ``template``
+#: message with ``sender``, ``to`` and, on SMS, ``consent``, in one flat object.
+StartConversationRequest = Annotated[StartBasicMessage | StartTemplateMessage, Field(discriminator="kind")]
+
+#: What a simulated contact sends in one turn (``test.inbound``).
+SimulatedInboundContent = Annotated[
+    BasicKind | VoiceKind | LocationKind | ContactCardKind | SimulatedButtonTap,
+    Field(discriminator="kind"),
 ]
 
 #: One entry in the app's event log; ``type`` selects the shape of ``data``.
@@ -225,7 +314,8 @@ Event = Annotated[
 MessageEvent = MessageReceivedEvent | MessageSentEvent | MessageDeliveredEvent | MessageReadEvent | MessageFailedEvent
 
 _EVENT: TypeAdapter[Event] = TypeAdapter(Event)
-_CONTENT: TypeAdapter[Content] = TypeAdapter(Content)
+_CONTENT: TypeAdapter[MessageContent] = TypeAdapter(MessageContent)
+_OUTBOUND: TypeAdapter[OutboundKind] = TypeAdapter(OutboundKind)
 
 
 def parse_event(data: Any) -> Event:
@@ -235,9 +325,14 @@ def parse_event(data: Any) -> Event:
     return _EVENT.validate_python(data)
 
 
-def parse_content(data: Any) -> Content:
-    """A piece of content from its JSON (a dict)."""
+def parse_content(data: Any) -> MessageContent:
+    """A message's content from its JSON (a dict with ``kind``)."""
     return _CONTENT.validate_python(data)
+
+
+def parse_outbound(data: Any) -> OutboundKind:
+    """A kind object to send from its JSON (a dict with ``kind``), checked against its kind's model."""
+    return _OUTBOUND.validate_python(data)
 
 
 __all__ = [
@@ -248,32 +343,35 @@ __all__ = [
     "App",
     "AppContext",
     "AppSettings",
-    "ButtonReplyContent",
-    "ButtonsContent",
+    "BasicImessageOptions",
+    "BasicKind",
+    "BasicMessage",
+    "BasicTelegramOptions",
+    "Button",
+    "ButtonReplyMessage",
+    "ButtonsKind",
+    "ButtonsMessage",
+    "ButtonsTelegramOptions",
     "Call",
     "CallData",
     "CallForwarding",
     "CallReceivedEvent",
-    "Capabilities",
     "CarouselCard",
-    "CarouselContent",
+    "CarouselKind",
+    "CarouselMessage",
     "Channel",
-    "ChannelLimits",
-    "ChannelOptions",
     "ChannelPeople",
     "Consent",
     "Contact",
     "ContactAddress",
-    "ContactCardContent",
+    "ContactCardKind",
+    "ContactCardMessage",
     "ContactConsent",
     "ContactDeletedData",
     "ContactDeletedEvent",
     "ContactLeftData",
     "ContactLeftEvent",
-    "Content",
     "ContentHeader",
-    "ContentSupport",
-    "ContentType",
     "Conversation",
     "ConversationAction",
     "ConversationRef",
@@ -282,90 +380,120 @@ __all__ = [
     "ConversationType",
     "ConversationWindowClosingEvent",
     "Deleted",
-    "DeliveredAs",
     "DeviceAuthorization",
     "DeviceToken",
-    "EditContent",
-    "EffectContent",
+    "EditImessageOptions",
+    "EditMessage",
+    "EditMessageRequest",
+    "EditTelegramOptions",
+    "EffectKind",
+    "EffectMessage",
     "ErrorBody",
     "ErrorType",
     "Event",
     "EventBase",
     "EventType",
     "File",
-    "FileBlockedContent",
+    "FileBlockedMessage",
     "Group",
     "GroupParticipant",
-    "GroupSupport",
     "ImessageSender",
-    "LocationContent",
-    "MediaContent",
+    "ImessageStyle",
+    "ListKind",
+    "ListMessage",
+    "ListRow",
+    "ListSection",
+    "LocationKind",
+    "LocationMessage",
+    "Media",
     "Message",
+    "MessageContent",
     "MessageDeliveredEvent",
     "MessageDirection",
     "MessageEvent",
     "MessageEventData",
     "MessageFailedEvent",
+    "MessageKind",
     "MessageNetwork",
     "MessageReadEvent",
     "MessageReceivedEvent",
     "MessageSentEvent",
     "MessageStatus",
     "Mode",
+    "OutboundKind",
     "PeopleLimits",
     "PeopleWindow",
     "QuietHours",
     "ReactionAddedEvent",
-    "ReactionContent",
     "ReactionEventData",
+    "ReactionKind",
+    "ReactionMessage",
     "ReactionRemovedEvent",
-    "ReadContent",
+    "ReactionTelegramOptions",
+    "ReadKind",
+    "ReadMessage",
     "Recipient",
     "ReplyButton",
     "SandboxAllowance",
     "SandboxKey",
-    "SendMessageRequest",
     "Sender",
     "SenderAddress",
     "SenderKind",
     "SenderLimits",
+    "SenderRequest",
+    "SenderSetup",
     "SenderStatus",
     "SenderStatusChangedData",
     "SenderStatusChangedEvent",
     "SignedInUser",
     "SimulatedButtonTap",
     "SimulatedInbound",
+    "SimulatedInboundContent",
+    "SimulatedInboundRequest",
     "SmsSegments",
     "SmsSender",
+    "StartBasicMessage",
     "StartConversationRequest",
+    "StartConversationTarget",
+    "StartTemplateMessage",
+    "StreamSendFrame",
+    "StreamStartFrame",
     "Template",
     "TemplateButton",
     "TemplateButtonParam",
     "TemplateCardParams",
     "TemplateComponent",
-    "TemplateContent",
     "TemplateCreateRequest",
     "TemplateHeaderParam",
+    "TemplateKind",
+    "TemplateMessage",
     "TemplateParams",
     "TemplateStatusChangedData",
     "TemplateStatusChangedEvent",
     "TestContactAddress",
+    "TestConversationRequest",
     "TestGroupParticipant",
     "TestGroupRequest",
-    "TextContent",
+    "TestTranscript",
     "Timing",
     "TranscriptEntry",
-    "TypingContent",
     "TypingEventData",
+    "TypingImessageOptions",
+    "TypingKind",
+    "TypingMessage",
     "TypingStartedEvent",
     "TypingStoppedEvent",
-    "UnsendContent",
+    "UnsendMessage",
     "UrlButton",
-    "VoiceContent",
+    "VoiceKind",
+    "VoiceMessage",
     "WebhookEndpoint",
+    "WebhookEndpointCreateRequest",
+    "WebhookEndpointUpdateRequest",
     "WebhookReply",
+    "WebhookSecretRotateRequest",
     "WindowClosingData",
-    "WindowState",
     "parse_content",
     "parse_event",
+    "parse_outbound",
 ]

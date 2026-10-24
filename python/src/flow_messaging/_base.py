@@ -137,7 +137,7 @@ def fields(value: Any, extra: Mapping[str, Any] | None = None) -> dict[str, Any]
     elif isinstance(value, BaseModel):
         out = jsonable(value)
         if "kind" in type(value).model_fields and "kind" not in out:
-            out["kind"] = value.kind
+            out["kind"] = value.model_dump(include={"kind"})["kind"]
     elif isinstance(value, Mapping):
         out = jsonable(value)
     else:
@@ -152,6 +152,45 @@ def kind_object(value: Any) -> dict[str, Any]:
     if isinstance(value, str):
         return {"kind": "basic", "text": value}
     return fields(value)
+
+
+#: The endpoint of each kind sent with ``POST /v0/conversations/{conversation_id}/<path>``.
+KIND_PATHS: dict[str, str] = {
+    "basic": "basic",
+    "voice": "voice",
+    "buttons": "buttons",
+    "list": "list",
+    "carousel": "carousel",
+    "template": "template",
+    "contact_card": "contact-card",
+    "location": "location",
+    "effect": "effect",
+    "reaction": "reaction",
+    "typing": "typing",
+    "read": "read",
+}
+#: Every kind that can be sent: those, and the changes to a sent message
+#: (``PATCH`` and ``DELETE /v0/messages/{message_id}``).
+SENDABLE_KINDS: tuple[str, ...] = (*KIND_PATHS, "edit", "unsend")
+#: Kinds Flow receives and never sends.
+INBOUND_ONLY_KINDS = ("button_reply", "file_blocked")
+
+
+def sendable(value: Any) -> dict[str, Any]:
+    """``kind_object(value)``, checked to name a kind that can be sent; raises ``ValueError``
+    otherwise, so a bad message never reaches the API."""
+    if value is None:
+        raise ValueError("Nothing to send: give a string (basic text) or a kind object with `kind`.")
+    obj = kind_object(value)
+    kind = obj.get("kind")
+    if isinstance(kind, str) and kind in SENDABLE_KINDS:
+        return obj
+    known = ", ".join(SENDABLE_KINDS)
+    if kind is None:
+        raise ValueError(f"Cannot send an object without a `kind`: give one of {known}, or a string for basic text.")
+    if kind in INBOUND_ONLY_KINDS:
+        raise ValueError(f"Cannot send kind {kind!r}: Flow receives it, never sends it. Give one of {known}.")
+    raise ValueError(f"Cannot send kind {kind!r}: give one of {known}, or a string for basic text.")
 
 
 def error_from_response(response: httpx.Response) -> FlowError:

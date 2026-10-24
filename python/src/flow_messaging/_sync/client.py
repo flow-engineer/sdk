@@ -16,7 +16,6 @@ from .conversation import ConversationHandle
 from .http import HTTPClient
 from .resources import (
     AppResource,
-    CapabilitiesResource,
     Contacts,
     Conversations,
     Device,
@@ -98,7 +97,6 @@ class Flow:
         self.messages = Messages(http)
         self.conversations = Conversations(http)
         self.events = Events(http)
-        self.capabilities = CapabilitiesResource(http)
         self.files = Files(http)
         self.senders = Senders(http)
         self.templates = Templates(http)

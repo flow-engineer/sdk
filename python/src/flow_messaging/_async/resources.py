@@ -5,11 +5,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, overload
+from typing import Any, TypeAlias, overload
 from urllib.parse import quote
 
 from .. import _base
-from .._base import body, parse, parser
+from .._base import KIND_PATHS, body, parse, parser
 from ..errors import APIConnectionError, APIError, DeviceSignInError, RateLimitError
 from ..pagination import AsyncPager
 from ..types import (
@@ -42,6 +42,7 @@ from ..types import (
     Template,
     TemplateMessage,
     TranscriptEntry,
+    TypingImessageOptions,
     TypingMessage,
     UnsendMessage,
     VoiceMessage,
@@ -56,24 +57,8 @@ def _path(base: str, object_id: str, *rest: str) -> str:
     return "/".join([base, quote(object_id, safe=""), *rest])
 
 
-#: The endpoint of each kind sent with ``POST /v0/conversations/{id}/<path>``.
-KIND_PATHS: dict[str, str] = {
-    "basic": "basic",
-    "voice": "voice",
-    "buttons": "buttons",
-    "list": "list",
-    "carousel": "carousel",
-    "template": "template",
-    "contact_card": "contact-card",
-    "location": "location",
-    "effect": "effect",
-    "reaction": "reaction",
-}
-#: Kinds ``send`` takes besides those: the conversation actions and the changes to a sent message.
-OTHER_SENDABLE_KINDS = ("typing", "read", "edit", "unsend")
-
-#: A message model ``send`` answers with a ``Message`` for.
-MessageModel = (
+#: A kind object ``send`` answers with a ``Message`` for (every kind but typing and read).
+MessageModel: TypeAlias = (
     BasicMessage
     | VoiceMessage
     | ButtonsMessage
@@ -87,18 +72,8 @@ MessageModel = (
     | EditMessage
     | UnsendMessage
 )
-
-
-def _sendable_kind(obj: Mapping[str, Any]) -> str:
-    kind = obj.get("kind")
-    if kind in KIND_PATHS or kind in OTHER_SENDABLE_KINDS:
-        return str(kind)
-    known = ", ".join([*KIND_PATHS, *OTHER_SENDABLE_KINDS])
-    if kind is None:
-        raise ValueError(f"The message has no `kind`: give one of {known}, or pass a string for a basic message.")
-    if kind in ("button_reply", "file_blocked"):
-        raise ValueError(f"`{kind}` is a kind Flow receives, never one you send.")
-    raise ValueError(f"Unknown kind {kind!r}: give one of {known}.")
+#: The kinds a start may carry.
+START_KINDS = ("basic", "template")
 
 
 def _target(obj: Mapping[str, Any]) -> str:
@@ -113,18 +88,29 @@ class AsyncMessages:
     each posting to that kind's endpoint exactly what it is given, and ``send``, which
     picks the endpoint from the message's ``kind``. Flow never converts a message: a
     kind or field the conversation's channel does not take raises
-    ``UnsupportedContentError`` (``param`` names it, ``hint`` says what to send instead)."""
+    ``UnsupportedContentError`` (``param`` names it, ``hint`` says what to send instead).
+
+    That ``422`` is kept under the request's ``Idempotency-Key``, like any answer, so the
+    message you send instead is a new request with a new key: add what it is to the
+    refused one's key (``evt_123:card:2`` refused, then ``evt_123:card:2:basic``)."""
 
     def __init__(self, http: AsyncHTTPClient) -> None:
         self._http = http
 
     async def _post(
-        self, conversation_id: str, path: str, message: Any, fields: Mapping[str, Any], idempotency_key: str | None
+        self, conversation_id: str, kind: str, message: Any, fields: Mapping[str, Any], idempotency_key: str | None
     ) -> Message:
+        obj = _base.fields(message, fields)
+        given = obj.get("kind")
+        if given is not None and given != kind:
+            raise ValueError(
+                f"This method sends `{kind}` messages, and the message is `{given}`: "
+                "use messages.send, which picks the endpoint from `kind`."
+            )
         res = await self._http.request(
             "POST",
-            _path("/v0/conversations", conversation_id, path),
-            json=_base.fields(message, fields),
+            _path("/v0/conversations", conversation_id, KIND_PATHS[kind]),
+            json=obj,
             idempotency=idempotency_key,
         )
         return parse(Message, res)
@@ -132,11 +118,11 @@ class AsyncMessages:
     async def basic(
         self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
     ) -> Message:
-        """Sends text, or one media file with an optional caption, on every channel
-        (``POST /v0/conversations/{id}/basic``). The body is ``message`` (a dict or a
-        model, such as ``content.image(...)``) with the keyword fields laid over it:
-        ``basic(id, text="Hi")``, ``basic(id, text="See https://example.com", link_preview=False)``.
-        The text is sent exactly as written: no markdown."""
+        """Sends text and/or one media file, on every channel
+        (``POST /v0/conversations/{conversation_id}/basic``). The body is ``message`` (a
+        dict or a model, such as ``content.image(...)``) with the keyword fields laid over
+        it: ``basic(id, text="Hi")``, ``basic(id, text="Yes, that one.", reply_to="msg_...")``.
+        The text is sent exactly as written: no markdown is rendered or stripped."""
         return await self._post(conversation_id, "basic", message, fields, idempotency_key)
 
     async def voice(
@@ -148,21 +134,25 @@ class AsyncMessages:
     async def buttons(
         self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
     ) -> Message:
-        """Sends text with buttons (Telegram, WhatsApp). On WhatsApp 1 to 3 reply buttons or
-        one URL button; send a ``list`` for more choices. A tap arrives as ``button_reply``."""
+        """Sends text with reply buttons, or one URL button (Telegram, WhatsApp). On WhatsApp
+        1 to 3 reply buttons; send a ``list`` for more choices. A tap arrives as
+        ``message.received`` with ``button_reply`` content carrying the button's ``id``:
+        ``buttons(id, content.buttons("Which size?", ["S", "M", "L"]))``."""
         return await self._post(conversation_id, "buttons", message, fields, idempotency_key)
 
     async def list(
         self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
     ) -> Message:
         """Sends a WhatsApp list message: ``text``, the menu ``button``'s label and its
-        ``sections`` of rows. A tap on a row arrives as ``button_reply`` with the row's ``id``."""
+        ``sections`` of rows (``content.list_message`` builds one). A tap on a row arrives
+        as ``button_reply`` with the row's ``id``."""
         return await self._post(conversation_id, "list", message, fields, idempotency_key)
 
     async def carousel(
         self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
     ) -> Message:
-        """Sends a WhatsApp carousel: ``text`` and 2 to 10 ``cards``."""
+        """Sends a WhatsApp carousel: ``text`` and 2 to 10 ``cards``, each with an image or
+        video header and buttons."""
         return await self._post(conversation_id, "carousel", message, fields, idempotency_key)
 
     async def template(
@@ -176,7 +166,7 @@ class AsyncMessages:
         self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
     ) -> Message:
         """Sends a contact card (Telegram, WhatsApp; Telegram needs at least one phone)."""
-        return await self._post(conversation_id, "contact-card", message, fields, idempotency_key)
+        return await self._post(conversation_id, "contact_card", message, fields, idempotency_key)
 
     async def location(
         self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
@@ -187,7 +177,7 @@ class AsyncMessages:
     async def effect(
         self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
     ) -> Message:
-        """Sends iMessage text with a screen or bubble ``effect`` (iMessage only)."""
+        """Sends text with an iMessage screen or bubble ``effect`` (iMessage only)."""
         return await self._post(conversation_id, "effect", message, fields, idempotency_key)
 
     async def reaction(
@@ -215,47 +205,62 @@ class AsyncMessages:
     async def send(
         self, conversation_id: str, message: Any, *, idempotency_key: str | None = None
     ) -> Message | ConversationAction:
-        """Sends one kind object to the endpoint of its ``kind``, exactly as given. A string
-        is short for ``{"kind": "basic", "text": ...}``. ``typing`` and ``read`` go to the
-        conversation's typing and read endpoints and answer a ``ConversationAction``;
-        ``edit`` and ``unsend`` change the message named by their ``message_id`` (``PATCH``
-        and ``DELETE /v0/messages/{message_id}``). A missing or unknown ``kind`` raises
-        ``ValueError`` before any request."""
-        obj = _base.kind_object(message)
-        kind = _sendable_kind(obj)
-        if kind in KIND_PATHS:
-            return await self._post(conversation_id, KIND_PATHS[kind], obj, {}, idempotency_key)
+        """Sends one kind object to the endpoint of its ``kind``, exactly as given: ``basic``
+        to ``/basic``, ``buttons`` to ``/buttons``, ``contact_card`` to ``/contact-card``,
+        and so on. A string is short for ``{"kind": "basic", "text": ...}``. ``typing`` and
+        ``read`` go to the conversation's typing and read endpoints and answer a
+        ``ConversationAction``; ``edit`` and ``unsend`` change the message named by their
+        ``message_id`` (``PATCH`` and ``DELETE /v0/messages/{message_id}``). A missing or
+        unknown ``kind`` raises ``ValueError`` before any request.
+
+        .. code-block:: python
+
+            flow.messages.send(conversation_id, "Your order shipped.")
+            flow.messages.send(conversation_id, content.buttons("Which size?", ["S", "M", "L"]))
+        """
+        obj = _base.sendable(message)
+        kind = str(obj["kind"])
         if kind in ("typing", "read"):
             return await _action(self._http, conversation_id, kind, obj, idempotency_key)
-        message_id = _target(obj)
         if kind == "edit":
-            return await self.edit(message_id, {k: v for k, v in obj.items() if k not in ("kind", "message_id")})
-        return await self.unsend(message_id)
+            rest = {k: v for k, v in obj.items() if k not in ("kind", "message_id")}
+            return await self.edit(_target(obj), rest)
+        if kind == "unsend":
+            return await self.unsend(_target(obj))
+        return await self._post(conversation_id, kind, obj, {}, idempotency_key)
 
     async def start(
         self,
         *,
         sender: str,
         to: Any,
-        message: Any,
+        message: Any = None,
         consent: Any = None,
         idempotency_key: str | None = None,
+        **fields: Any,
     ) -> Message:
         """Starts a conversation from one of your senders with a ``basic`` or ``template``
-        message (a kind object; a string is a basic message's text), sent as one flat body:
-        ``{"sender", "to", "kind", ...the message's fields}``. ``to`` is a contact ID
-        (``ct_...``), a phone number (``+1...``) or a recipient dict; ``consent`` is for SMS.
-        Spends the sender's new-contact budget; on WhatsApp only a template starts one. In
-        test mode ``to`` must be a contact who joined the sandbox through your app."""
-        obj = _base.kind_object(message)
-        if obj.get("kind") is None:
-            raise ValueError('A start needs the message\'s `kind`: "basic" or "template".')
-        res = await self._http.request(
-            "POST",
-            "/v0/messages",
-            json={**body(sender=sender, to=_base.recipient(to), consent=consent), **obj},
-            idempotency=idempotency_key,
-        )
+        message, sent as one flat body: ``{"sender", "to", "consent"?, "kind", ...the
+        message's fields}``. ``message`` is a kind object (``content.basic(...)``,
+        ``content.template(...)``) or a string (a basic message's text); keyword fields are
+        laid over it. ``to`` is a contact ID (``ct_...``), a phone number (``+1...``) or a
+        recipient dict; ``consent`` is for SMS. Spends the sender's new-contact budget; on
+        WhatsApp only a template starts one. In test mode ``to`` must be a contact who
+        joined the sandbox through your app. A message without ``kind``, or of another
+        kind, raises ``ValueError`` before any request.
+
+        .. code-block:: python
+
+            flow.messages.start(sender="snd_...", to="ct_...", message="Your table is ready.")
+            flow.messages.start(sender="snd_...", to="+15555550100", message=content.template("tpl_...", "en"))
+        """
+        obj = {**_base.kind_object(message), **_base.jsonable(fields)}
+        kind = obj.get("kind")
+        if kind not in START_KINDS:
+            got = "a message without `kind`" if kind is None else f"kind {kind!r}"
+            raise ValueError(f'A start takes a "basic" or "template" message, not {got}.')
+        target = body(sender=sender, to=_base.recipient(to), consent=consent)
+        res = await self._http.request("POST", "/v0/messages", json={**target, **obj}, idempotency=idempotency_key)
         return parse(Message, res)
 
     async def retrieve(self, message_id: str) -> Message:
@@ -263,17 +268,17 @@ class AsyncMessages:
         return parse(Message, await self._http.request("GET", _path("/v0/messages", message_id)))
 
     async def edit(self, message_id: str, message: Any = None, **fields: Any) -> Message:
-        """Replaces the text of one of your sent messages (Telegram; iMessage within 15
-        minutes): ``edit(id, text="New")``, with an optional ``telegram`` or ``imessage``
-        block. ``message`` may be a string (the new text), a dict or an
-        ``EditMessageRequest``."""
+        """Replaces the text of one of your sent messages, exactly as written (Telegram;
+        iMessage within 15 minutes): ``edit(id, "New text")`` or ``edit(id, text="New")``,
+        with an optional ``telegram`` or ``imessage`` block
+        (``PATCH /v0/messages/{message_id}``)."""
         payload = {"text": message} if isinstance(message, str) else message
         res = await self._http.request("PATCH", _path("/v0/messages", message_id), json=_base.fields(payload, fields))
         return parse(Message, res)
 
     async def unsend(self, message_id: str) -> Message:
         """Removes one of your sent messages from the contact's chat (Telegram within 48
-        hours, iMessage within 2 minutes)."""
+        hours, iMessage within 2 minutes; ``DELETE /v0/messages/{message_id}``)."""
         return parse(Message, await self._http.request("DELETE", _path("/v0/messages", message_id)))
 
 
@@ -321,20 +326,26 @@ class AsyncConversations:
         return self._http.list(_path("/v0/conversations", conversation_id, "messages"), q, parser(Message))
 
     async def typing(
-        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+        self,
+        conversation_id: str,
+        *,
+        imessage: Mapping[str, Any] | TypingImessageOptions | None = None,
+        idempotency_key: str | None = None,
     ) -> ConversationAction:
         """Shows the typing indicator (Telegram, WhatsApp, iMessage). It clears itself when
-        your next message goes or after a few seconds; no channel can clear it on request.
-        On iMessage, ``imessage={"duration_seconds": 10}`` sets how long it shows."""
-        return await _action(self._http, conversation_id, "typing", _base.fields(message, fields), idempotency_key)
+        your next message goes or after a few seconds; no channel clears it on request, so
+        there is no "off". On iMessage, ``imessage={"duration_seconds": 10}`` sets how long
+        it shows. A repeat with the same ``idempotency_key`` within 24 hours answers the
+        first result and does not show the indicator again."""
+        return await _action(self._http, conversation_id, "typing", body(imessage=imessage), idempotency_key)
 
     async def read(
-        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+        self, conversation_id: str, up_to: str | None = None, *, idempotency_key: str | None = None
     ) -> ConversationAction:
-        """Marks the contact's messages as read (WhatsApp, iMessage). On WhatsApp ``up_to``
-        names the latest inbound message to mark (default: the latest); iMessage marks the
-        whole conversation and refuses ``up_to``."""
-        return await _action(self._http, conversation_id, "read", _base.fields(message, fields), idempotency_key)
+        """Sends a read receipt (WhatsApp, iMessage): marks the contact's messages as read,
+        on WhatsApp up to and including ``up_to`` (default: the latest inbound message).
+        iMessage marks the whole conversation and refuses ``up_to``."""
+        return await _action(self._http, conversation_id, "read", body(up_to=up_to), idempotency_key)
 
 
 class AsyncFiles:
