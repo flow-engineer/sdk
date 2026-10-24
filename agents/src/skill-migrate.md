@@ -90,7 +90,7 @@ Fields that used to sit beside `content`:
 | Old field | New place |
 |---|---|
 | `reply_to` (top level) | inside the kind: `basic`, `voice`, `buttons`, `list`, `contact_card`, `location`, `effect`. `carousel` and `template` take none: send them without it. SMS refuses it: leave it out there. |
-| `metadata` (top level) | inside the kind (every message kind; not `reaction`, `typing`, `read`) |
+| `metadata` (top level) | inside the kind (every message kind but `reaction`, `typing`, `read` and edits) |
 | `link_preview` (default `true`) | `basic.link_preview`; leave it out for the channel's default (previews on). Send only `false` when you want plain links: `true` on SMS answers `422`. |
 | `fallback` | gone: choose the substitute yourself (section 3) |
 | `delivered_as` | gone: what you send is what the contact gets |
