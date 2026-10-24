@@ -204,8 +204,9 @@ describe.skipIf(!available)("against the local Flow Messaging service", () => {
       expect(sent).toHaveLength(2);
       expect(sent.every((m) => m.status === "queued" || m.status === "sent")).toBe(true);
       const calls = await simCalls("sendMessage", 2);
-      expect(calls.map((c) => c.text)).toEqual(["Hi Asha! Your order ships <b>today</b>.", "Anything else?"]);
-      expect(calls[0]!.params.parse_mode).toBe("HTML");
+      // Sent exactly as written: Flow renders no markdown and sets no parse_mode.
+      expect(calls.map((c) => c.text)).toEqual(["Hi Asha! Your order ships **today**.", "Anything else?"]);
+      expect(calls[0]!.params.parse_mode).toBeUndefined();
       const typing = await simCalls("sendChatAction", 1);
       expect(typing[0]!.params.action).toBe("typing");
 
