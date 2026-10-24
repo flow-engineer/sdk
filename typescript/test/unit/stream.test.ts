@@ -55,7 +55,7 @@ describe("events.stream", () => {
     send(conn, { type: "event", event: receivedEvent(1, "hi") });
     const ev = (await first).value!;
     expect(ev.type).toBe("message.received");
-    expect(ev.data.message.content).toEqual({ type: "text", text: "hi" });
+    expect(ev.data.message.content).toEqual({ kind: "basic", text: "hi" });
     expect(ev.conversation).toBeInstanceOf(ConversationHandle);
     expect(stream.lastEventId).toBe(ids.evt(1));
     stream.close();

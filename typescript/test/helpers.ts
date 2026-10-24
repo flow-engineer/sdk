@@ -46,7 +46,7 @@ export function message(n: number, text: string) {
     conversation: ids.conv,
     direction: "out",
     status: "queued",
-    content: { type: "text", text },
+    content: { kind: "basic", text },
     livemode: false,
     created_at: "2026-11-01T00:00:00Z",
   };

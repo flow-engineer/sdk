@@ -5,6 +5,12 @@
 Breaking: one endpoint per message kind (API version `2026-11-01`). What you send is what
 the contact gets; nothing is converted.
 
+- The API is V0: every request goes to `/v0/...` (was `/v1/...`). `/v1` is kept for
+  the stable release, 1.0.
+- A send the channel cannot take throws `UnsupportedContentError` (422) with `param`
+  and `hint`. The 422 is kept under its `Idempotency-Key`, so send what replaces it
+  with a new key (the refused one plus what it is, such as `evt_123:card:2:basic`).
+
 - `flow.messages` has one method per kind: `basic`, `voice`, `buttons`, `list`,
   `carousel`, `template`, `contactCard`, `location`, `effect`, `reaction`, and `send`,
   which takes any kind object (a string is short for `{ kind: "basic", text }`) and

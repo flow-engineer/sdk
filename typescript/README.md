@@ -25,23 +25,25 @@ node --env-file=.env agent.mjs
 The same send over HTTP, from any language:
 
 ```sh
-curl https://api.flow.engineer/v0/conversations/conv_.../messages \
+curl https://api.flow.engineer/v0/conversations/conv_.../basic \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
-  -d '{"content": {"type": "text", "text": "Hello!"}}'
+  -d '{"text": "Hello!"}'
 ```
 
 ## Why
 
 - **One API for three channels.** Telegram bots, WhatsApp numbers and iMessage lines
-  are hosted by Flow. You receive typed events and send typed content; Flow handles
-  each channel's webhooks, keys and rules.
+  are hosted by Flow. You receive typed events and send one kind of message per
+  endpoint (`basic`, `buttons`, `list`, ...); Flow handles each channel's webhooks,
+  keys and rules.
 - **Built for agents.** Replies take an LLM stream and arrive as chat bubbles with
   typing on; every inbound message is in an ordered, replayable log; an MCP server lets
   coding agents and assistants act directly.
-- **Nothing converted silently.** Content a channel cannot show fails with a typed
-  error unless you allow a fallback, and the message reports what was shown.
+- **Nothing converted.** What you send is what the contact gets: a kind, field or
+  value the conversation's channel cannot take fails with `UnsupportedContentError`
+  (422), whose `param` names it and whose `hint` says what to send instead.
 
 Works in Node 18+, Bun, Deno and edge runtimes (anything with `fetch`). No runtime
 dependencies. ESM and CommonJS.
@@ -133,7 +135,7 @@ On Node 18 and 20, install `ws` for the WebSocket (Node 22+ has one built in).
 // Next.js route handler, Hono, Bun.serve, Deno.serve, Cloudflare Workers
 export const POST = flow.webhooks.handler({
   secret: process.env.FLOW_MESSAGING_WEBHOOK_SECRET!,
-  onEvent: (event) => (event.type === "message.received" ? "Got it!" : undefined), // returned content is the reply
+  onEvent: (event) => (event.type === "message.received" ? "Got it!" : undefined), // what it returns is the reply
 });
 
 // Express or anything else: pass the raw body
@@ -145,7 +147,9 @@ app.post("/flow", express.raw({ type: "application/json" }), async (req, res) =>
 
 `constructEvent` checks `Flow-Signature` (HMAC-SHA256 over `t.{t}.{body}`, compared in
 constant time, 5-minute replay window, several secrets while rotating) and returns the
-typed event. Answer within 10 seconds; a slow agent answers `{}` and calls
+typed event. The reply in the answer (`flow.webhooks.reply(...)`, or what `onEvent`
+returns) is a string (a `basic` text), a kind object, or a list of up to 11 of them,
+sent in order. Answer within 10 seconds; a slow agent answers `{}` and calls
 `event.conversation.reply(...)` afterwards. Deliveries are at least once: deduplicate
 on `event.id`. To change the secret, `flow.webhookEndpoints.rotateSecret(id, { overlap_seconds })`
 returns the new one; the old one keeps signing for the overlap (default one day), so
@@ -157,7 +161,7 @@ Events are a discriminated union on `type` (`message.received`, `message.sent`,
 `conversation.window_closing`, `sender.status_changed`, `template.status_changed`,
 `contact.deleted`, `contact.left`).
 Each event in a conversation carries `event.conversation`, a handle with `reply`,
-`send`, `typing`, `markRead`, `react`, `responding`, `messages`, and the waits
+`send`, `typing`, `read`, `react`, `responding`, `messages`, and the waits
 `waitForReply`, `ask` and `sendAndWait` (see "Send, wait for the reply, continue").
 
 **Which event type to use.** Type your handlers with `FlowEvent` (or
@@ -182,23 +186,26 @@ async function onEvent(event: FlowEvent) {
 
 `event.conversation.reply(input)` (or `flow.conversation("conv_...").reply(input)`) takes:
 
-- a string, a piece of content (`text`, `markdown`, `image`, `buttons`, ...) or a list;
+- a string, a kind object (`basic`, `image`, `buttons`, `list`, ...) or a list of them;
 - a stream: OpenAI (Chat Completions or Responses), Anthropic, the Vercel AI SDK
   (`streamText`), the OpenAI Agents SDK (`run(..., { stream: true })`), the Claude
   Agent SDK (`query`), LangChain (`.stream`), Mastra (`agent.stream`), a
   `ReadableStream`, any `AsyncIterable<string>`, or a promise of one.
 
-It turns typing on (and keeps it on), splits the text into bubbles and sends each as
-soon as it is complete, in order. The rule, for those not using the SDK: a bubble ends
+It shows typing (and keeps showing it), splits the text into bubbles and sends each
+as a `basic` message as soon as it is complete, in order. The rule, for those not using the SDK: a bubble ends
 at a blank line, except after a line ending in `:` and between items of one list;
 past the channel's soft length (Telegram 900, WhatsApp 700, iMessage 400, SMS 300 characters) it
 ends at the next sentence end; never inside a code block unless it would pass the
-channel's text limit (4096 characters; 9999 on iMessage; 670 on SMS, 10 segments even with an emoji). Text is sent as markdown with `fallback: "auto"` (plain text where a
-channel has no formatting). Options: `{ format: "plain" }`, `{ split: false }`,
+channel's text limit (4096 characters; 9999 on iMessage; 670 on SMS, 10 segments even with an emoji). Text is sent exactly as written: no markdown is rendered or
+stripped (style it with a channel block, such as `telegram.parse_mode`, in a kind
+object you send yourself). Options: `{ split: false }`,
 `{ bubbles: { softLength } }`, and `{ idempotencyKey: event.id }` to make retrying a
 whole reply safe. `splitIntoBubbles(text, "whatsapp")` gives the same split.
 
-`conversation.responding(fn)` keeps typing on while `fn` runs and always clears it.
+`conversation.responding(fn)` keeps typing shown while `fn` runs and stops refreshing
+it when `fn` settles. Typing has no "off": no channel clears it on request, so it
+clears itself when your next message goes or a few seconds later.
 
 ## Send, wait for the reply, continue
 
@@ -253,21 +260,68 @@ The messages it returns also reach your other streams and webhooks.
 
 ## Sending and the rest of the API
 
-```ts
-import { buttons, image, template, text } from "@flow-engineer/messaging";
+Each kind of message has its own endpoint and method, and every one answers the
+queued `Message`. `flow.messages.send(convId, kindObject)` sends any kind object to
+its kind's endpoint (a string is short for `{ kind: "basic", text }`); the builders
+(`basic`, `image`, `video`, `audio`, `document`, `media`, `voice`, `buttons`,
+`list`, `carousel`, `template`, `location`, `contactCard`, `effect`, `reaction`)
+make kind objects.
 
-await flow.messages.send("conv_...", "Your order shipped.");
-await flow.messages.send("conv_...", { content: buttons("Which size?", ["S", "M", "L"]), fallback: "auto" });
-await flow.messages.send("conv_...", image("https://example.com/receipt.png", { caption: "Receipt" }));
-await flow.messages.send("conv_...", { content: text("Yes, that one."), reply_to: "msg_..." }); // inline reply
-await flow.messages.start({ sender: "snd_...", to: { phone: "+919812345678" }, content: template("tpl_...", "en", { body: ["Asha"] }) });
-const caps = await flow.capabilities.retrieve("conv_..."); // what the channel can show, window state
+```ts
+import { buttons, image, list, template } from "@flow-engineer/messaging";
+
+await flow.messages.send("conv_...", "Your order shipped.");                       // POST .../basic
+await flow.messages.basic("conv_...", { text: "Yes, that one.", reply_to: "msg_..." }); // an inline reply
+await flow.messages.send("conv_...", buttons("Which size?", ["S", "M", "L"]));     // POST .../buttons
+await flow.messages.send("conv_...", list("Which size?", "Sizes", [{ id: "s", title: "Small" }, { id: "m", title: "Medium" }])); // WhatsApp
+await flow.messages.send("conv_...", image("https://example.com/receipt.png", "Receipt"));
+await flow.messages.basic("conv_...", { text: "<b>Shipped</b>", telegram: { parse_mode: "HTML" } }); // styles only in a channel block
+await flow.messages.start({ sender: "snd_...", to: { phone: "+919812345678" }, ...template("tpl_...", "en", { body: ["Asha"] }) });
+await flow.conversations.typing("conv_...");                // no state: it clears itself
+await flow.conversations.read("conv_...");                  // WhatsApp, iMessage
+await flow.messages.edit("msg_...", "Fixed text");          // PATCH /v0/messages/{id}
+await flow.messages.unsend("msg_...");                      // DELETE /v0/messages/{id}
+```
+
+| Method | Endpoint | Channels |
+|---|---|---|
+| `messages.basic` | `POST /v0/conversations/{id}/basic` | all |
+| `messages.voice` | `.../voice` | Telegram, WhatsApp, iMessage |
+| `messages.buttons` | `.../buttons` | Telegram, WhatsApp (1 to 3 reply buttons, or one URL button) |
+| `messages.list` | `.../list` | WhatsApp |
+| `messages.carousel` | `.../carousel` | WhatsApp |
+| `messages.template` | `.../template` | WhatsApp |
+| `messages.contactCard` | `.../contact-card` | Telegram, WhatsApp |
+| `messages.location` | `.../location` | Telegram, WhatsApp |
+| `messages.effect` | `.../effect` | iMessage |
+| `messages.reaction` | `.../reaction` | Telegram, WhatsApp, iMessage |
+| `conversations.typing` | `.../typing` | Telegram, WhatsApp, iMessage |
+| `conversations.read` | `.../read` | WhatsApp, iMessage |
+| `messages.edit`, `messages.unsend` | `PATCH`, `DELETE /v0/messages/{id}` | Telegram, iMessage |
+| `messages.start` | `POST /v0/messages` (`basic` or `template`) | all |
+
+Nothing is converted: a kind the channel cannot take throws `UnsupportedContentError`
+with `param` (the kind, field, value or channel block) and `hint` (what to send
+instead). Picking a substitute is up to you, per channel: for example a `basic`
+message, then one `buttons` message per card, where a `carousel` is refused. A 422 is
+kept under its `Idempotency-Key`, so send the substitute with a new key: the refused
+one plus what it is (`evt_123:card:2` becomes `evt_123:card:2:basic`).
+
+```ts
+import { UnsupportedContentError } from "@flow-engineer/messaging";
+
+try {
+  await flow.messages.send(conv, buttons("Pick a size", sizes), { idempotencyKey: `${event.id}:sizes` });
+} catch (err) {
+  if (!(err instanceof UnsupportedContentError)) throw err;
+  await flow.messages.send(conv, `Pick a size: ${sizes.join(", ")}`, { idempotencyKey: `${event.id}:sizes:basic` });
+}
 ```
 
 **Files.** `flow.files.upload({ file, filename?, channel? })` takes the bytes as a
 `Blob`/`File`, a `Uint8Array` (a Node `Buffer` is one) or an `ArrayBuffer` (read a
 stream into one first), and returns the stored `File`. Its `id` (`file_...`) is the
-`file_id` to send in `media` or `voice` content; `channel` checks that channel's size
+`file_id` to send in a `basic` message's `media` or a `voice` note; `channel` checks that channel's size
 limit at upload. Documents (PDF, Office, archives) are malware-scanned before they
 are stored: one that fails throws `FileBlockedError`. Inbound media arrives with a `url`; `flow.files.download(idOrUrl)` gives its
 bytes as a `Blob`.
@@ -277,13 +331,13 @@ import { readFile } from "node:fs/promises";
 import { document, image } from "@flow-engineer/messaging";
 
 const file = await flow.files.upload({ file: await readFile("receipt.png"), filename: "receipt.png" });
-await flow.messages.send("conv_...", image(file.id, { caption: "Your receipt" }));
-// the same content by hand: { type: "media", kind: "image", file_id: file.id, caption: "Your receipt" }
-await flow.messages.send("conv_...", document("https://example.com/receipt.pdf", { caption: "Your receipt" })); // a document by url
+await flow.messages.send("conv_...", image(file.id, "Your receipt"));
+// the same by hand: flow.messages.basic("conv_...", { text: "Your receipt", media: { type: "image", file_id: file.id } })
+await flow.messages.send("conv_...", document("https://example.com/receipt.pdf", "Your receipt")); // a document by url
 ```
 
 Resources mirror the endpoints: `messages`, `conversations`, `events`,
-`capabilities`, `files`, `senders`, `templates`, `webhookEndpoints`, `contacts`, `app`.
+`files`, `senders`, `templates`, `webhookEndpoints`, `contacts`, `app`, `test`.
 Lists are cursor-paged: `await flow.conversations.list({ limit: 50 })` gives a page
 (`data`, `has_more`, `nextPage()`); `for await (const c of flow.conversations.list())`
 walks them all. Each list's parameters are a named type exported from the package:

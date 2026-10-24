@@ -1,7 +1,7 @@
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketServer, type WebSocket } from "ws";
-import { ChannelError, FlowMessaging, WaitTimeoutError, contentText, text, toFlowEvent, type Event } from "../../src/index.js";
+import { ChannelError, FlowMessaging, WaitTimeoutError, contentText, toFlowEvent, type Event } from "../../src/index.js";
 import { ids, json, message, mockFetch, receivedEvent, type Recorded } from "../helpers.js";
 
 interface Conn {
@@ -69,7 +69,7 @@ describe("conversation.ask", () => {
     const srv = await fakeStream();
     const question = message(1, "What's your name?");
     const { fetch, calls } = mockFetch((req) => {
-      if (path(req) === `POST /v0/conversations/${ids.conv}/messages`) return json(201, question);
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, question);
       if (path(req) === `GET /v0/conversations/${ids.conv}/messages`) return json(200, { data: [question], has_more: false });
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
@@ -83,14 +83,14 @@ describe("conversation.ask", () => {
     const reply = await answer;
     expect(contentText(reply.content)).toBe("Asha");
     await c.closed;
-    expect(calls[0]!.body).toEqual({ content: { type: "text", text: "What's your name?" } });
+    expect(calls[0]!.body).toEqual({ kind: "basic", text: "What's your name?" });
   });
 
   it("returns a reply that came before the stream connected", async () => {
     const srv = await fakeStream();
     const question = message(1, "Which size?");
     const { fetch } = mockFetch((req) => {
-      if (path(req) === `POST /v0/conversations/${ids.conv}/messages`) return json(201, question);
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, question);
       // Newest first: two answers came after the question; the first one is the reply.
       if (path(req) === `GET /v0/conversations/${ids.conv}/messages`)
         return json(200, { data: [inbound(3, "or M"), inbound(2, "L"), { ...question, status: "sent" }, inbound(0, "hi")], has_more: false });
@@ -106,7 +106,7 @@ describe("conversation.ask", () => {
     const srv = await fakeStream();
     const question = message(1, "Still there?");
     const { fetch } = mockFetch((req) => {
-      if (path(req) === `POST /v0/conversations/${ids.conv}/messages`) return json(201, question);
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, question);
       if (path(req) === `GET /v0/conversations/${ids.conv}/messages`) return json(200, { data: [question], has_more: false });
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
@@ -189,7 +189,7 @@ describe("sendAndWait and messages.waitFor", () => {
     const srv = await fakeStream();
     const queued = message(1, "Your order shipped.");
     const { fetch } = mockFetch((req) => {
-      if (path(req) === `POST /v0/conversations/${ids.conv}/messages`) return json(201, queued);
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, queued);
       if (path(req) === `GET /v0/messages/${queued.id}`) return json(200, queued);
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
@@ -244,11 +244,11 @@ describe("sendAndWait and messages.waitFor", () => {
     const srv = await fakeStream();
     let n = 0;
     const { fetch } = mockFetch((req) => {
-      if (path(req) === `POST /v0/conversations/${ids.conv}/messages`) return json(201, message(++n, "bubble"));
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, message(++n, "bubble"));
       if (req.url.pathname.startsWith("/v0/messages/")) return json(200, message(Number(req.url.pathname.slice(-2)), "bubble"));
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
-    const replying = flow.conversation(ids.conv).reply([text("one"), text("two")], { until: "sent" });
+    const replying = flow.conversation(ids.conv).reply(["one", "two"], { until: "sent" });
     const c = await srv.next();
     push(c, statusEvent(10, "sent", message(2, "bubble")));
     push(c, statusEvent(11, "sent", message(1, "bubble")));

@@ -280,7 +280,7 @@ describe("listen", () => {
       for await (const c of req) body += c;
       delivered = { headers: req.headers, body };
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ reply: { type: "text", text: "pong" } }));
+      res.end(JSON.stringify({ reply: { kind: "basic", text: "pong" } }));
     });
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
     const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/hook`;
@@ -294,26 +294,29 @@ describe("listen", () => {
       expect(delivered!.headers["flow-event-type"]).toBe("message.received");
       expect(JSON.parse(delivered!.body).conversation.id).toBe(ids.conv);
       expect(api.calls[0]!.headers["idempotency-key"]).toBe(ids.evt(1));
-      expect(api.calls[0]!.body).toEqual({ content: { type: "text", text: "pong" } });
+      expect(api.calls[0]!.url.pathname).toBe(`/v0/conversations/${ids.conv}/basic`);
+      expect(api.calls[0]!.body).toEqual({ kind: "basic", text: "pong" });
     } finally {
       server.close();
     }
   });
 
-  it("reads webhook answers as the API does: all pieces with fallback, or nothing", () => {
-    const text = { type: "text", text: "hi" };
+  it("reads webhook answers as the API does: every piece as a kind object, or nothing", () => {
+    const text = { kind: "basic", text: "hi" };
     expect(readReply({})).toEqual({ list: [] });
     expect(readReply({ reply: null })).toEqual({ list: [] });
-    expect(readReply({ reply: [text, text], fallback: "auto" })).toEqual({ list: [text, text], fallback: "auto" });
+    expect(readReply({ reply: [text, "hi"] })).toEqual({ list: [text, text] });
+    expect(readReply({ reply: "hi" })).toEqual({ list: [text] });
+    expect(readReply({ reply: Array(11).fill(text) })).toEqual({ list: Array(11).fill(text) });
     expect(readReply("OK")).toEqual({ list: [] });
     expect(readReply(undefined)).toEqual({ list: [] });
     expect(readReply(undefined, true)).toHaveProperty("error");
     expect(readReply([text])).toEqual({ list: [] });
-    expect(readReply({ ok: true, fallback: "numbered" })).toEqual({ list: [] });
     expect(readReply({ reply: [] })).toHaveProperty("error");
-    expect(readReply({ reply: Array(11).fill(text) })).toHaveProperty("error");
-    expect(readReply({ reply: [text, "hi"] })).toHaveProperty("error");
-    expect(readReply({ reply: text, fallback: "numbered" })).toHaveProperty("error");
+    expect(readReply({ reply: Array(12).fill(text) })).toHaveProperty("error");
+    expect(readReply({ reply: [text, ""] })).toHaveProperty("error");
+    expect(readReply({ reply: { type: "text", text: "hi" } })).toHaveProperty("error");
+    expect(readReply({ reply: { kind: "button_reply", button_id: "x" } })).toHaveProperty("error");
   });
 });
 
