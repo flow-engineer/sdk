@@ -79,7 +79,7 @@ def test_custom_flow_version_and_default_headers(mock: respx.MockRouter) -> None
 
 
 def test_idempotency_key_on_authenticated_post(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
+    route = mock.post(url(f"/v0/conversations/{CONV}/basic")).respond(json=message())
     flow.messages.send(CONV, "hi")
     flow.messages.send(CONV, "hi")
     first, second = (c.request.headers["idempotency-key"] for c in route.calls)
@@ -87,7 +87,7 @@ def test_idempotency_key_on_authenticated_post(flow: Flow, mock: respx.MockRoute
 
 
 def test_callers_idempotency_key_used_verbatim(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
+    route = mock.post(url(f"/v0/conversations/{CONV}/basic")).respond(json=message())
     flow.messages.send(CONV, "hi", idempotency_key="my-key-1")
     assert route.calls.last.request.headers["idempotency-key"] == "my-key-1"
     t = mock.post(url(f"/v0/conversations/{CONV}/typing")).respond(json=conversation_action())
@@ -112,7 +112,7 @@ def test_no_idempotency_key_on_get_patch_delete(flow: Flow, mock: respx.MockRout
 
 
 def test_same_idempotency_key_across_retries(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v0/conversations/{CONV}/messages"))
+    route = mock.post(url(f"/v0/conversations/{CONV}/basic"))
     route.side_effect = [
         httpx.Response(503, json={"error": {"type": "api_error", "message": "busy"}}),
         httpx.ConnectError("refused"),

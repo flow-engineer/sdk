@@ -66,36 +66,39 @@ def test_event_without_conversation_refused(flow: Flow) -> None:
 
 
 def test_handle_actions(flow: Flow, mock: respx.MockRouter) -> None:
-    send = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
+    basic = mock.post(url(f"/v0/conversations/{CONV}/basic")).respond(json=message())
+    reaction = mock.post(url(f"/v0/conversations/{CONV}/reaction")).respond(json=message())
     typing = mock.post(url(f"/v0/conversations/{CONV}/typing")).respond(json=conversation_action())
     read = mock.post(url(f"/v0/conversations/{CONV}/read")).respond(json=conversation_action("read"))
     msgs = mock.get(url(f"/v0/conversations/{CONV}/messages")).respond(json=page([message()]))
     h = flow.conversation(CONV)
 
-    h.send("hi", reply_to=MSG, metadata={"k": "v"}, idempotency_key="idem-1")
-    assert json.loads(send.calls.last.request.read()) == {
-        "content": {"type": "text", "text": "hi"},
+    sent = h.send({"kind": "basic", "text": "hi", "reply_to": MSG, "metadata": {"k": "v"}}, idempotency_key="idem-1")
+    assert sent.id == MSG
+    assert json.loads(basic.calls.last.request.read()) == {
+        "kind": "basic",
+        "text": "hi",
         "reply_to": MSG,
         "metadata": {"k": "v"},
     }
-    assert send.calls.last.request.headers["idempotency-key"] == "idem-1"
+    assert basic.calls.last.request.headers["idempotency-key"] == "idem-1"
+    h.send("plain")
+    assert json.loads(basic.calls.last.request.read()) == {"kind": "basic", "text": "plain"}
 
     h.react(MSG, "👍")
-    assert json.loads(send.calls.last.request.read()) == {
-        "content": {"type": "reaction", "message_id": MSG, "emoji": "👍"},
-        "fallback": "auto",
-    }
+    assert json.loads(reaction.calls.last.request.read()) == {"message_id": MSG, "emoji": "👍"}
     h.react(MSG, None)
-    assert json.loads(send.calls.last.request.read()) == {
-        "content": {"type": "reaction", "message_id": MSG, "emoji": None},
-        "fallback": "auto",
-    }
+    assert json.loads(reaction.calls.last.request.read()) == {"message_id": MSG, "emoji": None}
 
-    h.typing("off")
-    assert json.loads(typing.calls.last.request.read()) == {"state": "off"}
-    h.mark_read()
+    assert h.typing().action == "typing"
+    assert json.loads(typing.calls.last.request.read()) == {}
+    h.typing(imessage={"duration_seconds": 10}, idempotency_key="evt_1:typing")
+    assert json.loads(typing.calls.last.request.read()) == {"imessage": {"duration_seconds": 10}}
+    assert typing.calls.last.request.headers["idempotency-key"] == "evt_1:typing"
+    h.read()
     assert json.loads(read.calls.last.request.read()) == {}
-    h.mark_read(MSG)
+    h.read(MSG)
     assert json.loads(read.calls.last.request.read()) == {"up_to": MSG}
+    assert not hasattr(h, "mark_read")
     assert [m.id for m in h.messages(limit=5)] == [MSG]
     assert msgs.calls.last.request.url.params["limit"] == "5"

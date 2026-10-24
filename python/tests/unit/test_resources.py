@@ -20,7 +20,6 @@ from conftest import (
     TPL,
     WH,
     app_context,
-    capabilities,
     contact,
     conversation,
     conversation_action,
@@ -37,21 +36,24 @@ from conftest import (
     webhook_endpoint,
 )
 
-from flow_messaging import APIError, Flow
+from flow_messaging import APIError, Flow, UnsupportedContentError
+from flow_messaging.content import buttons, image, list_message, location
+from flow_messaging.content import template as template_kind
 from flow_messaging.types import (
     AppContext,
-    Capabilities,
+    BasicMessage,
     Contact,
     Conversation,
     ConversationAction,
     Deleted,
+    EditMessageRequest,
     File,
     Message,
     MessageReceivedEvent,
+    ReadMessage,
     Sender,
     SimulatedInbound,
     Template,
-    TextContent,
     TranscriptEntry,
     WebhookEndpoint,
 )
@@ -63,90 +65,224 @@ def sent(route: respx.Route) -> Any:
 
 # messages ---------------------------------------------------------------------
 
+#: Each kind sent with POST /v0/conversations/{id}/<path>: the method, its path, and a body.
+KINDS: list[tuple[str, str, dict[str, Any]]] = [
+    ("basic", "basic", {"text": "Hello"}),
+    ("voice", "voice", {"file_id": FILE}),
+    ("buttons", "buttons", {"text": "Size?", "buttons": [{"id": "s", "label": "S"}]}),
+    ("list", "list", {"text": "Size?", "button": "Sizes", "sections": [{"rows": [{"id": "s", "title": "S"}]}]}),
+    ("carousel", "carousel", {"text": "Picks", "cards": []}),
+    ("template", "template", {"template_id": TPL, "language": "en"}),
+    ("contact_card", "contact-card", {"name": "Ada", "phones": ["+15555550100"]}),
+    ("location", "location", {"lat": 52.52, "lng": 13.405}),
+    ("effect", "effect", {"text": "Party!", "effect": "confetti"}),
+    ("reaction", "reaction", {"message_id": MSG, "emoji": None}),
+]
 
-def test_send_string_becomes_text(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
-    msg = flow.messages.send(CONV, "Hello")
+
+@pytest.mark.parametrize(("method", "path", "fields"), KINDS)
+def test_each_kind_method_posts_to_its_endpoint(
+    method: str, path: str, fields: dict[str, Any], flow: Flow, mock: respx.MockRouter
+) -> None:
+    route = mock.post(url(f"/v0/conversations/{CONV}/{path}")).respond(json=message())
+    msg = getattr(flow.messages, method)(CONV, fields, idempotency_key="evt_1:0")
     assert isinstance(msg, Message)
-    assert msg.id == MSG
-    assert sent(route) == {"content": {"type": "text", "text": "Hello"}}
+    assert sent(route) == fields
+    assert route.calls.last.request.headers["idempotency-key"] == "evt_1:0"
+    # Keyword fields are laid over the message, and a matching kind is kept.
+    getattr(flow.messages, method)(CONV, {"kind": path.replace("-", "_"), **fields}, metadata={"k": "v"})
+    assert sent(route) == {"kind": path.replace("-", "_"), **fields, "metadata": {"k": "v"}}
 
 
-def test_send_dict_with_options(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message(reply_to="msg_prev"))
-    content = {"type": "buttons", "text": "Size?", "buttons": [{"id": "s", "label": "S"}]}
-    msg = flow.messages.send(
-        CONV,
-        content,
-        reply_to="msg_prev",
-        fallback="auto",
-        metadata={"order": "42"},
-        channel_options={"telegram": {"disable_notification": True}},
-    )
-    assert msg.reply_to == "msg_prev"
-    assert sent(route) == {
-        "content": content,
-        "reply_to": "msg_prev",
-        "fallback": "auto",
-        "metadata": {"order": "42"},
-        "channel_options": {"telegram": {"disable_notification": True}},
+def test_kind_method_refuses_another_kind(flow: Flow, mock: respx.MockRouter) -> None:
+    route = mock.route(host="api.test").respond(json=message())
+    with pytest.raises(ValueError, match=r"messages\.send"):
+        flow.messages.basic(CONV, buttons("Size?", ["S"]))
+    assert not route.called
+
+
+def test_basic_with_keyword_fields_and_builders(flow: Flow, mock: respx.MockRouter) -> None:
+    route = mock.post(url(f"/v0/conversations/{CONV}/basic")).respond(json=message())
+    flow.messages.basic(CONV, text="See https://example.test", link_preview=False, reply_to=MSG)
+    assert sent(route) == {"text": "See https://example.test", "link_preview": False, "reply_to": MSG}
+    flow.messages.basic(CONV, image(FILE, "Your receipt"))
+    assert sent(route) == {"kind": "basic", "text": "Your receipt", "media": {"type": "image", "file_id": FILE}}
+    flow.messages.basic(CONV, BasicMessage(text="model"))
+    assert sent(route) == {"kind": "basic", "text": "model"}
+
+
+@pytest.mark.parametrize(("method", "path", "fields"), KINDS)
+def test_send_routes_each_kind_to_its_endpoint(
+    method: str, path: str, fields: dict[str, Any], flow: Flow, mock: respx.MockRouter
+) -> None:
+    route = mock.post(url(f"/v0/conversations/{CONV}/{path}")).respond(json=message())
+    kind = {"kind": method, **fields}
+    msg = flow.messages.send(CONV, kind, idempotency_key="evt_1:card:2")
+    assert isinstance(msg, Message)
+    assert sent(route) == kind
+    assert route.calls.last.request.headers["idempotency-key"] == "evt_1:card:2"
+
+
+def test_send_string_is_basic_text(flow: Flow, mock: respx.MockRouter) -> None:
+    route = mock.post(url(f"/v0/conversations/{CONV}/basic")).respond(json=message())
+    msg = flow.messages.send(CONV, "Hello")
+    assert isinstance(msg, Message) and msg.id == MSG
+    assert isinstance(msg.content, BasicMessage)
+    assert sent(route) == {"kind": "basic", "text": "Hello"}
+
+
+def test_send_builders_and_models(flow: Flow, mock: respx.MockRouter) -> None:
+    b = mock.post(url(f"/v0/conversations/{CONV}/buttons")).respond(json=message())
+    flow.messages.send(CONV, buttons("Size?", ["S", "M"]))
+    assert sent(b) == {
+        "kind": "buttons",
+        "text": "Size?",
+        "buttons": [{"id": "S", "label": "S"}, {"id": "M", "label": "M"}],
     }
+    lst = mock.post(url(f"/v0/conversations/{CONV}/list")).respond(json=message())
+    flow.messages.send(CONV, list_message("Size?", "Sizes", [{"id": "s", "title": "S"}]))
+    assert sent(lst)["sections"] == [{"rows": [{"id": "s", "title": "S"}]}]
+    # A model keeps its kind even when it was left at its default, and only the fields set.
+    basic = mock.post(url(f"/v0/conversations/{CONV}/basic")).respond(json=message())
+    flow.messages.send(CONV, BasicMessage(text="Hi"))
+    assert sent(basic) == {"kind": "basic", "text": "Hi"}
 
 
-def test_send_model_omits_unset_fields(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
-    flow.messages.send(CONV, TextContent(type="text", text="Hi"), fallback={"type": "text", "text": "Hi (plain)"})
-    assert sent(route) == {
-        "content": {"type": "text", "text": "Hi"},
-        "fallback": {"type": "text", "text": "Hi (plain)"},
-    }
+def test_send_typing_and_read_answer_conversation_actions(flow: Flow, mock: respx.MockRouter) -> None:
+    typing = mock.post(url(f"/v0/conversations/{CONV}/typing")).respond(json=conversation_action("typing"))
+    read = mock.post(url(f"/v0/conversations/{CONV}/read")).respond(json=conversation_action("read"))
+    a = flow.messages.send(CONV, {"kind": "typing"})
+    assert isinstance(a, ConversationAction) and a.action == "typing"
+    assert sent(typing) == {"kind": "typing"}
+    r = flow.messages.send(CONV, ReadMessage(up_to=MSG), idempotency_key="evt_1:read")
+    assert isinstance(r, ConversationAction) and r.action == "read"
+    assert sent(read) == {"kind": "read", "up_to": MSG}
+    assert read.calls.last.request.headers["idempotency-key"] == "evt_1:read"
 
 
-def test_send_model_keeps_set_fields(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
-    flow.messages.send(CONV, TextContent(type="text", text="*Hi*", format="markdown"))
-    assert sent(route)["content"] == {"type": "text", "text": "*Hi*", "format": "markdown"}
+def test_send_edit_and_unsend_patch_and_delete(flow: Flow, mock: respx.MockRouter) -> None:
+    patch = mock.patch(url(f"/v0/messages/{MSG}")).respond(json=message())
+    delete = mock.delete(url(f"/v0/messages/{MSG}")).respond(json=message(status="unsent"))
+    posts = mock.post(host="api.test").respond(json=message())
+    flow.messages.send(CONV, {"kind": "edit", "message_id": MSG, "text": "fixed", "telegram": {"parse_mode": "HTML"}})
+    assert sent(patch) == {"text": "fixed", "telegram": {"parse_mode": "HTML"}}
+    assert flow.messages.send(CONV, {"kind": "unsend", "message_id": MSG}).status == "unsent"
+    assert delete.called and not posts.called
+    with pytest.raises(ValueError, match="message_id"):
+        flow.messages.send(CONV, {"kind": "edit", "text": "no target"})
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"text": "no kind"},
+        {"type": "text", "text": "the old shape"},
+        {"kind": "hologram"},
+        {"kind": "button_reply", "button_id": "s", "label": "S"},
+        {"kind": "file_blocked", "reason": "malware"},
+        None,
+    ],
+)
+def test_send_refuses_a_missing_or_unknown_kind_before_any_request(
+    bad: Any, flow: Flow, mock: respx.MockRouter
+) -> None:
+    route = mock.route(host="api.test").respond(json=message())
+    with pytest.raises(ValueError):
+        flow.messages.send(CONV, bad)
+    assert not route.called
 
 
 @pytest.mark.parametrize(
     ("to", "expected"),
     [
-        ("ct_01JB8ZD4M6P8R0T2V4X6Z80001", {"contact": "ct_01JB8ZD4M6P8R0T2V4X6Z80001"}),
+        (CONTACT, {"contact": CONTACT}),
         ("+15555550100", {"phone": "+15555550100"}),
-        ({"telegram_user_id": "123"}, {"telegram_user_id": "123"}),
+        ({"telegram_user_id": "42"}, {"telegram_user_id": "42"}),
     ],
 )
-def test_start_recipients(to: Any, expected: dict[str, str], flow: Flow, mock: respx.MockRouter) -> None:
+def test_start_is_one_flat_body(to: Any, expected: dict[str, str], flow: Flow, mock: respx.MockRouter) -> None:
     route = mock.post(url("/v0/messages")).respond(201, json=message())
-    flow.messages.start(sender=SENDER, to=to, content="Hi", consent={"method": "web_form"})
+    flow.messages.start(sender=SENDER, to=to, message="Hi", consent={"method": "web_form"})
     assert sent(route) == {
         "sender": SENDER,
         "to": expected,
-        "content": {"type": "text", "text": "Hi"},
         "consent": {"method": "web_form"},
+        "kind": "basic",
+        "text": "Hi",
     }
-    assert "idempotency-key" in route.calls.last.request.headers
+
+
+def test_start_template_and_keyword_fields(flow: Flow, mock: respx.MockRouter) -> None:
+    route = mock.post(url("/v0/messages")).respond(201, json=message())
+    flow.messages.start(
+        sender=SENDER, to=CONTACT, message=template_kind(TPL, "en", {"body": ["42"]}), idempotency_key="k1"
+    )
+    assert sent(route) == {
+        "sender": SENDER,
+        "to": {"contact": CONTACT},
+        "kind": "template",
+        "template_id": TPL,
+        "language": "en",
+        "params": {"body": ["42"]},
+    }
+    assert route.calls.last.request.headers["idempotency-key"] == "k1"
+    flow.messages.start(sender=SENDER, to=CONTACT, kind="basic", text="Your table is ready.", link_preview=False)
+    assert sent(route) == {
+        "sender": SENDER,
+        "to": {"contact": CONTACT},
+        "kind": "basic",
+        "text": "Your table is ready.",
+        "link_preview": False,
+    }
+
+
+@pytest.mark.parametrize("message_", [{"text": "no kind"}, buttons("Size?", ["S"]), None])
+def test_start_refuses_kinds_other_than_basic_and_template(message_: Any, flow: Flow, mock: respx.MockRouter) -> None:
+    route = mock.route(host="api.test").respond(201, json=message())
+    with pytest.raises(ValueError, match="basic"):
+        flow.messages.start(sender=SENDER, to=CONTACT, message=message_)
+    assert not route.called
 
 
 def test_start_bad_string_raises_value_error(flow: Flow, mock: respx.MockRouter) -> None:
     route = mock.post(url("/v0/messages")).respond(201, json=message())
     with pytest.raises(ValueError, match="contact ID"):
-        flow.messages.start(sender=SENDER, to="someone@example.com", content="Hi")
+        flow.messages.start(sender=SENDER, to="someone@example.com", message="Hi")
     assert not route.called
 
 
 def test_retrieve_edit_unsend(flow: Flow, mock: respx.MockRouter) -> None:
     get = mock.get(url(f"/v0/messages/{MSG}")).respond(json=message())
-    patch = mock.patch(url(f"/v0/messages/{MSG}")).respond(json=message(content={"type": "text", "text": "new"}))
+    patch = mock.patch(url(f"/v0/messages/{MSG}")).respond(json=message(content={"kind": "basic", "text": "new"}))
     delete = mock.delete(url(f"/v0/messages/{MSG}")).respond(json=message(status="unsent"))
-    assert flow.messages.retrieve(MSG).id == MSG
-    edited = flow.messages.edit(MSG, "new")
-    assert sent(patch) == {"content": {"type": "text", "text": "new"}}
-    assert edited.content.text == "new"  # type: ignore[union-attr]
-    flow.messages.edit(MSG, {"type": "text", "text": "dict", "format": "markdown"})
-    assert sent(patch) == {"content": {"type": "text", "text": "dict", "format": "markdown"}}
+    assert flow.messages.retrieve(MSG).id == MSG and get.called
+    flow.messages.edit(MSG, "new")
+    assert sent(patch) == {"text": "new"}
+    flow.messages.edit(MSG, text="kw", imessage={"styles": []})
+    assert sent(patch) == {"text": "kw", "imessage": {"styles": []}}
+    flow.messages.edit(MSG, EditMessageRequest(text="model"))
+    assert sent(patch) == {"text": "model"}
+    assert "idempotency-key" not in patch.calls.last.request.headers
     assert flow.messages.unsend(MSG).status == "unsent"
-    assert get.called and delete.called
+    assert delete.called
+
+
+def test_unsupported_content_carries_param_and_hint(flow: Flow, mock: respx.MockRouter) -> None:
+    mock.post(url(f"/v0/conversations/{CONV}/carousel")).respond(
+        422,
+        json={
+            "error": {
+                "type": "unsupported_content",
+                "message": "Telegram has no carousels.",
+                "param": "kind",
+                "hint": "Send each card as a basic message.",
+            }
+        },
+    )
+    with pytest.raises(UnsupportedContentError) as caught:
+        flow.messages.carousel(CONV, {"text": "Picks", "cards": []}, idempotency_key="evt_1:card")
+    assert caught.value.param == "kind"
+    assert caught.value.hint == "Send each card as a basic message."
 
 
 def test_path_ids_are_escaped(flow: Flow, mock: respx.MockRouter) -> None:
@@ -154,7 +290,7 @@ def test_path_ids_are_escaped(flow: Flow, mock: respx.MockRouter) -> None:
     flow.messages.retrieve("msg/../x?y#z")
     assert route.calls.last.request.url.raw_path == b"/v0/messages/msg%2F..%2Fx%3Fy%23z"
     flow.messages.send("conv x/1", "hi")
-    assert route.calls.last.request.url.raw_path == b"/v0/conversations/conv%20x%2F1/messages"
+    assert route.calls.last.request.url.raw_path == b"/v0/conversations/conv%20x%2F1/basic"
 
 
 # conversations ---------------------------------------------------------------
@@ -174,26 +310,27 @@ def test_conversations(flow: Flow, mock: respx.MockRouter) -> None:
     assert msgs.calls.last.request.url.params["before"] == "msg_z"
 
 
-def test_typing_and_mark_read(flow: Flow, mock: respx.MockRouter) -> None:
-    typing = mock.post(url(f"/v0/conversations/{CONV}/typing")).respond(json=conversation_action("typing_on"))
+def test_typing_and_read(flow: Flow, mock: respx.MockRouter) -> None:
+    typing = mock.post(url(f"/v0/conversations/{CONV}/typing")).respond(json=conversation_action("typing"))
     read = mock.post(url(f"/v0/conversations/{CONV}/read")).respond(json=conversation_action("read"))
     a = flow.conversations.typing(CONV)
-    assert isinstance(a, ConversationAction) and a.action == "typing_on"
-    assert sent(typing) == {"state": "on"}
-    flow.conversations.typing(CONV, "off")
-    assert sent(typing) == {"state": "off"}
-    assert flow.conversations.mark_read(CONV).action == "read"
+    assert isinstance(a, ConversationAction) and a.action == "typing"
+    assert sent(typing) == {}
+    assert "state" not in sent(typing)
+    flow.conversations.typing(CONV, imessage={"duration_seconds": 10}, idempotency_key="evt_1:typing")
+    assert sent(typing) == {"imessage": {"duration_seconds": 10}}
+    assert typing.calls.last.request.headers["idempotency-key"] == "evt_1:typing"
+    assert flow.conversations.read(CONV).action == "read"
     assert sent(read) == {}
-    flow.conversations.mark_read(CONV, MSG)
+    flow.conversations.read(CONV, MSG)
     assert sent(read) == {"up_to": MSG}
+    flow.conversations.read(CONV, up_to=MSG)
+    assert sent(read) == {"up_to": MSG}
+    assert not hasattr(flow.conversations, "mark_read")
 
 
-def test_capabilities(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v0/capabilities")).respond(json=capabilities())
-    caps = flow.capabilities.retrieve(CONV)
-    assert isinstance(caps, Capabilities)
-    assert caps.window.open is True
-    assert route.calls.last.request.url.params["conversation"] == CONV
+def test_no_capabilities_resource(flow: Flow) -> None:
+    assert not hasattr(flow, "capabilities")
 
 
 # files -------------------------------------------------------------------------
@@ -399,7 +536,7 @@ def test_simulated_conversation(flow: Flow, mock: respx.MockRouter) -> None:
     create = mock.post(url("/v0/test/conversations")).respond(201, json=conversation(simulated=True))
     inbound = mock.post(url(f"/v0/test/conversations/{CONV}/inbound")).respond(201, json=simulated_inbound())
     transcript = mock.get(url(f"/v0/test/conversations/{CONV}/transcript"))
-    m2 = message("msg_01JB8ZD4M6P8R0T2V4X6Z80002", shown={"type": "text", "text": "Hi"})
+    m2 = message("msg_01JB8ZD4M6P8R0T2V4X6Z80002")
     transcript.side_effect = [
         httpx.Response(200, json=page([message(direction="in", status="received")], True)),
         httpx.Response(200, json=page([m2], False)),
@@ -411,9 +548,13 @@ def test_simulated_conversation(flow: Flow, mock: respx.MockRouter) -> None:
     assert sent(create) == {"channel": "sms"}
     r = flow.test.inbound(CONV, "Hello agent", reply_to=MSG)
     assert isinstance(r, SimulatedInbound) and r.message == MSG
-    assert sent(inbound) == {"content": {"type": "text", "text": "Hello agent"}, "reply_to": MSG}
-    flow.test.inbound(CONV, {"type": "media", "kind": "image", "file_id": FILE})
-    assert sent(inbound) == {"content": {"type": "media", "kind": "image", "file_id": FILE}}
+    assert sent(inbound) == {"content": {"kind": "basic", "text": "Hello agent"}, "reply_to": MSG}
+    flow.test.inbound(CONV, image(FILE))
+    assert sent(inbound) == {"content": {"kind": "basic", "media": {"type": "image", "file_id": FILE}}}
+    flow.test.inbound(CONV, {"kind": "button_reply", "message_id": MSG, "button_id": "s"})
+    assert sent(inbound) == {"content": {"kind": "button_reply", "message_id": MSG, "button_id": "s"}}
+    flow.test.inbound(CONV, location(52.52, 13.405))
+    assert sent(inbound) == {"content": {"kind": "location", "lat": 52.52, "lng": 13.405}}
     entries = list(flow.test.transcript(CONV, limit=1))
     assert all(isinstance(e, TranscriptEntry) for e in entries)
     assert [e.direction for e in entries] == ["in", "out"]

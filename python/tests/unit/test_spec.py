@@ -48,7 +48,9 @@ def test_api_version_matches_spec() -> None:
         ("SenderStatus", types.SenderStatus),
         ("MessageDirection", types.MessageDirection),
         ("MessageStatus", types.MessageStatus),
-        ("ContentType", types.ContentType),
+        ("MessageKind", types.MessageKind),
+        ("MessageNetwork", types.MessageNetwork),
+        ("ConversationType", types.ConversationType),
         ("EventType", types.EventType),
         ("ErrorType", errors.ErrorType),
     ],
@@ -66,17 +68,58 @@ def one_of(name: str) -> list[str]:
     return [ref["$ref"].rsplit("/", 1)[-1] for ref in schema(name)["oneOf"]]
 
 
-@pytest.mark.parametrize(("name", "union"), [("Event", types.Event), ("Content", types.Content)])
+#: The spec's unions and the SDK's: the members are the spec's schemas, by name.
+UNIONS = [
+    ("Event", types.Event),
+    ("OutboundKind", types.OutboundKind),
+    ("StartConversationRequest", types.StartConversationRequest),
+    ("SimulatedInboundContent", types.SimulatedInboundContent),
+]
+
+
+@pytest.mark.parametrize(("name", "union"), UNIONS)
 def test_unions_match_spec_one_of(name: str, union: Any) -> None:
     assert union_members(union) == one_of(name)
 
 
-@pytest.mark.parametrize(("name", "union"), [("Event", types.Event), ("Content", types.Content)])
+def tag(member: Any, field: str) -> str:
+    return str(typing.get_args(member.model_fields[field].annotation)[0])
+
+
+@pytest.mark.parametrize(("name", "union"), UNIONS)
 def test_union_discriminators_match_spec_mapping(name: str, union: Any) -> None:
+    field = schema(name)["discriminator"]["propertyName"]
     mapping = schema(name)["discriminator"]["mapping"]
     members = typing.get_args(typing.get_args(union)[0])
-    by_tag = {typing.get_args(m.model_fields["type"].annotation)[0]: m.__name__ for m in members}
-    assert by_tag == {tag: ref.rsplit("/", 1)[-1] for tag, ref in mapping.items()}
+    by_tag = {tag(m, field): m.__name__ for m in members}
+    assert by_tag == {t: ref.rsplit("/", 1)[-1] for t, ref in mapping.items()}
+
+
+def test_message_content_matches_spec() -> None:
+    """A message's content: the generator names its members MessageContent1..16, each a
+    subclass of the schema the spec maps its kind to."""
+    mapping = schema("MessageContent")["discriminator"]["mapping"]
+    members = typing.get_args(typing.get_args(types.MessageContent)[0])
+    by_tag = {tag(m, "kind"): m for m in members}
+    assert list(by_tag) == list(mapping) == list(typing.get_args(types.MessageKind))
+    for kind, ref in mapping.items():
+        assert ref.rsplit("/", 1)[-1] in [c.__name__ for c in by_tag[kind].__mro__], kind
+
+
+def test_kind_paths_match_spec() -> None:
+    """Every POST /v0/conversations/{conversation_id}/<path> has its kind in KIND_PATHS."""
+    from flow_messaging._base import KIND_PATHS
+
+    prefix = "/v0/conversations/{conversation_id}/"
+    posts = {
+        p.removeprefix(prefix)
+        for p, ops in spec()["paths"].items()
+        if p.startswith(prefix) and "post" in ops and "/" not in p.removeprefix(prefix)
+    }
+    assert set(KIND_PATHS.values()) == posts
+    for kind, path in KIND_PATHS.items():
+        assert path == kind.replace("_", "-")
+    assert "/v0/capabilities" not in spec()["paths"]
 
 
 def test_error_classes_cover_every_error_type() -> None:

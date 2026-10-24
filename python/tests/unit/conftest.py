@@ -88,7 +88,7 @@ def url(path: str) -> str:
 
 
 def text_content(text: str = "Hi there") -> dict[str, Any]:
-    return {"type": "text", "text": text}
+    return {"kind": "basic", "text": text}
 
 
 def message(
@@ -244,16 +244,7 @@ def file_obj(id: str = FILE) -> dict[str, Any]:
     }
 
 
-def capabilities() -> dict[str, Any]:
-    return {
-        "conversation": CONV,
-        "channel": "telegram",
-        "window": {"open": True},
-        "content": [{"type": "text", "support": "native"}],
-    }
-
-
-def conversation_action(action: str = "typing_on") -> dict[str, Any]:
+def conversation_action(action: str = "typing") -> dict[str, Any]:
     return {"conversation": CONV, "action": action}
 
 

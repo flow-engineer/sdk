@@ -16,6 +16,7 @@ from conftest import (
     KEY,
     MSG,
     conversation,
+    conversation_action,
     device_authorization,
     device_token,
     error,
@@ -44,7 +45,7 @@ from flow_messaging import (
 from flow_messaging.types import Conversation, Message
 
 C = [ulid("conv", n) for n in range(1, 6)]
-SEND = url(f"/v0/conversations/{CONV}/messages")
+SEND = url(f"/v0/conversations/{CONV}/basic")
 
 
 def paged(route: respx.Route) -> None:
@@ -60,7 +61,7 @@ def paged(route: respx.Route) -> None:
 async def test_env_and_headers(monkeypatch: pytest.MonkeyPatch, mock: respx.MockRouter) -> None:
     monkeypatch.setenv("FLOW_MESSAGING_KEY", "fk_test_env")
     monkeypatch.setenv("FLOW_MESSAGING_BASE_URL", "https://env.test/")
-    route = mock.post(f"https://env.test/v0/conversations/{CONV}/messages").respond(json=message())
+    route = mock.post(f"https://env.test/v0/conversations/{CONV}/basic").respond(json=message())
     async with AsyncFlow() as aflow:
         assert aflow.base_url == "https://env.test"
         assert aflow.test_mode
@@ -71,7 +72,7 @@ async def test_env_and_headers(monkeypatch: pytest.MonkeyPatch, mock: respx.Mock
     assert h["flow-version"] == API_VERSION
     assert h["user-agent"].startswith("flow-messaging-python/")
     assert h["idempotency-key"]
-    assert json.loads(route.calls.last.request.read()) == {"content": {"type": "text", "text": "hi"}}
+    assert json.loads(route.calls.last.request.read()) == {"kind": "basic", "text": "hi"}
 
 
 async def test_no_flow_version(mock: respx.MockRouter) -> None:
@@ -205,12 +206,17 @@ async def test_resources_round_trip(aflow: AsyncFlow, mock: respx.MockRouter, tm
     unsend = mock.delete(url(f"/v0/messages/{MSG}")).respond(json=message(status="unsent"))
     upload = mock.post(url("/v0/files")).respond(201, json=file_obj())
     contact = mock.delete(url("/v0/contacts/ct_x")).respond(204)
-    await aflow.messages.start(sender="snd_x", to="+15555550100", content="hi")
-    assert json.loads(start.calls.last.request.read())["to"] == {"phone": "+15555550100"}
+    await aflow.messages.start(sender="snd_x", to="+15555550100", message="hi")
+    assert json.loads(start.calls.last.request.read()) == {
+        "sender": "snd_x",
+        "to": {"phone": "+15555550100"},
+        "kind": "basic",
+        "text": "hi",
+    }
     with pytest.raises(ValueError):
-        await aflow.messages.start(sender="snd_x", to="ada", content="hi")
+        await aflow.messages.start(sender="snd_x", to="ada", message="hi")
     await aflow.messages.edit(MSG, "new")
-    assert json.loads(edit.calls.last.request.read()) == {"content": {"type": "text", "text": "new"}}
+    assert json.loads(edit.calls.last.request.read()) == {"text": "new"}
     assert (await aflow.messages.unsend(MSG)).status == "unsent" and unsend.called
     p = tmp_path / "pic.png"
     p.write_bytes(b"\x89PNG")
@@ -287,18 +293,36 @@ async def test_sign_in(mock: respx.MockRouter, sleeps: list[float]) -> None:
 
 async def test_conversation_handle(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
     send = mock.post(SEND).respond(json=message())
-    mock.get(SEND).respond(json=page([message()]))
+    react = mock.post(url(f"/v0/conversations/{CONV}/reaction")).respond(json=message())
+    typing = mock.post(url(f"/v0/conversations/{CONV}/typing")).respond(json=conversation_action())
+    read = mock.post(url(f"/v0/conversations/{CONV}/read")).respond(json=conversation_action("read"))
+    mock.get(url(f"/v0/conversations/{CONV}/messages")).respond(json=page([message()]))
     h = aflow.conversation({"id": CONV, "channel": "telegram"})
     assert isinstance(h, AsyncConversationHandle)
     assert h.channel == "telegram"
     await h.react(MSG, None)
-    assert json.loads(send.calls.last.request.read()) == {
-        "content": {"type": "reaction", "message_id": MSG, "emoji": None},
-        "fallback": "auto",
-    }
+    assert json.loads(react.calls.last.request.read()) == {"message_id": MSG, "emoji": None}
     await h.send("hello")
-    assert json.loads(send.calls.last.request.read()) == {"content": {"type": "text", "text": "hello"}}
+    assert json.loads(send.calls.last.request.read()) == {"kind": "basic", "text": "hello"}
+    assert (await h.typing()).action == "typing"
+    assert json.loads(typing.calls.last.request.read()) == {}
+    assert (await h.read(MSG)).action == "read"
+    assert json.loads(read.calls.last.request.read()) == {"up_to": MSG}
     assert [m.id async for m in h.messages()] == [MSG]
+
+
+async def test_async_send_routing(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
+    buttons = mock.post(url(f"/v0/conversations/{CONV}/buttons")).respond(json=message())
+    card = mock.post(url(f"/v0/conversations/{CONV}/contact-card")).respond(json=message())
+    unsend = mock.delete(url(f"/v0/messages/{MSG}")).respond(json=message(status="unsent"))
+    await aflow.messages.send(CONV, {"kind": "buttons", "text": "Size?", "buttons": [{"id": "s", "label": "S"}]})
+    assert buttons.called
+    await aflow.messages.send(CONV, {"kind": "contact_card", "name": "Ada"})
+    assert json.loads(card.calls.last.request.read()) == {"kind": "contact_card", "name": "Ada"}
+    assert (await aflow.messages.send(CONV, {"kind": "unsend", "message_id": MSG})).status == "unsent"
+    assert unsend.called
+    with pytest.raises(ValueError):
+        await aflow.messages.send(CONV, {"text": "no kind"})
 
 
 async def test_with_options_and_context_manager(mock: respx.MockRouter) -> None:

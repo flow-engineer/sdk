@@ -18,9 +18,9 @@ from flow_messaging import (
     verify_signature,
     webhook_reply,
 )
-from flow_messaging.content import buttons
-from flow_messaging.types import MessageReceivedEvent, TextContent
-from flow_messaging.webhooks import SIGNATURE_HEADER, Webhooks, parse_signature_header
+from flow_messaging.content import basic, buttons, image, reaction
+from flow_messaging.types import BasicKind, BasicMessage, MessageReceivedEvent, WebhookReply
+from flow_messaging.webhooks import MAX_REPLY_PIECES, SIGNATURE_HEADER, Webhooks, parse_signature_header
 
 BODY = json.dumps(event_received(evt(1), "Hello webhook"))
 NOW = 1_790_000_000
@@ -127,7 +127,7 @@ def test_construct_event_returns_typed_model() -> None:
     event = construct_event(BODY.encode(), header, SECRET, now=NOW)
     assert isinstance(event, MessageReceivedEvent)
     assert event.id == evt(1)
-    assert isinstance(event.data.message.content, TextContent)
+    assert isinstance(event.data.message.content, BasicMessage)
     assert event.data.message.content.text == "Hello webhook"
     assert event.conversation is not None and event.conversation.channel == "telegram"
 
@@ -148,7 +148,7 @@ def test_flow_webhooks_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FLOW_MESSAGING_WEBHOOK_SECRET", SECRET)
     assert hooks.verify(BODY, header) is True
     assert isinstance(hooks.construct_event(BODY, header), MessageReceivedEvent)
-    assert hooks.reply("hi") == {"reply": "hi"}
+    assert hooks.reply("hi") == {"reply": {"kind": "basic", "text": "hi"}}
     assert Webhooks.header({"flow-SIGNATURE": header, "Other": "x"}) == header
     assert Webhooks.header({"Other": "x"}) is None
 
@@ -158,15 +158,46 @@ def test_webhook_reply() -> None:
     assert webhook_reply(None) == {}
     assert webhook_reply([]) == {}
     assert webhook_reply(()) == {}
-    assert webhook_reply("hi") == {"reply": "hi"}
+    assert webhook_reply("hi") == {"reply": {"kind": "basic", "text": "hi"}}
     b = buttons("Size?", ["S", "M"])
     assert webhook_reply(b) == {"reply": b}
-    assert webhook_reply(["one", {"type": "text", "text": "two"}]) == {
-        "reply": ["one", {"type": "text", "text": "two"}]
+    assert webhook_reply(["one", basic("two"), image("https://example.test/a.png")]) == {
+        "reply": [
+            {"kind": "basic", "text": "one"},
+            {"kind": "basic", "text": "two"},
+            {"kind": "basic", "media": {"type": "image", "url": "https://example.test/a.png"}},
+        ]
     }
-    assert webhook_reply(TextContent(type="text", text="model")) == {"reply": {"type": "text", "text": "model"}}
-    assert webhook_reply(b, fallback="auto") == {"reply": b, "fallback": "auto"}
-    assert webhook_reply("hi", fallback=TextContent(type="text", text="plain")) == {
-        "reply": "hi",
-        "fallback": {"type": "text", "text": "plain"},
-    }
+    assert webhook_reply(BasicKind(kind="basic", text="model")) == {"reply": {"kind": "basic", "text": "model"}}
+    assert webhook_reply({"reply": "hi"}) == {"reply": {"kind": "basic", "text": "hi"}}
+    assert webhook_reply(WebhookReply(reply=None)) == {}
+
+
+def test_webhook_reply_has_no_fallback() -> None:
+    with pytest.raises(TypeError):
+        webhook_reply("hi", fallback="auto")  # type: ignore[call-arg]
+
+
+def test_webhook_reply_takes_up_to_11_pieces() -> None:
+    assert MAX_REPLY_PIECES == 11
+    eleven = ["intro", *(reaction("msg_01JB8ZD4M6P8R0T2V4X6Z80001", "👍") for _ in range(10))]
+    out = webhook_reply(eleven)
+    assert len(out["reply"]) == 11
+    with pytest.raises(ValueError, match="at most 11"):
+        webhook_reply(["x"] * 12)
+
+
+@pytest.mark.parametrize(
+    "piece",
+    [
+        {"text": "no kind"},
+        {"type": "text", "text": "the old shape"},
+        {"kind": "hologram"},
+        {"kind": "button_reply", "button_id": "s", "label": "S"},
+    ],
+)
+def test_webhook_reply_refuses_a_piece_without_a_sendable_kind(piece: dict[str, str]) -> None:
+    with pytest.raises(ValueError, match="kind"):
+        webhook_reply(piece)
+    with pytest.raises(ValueError, match="kind"):
+        webhook_reply(["fine", piece])

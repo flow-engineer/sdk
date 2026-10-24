@@ -20,7 +20,7 @@ from flow_messaging import (
     SenderThrottledError,
 )
 
-SEND = url(f"/v0/conversations/{CONV}/messages")
+SEND = url(f"/v0/conversations/{CONV}/basic")
 
 
 def ok() -> httpx.Response:
@@ -157,7 +157,7 @@ def test_send_gate_budgets_not_retried(
 ) -> None:
     route = mock.post(url("/v0/messages")).respond(429, json=error(etype, retry_after=3600))
     with pytest.raises(cls):
-        flow.messages.start(sender="snd_x", to="+15555550100", content="hi")
+        flow.messages.start(sender="snd_x", to="+15555550100", message="hi")
     assert route.call_count == 1
     assert sleeps == []
 
