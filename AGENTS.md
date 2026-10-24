@@ -100,7 +100,8 @@ here; Claude Code reads them through `CLAUDE.md`, which only imports this file.
   `errors.ts` (a class per `ErrorType`), `pagination.ts`, `resources.ts` (one class per
   API resource), `stream.ts` (`events.stream`), `webhooks.ts`, `conversation.ts`
   (`reply`, typing), `bubbles.ts` (the bubble rule and LLM stream readers),
-  `content.ts` (builders), `cli/` and `cli.ts`.
+  `content.ts` (builders), `kinds.ts` (which endpoint each kind goes to), `cli/` and
+  `cli.ts`.
 - No runtime dependencies: `fetch`, Web Crypto and the runtime's WebSocket (`ws` is an
   optional peer for Node 18 and 20). Keep it working in Node 18+, Bun, Deno and edge
   runtimes; Node-only code belongs in the CLI.

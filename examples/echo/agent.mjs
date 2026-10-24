@@ -12,7 +12,7 @@ console.log("Echo agent ready. From your phone, open the sandbox link and tap St
 
 for await (const event of flow.events.stream({ types: ["message.received"] })) {
   const content = event.data.message.content;
-  const said = contentText(content) || `a ${content.type}`;
+  const said = contentText(content) || `a ${content.kind}`;
   console.log(`[${event.conversation.channel}] ${event.conversation.id}: ${said}`);
   await event.conversation.reply(`You said: ${said}`);
 }

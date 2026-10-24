@@ -74,11 +74,11 @@ prints `rejected: bad Flow-Signature` and gets `400`; a repeated delivery prints
 To try the verifier without Flow, sign a body yourself:
 
 ```bash
-BODY='{"id":"evt_test","type":"message.received","conversation":{"id":"conv_test"},"data":{"message":{"id":"msg_test","content":{"type":"text","text":"hi"}}}}'
+BODY='{"id":"evt_test","type":"message.received","conversation":{"id":"conv_test"},"data":{"message":{"id":"msg_test","content":{"kind":"basic","text":"hi"}}}}'
 T=$(date +%s)
 SIG=$(printf 't.%s.%s' "$T" "$BODY" | openssl dgst -sha256 -hmac "$FLOW_MESSAGING_WEBHOOK_SECRET" -hex | sed 's/^.* //')
 curl -s localhost:3000/flow/webhook -H "Flow-Signature: t=$T,v1=$SIG" -d "$BODY"
-# {"reply":{"type":"text","text":"You said: hi"}}
+# {"reply":{"kind":"basic","text":"You said: hi"}}
 ```
 
 ## How it works
@@ -90,10 +90,18 @@ curl -s localhost:3000/flow/webhook -H "Flow-Signature: t=$T,v1=$SIG" -d "$BODY"
   overlaps, the header carries two `v1` values: accept if any one matches.
 - **Dedupe.** Delivery is at least once, in order per conversation. The receiver
   keeps the event IDs it handled (in memory here; use your database).
-- **Reply in the answer.** `{"reply": <content>}` (or a list of up to 10, or a plain
-  string for text) is sent into the event's conversation through the same send
-  gate as an API send, with the event ID as its idempotency key. Answer `{}` to send
-  nothing.
+- **Reply in the answer.** `{"reply": <message>}` is sent into the event's
+  conversation through the same send gate as an API send, with the event ID as its
+  idempotency key. A message is a kind object with `kind`, the same as the body of
+  that kind's endpoint (`{"kind": "basic", "text": "..."}`, `{"kind": "buttons",
+  "text": "...", "buttons": [...]}`); a plain string is short for a basic text, and
+  a list of up to 11 goes out in order. Flow sends exactly what you answer: a kind
+  the channel cannot show is not converted but fails (a `message.failed` event,
+  `unsupported_content`). Answer `{}` to send nothing.
+- **Reading what came in.** An inbound message's `content` is one kind, named by
+  `kind`: `basic` (`text`, and/or a file in `media`), `voice`, `button_reply`,
+  `location` and so on.
 - **10 seconds.** Anything but `2xx` within 10 seconds is retried with backoff for 3
   days, and later events of that conversation wait behind it. A slow agent answers
-  `{}` at once and replies later with `POST /v1/conversations/{id}/messages`.
+  `{}` at once and replies later with `POST /v1/conversations/{id}/basic` (or the
+  endpoint of the kind it sends).

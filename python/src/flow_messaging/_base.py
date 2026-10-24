@@ -128,11 +128,30 @@ def body(**fields: Any) -> dict[str, Any]:
     return {k: jsonable(v) for k, v in fields.items() if v is not None}
 
 
-def content(value: Any) -> Any:
-    """Content from a string (a text message), a model or a mapping."""
+def fields(value: Any, extra: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """A request body from a model or mapping (or None) and keyword fields, as given: the
+    fields are laid over it, nothing is converted, and an explicit None stays. A model
+    keeps its ``kind`` even when it was left at its default."""
+    if value is None:
+        out: dict[str, Any] = {}
+    elif isinstance(value, BaseModel):
+        out = jsonable(value)
+        if "kind" in type(value).model_fields and "kind" not in out:
+            out["kind"] = value.kind
+    elif isinstance(value, Mapping):
+        out = jsonable(value)
+    else:
+        raise TypeError(f"Expected a dict or a model, not {type(value).__name__}.")
+    out.update(jsonable(dict(extra or {})))
+    return out
+
+
+def kind_object(value: Any) -> dict[str, Any]:
+    """A kind object from a string (short for ``{"kind": "basic", "text": ...}``, the only
+    shorthand), a model or a mapping. The object is otherwise sent as given."""
     if isinstance(value, str):
-        return {"type": "text", "text": value}
-    return jsonable(value)
+        return {"kind": "basic", "text": value}
+    return fields(value)
 
 
 def error_from_response(response: httpx.Response) -> FlowError:

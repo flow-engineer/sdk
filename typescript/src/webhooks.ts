@@ -4,7 +4,8 @@
 import type { FlowMessaging } from "./client.js";
 import { WebhookSignatureError } from "./errors.js";
 import { toFlowEvent, type FlowEvent } from "./stream.js";
-import type { Content, Event, WebhookReply } from "./types.js";
+import { toKind } from "./kinds.js";
+import type { Event, OutboundKind, WebhookReply } from "./types.js";
 
 export const SIGNATURE_HEADER = "Flow-Signature";
 /** Default tolerance for a signature's timestamp, in seconds (the API's 5-minute replay window). */
@@ -109,15 +110,28 @@ export async function signPayload(body: WebhookBody, secret: string | string[], 
   return parts.join(",");
 }
 
-/** What a handler may answer a `message.received` with: text, content, a list of content, or nothing. */
-export type WebhookReplyInput = string | Content | Content[] | WebhookReply | null | undefined | void;
+/**
+ * What a handler may answer a `message.received` with: a kind object, a list of 1 to
+ * 11 of them, or nothing. A string is short for `{ kind: "basic", text }`, in a list too.
+ */
+export type WebhookReplyInput = string | OutboundKind | Array<string | OutboundKind> | WebhookReply | null | undefined | void;
 
-/** The JSON body for a webhook answer that replies at once (`{"reply": ...}`), or `{}`. */
+/** The most pieces one webhook reply may hold. */
+export const MAX_REPLY_PIECES = 11;
+
+/**
+ * The JSON body for a webhook answer that replies at once (`{"reply": ...}`), or `{}`.
+ * Pieces are sent as given, in order; nothing is converted. Throws a `TypeError` for a
+ * piece with no kind that can be sent, and a `RangeError` for more than 11 pieces.
+ */
 export function webhookReply(input: WebhookReplyInput): WebhookReply {
   if (input === null || input === undefined) return {};
-  if (typeof input === "string") return { reply: { type: "text", text: input } };
-  if (Array.isArray(input)) return input.length ? { reply: input } : {};
-  if ("type" in input) return { reply: input as Content };
+  if (typeof input === "string") return { reply: toKind(input) };
+  if (Array.isArray(input)) {
+    if (input.length > MAX_REPLY_PIECES) throw new RangeError(`A webhook reply holds at most ${MAX_REPLY_PIECES} pieces; this one has ${input.length}.`);
+    return input.length ? { reply: input.map(toKind) } : {};
+  }
+  if ("kind" in input) return { reply: toKind(input) };
   return input as WebhookReply;
 }
 

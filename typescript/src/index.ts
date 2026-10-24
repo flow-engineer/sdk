@@ -9,8 +9,8 @@ export {
   type ConversationSendAndWaitOptions,
   type ReplyInput,
   type ReplyOptions,
-  type SendInput,
 } from "./conversation.js";
+export type { MessageInput, SendInput, SendResult } from "./kinds.js";
 export {
   DEFAULT_WAIT_TIMEOUT_MS,
   type ConversationVia,
@@ -38,6 +38,7 @@ export {
   signPayload,
   parseSignatureHeader,
   webhookReply,
+  MAX_REPLY_PIECES,
   type HandlerOptions,
   type VerifyOptions,
   type WebhookBody,

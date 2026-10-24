@@ -55,8 +55,13 @@ async def main() -> None:
                             continue
                         seen.add(event["id"])
                         message = event["data"]["message"]
+                        # content is one message kind: `basic` is text and/or a file
+                        # (its text is then the caption).
                         content = message["content"]
-                        said = content["text"] if content["type"] == "text" else f"a {content['type']}"
+                        if content["kind"] == "basic" and content.get("text"):
+                            said = content["text"]
+                        else:
+                            said = f"a {content.get('media', {}).get('type') or content['kind']}"
                         print(f"[{event['conversation']['id']}] {said}", flush=True)
                         # `ref` is the idempotency key: derived from the inbound message,
                         # so a replay never sends twice.
@@ -64,7 +69,7 @@ async def main() -> None:
                             "type": "send",
                             "ref": f"echo-{message['id']}",
                             "conversation": event["conversation"]["id"],
-                            "message": {"content": {"type": "text", "text": f"You said: {said}"}},
+                            "message": {"kind": "basic", "text": f"You said: {said}"},  # sent exactly as written
                         }))
                     elif frame["type"] == "ack":
                         print(f"  -> sent {frame['message']['id']}", flush=True)

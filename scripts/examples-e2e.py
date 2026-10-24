@@ -172,12 +172,13 @@ class User:
         _, body = http("GET", SIM + "/_sim/calls", headers=SIM_AUTH)
         return max([c["seq"] for c in body["calls"]], default=0)
 
-    def receive(self, after):
-        """Waits for the next message the bot sends this user after call number `after`."""
-        q = f"token={urllib.request.quote(self.bot)}&method=sendMessage&chat_id={self.id}&after={after}&min=1&wait_ms={WAIT * 1000}"
+    def receive(self, after, method="sendMessage"):
+        """Waits for the next Bot API call of `method` (a message, by default) the bot makes
+        to this user after call number `after`."""
+        q = f"token={urllib.request.quote(self.bot)}&method={method}&chat_id={self.id}&after={after}&min=1&wait_ms={WAIT * 1000}"
         _, body = http("GET", SIM + "/_sim/calls?" + q, headers=SIM_AUTH)
         if not body["calls"]:
-            raise Failed(f"the bot sent user {self.id} nothing within {WAIT}s")
+            raise Failed(f"the bot made no {method} call to user {self.id} within {WAIT}s")
         return body["calls"][0]
 
 
@@ -230,10 +231,10 @@ def wait_sent(key, conv, text):
     deadline = time.monotonic() + WAIT
     while True:
         entries = api("GET", f"/v1/test/conversations/{conv}/transcript?limit=100", key)["data"]
-        if any(e["direction"] == "out" and e["content"].get("text") == text for e in entries):
+        if any(e["direction"] == "out" and e["content"].get("kind") == "basic" and e["content"].get("text") == text for e in entries):
             return
         if time.monotonic() > deadline:
-            raise Failed(f"the agent did not send {text!r} within {WAIT}s; transcript: {[e['content'] for e in entries]}")
+            raise Failed(f"the agent did not send basic {text!r} within {WAIT}s; transcript: {[e['content'] for e in entries]}")
         time.sleep(0.05)
 
 

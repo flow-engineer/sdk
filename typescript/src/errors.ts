@@ -1,4 +1,4 @@
-import type { ErrorBody, ErrorType, Message } from "./types.js";
+import type { Channel, ErrorBody, ErrorType, Message } from "./types.js";
 
 /**
  * Every error the API returns is a `FlowError` subclass chosen by `error.type`
@@ -18,8 +18,10 @@ export class FlowError extends Error {
   readonly type: ErrorType | "connection_error" | "timeout" | "signature_verification" | "device_sign_in" | "wait_timeout";
   /** The HTTP status, when the error came from an answer. */
   readonly status: number | undefined;
-  /** The request parameter the error is about (`content.buttons`, `limit`). */
+  /** The request parameter the error is about (`buttons`, `telegram.is_big`, `limit`). */
   readonly param: string | undefined;
+  /** The conversation's channel, on errors about one (`unsupported_content`). */
+  readonly channel: Channel | undefined;
   /** Seconds to wait before retrying, for errors that clear by themselves. */
   readonly retryAfter: number | undefined;
   /** The conversation the error is about (`outside_window`). */
@@ -64,6 +66,7 @@ export class FlowError extends Error {
     this.headers = init.headers;
     this.failedMessage = init.failedMessage;
     this.param = b.param;
+    this.channel = b.channel;
     this.conversation = b.conversation;
     this.sender = b.sender;
     this.channelCode = b.channel_code;
@@ -113,7 +116,11 @@ export class IdempotencyConflictError extends FlowError {
 export class OutsideWindowError extends FlowError {
   override name = "OutsideWindowError";
 }
-/** 422 `unsupported_content`: the channel cannot show this content; set `fallback: "auto"` or send something else. */
+/**
+ * 422 `unsupported_content`: the conversation's channel cannot take this kind, field or
+ * value (`param` names it, `channel` is the channel). Nothing is converted: `hint` says
+ * what to send instead.
+ */
 export class UnsupportedContentError extends FlowError {
   override name = "UnsupportedContentError";
 }

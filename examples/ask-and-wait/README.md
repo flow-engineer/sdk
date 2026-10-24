@@ -48,7 +48,7 @@ sandbox allowance). While the agent waits, in another terminal:
 curl -s https://api.flow.engineer/v1/test/conversations -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   -H "Content-Type: application/json" -d '{"channel": "telegram"}'        # note its "id"
 curl -s https://api.flow.engineer/v1/test/conversations/conv_.../inbound -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
-  -H "Content-Type: application/json" -d '{"content": {"type": "text", "text": "hi"}}'
+  -H "Content-Type: application/json" -d '{"content": {"kind": "basic", "text": "hi"}}'
 ```
 
 Send each answer the same way once the agent has asked

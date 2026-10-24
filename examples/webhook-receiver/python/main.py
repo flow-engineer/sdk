@@ -58,12 +58,17 @@ async def flow_webhook(request: Request):
     seen.add(event["id"])
 
     if event["type"] == "message.received":
+        # content is one message kind: `basic` is text and/or a file (its text is then the caption).
         content = event["data"]["message"]["content"]
-        said = content["text"] if content["type"] == "text" else f"a {content['type']}"
+        if content["kind"] == "basic" and content.get("text"):
+            said = content["text"]
+        else:
+            said = f"a {content.get('media', {}).get('type') or content['kind']}"
         print(f"{event['id']} [{event['conversation']['id']}] {said}", flush=True)
         # The reply goes into this conversation through the send gate, with the event ID as
         # its idempotency key. Keep it fast: slow agents answer {} and send through the API.
-        return {"reply": {"type": "text", "text": f"You said: {said}"}}
+        # `reply` is a message kind object (or a list of up to 11); a plain string is short for a basic text.
+        return {"reply": {"kind": "basic", "text": f"You said: {said}"}}
     if event["type"] == "message.failed":
         e = event["data"]["message"]["error"]
         print(f"{event['id']} send failed: {e['type']}: {e['message']} ({e.get('hint', '')})", flush=True)

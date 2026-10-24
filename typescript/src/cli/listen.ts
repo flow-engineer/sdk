@@ -5,7 +5,9 @@
 import type { FlowMessaging } from "../client.js";
 import { API_VERSION } from "../core.js";
 import type { FlowEvent } from "../stream.js";
-import type { Content, EventType, WebhookReply } from "../types.js";
+import { KIND_PATHS } from "../kinds.js";
+import { contentText } from "../content.js";
+import type { EventType, MessageContent, OutboundKind } from "../types.js";
 import { signPayload } from "../webhooks.js";
 
 export interface ForwardResult {
@@ -55,10 +57,10 @@ export async function forwardEvent(
     const parsed = readReply(answer, broken);
     // As the API does: a JSON object with an invalid `reply` sends nothing at all.
     if ("error" in parsed) return { status: res.status, replies: 0, error: `invalid reply (invalid_request): ${parsed.error}` };
-    const { list, fallback } = parsed;
-    for (const [i, content] of list.entries()) {
+    const { list } = parsed;
+    for (const [i, piece] of list.entries()) {
       // The event's ID as the idempotency key, as the API does for webhook replies.
-      await flow.messages.send(event.conversation.id, fallback === undefined ? { content } : { content, fallback }, {
+      await flow.messages.send(event.conversation.id, piece, {
         idempotencyKey: list.length > 1 ? `${event.id}:${i}` : event.id,
       });
       replies++;
@@ -68,28 +70,31 @@ export async function forwardEvent(
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-const isContent = (v: unknown): v is Content => isObject(v) && typeof v.type === "string";
+const SENDABLE = new Set([...Object.keys(KIND_PATHS), "edit", "unsend"]);
+/** A piece of a reply: a kind object with a kind that can be sent, or a non-empty string (basic text). */
+function toPiece(v: unknown): OutboundKind | undefined {
+  if (typeof v === "string") return v ? { kind: "basic", text: v } : undefined;
+  return isObject(v) && typeof v.kind === "string" && SENDABLE.has(v.kind) ? (v as OutboundKind) : undefined;
+}
 
 /** Checks a webhook answer's shape as the API does: the pieces to send, or why none are sent. */
-export function readReply(
-  answer: unknown,
-  brokenObject = false,
-): { list: Content[]; fallback?: WebhookReply["fallback"] } | { error: string } {
+export function readReply(answer: unknown, brokenObject = false): { list: OutboundKind[] } | { error: string } {
   // A body that starts with "{" but is not valid JSON is refused.
   if (brokenObject) return { error: "the body starts like a JSON object but is not valid JSON" };
   // A body that is not a JSON object (plain "OK" included), or one without `reply`, sends nothing and is not an error.
   if (!isObject(answer)) return { list: [] };
-  const { reply, fallback } = answer;
+  const { reply } = answer;
   if (reply === undefined || reply === null) return { list: [] };
-  if (fallback !== undefined && fallback !== "auto" && !isContent(fallback)) return { error: 'fallback must be "auto" or content' };
   if (Array.isArray(reply)) {
     if (reply.length === 0) return { error: "reply is an empty list" };
-    if (reply.length > 10) return { error: `reply has ${reply.length} pieces; at most 10` };
-    if (!reply.every(isContent)) return { error: "every piece of reply must be content with a type" };
-    return { list: reply, fallback: fallback as WebhookReply["fallback"] };
+    if (reply.length > 11) return { error: `reply has ${reply.length} pieces; at most 11` };
+    const list = reply.map(toPiece);
+    if (list.some((p) => p === undefined)) return { error: "every piece of reply must be a kind object (with a kind that can be sent) or non-empty text" };
+    return { list: list as OutboundKind[] };
   }
-  if (!isContent(reply)) return { error: "reply must be content or a list of content" };
-  return { list: [reply], fallback: fallback as WebhookReply["fallback"] };
+  const piece = toPiece(reply);
+  if (!piece) return { error: "reply must be a kind object (with a kind that can be sent), non-empty text, or a list of them" };
+  return { list: [piece] };
 }
 
 export interface ListenOptions {
@@ -124,9 +129,9 @@ export async function listen(flow: FlowMessaging, o: ListenOptions): Promise<voi
 
 function describe(event: FlowEvent): string {
   if ("data" in event && event.data && typeof event.data === "object" && "message" in event.data) {
-    const c = (event.data as { message: { content: { type: string; text?: string; caption?: string; transcript?: string } } }).message.content;
-    const t = c.text ?? c.caption ?? c.transcript;
-    return t ? `"${t.length > 60 ? t.slice(0, 57) + "..." : t}"` : `(${c.type})`;
+    const c = (event.data as { message: { content: MessageContent } }).message.content;
+    const t = contentText(c);
+    return t ? `"${t.length > 60 ? t.slice(0, 57) + "..." : t}"` : `(${c.kind})`;
   }
   return "";
 }

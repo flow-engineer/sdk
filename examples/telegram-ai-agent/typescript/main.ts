@@ -2,7 +2,7 @@
 // with Claude (any LLM works: replace think()), and offers a "Talk to a human"
 // button that hands the conversation to your team.
 // Events come from the WebSocket stream, so no public URL is needed; replies go
-// out with POST /v1/conversations/{id}/messages and an Idempotency-Key.
+// out with POST /v1/conversations/{id}/buttons (or /basic) and an Idempotency-Key.
 // Run: node main.ts             (FLOW_MESSAGING_KEY and ANTHROPIC_API_KEY set)
 //      node main.ts --fake-llm  (no Anthropic key: a canned answer, for testing)
 import Anthropic from "@anthropic-ai/sdk";
@@ -67,38 +67,49 @@ async function handle(event: any) {
     return;
   }
   const message = event.data.message;
-  const content = message.content;
+  const content = message.content; // one message kind, named by content.kind
+  // A basic message (plain text) into this conversation; the key comes from the inbound message.
+  const say = (text: string) => flow(`/v1/conversations/${conv}/basic`, { text }, `reply-${message.id}`);
 
-  if (content.type === "button_reply" && content.button_id === HUMAN) {
+  if (content.kind === "button_reply" && content.button_id === HUMAN) {
     withHuman.add(conv);
     console.log(`[${conv}] handed to a human`); // notify your team here
-    await flow(`/v1/conversations/${conv}/messages`,
-      { content: { type: "text", text: "Thanks. A person from our team will answer here soon." } }, `reply-${message.id}`);
+    await say("Thanks. A person from our team will answer here soon.");
     return;
   }
-  const text = content.type === "text" ? content.text : content.type === "button_reply" ? content.label : null;
+  // What the customer said: their text (or a file's caption), a tapped button's label,
+  // or a voice note's transcript (when the app has transcription on).
+  const text: string | null =
+    content.kind === "basic" ? content.text ?? null
+    : content.kind === "button_reply" ? content.label
+    : content.kind === "voice" ? content.transcript ?? null
+    : null;
   if (withHuman.has(conv)) {
-    console.log(`[${conv}] (with a human) ${text ?? content.type}`);
+    console.log(`[${conv}] (with a human) ${text ?? content.kind}`);
     return;
   }
-  console.log(`[${conv}] customer: ${text ?? content.type}`);
+  console.log(`[${conv}] customer: ${text ?? content.kind}`);
   if (text === null) {
-    await flow(`/v1/conversations/${conv}/messages`,
-      { content: { type: "text", text: "I can read text messages only." } }, `reply-${message.id}`);
+    await say("I can read text messages only.");
     return;
   }
 
-  // Optional: show "typing..." while the LLM thinks. It can fail; never let that stop the reply.
-  flow(`/v1/conversations/${conv}/typing`, { state: "on" }, `typing-${message.id}`).catch(() => {});
+  // Optional: show "typing..." while the LLM thinks (it clears itself when the reply goes).
+  // It can fail; never let that stop the reply.
+  flow(`/v1/conversations/${conv}/typing`, {}, `typing-${message.id}`).catch(() => {});
   const answer = await think(conv, text);
   console.log(`[${conv}] agent: ${answer}`);
   try {
     // The key comes from the inbound message: one reply per message, however often this runs.
-    await flow(`/v1/conversations/${conv}/messages`, {
-      content: { type: "buttons", text: answer.slice(0, 1024), buttons: [{ id: HUMAN, label: "Talk to a human" }] },
-      fallback: "auto", // channels without buttons get numbered text instead
-    }, `reply-${message.id}`);
+    await flow(`/v1/conversations/${conv}/buttons`,
+      { text: answer.slice(0, 1024), buttons: [{ id: HUMAN, label: "Talk to a human" }] }, `reply-${message.id}`);
   } catch (err: any) {
+    // A channel without buttons (iMessage, SMS) refuses them with 422 unsupported_content,
+    // param "kind", and sends nothing: send the answer as plain text instead, with its own key.
+    if (err.error?.type === "unsupported_content" && err.error.param === "kind") {
+      await flow(`/v1/conversations/${conv}/basic`, { text: answer }, `reply-${message.id}:text`);
+      return;
+    }
     // An LLM answers differently each time: if this message was already answered (a
     // replayed event after a crash), the same key with a new body is refused. Keep the first.
     if (err.error?.type !== "idempotency_conflict") throw err;

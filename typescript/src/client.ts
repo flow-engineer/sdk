@@ -2,7 +2,6 @@ import { HttpClient, type ClientOptions } from "./core.js";
 import { ConversationHandle } from "./conversation.js";
 import {
   AppResource,
-  Capabilities_,
   Contacts,
   Conversations,
   Device,
@@ -31,7 +30,7 @@ export class Events extends EventLog {
   /**
    * Live events over a WebSocket, as an async iterator. Resumes with `after` on every
    * reconnect, so no event is lost; pass `after` to replay from an event first.
-   * Each event's `conversation` can `reply`, `send`, `typing` and `markRead`.
+   * Each event's `conversation` can `reply`, `send`, `typing` and `read`.
    *
    * ```ts
    * for await (const event of flow.events.stream({ types: ["message.received"] })) {
@@ -93,7 +92,6 @@ export class FlowMessaging {
   readonly messages: Messages;
   readonly conversations: Conversations;
   readonly events: Events;
-  readonly capabilities: Capabilities_;
   readonly files: Files;
   readonly senders: Senders;
   readonly templates: Templates;
@@ -114,7 +112,6 @@ export class FlowMessaging {
     this.messages = new Messages(this.http, this);
     this.conversations = new Conversations(this.http, this);
     this.events = new Events(this.http, this);
-    this.capabilities = new Capabilities_(this.http);
     this.files = new Files(this.http);
     this.senders = new Senders(this.http);
     this.templates = new Templates(this.http);

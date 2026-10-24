@@ -37,14 +37,16 @@ function connect() {
       if (seen.has(event.id)) return;
       seen.add(event.id);
       const message = event.data.message;
-      const said = message.content.type === "text" ? message.content.text : `a ${message.content.type}`;
+      // content is one message kind: `basic` is text and/or a file (its text is then the caption).
+      const content = message.content;
+      const said = content.kind === "basic" && content.text ? content.text : `a ${content.media?.type ?? content.kind}`;
       console.log(`[${event.conversation.id}] ${said}`);
       // `ref` is the idempotency key: derived from the inbound message, so a replay never sends twice.
       ws.send(JSON.stringify({
         type: "send",
         ref: `echo-${message.id}`,
         conversation: event.conversation.id,
-        message: { content: { type: "text", text: `You said: ${said}` } },
+        message: { kind: "basic", text: `You said: ${said}` }, // sent exactly as written
       }));
     } else if (frame.type === "ack") {
       console.log(`  -> sent ${frame.message.id}`);
