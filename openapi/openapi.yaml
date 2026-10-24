@@ -269,7 +269,10 @@ info:
     as several (a text and one message per card) arrives in the order you sent
     the calls. Give each call its own `Idempotency-Key` (for example
     `evt_123:card:2` for the second card answering event `evt_123`): a retry with
-    the same key never sends twice (see Idempotency).
+    the same key never sends twice (see Idempotency). A `422` answer is kept
+    under its key like any other, so a message you send instead of a refused one
+    (a `basic` after a `buttons` came back `422`) is a new request with a new
+    key: add what it is to the refused one's key, such as `evt_123:card:2:basic`.
 
     ## Webhooks
 
@@ -1525,7 +1528,10 @@ paths:
         Shows the typing indicator in a conversation. The body is optional: no
         body or `{}` shows it. No channel lets it be cleared on request: it clears
         itself when your next message goes, or after a few seconds, so call again
-        every few seconds while your agent works. SMS answers `422 unsupported_content` with `param` `kind`, and an iMessage
+        every few seconds while your agent works. `Idempotency-Key` works as on
+        every `POST`: a repeat with the same key within 24 hours answers the first
+        call's result and does not show the indicator again, so give each call that
+        should show it its own key (or none). SMS answers `422 unsupported_content` with `param` `kind`, and an iMessage
         group conversation with `param` `kind` and `channel_code`
         `group_unsupported`: nothing is sent, so leave typing out there.
 
