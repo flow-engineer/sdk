@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, overload
 from urllib.parse import quote
 
 from .. import _base
@@ -15,24 +15,37 @@ from ..errors import APIConnectionError, APIError, DeviceSignInError, RateLimitE
 from ..pagination import Pager
 from ..types import (
     AppContext,
-    Capabilities,
+    BasicMessage,
+    ButtonsMessage,
+    CarouselMessage,
     Channel,
     Contact,
+    ContactCardMessage,
     Conversation,
     ConversationAction,
     Deleted,
     DeviceAuthorization,
     DeviceToken,
+    EditMessage,
+    EffectMessage,
     Event,
     EventType,
     File,
+    ListMessage,
+    LocationMessage,
     Message,
+    ReactionMessage,
+    ReadMessage,
     SandboxKey,
     Sender,
     SenderKind,
     SimulatedInbound,
     Template,
+    TemplateMessage,
     TranscriptEntry,
+    TypingMessage,
+    UnsendMessage,
+    VoiceMessage,
     WebhookEndpoint,
     parse_event,
 )
@@ -44,68 +57,204 @@ def _path(base: str, object_id: str, *rest: str) -> str:
     return "/".join([base, quote(object_id, safe=""), *rest])
 
 
+#: The endpoint of each kind sent with ``POST /v1/conversations/{id}/<path>``.
+KIND_PATHS: dict[str, str] = {
+    "basic": "basic",
+    "voice": "voice",
+    "buttons": "buttons",
+    "list": "list",
+    "carousel": "carousel",
+    "template": "template",
+    "contact_card": "contact-card",
+    "location": "location",
+    "effect": "effect",
+    "reaction": "reaction",
+}
+#: Kinds ``send`` takes besides those: the conversation actions and the changes to a sent message.
+OTHER_SENDABLE_KINDS = ("typing", "read", "edit", "unsend")
+
+#: A message model ``send`` answers with a ``Message`` for.
+MessageModel = (
+    BasicMessage
+    | VoiceMessage
+    | ButtonsMessage
+    | ListMessage
+    | CarouselMessage
+    | TemplateMessage
+    | ContactCardMessage
+    | LocationMessage
+    | EffectMessage
+    | ReactionMessage
+    | EditMessage
+    | UnsendMessage
+)
+
+
+def _sendable_kind(obj: Mapping[str, Any]) -> str:
+    kind = obj.get("kind")
+    if kind in KIND_PATHS or kind in OTHER_SENDABLE_KINDS:
+        return str(kind)
+    known = ", ".join([*KIND_PATHS, *OTHER_SENDABLE_KINDS])
+    if kind is None:
+        raise ValueError(f"The message has no `kind`: give one of {known}, or pass a string for a basic message.")
+    if kind in ("button_reply", "file_blocked"):
+        raise ValueError(f"`{kind}` is a kind Flow receives, never one you send.")
+    raise ValueError(f"Unknown kind {kind!r}: give one of {known}.")
+
+
+def _target(obj: Mapping[str, Any]) -> str:
+    message_id = obj.get("message_id")
+    if not isinstance(message_id, str) or not message_id:
+        raise ValueError(f"An `{obj.get('kind')}` message needs the `message_id` of the message it changes.")
+    return message_id
+
+
 class Messages:
+    """Sending and changing messages: one method per kind (``basic``, ``buttons``, ...),
+    each posting to that kind's endpoint exactly what it is given, and ``send``, which
+    picks the endpoint from the message's ``kind``. Flow never converts a message: a
+    kind or field the conversation's channel does not take raises
+    ``UnsupportedContentError`` (``param`` names it, ``hint`` says what to send instead)."""
+
     def __init__(self, http: HTTPClient) -> None:
         self._http = http
 
-    def send(
-        self,
-        conversation_id: str,
-        content: Any,
-        *,
-        reply_to: str | None = None,
-        fallback: Any = None,
-        channel_options: Any = None,
-        metadata: Mapping[str, Any] | None = None,
-        idempotency_key: str | None = None,
+    def _post(
+        self, conversation_id: str, path: str, message: Any, fields: Mapping[str, Any], idempotency_key: str | None
     ) -> Message:
-        """Sends into a conversation (the normal reply). ``content`` is a string (a text
-        message), a content model or a dict such as ``{"type": "text", "text": "Hi"}``.
-        The answer is the queued message; progress arrives as ``message.sent``,
-        ``.delivered``, ``.read`` or ``.failed`` events. ``fallback="auto"`` lets Flow
-        convert content the channel cannot show; ``reply_to`` makes it an inline reply."""
         res = self._http.request(
             "POST",
-            _path("/v1/conversations", conversation_id, "messages"),
-            json=body(
-                content=_base.content(content),
-                reply_to=reply_to,
-                fallback=fallback,
-                channel_options=channel_options,
-                metadata=metadata,
-            ),
+            _path("/v1/conversations", conversation_id, path),
+            json=_base.fields(message, fields),
             idempotency=idempotency_key,
         )
         return parse(Message, res)
+
+    def basic(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Sends text, or one media file with an optional caption, on every channel
+        (``POST /v1/conversations/{id}/basic``). The body is ``message`` (a dict or a
+        model, such as ``content.image(...)``) with the keyword fields laid over it:
+        ``basic(id, text="Hi")``, ``basic(id, text="See https://example.com", link_preview=False)``.
+        The text is sent exactly as written: no markdown."""
+        return self._post(conversation_id, "basic", message, fields, idempotency_key)
+
+    def voice(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Sends a voice note by ``url`` or ``file_id`` (Telegram, WhatsApp, iMessage)."""
+        return self._post(conversation_id, "voice", message, fields, idempotency_key)
+
+    def buttons(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Sends text with buttons (Telegram, WhatsApp). On WhatsApp 1 to 3 reply buttons or
+        one URL button; send a ``list`` for more choices. A tap arrives as ``button_reply``."""
+        return self._post(conversation_id, "buttons", message, fields, idempotency_key)
+
+    def list(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Sends a WhatsApp list message: ``text``, the menu ``button``'s label and its
+        ``sections`` of rows. A tap on a row arrives as ``button_reply`` with the row's ``id``."""
+        return self._post(conversation_id, "list", message, fields, idempotency_key)
+
+    def carousel(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Sends a WhatsApp carousel: ``text`` and 2 to 10 ``cards``."""
+        return self._post(conversation_id, "carousel", message, fields, idempotency_key)
+
+    def template(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Sends an approved WhatsApp template (``template_id``, ``language``, ``params``):
+        the only kind WhatsApp delivers outside its 24-hour window."""
+        return self._post(conversation_id, "template", message, fields, idempotency_key)
+
+    def contact_card(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Sends a contact card (Telegram, WhatsApp; Telegram needs at least one phone)."""
+        return self._post(conversation_id, "contact-card", message, fields, idempotency_key)
+
+    def location(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Sends a place: ``lat``, ``lng`` and optionally ``name`` and ``address`` (Telegram, WhatsApp)."""
+        return self._post(conversation_id, "location", message, fields, idempotency_key)
+
+    def effect(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Sends iMessage text with a screen or bubble ``effect`` (iMessage only)."""
+        return self._post(conversation_id, "effect", message, fields, idempotency_key)
+
+    def reaction(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
+    ) -> Message:
+        """Reacts to a message: ``message_id`` and one ``emoji``, or ``emoji=None`` to remove
+        your reaction (Telegram, WhatsApp, iMessage)."""
+        return self._post(conversation_id, "reaction", message, fields, idempotency_key)
+
+    @overload
+    def send(
+        self, conversation_id: str, message: str | MessageModel, *, idempotency_key: str | None = None
+    ) -> Message: ...
+
+    @overload
+    def send(
+        self, conversation_id: str, message: TypingMessage | ReadMessage, *, idempotency_key: str | None = None
+    ) -> ConversationAction: ...
+
+    @overload
+    def send(
+        self, conversation_id: str, message: Mapping[str, Any], *, idempotency_key: str | None = None
+    ) -> Message | ConversationAction: ...
+
+    def send(
+        self, conversation_id: str, message: Any, *, idempotency_key: str | None = None
+    ) -> Message | ConversationAction:
+        """Sends one kind object to the endpoint of its ``kind``, exactly as given. A string
+        is short for ``{"kind": "basic", "text": ...}``. ``typing`` and ``read`` go to the
+        conversation's typing and read endpoints and answer a ``ConversationAction``;
+        ``edit`` and ``unsend`` change the message named by their ``message_id`` (``PATCH``
+        and ``DELETE /v1/messages/{message_id}``). A missing or unknown ``kind`` raises
+        ``ValueError`` before any request."""
+        obj = _base.kind_object(message)
+        kind = _sendable_kind(obj)
+        if kind in KIND_PATHS:
+            return self._post(conversation_id, KIND_PATHS[kind], obj, {}, idempotency_key)
+        if kind in ("typing", "read"):
+            return _action(self._http, conversation_id, kind, obj, idempotency_key)
+        message_id = _target(obj)
+        if kind == "edit":
+            return self.edit(message_id, {k: v for k, v in obj.items() if k not in ("kind", "message_id")})
+        return self.unsend(message_id)
 
     def start(
         self,
         *,
         sender: str,
         to: Any,
-        content: Any,
-        fallback: Any = None,
-        channel_options: Any = None,
-        metadata: Mapping[str, Any] | None = None,
+        message: Any,
         consent: Any = None,
         idempotency_key: str | None = None,
     ) -> Message:
-        """Starts a conversation from one of your senders. ``to`` is a contact ID
-        (``ct_...``), a phone number (``+1...``) or a recipient dict. Spends the sender's
-        new-contact budget; on WhatsApp outside the window only a template goes. In test
-        mode ``to`` must be a contact who joined the sandbox through your app."""
+        """Starts a conversation from one of your senders with a ``basic`` or ``template``
+        message (a kind object; a string is a basic message's text), sent as one flat body:
+        ``{"sender", "to", "kind", ...the message's fields}``. ``to`` is a contact ID
+        (``ct_...``), a phone number (``+1...``) or a recipient dict; ``consent`` is for SMS.
+        Spends the sender's new-contact budget; on WhatsApp only a template starts one. In
+        test mode ``to`` must be a contact who joined the sandbox through your app."""
+        obj = _base.kind_object(message)
+        if obj.get("kind") is None:
+            raise ValueError('A start needs the message\'s `kind`: "basic" or "template".')
         res = self._http.request(
             "POST",
             "/v1/messages",
-            json=body(
-                sender=sender,
-                to=_base.recipient(to),
-                content=_base.content(content),
-                fallback=fallback,
-                channel_options=channel_options,
-                metadata=metadata,
-                consent=consent,
-            ),
+            json={**body(sender=sender, to=_base.recipient(to), consent=consent), **obj},
             idempotency=idempotency_key,
         )
         return parse(Message, res)
@@ -114,17 +263,28 @@ class Messages:
         """One message, inbound or outbound, with its current status."""
         return parse(Message, self._http.request("GET", _path("/v1/messages", message_id)))
 
-    def edit(self, message_id: str, content: Any) -> Message:
-        """Replaces the text of one of your sent messages (Telegram). ``content`` is a
-        string or text content."""
-        res = self._http.request(
-            "PATCH", _path("/v1/messages", message_id), json={"content": _base.content(content)}
-        )
+    def edit(self, message_id: str, message: Any = None, **fields: Any) -> Message:
+        """Replaces the text of one of your sent messages (Telegram; iMessage within 15
+        minutes): ``edit(id, text="New")``, with an optional ``telegram`` or ``imessage``
+        block. ``message`` may be a string (the new text), a dict or an
+        ``EditMessageRequest``."""
+        payload = {"text": message} if isinstance(message, str) else message
+        res = self._http.request("PATCH", _path("/v1/messages", message_id), json=_base.fields(payload, fields))
         return parse(Message, res)
 
     def unsend(self, message_id: str) -> Message:
-        """Removes one of your sent messages from the contact's chat (Telegram, within 48 hours)."""
+        """Removes one of your sent messages from the contact's chat (Telegram within 48
+        hours, iMessage within 2 minutes)."""
         return parse(Message, self._http.request("DELETE", _path("/v1/messages", message_id)))
+
+
+def _action(
+    http: HTTPClient, conversation_id: str, name: str, payload: Mapping[str, Any], idempotency_key: str | None
+) -> ConversationAction:
+    res = http.request(
+        "POST", _path("/v1/conversations", conversation_id, name), json=dict(payload), idempotency=idempotency_key
+    )
+    return parse(ConversationAction, res)
 
 
 class Conversations:
@@ -162,38 +322,20 @@ class Conversations:
         return self._http.list(_path("/v1/conversations", conversation_id, "messages"), q, parser(Message))
 
     def typing(
-        self, conversation_id: str, state: Literal["on", "off"] = "on", *, idempotency_key: str | None = None
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
     ) -> ConversationAction:
-        """Shows (``on``) or clears (``off``) the typing indicator. Channels clear it after a few seconds."""
-        res = self._http.request(
-            "POST",
-            _path("/v1/conversations", conversation_id, "typing"),
-            json={"state": state},
-            idempotency=idempotency_key,
-        )
-        return parse(ConversationAction, res)
+        """Shows the typing indicator (Telegram, WhatsApp, iMessage). It clears itself when
+        your next message goes or after a few seconds; no channel can clear it on request.
+        On iMessage, ``imessage={"duration_seconds": 10}`` sets how long it shows."""
+        return _action(self._http, conversation_id, "typing", _base.fields(message, fields), idempotency_key)
 
-    def mark_read(
-        self, conversation_id: str, up_to: str | None = None, *, idempotency_key: str | None = None
+    def read(
+        self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
     ) -> ConversationAction:
-        """Marks the contact's messages as read, up to and including ``up_to`` (default: the latest inbound)."""
-        res = self._http.request(
-            "POST",
-            _path("/v1/conversations", conversation_id, "read"),
-            json=body(up_to=up_to),
-            idempotency=idempotency_key,
-        )
-        return parse(ConversationAction, res)
-
-
-class CapabilitiesResource:
-    def __init__(self, http: HTTPClient) -> None:
-        self._http = http
-
-    def retrieve(self, conversation_id: str) -> Capabilities:
-        """What the conversation's channel can show now, and whether its window is open."""
-        res = self._http.request("GET", "/v1/capabilities", query={"conversation": conversation_id})
-        return parse(Capabilities, res)
+        """Marks the contact's messages as read (WhatsApp, iMessage). On WhatsApp ``up_to``
+        names the latest inbound message to mark (default: the latest); iMessage marks the
+        whole conversation and refuses ``up_to``."""
+        return _action(self._http, conversation_id, "read", _base.fields(message, fields), idempotency_key)
 
 
 class Files:
@@ -208,7 +350,7 @@ class Files:
         channel: Channel | None = None,
         idempotency_key: str | None = None,
     ) -> File:
-        """Uploads media to send later as ``media`` or ``voice`` content by ``file_id``.
+        """Uploads a file to send later by ``file_id``, as a basic message's ``media`` or a voice note.
         ``file`` is bytes, a binary file object or a path. The answer's ``id``
         (``file_...``) is the ``file_id``; ``channel`` checks the channel's size limit now."""
         name, data = _base.file_part(file, filename)
@@ -570,15 +712,19 @@ class Testing:
         content: Any,
         *,
         reply_to: str | None = None,
+        from_: str | None = None,
         idempotency_key: str | None = None,
     ) -> SimulatedInbound:
-        """Writes one turn as the simulated contact: a string (text) or content. Media takes a
-        ``file_id`` from ``files.upload``. The answer's ``message`` is the ID the
-        ``message.received`` event will carry."""
+        """Writes one turn as the simulated contact: a kind object with ``kind`` (``basic``,
+        ``voice``, ``location``, ``contact_card``, or ``button_reply`` to tap a button or
+        list row: ``{"kind": "button_reply", "message_id": ..., "button_id": ...}``); a
+        string is short for ``{"kind": "basic", "text": ...}``. Media takes a ``file_id``
+        from ``files.upload``. ``from_`` names the participant in a simulated group. The
+        answer's ``message`` is the ID the ``message.received`` event will carry."""
         res = self._http.request(
             "POST",
             _path("/v1/test/conversations", conversation_id, "inbound"),
-            json=body(content=_base.content(content), reply_to=reply_to),
+            json=body(content=_base.kind_object(content), reply_to=reply_to, **{"from": from_}),
             idempotency=idempotency_key,
         )
         return parse(SimulatedInbound, res)
@@ -586,7 +732,7 @@ class Testing:
     def transcript(
         self, conversation_id: str, *, limit: int | None = None, after: str | None = None
     ) -> Pager[TranscriptEntry]:
-        """Both sides of a simulated conversation, oldest first; sent messages carry ``shown``."""
+        """Both sides of a simulated conversation, oldest first, each as the ``Message`` it is."""
         q = {"limit": limit, "after": after}
         return self._http.list(
             _path("/v1/test/conversations", conversation_id, "transcript"), q, parser(TranscriptEntry)

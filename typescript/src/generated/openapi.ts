@@ -698,7 +698,10 @@ export interface paths {
          *     Shows the typing indicator in a conversation. The body is optional: no
          *     body or `{}` shows it. No channel lets it be cleared on request: it clears
          *     itself when your next message goes, or after a few seconds, so call again
-         *     every few seconds while your agent works. SMS answers `422 unsupported_content` with `param` `kind`, and an iMessage
+         *     every few seconds while your agent works. `Idempotency-Key` works as on
+         *     every `POST`: a repeat with the same key within 24 hours answers the first
+         *     call's result and does not show the indicator again, so give each call that
+         *     should show it its own key (or none). SMS answers `422 unsupported_content` with `param` `kind`, and an iMessage
          *     group conversation with `param` `kind` and `channel_code`
          *     `group_unsupported`: nothing is sent, so leave typing out there.
          *
