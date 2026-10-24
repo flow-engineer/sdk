@@ -22,7 +22,7 @@ The hosted MCP server is an optional development tool. Adding it is the project 
 
 ### WhatsApp: a reminder the next day
 
-Flow has no scheduled sends: schedule in your own app (cron, queue) and send then. Next day is usually outside WhatsApp's 24-hour window, so only an approved `template` goes (`POST /v1/templates` on your WhatsApp sender with a live key; else `409 outside_window`). Test it now on a simulated WhatsApp conversation: templates on the simulated sender are approved at once. Connect your own WhatsApp number with `POST /v1/senders` (quickstart section 11).
+Flow has no scheduled sends: schedule in your own app (cron, queue) and send then. Next day is usually outside WhatsApp's 24-hour window, so only an approved `template` goes (`POST /v1/templates` on your WhatsApp sender with a live key, with a realistic sample for each placeholder in `examples`, which WhatsApp reviews it with; else `409 outside_window`). Test it now on a simulated WhatsApp conversation: templates on the simulated sender are approved at once. Connect your own WhatsApp number with `POST /v1/senders` (quickstart section 11).
 
 ### Move a live polling bot to Flow
 

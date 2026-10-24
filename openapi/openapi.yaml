@@ -1548,7 +1548,9 @@ paths:
         `template.status_changed` when WhatsApp approves, rejects or pauses it. Templates
         are WhatsApp only: a Telegram or iMessage sender gets
         `422 unsupported_content`, and a name and language the sender already has
-        gets `400 invalid_request`.
+        gets `400 invalid_request`. Give a realistic sample for every placeholder
+        (`examples` on the body and a text header, `example` on a `url` button
+        whose link ends in `{{1}}`): WhatsApp reviews the template with them.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1557,6 +1559,28 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/TemplateCreateRequest"
+            examples:
+              order_update:
+                summary: A utility template with samples for its placeholders
+                value:
+                  sender: snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T
+                  name: order_update
+                  language: en
+                  category: utility
+                  components:
+                    - type: header
+                      format: text
+                      text: "Order {{1}}"
+                      examples: ["A-1042"]
+                    - type: body
+                      text: "Hi {{1}}, your order {{2}} has shipped."
+                      examples: ["Maria", "A-1042"]
+                    - type: buttons
+                      buttons:
+                        - type: url
+                          text: Track it
+                          url: "https://shop.example.com/track/{{1}}"
+                          example: A-1042
       responses:
         "201":
           description: The template was submitted.
@@ -5799,6 +5823,25 @@ components:
         text:
           type: string
           description: The part's text, with placeholders.
+        examples:
+          type: array
+          maxItems: 100
+          description: |
+            For a body or a text header with placeholders, a realistic sample value
+            for each placeholder, in order (`{{1}}` first). WhatsApp's reviewers read
+            the template with these values, and a template whose samples do not look
+            real is often rejected or moved to another category, so give them for
+            every new template. Exactly one per placeholder; each 1 to 60 characters
+            in a header and 1 to 1024 in a body, with no line breaks, tabs or more
+            than four spaces in a row. Left out, Flow sends WhatsApp placeholder
+            samples (`x1`, `x2`, ...) instead. Not taken on footers, buttons parts,
+            media headers or text without placeholders.
+          examples:
+            - ["Maria", "A-1042"]
+          items:
+            type: string
+            minLength: 1
+            maxLength: 1024
         buttons:
           type: array
           description: For `buttons`, the buttons in order.
@@ -5819,6 +5862,18 @@ components:
         url:
           type: string
           description: For `url` buttons, the link, optionally ending in a `{{1}}` placeholder.
+        example:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: |
+            For a `url` button whose link ends in `{{1}}`, a realistic sample value
+            for the end of the link (what you will pass in `params.buttons` when
+            sending), for WhatsApp's review: Flow shows the reviewers the link with
+            the sample in place. That link is at most 2000 characters, and the sample
+            has no spaces or line breaks. Left out, Flow sends a placeholder sample
+            instead. Not taken on other buttons.
+          examples: ["A-1042"]
         phone:
           type: string
           description: For `phone_number` buttons, the E.164 number.
