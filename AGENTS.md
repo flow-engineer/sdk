@@ -127,7 +127,8 @@ The private docs repository owns the website. Edit sources, regenerate and updat
   `agents/llms.txt`, `agents/quickstart.md`, `agents/root.md` (the service's `GET /`),
   `agents/mcp-instructions-{test,live}.txt` (the MCP server's `initialize`
   instructions), the root `llms.txt` (the same as `agents/llms.txt`),
-  `plugin/skills/flow-messaging/SKILL.md`, `plugin/AGENTS-snippet.md` (what `init`
+  `plugin/skills/flow-messaging/SKILL.md`, `plugin/skills/flow-messaging-migrate/SKILL.md`
+  (the skill that moves a project from the old `/v1` shape to V0), `plugin/AGENTS-snippet.md` (what `init`
   installs), and refills the marked regions (`<!-- agents:name -->`) of `README.md`,
   `typescript/README.md` and `plugin/skills/flow-messaging/reference/cli-mcp.md`.
   `node scripts/agent-docs.mjs --export-docs` exports rendered website guidance as JSON for
@@ -152,9 +153,10 @@ The private docs repository owns the website. Edit sources, regenerate and updat
   tell agents to suggest it and show the owner the command, never to add it
   themselves. `init` asks before writing `.mcp.json`; keep that.
 - `plugin/` holds the Claude Code plugin (`.claude-plugin/plugin.json`, `.mcp.json`,
-  `skills/flow-messaging/`) and `AGENTS-snippet.md`; `.claude-plugin/marketplace.json`
+  `skills/flow-messaging/`, `skills/flow-messaging-migrate/`) and `AGENTS-snippet.md`; `.claude-plugin/marketplace.json`
   at the root lists the plugin. The build copies them into `typescript/agent-files/`
-  for the npm package. Keep them short, correct and example-led; the skill's
+  for the npm package (only `skills/flow-messaging/` so far: the migrate skill ships with
+  the plugin, not the npm package). Keep them short, correct and example-led; the skill's
   `description` says exactly when to load it. The skill's `reference/` pages are
   hand-written apart from their regions.
 

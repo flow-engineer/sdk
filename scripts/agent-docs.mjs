@@ -39,6 +39,8 @@ const FILES = [
   ["agents/src/mcp-instructions-test.txt", ["agents/mcp-instructions-test.txt"]],
   ["agents/src/mcp-instructions-live.txt", ["agents/mcp-instructions-live.txt"]],
   ["agents/src/SKILL.md", ["plugin/skills/flow-messaging/SKILL.md"]],
+  // Moves a project from the old /v1 shape to V0 (one endpoint per message kind).
+  ["agents/src/skill-migrate.md", ["plugin/skills/flow-messaging-migrate/SKILL.md"]],
   ["agents/src/AGENTS-snippet.md", ["plugin/AGENTS-snippet.md"]],
   // The dashboard's "Copy prompt" texts: a person pastes one into their coding agent.
   // They name no MCP server, so they skip the MCP rules (PROMPTS).
