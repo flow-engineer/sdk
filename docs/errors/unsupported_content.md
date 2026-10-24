@@ -78,7 +78,7 @@ curl https://api.flow.engineer/v0/conversations/$CONV/buttons \
   -d '{"header": {"type": "image", "url": "https://example.com/a.jpg"}, "text": "Linen shirt, 1,499", "buttons": [{"id": "buy_a", "label": "Buy"}]}'
 ```
 
-Sends to one conversation go out in the order Flow accepted them, so the cards arrive in the order you sent them. A tap arrives as `button_reply` with the button's `id` on every channel that has buttons.
+A `422` is kept under its `Idempotency-Key` like any other answer, so each message you send instead is a new request with a new key: add what it is to the refused one's key (here the refused carousel was `evt_123`; a `basic` replacing a refused `evt_123:card:2` buttons message would be `evt_123:card:2:basic`). Sends to one conversation go out in the order Flow accepted them, so the cards arrive in the order you sent them. A tap arrives as `button_reply` with the button's `id` on every channel that has buttons.
 
 When Flow accepted an edit or unsend but the channel refused it later (for example when it waited behind the conversation's earlier messages until the limit passed), the `edit` or `unsend` message ends `message.failed` and the original message is unchanged.
 
