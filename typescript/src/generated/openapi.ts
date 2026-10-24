@@ -4,6 +4,491 @@
  */
 
 export interface paths {
+    "/v1/conversations/{conversation_id}/basic": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a basic message (text, or media with a caption)
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | Yes | `text` 4096 UTF-16 code units (an emoji such as 😀 counts as 2); a caption 1024; files up to 50 MB |
+         *     | WhatsApp | Yes | `text` 4096 characters; a caption 1024; files up to 100 MB |
+         *     | iMessage | Yes | `text` 9999 characters; a caption 1024; files up to 100 MB |
+         *     | SMS (US, pilot) | Yes | `text` at most 10 segments (1530 GSM-7 characters, 670 with an emoji or other character outside GSM-7; see `SmsSegments`); `media` only from numbers with MMS (`Sender.sms.mms`): images, audio and video up to 5 MB, no documents |
+         *
+         *     Sends text, or one image, video, document or audio file with an optional
+         *     caption, into an existing conversation. This is the normal way to reply to
+         *     a contact, and the one kind every channel takes. The send passes the send
+         *     gate (window rules, pacing) and is queued; the answer is the queued
+         *     message. Its progress arrives as `message.sent`, `message.delivered`,
+         *     `message.read` or `message.failed` events. Sends to one conversation go out
+         *     in the order they were accepted (see "Order and duplicates").
+         *
+         *     `text` is sent exactly as written: Flow never reads it as markdown, never
+         *     strips or converts marks, and never warns. WhatsApp's app shows its own
+         *     marks (`*bold*`, `_italic_`) as styles by itself. To style text on Telegram
+         *     or iMessage, use that channel's block: `telegram.parse_mode` (Telegram's
+         *     own HTML or MarkdownV2) or `imessage.styles` (ranges of the text). On
+         *     iMessage, text that looks like markup still shows as written.
+         *
+         *     A field or block a channel does not take is refused, never ignored: a
+         *     `telegram` block sent to a WhatsApp conversation answers `422
+         *     unsupported_content` with `param` `telegram`, `reply_to` on SMS with
+         *     `param` `reply_to`, `link_preview: true` on SMS with `param`
+         *     `link_preview`. A field this endpoint does not know answers `400
+         *     invalid_request` naming it in `param`. `media` to an SMS number without
+         *     MMS answers `422 unsupported_content` with `param` `media` and
+         *     `channel_code` `no_mms`; a `document` on SMS with `param` `media.type`;
+         *     a file larger than the channel takes with `param` `media`.
+         *
+         *     **iMessage lines with the SMS/RCS add-on** (`Sender.imessage.fallback`):
+         *     a message to a contact who cannot get iMessage goes by SMS or RCS. The
+         *     network is chosen for each message when it is sent, never by your app, and
+         *     the message's `network` (also `data.message.network` in its events) says
+         *     which one carried it. A message that went by SMS or RCS shows no
+         *     `imessage.styles`, no `imessage.subject` and no effect, and cannot be
+         *     edited or unsent (`422 unsupported_content`, `channel_code`
+         *     `not_on_sms`).
+         *
+         *     There are no scheduled sends: a message goes out as soon as it passes the
+         *     gate, so to send later, wait in your own code and send then.
+         */
+        post: operations["sendBasic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/voice": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a voice note
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | Yes | files up to 50 MB |
+         *     | WhatsApp | Yes | files up to 100 MB |
+         *     | iMessage | Yes | files up to 100 MB |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On SMS, send instead: a basic message with `media` of `type` `audio`
+         *     (from a number with MMS).
+         *
+         *     Sends an audio file as a voice note, shown with the channel's voice note
+         *     player. Give `url` (an HTTPS URL Flow fetches) or `file_id` (from `POST
+         *     /v1/files`). A send to SMS answers `422 unsupported_content` with `param`
+         *     `kind`. Sends to one conversation go out in the order they were accepted
+         *     (see "Order and duplicates").
+         */
+        post: operations["sendVoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/buttons": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send text with buttons
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | Yes | 1 to 10 buttons, reply and URL buttons mixed; `text` 4096 UTF-16 code units, 1024 with a media `header` |
+         *     | WhatsApp | Yes | 1 to 3 reply buttons, or exactly one URL button (a call-to-action link); `text` 1024 characters |
+         *     | iMessage | No | |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On iMessage and SMS, send instead: a basic message whose text lists the
+         *     choices; the contact answers in words, as a basic message.
+         *
+         *     Sends text with buttons under it, optionally with a `header` (an image,
+         *     video, document or a short title) above the text. A tap on a reply button
+         *     arrives as a `message.received` event with a `button_reply` message
+         *     carrying the button's `id`; a URL button opens its link and sends nothing
+         *     back.
+         *
+         *     On WhatsApp, more than 3 buttons answer `422 unsupported_content` with
+         *     `param` `buttons` (send a `list` instead, up to 10 rows), and so does a
+         *     mix of reply and URL buttons or more than one URL button. A message whose
+         *     only button is one URL button goes as WhatsApp's call-to-action URL
+         *     message: the text, the header if given, and one button that opens the
+         *     link. Footers are not supported.
+         *
+         *     On Telegram, a media `header` makes one message: the photo, video or
+         *     document with `text` as its caption and the buttons under it, so `text`
+         *     must fit Telegram's caption limit of 1024 UTF-16 code units. A `text`
+         *     header is the message's first line, in bold. On WhatsApp the header is the
+         *     top of the same message bubble.
+         *
+         *     iMessage and SMS answer `422 unsupported_content` with `param` `kind`.
+         *     Sends to one conversation go out in the order they were accepted (see
+         *     "Order and duplicates").
+         */
+        post: operations["sendButtons"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/list": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a list to pick one option from
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | No | |
+         *     | WhatsApp | Yes | 1 to 10 sections, at most 10 rows in all; `text` 4096 characters |
+         *     | iMessage | No | |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On Telegram, send instead: a `buttons` message with one reply button per
+         *     row (up to 10). On iMessage and SMS: a basic message whose text lists the
+         *     options; the contact answers in words, as a basic message.
+         *
+         *     Sends WhatsApp's list message: the text, a button (`button`) that opens
+         *     the list, and the rows in their sections. A tap on a row arrives as a
+         *     `message.received` event with a `button_reply` message whose `button_id`
+         *     is the row's `id` and whose `label` is its title. Other channels answer
+         *     `422 unsupported_content` with `param` `kind`. Sends to one conversation go
+         *     out in the order they were accepted (see "Order and duplicates").
+         */
+        post: operations["sendList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/carousel": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a carousel of cards
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | No | |
+         *     | WhatsApp | Yes | 2 to 10 cards, 1 to 2 buttons each; `text` 1024 characters |
+         *     | iMessage | No | |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On Telegram, send instead: a basic message with the text, then one
+         *     `buttons` message with an image `header` per card. On iMessage and SMS:
+         *     a basic message with the text, then one basic message per card with its
+         *     image as `media` and its text as the caption.
+         *
+         *     Sends a row of cards the contact scrolls sideways, under one text. Each
+         *     card has an image or video, optional text, and its own buttons. A tap on a
+         *     reply button arrives as a `button_reply` message carrying the button's
+         *     `id`; URL buttons open a link and send nothing back. WhatsApp shows one
+         *     interactive carousel message, inside the 24-hour window like any message
+         *     that is not a template (a carousel template is sent with `POST
+         *     /v1/conversations/{conversation_id}/template`). Other channels answer
+         *     `422 unsupported_content` with `param` `kind`.
+         *
+         *     Rules, each refused with `400 invalid_request` when broken: every card has
+         *     the same number and kind of buttons; a card has either exactly one URL
+         *     button or 1 to 2 reply buttons; reply button `id`s are unique across the
+         *     carousel. Labels may repeat across cards (every card's "Buy"): the `id`
+         *     says which card's button was tapped.
+         *
+         *     When you send the cards one by one instead (the other channels' way), send
+         *     them in order with one `Idempotency-Key` each, such as `evt_123:card:2`:
+         *     sends to one conversation go out in the order they were accepted, one at
+         *     a time (see "Order and duplicates").
+         */
+        post: operations["sendCarousel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/template": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a WhatsApp template
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | No | |
+         *     | WhatsApp | Yes | an `approved` template of the conversation's sender; required outside the 24-hour window |
+         *     | iMessage | No | |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On Telegram, iMessage and SMS, send instead: a basic message (these
+         *     channels have no templates and no 24-hour window).
+         *
+         *     Sends an approved WhatsApp message template into an existing
+         *     conversation. Outside the 24-hour window (the contact's last message is
+         *     24 hours old or more, or they never wrote) a template is the only message
+         *     WhatsApp takes; every other kind answers `409 outside_window` there. To
+         *     start a new conversation with a template, use `POST /v1/messages`. Other
+         *     channels answer `422 unsupported_content` with `param` `kind`. Sends to
+         *     one conversation go out in the order they were accepted (see "Order and
+         *     duplicates").
+         *
+         *     A media card carousel template (marketing category) is sent the same way,
+         *     with one entry per card in `params.cards`. Inside the 24-hour window a
+         *     carousel needs no template: use `POST
+         *     /v1/conversations/{conversation_id}/carousel`.
+         */
+        post: operations["sendTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/contact-card": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a contact card
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | Yes | at least one phone number |
+         *     | WhatsApp | Yes | |
+         *     | iMessage | No | |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On iMessage and SMS, send instead: a basic message with the name, phone
+         *     numbers and email addresses in its text.
+         *
+         *     Sends a person's or business's contact card, which the contact can save.
+         *     On Telegram a card without a phone number answers `422
+         *     unsupported_content` with `param` `phones`. iMessage and SMS answer `422
+         *     unsupported_content` with `param` `kind`. Sends to one conversation go out
+         *     in the order they were accepted (see "Order and duplicates").
+         */
+        post: operations["sendContactCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/location": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a place
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | Yes | |
+         *     | WhatsApp | Yes | |
+         *     | iMessage | No | |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On iMessage and SMS, send instead: a basic message with a maps link (for
+         *     example `https://maps.google.com/?q=12.9716,77.5946`) and the place's name
+         *     and address in its text.
+         *
+         *     Sends a place on a map, with its name and address when given. iMessage and
+         *     SMS answer `422 unsupported_content` with `param` `kind`. Sends to one
+         *     conversation go out in the order they were accepted (see "Order and
+         *     duplicates").
+         */
+        post: operations["sendLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/effect": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send text with an iMessage effect
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | No | |
+         *     | WhatsApp | No | |
+         *     | iMessage | Yes | `text` 9999 characters; not shown when the message goes by SMS or RCS |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On Telegram, WhatsApp and SMS, send instead: a basic message with the
+         *     text.
+         *
+         *     Sends text with one of iMessage's screen or bubble effects. On a line with
+         *     the SMS/RCS add-on, a message that goes by SMS or RCS shows the text
+         *     without the effect (its `network` says so; see `POST
+         *     /v1/conversations/{conversation_id}/basic`). Which effects a contact's
+         *     device shows may vary. Other channels answer `422 unsupported_content`
+         *     with `param` `kind`. Sends to one conversation go out in the order they
+         *     were accepted (see "Order and duplicates").
+         */
+        post: operations["sendEffect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/reaction": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * React to a message
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | Yes | only Telegram's reaction emoji (listed below); `telegram.is_big` for a large animation |
+         *     | WhatsApp | Yes | any one emoji |
+         *     | iMessage | Yes | any one emoji; not in group conversations |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On SMS, send instead: nothing (SMS has no reactions), or a basic message
+         *     if the reaction carries meaning.
+         *
+         *     Reacts to a message in the conversation, or removes your reaction with
+         *     `emoji` `null`. On iMessage, ❤️ 👍 👎 😂 ‼️ ❓ show as tapbacks and other
+         *     emoji as emoji reactions. An iMessage group conversation answers `422
+         *     unsupported_content` with `param` `kind` and `channel_code`
+         *     `group_unsupported`; SMS answers it with `param` `kind`.
+         *
+         *     Telegram takes only these reaction emoji; any other answers `422
+         *     unsupported_content` with `param` `emoji`: ❤ 👍 👎 🔥 🥰 👏 😁 🤔 🤯 😱 🤬
+         *     😢 🎉 🤩 🤮 💩 🙏 👌 🕊 🤡 🥱 🥴 😍 🐳 ❤‍🔥 🌚 🌭 💯 🤣 ⚡ 🍌 🏆 💔 🤨 😐 🍓 🍾 💋
+         *     🖕 😈 😴 😭 🤓 👻 👨‍💻 👀 🎃 🙈 😇 😨 🤝 ✍ 🤗 🫡 🎅 🎄 ☃ 💅 🤪 🗿 🆒 💘 🙉 🦄 😘 💊
+         *     🙊 😎 👾 🤷‍♂ 🤷 🤷‍♀ 😡 (Telegram's list, which it may extend). `telegram.is_big`
+         *     to another channel answers `422 unsupported_content` with `param`
+         *     `telegram`.
+         *
+         *     Sends to one conversation go out in the order they were accepted (see
+         *     "Order and duplicates"). The contact's own reactions arrive as
+         *     `reaction.added` and `reaction.removed` events.
+         */
+        post: operations["sendReaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/conversations/{conversation_id}/messages": {
         parameters: {
             query?: never;
@@ -25,16 +510,7 @@ export interface paths {
          */
         get: operations["listConversationMessages"];
         put?: never;
-        /**
-         * Send a message into a conversation
-         * @description Sends one piece of content into an existing conversation. This is the normal
-         *     way to reply to a contact. The send passes the send gate (window rules,
-         *     pacing) and is queued; the answer is the queued message. Its progress arrives
-         *     as `message.sent`, `message.delivered`, `message.read` or `message.failed`
-         *     events. Messages in one conversation go out in the order they were accepted,
-         *     one at a time.
-         */
-        post: operations["sendMessage"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -56,10 +532,24 @@ export interface paths {
         /**
          * Start a conversation
          * @description Sends the first message from one of your senders to a contact, creating the
-         *     conversation if it does not exist. Starting a conversation spends the sender's
-         *     new-contact budget, and on WhatsApp outside the 24-hour window only a
-         *     `template` may be sent. If the contact already has an open conversation with
-         *     this sender, the message goes into it and spends no budget.
+         *     conversation if it does not exist. The body is a `basic` or `template`
+         *     message, with `kind` (required here) saying which, plus where to send it:
+         *     `sender`, `to` and, on SMS, `consent`. Any other `kind` answers `422
+         *     unsupported_content` with `param` `kind`: start with a basic message or a
+         *     template, then send the other kinds into the conversation.
+         *
+         *     | Kind | Telegram | WhatsApp | iMessage | SMS (US, pilot) |
+         *     |---|---|---|---|---|
+         *     | `basic` | Yes (the contact must have started the bot) | Only inside the 24-hour window | Yes, from lines that can write first (`Sender.imessage.can_initiate`) | Yes, to contacts who texted you or with `consent` |
+         *     | `template` | No | Yes | No | No |
+         *
+         *     Starting a conversation spends the sender's new-contact budget. If the
+         *     contact already has an open conversation with this sender, the message
+         *     goes into it and spends no budget. The rules of the message's kind apply
+         *     as on its own endpoint (`POST /v1/conversations/{conversation_id}/basic`
+         *     or `/template`), and a field the channel does not take answers `422
+         *     unsupported_content` naming it (`consent` on any channel but SMS
+         *     included).
          *
          *     In test mode, `to` must be a contact who joined the sandbox through your app.
          */
@@ -92,10 +582,20 @@ export interface paths {
         post?: never;
         /**
          * Unsend a message
-         * @description Removes one of your outbound messages from the contact's chat, where the
-         *     channel allows it (Telegram: yes, within 48 hours of sending; iMessage:
-         *     yes, within 2 minutes of sending; WhatsApp and SMS: no, `422
-         *     unsupported_content`). Flow never sends anything in its place.
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | Yes | within 48 hours of sending |
+         *     | WhatsApp | No | |
+         *     | iMessage | Yes | within 2 minutes of sending; not a message that went by SMS or RCS |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On WhatsApp and SMS, send instead: a new basic message that corrects the
+         *     earlier one (the earlier one stays in the contact's chat).
+         *
+         *     Removes one of your outbound messages from the contact's chat. Flow never
+         *     sends anything in its place. WhatsApp and SMS answer `422
+         *     unsupported_content` with `param` `kind`, as does an iMessage message that
+         *     went by SMS or RCS (its `network`), with `channel_code` `not_on_sms`.
          *
          *     Flow checks the channel's limit when you call, from its own record of when
          *     the message was sent: an unsend past it answers `422 unsupported_content`
@@ -108,11 +608,11 @@ export interface paths {
          *     A `200` means Flow accepted the unsend, not that the message is gone yet.
          *     The unsend passes the send gate and goes out in order with the
          *     conversation's other messages. When the channel removed it, you receive
-         *     `message.sent` for the `unsend` message (its `content.message_id` names
-         *     this one), and this message takes status `unsent`. If the channel refuses
-         *     it after Flow accepted the call (for example when the unsend waited behind
-         *     the conversation's earlier messages until the limit passed), you receive
-         *     `message.failed` for the `unsend` message, with the channel's reason in
+         *     `message.sent` for a message of kind `unsend` (its `content.message_id`
+         *     names this one), and this message takes status `unsent`. If the channel
+         *     refuses it after Flow accepted the call (for example when the unsend waited
+         *     behind the conversation's earlier messages until the limit passed), you
+         *     receive `message.failed` for the `unsend` message, with the channel's reason in
          *     `error`, and this message keeps its status: it stays in the contact's chat.
          *     Repeating the call is safe.
          *     Only your app's outbound messages can be unsent: an inbound message's ID
@@ -125,12 +625,22 @@ export interface paths {
         head?: never;
         /**
          * Edit a sent message
-         * @description Replaces the text of one of your outbound messages (on Telegram, also the
-         *     caption of a media message, which takes at most 1024 characters where a text
-         *     message takes 4096). Telegram and iMessage support edits (iMessage:
-         *     within 15 minutes of sending, and not the message that started the
-         *     conversation; Telegram: no time limit); WhatsApp and SMS do not (`422
-         *     unsupported_content`).
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | Yes | no time limit; a caption 1024 UTF-16 code units, text 4096 |
+         *     | WhatsApp | No | |
+         *     | iMessage | Yes | within 15 minutes of sending; not the message that started the conversation; not a message that went by SMS or RCS |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On WhatsApp and SMS, send instead: a new basic message with the corrected
+         *     text.
+         *
+         *     Replaces the text of one of your outbound basic messages (on Telegram,
+         *     also the caption of a media message). The text is sent exactly as written,
+         *     as on `POST /v1/conversations/{conversation_id}/basic`; style it with
+         *     `telegram.parse_mode` or `imessage.styles`. WhatsApp and SMS answer `422
+         *     unsupported_content` with `param` `kind`, as does an iMessage message that
+         *     went by SMS or RCS (its `network`), with `channel_code` `not_on_sms`.
          *
          *     Flow checks the channel's limits when you call, from its own record of
          *     when the message was sent: an edit past the limit answers `422
@@ -139,7 +649,7 @@ export interface paths {
          *     `first_message_not_editable`. The error's `message` states the limit and
          *     how long ago the message was sent, for example "iMessage allows edits
          *     within 15 minutes of sending; this message was sent 22 minutes ago." Send
-         *     the corrected text as a new message instead. Flow gives a few seconds'
+         *     the corrected text as a new basic message instead. Flow gives a few seconds'
          *     allowance at the limit, so a call the channel would still take is never
          *     refused.
          *
@@ -148,8 +658,8 @@ export interface paths {
          *     message takes it once the channel accepted the edit. If the channel refuses
          *     it after Flow accepted the call (for example when the edit waited behind the
          *     conversation's earlier messages until the limit passed), you receive
-         *     `message.failed` for an `edit` message naming this one, and the message
-         *     keeps its earlier text.
+         *     `message.failed` for a message of kind `edit` naming this one (its
+         *     `content.message_id`), and the message keeps its earlier text.
          *     Only your app's outbound messages can be edited: an inbound message's ID
          *     answers `400 invalid_request` (`param` `message_id`). The gate's sender and
          *     contact checks apply as for a send, so the edit can answer `403 permission`
@@ -174,11 +684,23 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Show or stop the typing indicator
-         * @description Turns the typing indicator on or off in a conversation. Channels clear it by
-         *     themselves after a few seconds, so keep turning it on while your agent works.
-         *     Where a channel has no typing indicator, and in iMessage group
-         *     conversations, the call succeeds and `delivered_as` says it was skipped.
+         * Show the typing indicator
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | Yes | |
+         *     | WhatsApp | Yes | within 24 hours of the contact's last message, after they wrote at least once |
+         *     | iMessage | Yes | within 5 minutes of the contact's last message; not in group conversations; `imessage.duration_seconds` 1 to 60 |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On SMS, send instead: nothing (SMS has no typing indicator); send your
+         *     reply when it is ready.
+         *
+         *     Shows the typing indicator in a conversation. The body is optional: no
+         *     body or `{}` shows it. No channel lets it be cleared on request: it clears
+         *     itself when your next message goes, or after a few seconds, so call again
+         *     every few seconds while your agent works. SMS answers `422 unsupported_content` with `param` `kind`, and an iMessage
+         *     group conversation with `param` `kind` and `channel_code`
+         *     `group_unsupported`: nothing is sent, so leave typing out there.
          *
          *     The call goes to the channel at once, not behind the conversation's queued
          *     messages, so the channel's answer is the call's answer. It fails with
@@ -212,12 +734,23 @@ export interface paths {
         put?: never;
         /**
          * Mark messages as read
-         * @description Shows the contact that their messages were read, up to and including
-         *     `up_to` (default: the latest inbound message). Telegram bots cannot send read
-         *     receipts, so there `delivered_as` says it was skipped, as it does in iMessage
-         *     group conversations. iMessage has no
-         *     per-message read receipt: the whole conversation is marked read, and `up_to`
-         *     is accepted but has no effect there.
+         * @description | Channel | Works | Limits |
+         *     |---|---|---|
+         *     | Telegram | No | |
+         *     | WhatsApp | Yes | up to any inbound message (`up_to`) |
+         *     | iMessage | Yes | the whole conversation (no `up_to`); not in group conversations |
+         *     | SMS (US, pilot) | No | |
+         *
+         *     On Telegram and SMS, send instead: nothing (bots on Telegram and SMS have
+         *     no read receipts).
+         *
+         *     Shows the contact that their messages were read, up to and including
+         *     `up_to` (default: the latest inbound message). iMessage has no
+         *     per-message read receipt: the whole conversation is marked read, so `up_to`
+         *     there answers `422 unsupported_content` with `param` `up_to`. Telegram and
+         *     SMS answer `422 unsupported_content` with `param` `kind`, and an iMessage
+         *     group conversation with `param` `kind` and `channel_code`
+         *     `group_unsupported`: nothing is sent, so leave read receipts out there.
          *
          *     The call goes to the channel at once, so the channel's answer is the call's
          *     answer. On iMessage it fails with `409 outside_window` before the contact
@@ -410,32 +943,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/capabilities": {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
-                "Flow-Version"?: components["parameters"]["FlowVersion"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a conversation's capabilities
-         * @description Says what the conversation's channel can show right now, content type by
-         *     content type (natively, through a fallback, or not at all), and whether the
-         *     conversation's window is open. Use it to choose content before sending,
-         *     instead of handling `unsupported_content` and `outside_window` afterwards.
-         */
-        get: operations["getCapabilities"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/files": {
         parameters: {
             query?: never;
@@ -450,7 +957,8 @@ export interface paths {
         put?: never;
         /**
          * Upload a file
-         * @description Uploads media to send later as `media` or `voice` content (by `file_id`).
+         * @description Uploads a file to send later (by `file_id`) as a basic message's `media`, a
+         *     voice note, or a header.
          *     The real type is checked from the file's first bytes: programs, web pages and
          *     unknown types are refused with `422 unsupported_content`. Images, audio and
          *     video are not scanned and are taken. Documents (PDF, Office documents,
@@ -458,8 +966,8 @@ export interface paths {
          *     refused with `422 file_blocked` and not stored. If the scan cannot run just
          *     then, the upload answers `500 api_error` with `Retry-After` and nothing is
          *     stored; retry it with the same `Idempotency-Key`. A document can also go
-         *     without an upload: send `media` content with `kind` `document` and a public
-         *     HTTPS `url` in place of `file_id`, and the channel fetches it from that URL
+         *     without an upload: send a basic message whose `media` has `type` `document`
+         *     and a public HTTPS `url` in place of `file_id`, and the channel fetches it from that URL
          *     (Flow neither stores nor scans it; on Telegram this works for PDF and ZIP
          *     files).
          *     Files up to 100 MB are taken; give `channel` to check the file
@@ -1112,13 +1620,13 @@ export interface paths {
          *     not written to it, so a send before the contact's first turn is accepted
          *     (`202`) and then fails as it does on real Telegram (`message.failed`,
          *     `channel_error`, `channel_code` `403`); on SMS
-         *     and iMessage buttons need `fallback` and the contact answers with the
-         *     button's number.
+         *     and iMessage a buttons message answers `422 unsupported_content`, as on a
+         *     real line.
          *
          *     On WhatsApp, the contact's turns go through the real WhatsApp inbound path,
          *     so each turn opens the 24-hour window. Outside it, including before the
          *     contact's first turn, only a `template` can be sent (`409 outside_window`).
-         *     Buttons go as up to 3 reply buttons, or a list for 4 to 10; reactions and
+         *     Buttons take up to 3 reply buttons (a `list` up to 10 rows); reactions and
          *     `reply_to` work; edits and unsends answer `422 unsupported_content`.
          *
          *     On SMS, the rules that concern the contact hold too. Before the contact's
@@ -1140,7 +1648,7 @@ export interface paths {
          *     `group`, with the participants as simulated contacts), so you can test how
          *     your agent handles groups: each turn names its writer in `from`, and the
          *     gate applies the group rules (reactions refused with `channel_code`
-         *     `group_unsupported`, typing and read receipts skipped). Each call with
+         *     `group_unsupported`, as are typing and read receipts). Each call with
          *     `group` makes a new group.
          *
          *     Give `contact` to choose the simulated contact's address; giving an address
@@ -1196,18 +1704,17 @@ export interface paths {
          *     answer comes before delivery; the `message.received` event carries the
          *     `message` ID given here.
          *
-         *     `content` is what the contact sends: `text`, `media`, `voice`, `location`,
-         *     `contact_card` or `button_reply` (a tap on a reply button of a buttons
-         *     message your agent sent, given as its `message_id` and `button_id`: Flow
-         *     fills in the button's `label`; a numbered answer such as `2` to buttons
-         *     sent as numbered text comes back as `button_reply` too, as on a real
-         *     channel). Media and voice take the
+         *     `content` is what the contact sends, as a kind object with `kind`: `basic`
+         *     (`text` and/or `media`), `voice`, `location`, `contact_card` or
+         *     `button_reply` (a tap on a reply button of a buttons or carousel message
+         *     your agent sent, or on a row of a list, given as its `message_id` and
+         *     `button_id`: Flow fills in the `label`). Media and voice take the
          *     `file_id` of a file uploaded with `POST /v1/files` (no `url`); the contact's
          *     message refers to that same file (its `file_id`, `url`, `mime_type` and
          *     `size_bytes`): Flow does not copy it again. The channel's rules apply:
-         *     content it cannot carry from a person (a document over SMS, a location over
+         *     what it cannot carry from a person (a document over SMS, a location over
          *     SMS, a file larger than the channel fetches from a person) answers
-         *     `422 unsupported_content`, and text over its `max_text_length` answers
+         *     `422 unsupported_content`, and text over the channel's limit answers
          *     `400 invalid_request`.
          *
          *     On SMS, the keywords work as from a real phone, matched against the whole
@@ -1254,10 +1761,8 @@ export interface paths {
          * @description Test keys only. Lists a simulated conversation's messages, both directions,
          *     **oldest first**, so a test can page forward with `after` (the last message
          *     ID it has) to see what your agent sent back to the simulated contact. Each
-         *     entry is a `Message` with, for a sent message, `shown`: what the simulated
-         *     contact's phone shows, after the send gate applied any fallback (numbered
-         *     text for buttons on SMS, or a list for 4 to 10 buttons on WhatsApp, for
-         *     example).
+         *     entry is a `Message`; a sent message's `content` is exactly what the
+         *     simulated contact's phone shows, since Flow converts nothing.
          *
          *     A conversation that is not simulated answers `403 permission` with
          *     `channel_code` `not_simulated`; a live key answers `403 permission` with
@@ -1292,16 +1797,18 @@ export interface webhooks {
          *
          *     To reply at once to a `message.received` event, answer `200` with a
          *     `WebhookReply` body; the reply goes into the event's conversation through the
-         *     send gate, as if you had called `POST /v1/conversations/{conversation_id}/messages`
-         *     with the event's `id` as the idempotency key. `fallback` applies to every
-         *     piece of the reply. For any other event, or to reply later, answer `200` with
+         *     send gate, piece by piece in order, as if you had called each piece's
+         *     kind's endpoint (`POST /v1/conversations/{conversation_id}/basic`, ...)
+         *     with the event's `id` as the idempotency key. For any other event, or to
+         *     reply later, answer `200` with
          *     an empty body, `{}`, `{"reply": null}` or any body that is not a JSON object
          *     with `reply` (plain text such as `OK` included): nothing is sent and it is not
          *     an error.
          *
          *     An answer to a `message.received` delivery that is a JSON object with a
-         *     `reply` that is not valid (a `reply` that is not content or a list of
-         *     content, an empty list, more than 10 pieces, an unknown `fallback`), or a
+         *     `reply` that is not valid (a `reply` that is not a kind object, a string
+         *     or a list of them, an unknown `kind`, an empty list, more than 11
+         *     pieces), or a
          *     body that starts with `{` but is not valid JSON, sends nothing at all, not
          *     even the valid pieces. It is recorded
          *     on the delivery as an `invalid_request` error with the reason, which the MCP
@@ -1405,8 +1912,8 @@ export interface components {
          *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
          *     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
-         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-         *     - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. In an iMessage group conversation, a reaction answers it with `param` `content.type` and `channel_code` `group_unsupported` (groups take no reactions from your line): leave it out, or set `fallback: "auto"` to skip it. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
+         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v1/conversations/{conversation_id}/template`, or `POST /v1/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
+         *     - `unsupported_content` (422): the conversation's channel does not take this kind, field, block or value, and nothing was sent; Flow never converts a message. `param` names what was refused: `kind` (the endpoint's kind is not on this channel, such as a carousel on Telegram), a field or block (`reply_to` on SMS, `telegram` on WhatsApp, `telegram.is_big`), or the field whose value is not taken (`emoji` outside Telegram's reaction emoji, `buttons` for more than 3 WhatsApp buttons). `channel` is the conversation's channel and `hint` says what to send instead over plain HTTP; each endpoint's page lists its channels. In an iMessage group conversation, a reaction, typing or a read receipt answers it with `param` `kind` and `channel_code` `group_unsupported`: leave it out. Media to an SMS number without MMS answers it with `param` `media` and `channel_code` `no_mms`. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
          *     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
          *     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
          *     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file. (When the scan cannot run at all, the upload answers a retryable `500 api_error` with `Retry-After` instead.)
@@ -1424,10 +1931,11 @@ export interface components {
             message: string;
             /**
              * @description One sentence saying what to change to make the request succeed, specific
-             *     to this case, for example "Send a template instead: POST /v1/messages with
-             *     content.type=template." Written for developers and coding agents alike. Do
-             *     not parse it; it may be reworded at any time.
-             * @example Send a template instead: POST /v1/messages with content.type=template.
+             *     to this case, for example "Send a template instead: POST
+             *     /v1/conversations/{conversation_id}/template." For `unsupported_content`
+             *     it says what to send instead over plain HTTP. Written for developers and
+             *     coding agents alike. Do not parse it; it may be reworded at any time.
+             * @example Send a template instead: POST /v1/conversations/{conversation_id}/template.
              */
             hint: string;
             /**
@@ -1436,10 +1944,12 @@ export interface components {
              * @example https://api.flow.engineer/docs/errors/outside_window
              */
             doc_url: string;
-            /** @description The request parameter the error is about, as a dotted path (`content.buttons`, `limit`). */
+            /** @description The request parameter the error is about, as a dotted path (`kind`, `telegram.is_big`, `buttons`, `cards[1].header.type`, `limit`). */
             param?: string;
             /** @description Seconds to wait before retrying, for errors that clear by themselves. */
             retry_after?: number;
+            /** @description The conversation's channel, on errors about what it takes (`unsupported_content`) and its windows (`outside_window`). */
+            channel?: components["schemas"]["Channel"];
             conversation?: components["schemas"]["ConversationId"];
             sender?: components["schemas"]["SenderId"];
             /**
@@ -1474,9 +1984,11 @@ export interface components {
              *     `queued_too_long` (`outside_window`), and
              *     `channel_timeout_unknown_outcome` (`channel_error`: the channel never
              *     confirmed the send, so it may or may not have arrived). iMessage
-             *     (`unsupported_content`): `group_unsupported` (a reaction in a group
-             *     conversation; `param` `content.type`) and
-             *     `not_on_sms` (an edit or unsend of a message that went by SMS or RCS).
+             *     (`unsupported_content`): `group_unsupported` (a reaction, typing or a
+             *     read receipt in a group conversation; `param` `kind`) and
+             *     `not_on_sms` (an edit or unsend of a message that went by SMS or RCS;
+             *     `param` `kind`). SMS (`unsupported_content`): `no_mms` (media to a
+             *     number without MMS; `param` `media`).
              *     Edits and unsends (`unsupported_content`): `edit_window_closed` and
              *     `unsend_window_closed` (the message is older than the channel allows
              *     for the change) and `first_message_not_editable` (iMessage: the message
@@ -1928,7 +2440,7 @@ export interface components {
             registration_status: "pending" | "approved" | "rejected";
             /** @description Whether the number receives texts. Always `true` for senders Flow connects today. */
             two_way: boolean;
-            /** @description Whether the number sends and receives MMS (images, audio and video). Without it, `media` and `voice` sends answer `422 unsupported_content`. */
+            /** @description Whether the number sends and receives MMS (images, audio and video). Without it, a basic message with `media` answers `422 unsupported_content` with `param` `media` and `channel_code` `no_mms`. */
             mms: boolean;
             quiet_hours?: components["schemas"]["QuietHours"];
         };
@@ -1943,12 +2455,10 @@ export interface components {
              *     by your app; the message's `network` says which one carried it.
              *     Included on Flow's shared lines; on a dedicated line, an add-on
              *     arranged with the Flow team. Off, a message to a contact who is not on
-             *     iMessage fails (`message.failed`). Flow sends every message as for
-             *     iMessage, since the network is picked after the send: one that goes
-             *     by SMS or RCS may lose its styles, effect and `subject`, or show
-             *     markup as written. Edits and unsends of such a message answer `422
-             *     unsupported_content` with `channel_code` `not_on_sms` (see
-             *     `Message.network`).
+             *     iMessage fails (`message.failed`). A message that goes by SMS or RCS
+             *     shows no `imessage.styles`, `imessage.subject` or effect, and edits
+             *     and unsends of it answer `422 unsupported_content` with
+             *     `channel_code` `not_on_sms` (see `Message.network`).
              */
             fallback: boolean;
             call_forwarding?: components["schemas"]["CallForwarding"];
@@ -2293,26 +2803,16 @@ export interface components {
         ConversationAction: {
             conversation: components["schemas"]["ConversationId"];
             /**
-             * @description Which action was taken.
+             * @description Which action the channel took. `typing` (the indicator was shown) or `read` (the read receipt was sent).
              * @enum {string}
              */
-            action: "typing_on" | "typing_off" | "read";
-            delivered_as?: components["schemas"]["DeliveredAs"];
+            action: "typing" | "read";
         };
-        /** @description Turn the typing indicator on or off. */
-        TypingRequest: {
-            /**
-             * @description `on` shows the indicator, `off` clears it.
-             * @enum {string}
-             */
-            state: "on" | "off";
-        };
-        /** @description Which messages to mark as read. */
-        ReadRequest: {
-            /** @description The latest inbound message to mark read (default the latest inbound message). On iMessage it has no effect, since the whole conversation is marked read. */
-            up_to?: components["schemas"]["MessageId"];
-        };
-        /** @description One message in or out of a conversation, with its typed content and delivery status. */
+        /**
+         * @description One message in or out of a conversation, with its kind and content and its
+         *     delivery status. What you send is what the contact gets: Flow never
+         *     converts a message into another kind.
+         */
         Message: {
             id: components["schemas"]["MessageId"];
             conversation: components["schemas"]["ConversationId"];
@@ -2320,9 +2820,8 @@ export interface components {
             /** @description Inbound messages only, on every channel. The contact who wrote it; in a group conversation, which participant. Absent on your own messages. */
             readonly from?: components["schemas"]["ContactId"];
             status: components["schemas"]["MessageStatus"];
-            content: components["schemas"]["Content"];
+            content: components["schemas"]["MessageContent"];
             network?: components["schemas"]["MessageNetwork"];
-            delivered_as?: components["schemas"]["DeliveredAs"];
             error?: components["schemas"]["ErrorBody"];
             /** @description The channel's own ID for the message, once the channel accepted it. */
             channel_message_id?: string;
@@ -2330,9 +2829,9 @@ export interface components {
             /**
              * @description The Flow ID of the message this one replies to. For a sent message, the
              *     message the send named in `reply_to`. For a received message, the message it
-             *     replies to inline (a Telegram reply; on iMessage, the thread's root message).
-             *     Absent when the message is not a reply or the quoted message is not known
-             *     to Flow.
+             *     replies to inline (a Telegram or WhatsApp reply; on iMessage, the thread's
+             *     root message). Absent when the message is not a reply or the quoted
+             *     message is not known to Flow.
              */
             readonly reply_to?: components["schemas"]["MessageId"];
             /** @description Whether the message belongs to live mode. */
@@ -2354,8 +2853,11 @@ export interface components {
          *     deliver SMS in segments: 160 GSM-7 characters fit one segment (153 each
          *     when split), but a single character outside GSM-7 (an emoji, curly quotes,
          *     most non-Latin letters) makes the whole text UCS-2, 70 characters in one
-         *     segment (67 each when split). An SMS send may use at most `max_sms_segments`
-         *     (`GET /v1/capabilities`, 10). Absent on MMS and on other channels.
+         *     segment (67 each when split). An SMS send may use at most 10 segments:
+         *     1530 GSM-7 characters (fewer when it uses GSM-7's two-unit characters such
+         *     as `{` or `€`), or 670 when it holds an emoji or other character outside
+         *     GSM-7; a longer text is refused with `400 invalid_request`. Absent on MMS
+         *     and on other channels.
          */
         SmsSegments: {
             /** @description How many SMS segments the text takes. */
@@ -2368,15 +2870,15 @@ export interface components {
         };
         /**
          * @description iMessage channel only: the network that carried the message. `imessage`,
-         *     or `sms` or `rcs` when the line has fallback (`Sender.imessage.fallback`)
-         *     and the contact could not get iMessage. Set on inbound messages, and on
-         *     your messages once the channel reports it (in `message.sent`,
-         *     `message.delivered` or `message.failed`, as `data.message.network`);
-         *     absent before that and on other channels. A message that went by `sms`
-         *     or `rcs` was sent as for iMessage, so it may have lost its styles, effect
-         *     and `subject`, or shown markup as written (`delivered_as` does not report
-         *     it); edits and unsends of it answer `422 unsupported_content` with
-         *     `channel_code` `not_on_sms`.
+         *     or `sms` or `rcs` when the line has the SMS/RCS add-on
+         *     (`Sender.imessage.fallback`) and the contact could not get iMessage. The
+         *     network is chosen for each message when it is sent, never by your app.
+         *     Set on inbound messages, and on your messages once the channel reports it
+         *     (in `message.sent`, `message.delivered` or `message.failed`, as
+         *     `data.message.network`); absent before that and on other channels. A
+         *     message that went by `sms` or `rcs` showed no `imessage.styles`, no
+         *     `imessage.subject` and no effect, and edits and unsends of it answer `422
+         *     unsupported_content` with `channel_code` `not_on_sms`.
          * @enum {string}
          */
         MessageNetwork: "imessage" | "sms" | "rcs";
@@ -2396,20 +2898,6 @@ export interface components {
          * @enum {string}
          */
         MessageStatus: "received" | "queued" | "sent" | "delivered" | "read" | "failed" | "unsent";
-        /**
-         * @description Present when what the contact sees differs from what you sent: the `fallback`
-         *     was used, or the action was skipped because the channel has no equivalent.
-         *     Absent when the content was shown as sent.
-         */
-        DeliveredAs: {
-            /**
-             * @description The content type actually shown, or `none` when nothing was shown.
-             * @enum {string}
-             */
-            type: "text" | "media" | "voice" | "buttons" | "carousel" | "reaction" | "template" | "location" | "contact_card" | "effect" | "typing" | "read" | "edit" | "unsend" | "none";
-            /** @description Why, in one sentence (for example "iMessage cannot show buttons; sent numbered text"). */
-            reason: string;
-        };
         /** @description A page of messages. */
         MessageList: {
             data: components["schemas"]["Message"][];
@@ -2417,317 +2905,430 @@ export interface components {
             has_more: boolean;
         };
         /**
-         * @description What to send when the channel cannot show `content`. Without it, such a send
-         *     fails with `unsupported_content`; nothing is converted silently.
-         *
-         *     - `"auto"`: use the documented default for the content type (markdown becomes
-         *       plain text, buttons become numbered text whose replies are matched back to
-         *       the button IDs (by number, or by a label only one of the buttons has), a carousel becomes its text and then one message per card,
-         *       a voice note becomes an audio file, a location becomes a
-         *       maps link, a contact card becomes text, an effect becomes plain text, a
-         *       reaction becomes the closest tapback or is skipped).
-         *     - A `Content` object: send exactly this instead.
-         *     - `null`: no fallback, the same as leaving it out.
-         *
-         *     The message's `delivered_as` reports what was used.
+         * @description The first message from one of your senders to a contact: a `basic` or a
+         *     `template` message, with `kind` saying which (required here), plus
+         *     `sender`, `to` and, on SMS, `consent`. A field not listed for the kind is
+         *     refused with `400 invalid_request` naming it in `param`, never ignored; a
+         *     `kind` other than `basic` or `template` answers `422 unsupported_content`
+         *     with `param` `kind`. On iMessage the sender must be able to write first
+         *     (`Sender.imessage.can_initiate`, available on request); otherwise the
+         *     start answers `403 permission`. A start always makes a `direct`
+         *     conversation: there is no way to start a group. There are no scheduled
+         *     sends: to start a conversation later, wait in your own code and send then.
          */
-        Fallback: components["schemas"]["FallbackAuto"] | components["schemas"]["Content"] | null;
-        /**
-         * @description Use the content type's default fallback.
-         * @enum {string}
-         */
-        FallbackAuto: "auto";
-        /**
-         * @description **Unstable escape hatch.** Extra channel parameters for how a message looks
-         *     and notifies, for example `{"parse_mode": "HTML"}` on Telegram. Each channel
-         *     has an allowlist: keys not on it are dropped, never passed to the channel, and
-         *     the typed request always wins over a key that sets the same thing. Who
-         *     receives the message and what it says always come from the typed request.
-         *     Keys starting with `_flow_` are reserved and refused with `invalid_request`.
-         *     Flow does not validate the values, and they may break when a channel
-         *     changes. Prefer typed content.
-         *
-         *     - **Telegram** (Bot API parameters, on every send): `parse_mode`,
-         *       `entities`, `caption_entities`, `link_preview_options`,
-         *       `disable_web_page_preview`, `show_caption_above_media`,
-         *       `disable_notification`, `protect_content`, `allow_paid_broadcast`,
-         *       `message_effect_id`, `has_spoiler`, `supports_streaming`, `duration`,
-         *       `width`, `height`, `performer`, `horizontal_accuracy`, `foursquare_id`,
-         *       `foursquare_type`, `google_place_id`, `google_place_type`, `vcard`,
-         *       `is_big` (reactions).
-         *     - **iMessage**: on messages, `subject`, `effect`, `preview`,
-         *       `reply_to_id` and `contact_file` (the typed `TextContent.subject` and
-         *       `link_preview` win over `subject` and `preview`); on `typing` content, `typing` (how long
-         *       to show it, 1 to 60 seconds). Reactions, read receipts, edits and unsends
-         *       take none.
-         *     - **WhatsApp**: on `text` content, `preview_url` (show a link preview;
-         *       by default on when the text holds an http(s) link). Everything else
-         *       (recipient, message type, reply context) comes from the typed fields.
-         * @example {
-         *       "parse_mode": "HTML",
-         *       "disable_notification": true
-         *     }
-         */
-        ChannelOptions: {
-            [key: string]: unknown;
-        };
-        /**
-         * @description One piece of content to send into a conversation. A field not listed here is
-         *     refused with `400 invalid_request` naming it in `param`, never ignored. There
-         *     are no scheduled sends: a message goes out as soon as it passes the gate, so
-         *     to send later, wait in your own code and send then.
-         */
-        SendMessageRequest: {
-            content: components["schemas"]["Content"];
-            /**
-             * @description Send this as a reply to an earlier message in the same conversation.
-             *     Telegram and iMessage show it as an inline reply; channels without inline
-             *     replies send it as a normal message. Refused with `not_found` (`param`
-             *     `reply_to`) when the target is not a message in this conversation, and with
-             *     `invalid_request` (`param` `reply_to`) when the content is `typing`, `read`,
-             *     `reaction`, `edit` or `unsend`, or when the target never reached the
-             *     channel (for example, it failed). If the target fails after the send was
-             *     accepted, the reply goes out as a normal message.
-             */
-            reply_to?: components["schemas"]["MessageId"];
-            fallback?: components["schemas"]["Fallback"];
-            /**
-             * @description Whether links in the text show a rich preview. On by default; `false`
-             *     sends links as plain text. iMessage and WhatsApp follow it on text
-             *     messages, Telegram on text messages; SMS never shows previews. It
-             *     wins over a `channel_options` key that sets the same thing (`preview`,
-             *     `preview_url`, `link_preview_options`, `disable_web_page_preview`).
-             * @default true
-             */
-            link_preview?: boolean;
-            channel_options?: components["schemas"]["ChannelOptions"];
-            metadata?: components["schemas"]["Metadata"];
-        };
-        /**
-         * @description The first message from one of your senders to a contact. A field not listed
-         *     here is refused with `400 invalid_request` naming it in `param`, never
-         *     ignored. On iMessage the sender must be able to write first
-         *     (`Sender.imessage.can_initiate`, available on request); otherwise the start
-         *     answers `403 permission`. A start always makes a `direct` conversation:
-         *     there is no way to start a group. There are no scheduled sends: to start a conversation later, wait
-         *     in your own code and send then.
-         */
-        StartConversationRequest: {
+        StartConversationRequest: components["schemas"]["StartBasicMessage"] | components["schemas"]["StartTemplateMessage"];
+        /** @description Where a start goes. Part of every `StartConversationRequest`. */
+        StartConversationTarget: {
             sender: components["schemas"]["SenderId"];
             to: components["schemas"]["Recipient"];
-            content: components["schemas"]["Content"];
-            fallback?: components["schemas"]["Fallback"];
-            /**
-             * @description Whether links in the text show a rich preview. On by default; `false`
-             *     sends links as plain text. iMessage and WhatsApp follow it on text
-             *     messages, Telegram on text messages; SMS never shows previews. It
-             *     wins over a `channel_options` key that sets the same thing (`preview`,
-             *     `preview_url`, `link_preview_options`, `disable_web_page_preview`).
-             * @default true
-             */
-            link_preview?: boolean;
-            channel_options?: components["schemas"]["ChannelOptions"];
-            metadata?: components["schemas"]["Metadata"];
-            /** @description SMS. The contact's consent, required when they have never texted any of your SMS numbers; recorded on the contact. Ignored on other channels. */
+            /** @description SMS only. The contact's consent, required when they have never texted any of your SMS numbers; recorded on the contact. On another channel it answers `422 unsupported_content` with `param` `consent`. */
             consent?: components["schemas"]["Consent"];
         };
-        /** @description The new text of a sent message. A field not listed here is refused with `400 invalid_request` naming it in `param`. */
-        EditMessageRequest: {
-            content: components["schemas"]["TextContent"];
+        /** @description A start whose first message is a basic message (`kind` `basic`). */
+        StartBasicMessage: components["schemas"]["StartConversationTarget"] & components["schemas"]["BasicMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "basic";
+        };
+        /** @description A start whose first message is a WhatsApp template (`kind` `template`). */
+        StartTemplateMessage: components["schemas"]["StartConversationTarget"] & components["schemas"]["TemplateMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "template";
         };
         /**
-         * @description The kinds of content. Each is described in its own schema, with the direction it travels in.
+         * @description The new text of a sent message (`PATCH /v1/messages/{message_id}`), sent
+         *     exactly as written. A field not listed here is refused with `400
+         *     invalid_request` naming it in `param`; a channel block for another channel
+         *     answers `422 unsupported_content` with `param` the block's name.
+         */
+        EditMessageRequest: {
+            /**
+             * @description The new text: at most 4096 UTF-16 code units on Telegram (1024 when it
+             *     replaces a media message's caption) and 9999 characters on iMessage.
+             *     Longer text is refused with `400 invalid_request`.
+             */
+            text: string;
+            telegram?: components["schemas"]["EditTelegramOptions"];
+            imessage?: components["schemas"]["EditImessageOptions"];
+        };
+        /** @description Telegram only. How Telegram reads the new text. An unknown key is refused with `400 invalid_request`. */
+        EditTelegramOptions: {
+            parse_mode?: components["schemas"]["TelegramParseMode"];
+        };
+        /** @description iMessage only. Styles for the new text. An unknown key is refused with `400 invalid_request`. */
+        EditImessageOptions: {
+            /** @description Styled ranges of the new `text` (see `ImessageStyle`). */
+            styles?: components["schemas"]["ImessageStyle"][];
+        };
+        /**
+         * @description The kinds of message. A closed list: a new kind arrives only with a new API
+         *     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+         *     and, where it can be sent over HTTP, its own endpoint of the same name
+         *     (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+         *     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+         *     `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+         *     the stream and in a message's `content`. `button_reply` and `file_blocked`
+         *     are inbound only.
+         *
+         *     Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+         *     `location`, `contact_card` and `file_blocked`. Sent: every kind but
+         *     `button_reply` and `file_blocked`.
          * @enum {string}
          */
-        ContentType: "text" | "media" | "voice" | "buttons" | "button_reply" | "carousel" | "reaction" | "template" | "location" | "contact_card" | "effect" | "typing" | "read" | "edit" | "unsend" | "file_blocked";
+        MessageKind: "basic" | "voice" | "buttons" | "list" | "carousel" | "template" | "contact_card" | "location" | "effect" | "reaction" | "typing" | "read" | "edit" | "unsend" | "button_reply" | "file_blocked";
         /**
-         * @description One piece of content, in either direction. `type` selects the shape. Inbound
-         *     messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `location`,
-         *     `contact_card` and `file_blocked`; sends use every type except `button_reply`
-         *     and `file_blocked`.
-         *
-         *     A buttons message may carry a `header` (`ContentHeader`): an image, video,
-         *     document or a short title shown with the text and buttons.
-         *
-         *     | type | Telegram | WhatsApp | iMessage | SMS (US, pilot) | `fallback: "auto"` |
-         *     |---|---|---|---|---|---|
-         *     | text | yes | yes | yes | yes (at most 10 segments) | markdown to plain |
-         *     | media | yes | yes | yes | images, audio, video as MMS (no documents) | none |
-         *     | voice | yes | yes | yes | as an MMS audio file | audio file |
-         *     | buttons | inline keyboard | up to 3 buttons, else a list; one URL button as a call-to-action link | no | no | numbered text |
-         *     | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
-         *     | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
-         *     | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
-         *     | reaction | yes | yes | tapbacks, other emoji as emoji reactions (not in groups) | no | closest tapback, else skipped (SMS: none) |
-         *     | template | no | yes | no | no | none |
-         *     | location | yes | yes | no | no | maps link as text |
-         *     | contact_card | yes | yes | no | no | text |
-         *     | effect | no | no | yes | no | plain text |
-         *     | typing | yes | yes | yes (within 5 minutes of the contact's last message; skipped in groups) | no | skipped |
-         *     | read | no (bots) | yes | yes (the whole conversation; skipped in groups) | no | skipped |
-         *     | edit | yes | no | yes (within 15 minutes; not when it went by SMS or RCS) | no | none |
-         *     | unsend | yes (within 48 hours) | no | yes (within 2 minutes; not when it went by SMS or RCS) | no | none |
+         * @description A message's content: one kind object, in either direction, with `kind`
+         *     (always present here) saying which. It is exactly what was sent or
+         *     received.
          */
-        Content: components["schemas"]["TextContent"] | components["schemas"]["MediaContent"] | components["schemas"]["VoiceContent"] | components["schemas"]["ButtonsContent"] | components["schemas"]["ButtonReplyContent"] | components["schemas"]["CarouselContent"] | components["schemas"]["ReactionContent"] | components["schemas"]["TemplateContent"] | components["schemas"]["LocationContent"] | components["schemas"]["ContactCardContent"] | components["schemas"]["EffectContent"] | components["schemas"]["TypingContent"] | components["schemas"]["ReadContent"] | components["schemas"]["EditContent"] | components["schemas"]["UnsendContent"] | components["schemas"]["FileBlockedContent"];
-        /** @description Text, both ways. With `format` `markdown`, Flow renders it in each channel's own formatting; a channel without formatting needs `fallback`. */
-        TextContent: {
+        MessageContent: {
+            kind: components["schemas"]["MessageKind"];
+        } & (components["schemas"]["BasicKind"] | components["schemas"]["VoiceKind"] | components["schemas"]["ButtonsKind"] | components["schemas"]["ListKind"] | components["schemas"]["CarouselKind"] | components["schemas"]["TemplateKind"] | components["schemas"]["ContactCardKind"] | components["schemas"]["LocationKind"] | components["schemas"]["EffectKind"] | components["schemas"]["ReactionKind"] | components["schemas"]["TypingKind"] | components["schemas"]["ReadKind"] | components["schemas"]["EditMessage"] | components["schemas"]["UnsendMessage"] | components["schemas"]["ButtonReplyMessage"] | components["schemas"]["FileBlockedMessage"]);
+        /**
+         * @description One message to send where no URL names the kind: a piece of a webhook
+         *     reply (`WebhookReply`) or the `message` of a stream `send` frame. `kind`
+         *     is required and selects the shape; the fields and channel rules are the
+         *     same as on the kind's endpoint (`edit` and `unsend` as on `PATCH` and
+         *     `DELETE /v1/messages/{message_id}`, with the target in `message_id`).
+         * @example {
+         *       "kind": "basic",
+         *       "text": "Here are the sizes we have."
+         *     }
+         * @example {
+         *       "kind": "buttons",
+         *       "text": "Which size?",
+         *       "buttons": [
+         *         {
+         *           "id": "size_s",
+         *           "label": "Small"
+         *         },
+         *         {
+         *           "id": "size_m",
+         *           "label": "Medium"
+         *         }
+         *       ]
+         *     }
+         */
+        OutboundKind: components["schemas"]["BasicKind"] | components["schemas"]["VoiceKind"] | components["schemas"]["ButtonsKind"] | components["schemas"]["ListKind"] | components["schemas"]["CarouselKind"] | components["schemas"]["TemplateKind"] | components["schemas"]["ContactCardKind"] | components["schemas"]["LocationKind"] | components["schemas"]["EffectKind"] | components["schemas"]["ReactionKind"] | components["schemas"]["TypingKind"] | components["schemas"]["ReadKind"] | components["schemas"]["EditMessage"] | components["schemas"]["UnsendMessage"];
+        /** @description A `basic` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`BasicMessage` with `kind` required). */
+        BasicKind: components["schemas"]["BasicMessage"] & unknown & {
             /**
-             * @description Always `text`. (enum property replaced by openapi-typescript)
+             * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "text";
-            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 on SMS, where it must also fit in 10 segments, 670 characters when it holds an emoji or other character outside GSM-7; see `GET /v1/capabilities`). Telegram counts UTF-16 code units of the text as shown (after markdown), so an emoji such as 😀 counts as 2. In an edit of a media message the text replaces its caption, and the caption limit applies (1024). Longer text is refused with `invalid_request`. */
-            text: string;
+            kind: "basic";
+        };
+        /** @description A `voice` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`VoiceMessage` with `kind` required). */
+        VoiceKind: components["schemas"]["VoiceMessage"] & unknown & {
             /**
-             * @description How to read `text`. `plain` is sent as written, so a channel's own marks
-             *     (WhatsApp's `*bold*`) work with `plain`. Inbound text is always `plain`.
-             *
-             *     `markdown` is CommonMark (`**bold**`, `*italic*`) with GFM
-             *     strikethrough (`~~strike~~`) and Flow's tags, each written
-             *     `<name>text</name>`: `<u>` (underline), `<big>` and `<small>` (text
-             *     size), and the animations `<shake>`, `<nod>`, `<explode>`, `<ripple>`,
-             *     `<bloom>` and `<jitter>`. Flow converts them to each channel's own marks:
-             *
-             *     | style | iMessage | WhatsApp | Telegram |
-             *     |---|---|---|---|
-             *     | bold, italic | yes | yes | yes |
-             *     | `~~strike~~` | yes | yes | yes |
-             *     | `<u>` | yes | stripped | yes |
-             *     | `<big>`, `<small>` | yes | stripped | stripped |
-             *     | animations | yes | stripped | stripped |
-             *
-             *     A stripped style keeps its text and loses only the style, and the
-             *     message reports it in `delivered_as` (`type` `text`, `reason` naming
-             *     what was dropped); it never needs `fallback`. An iMessage message that
-             *     goes by SMS or RCS (`Message.network`) may lose its styles or show the
-             *     markup as written. On the SMS channel, markdown needs `fallback` as before (`auto`
-             *     sends the plain text). Tags must be closed and may nest; an unknown or
-             *     unclosed tag is sent as written. `GET /v1/capabilities` lists what a
-             *     channel renders in `text_styles`.
-             * @default plain
+             * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            format?: "plain" | "markdown";
+            kind: "voice";
+        };
+        /** @description A `buttons` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ButtonsMessage` with `kind` required). */
+        ButtonsKind: components["schemas"]["ButtonsMessage"] & unknown & {
             /**
-             * @description Sends only: a title shown before the text. iMessage shows it as its
-             *     bold subject line; WhatsApp and Telegram send it as a bold first line;
-             *     SMS as a plain first line. An iMessage message that goes by SMS or RCS
-             *     (`Message.network`) may lose it. It counts
-             *     toward the channel's text limit on channels that send it as a line.
-             *     Ignored in edits. Inbound text has none.
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
-            subject?: string;
+            kind: "buttons";
+        };
+        /** @description A `list` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ListMessage` with `kind` required). */
+        ListKind: components["schemas"]["ListMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "list";
+        };
+        /** @description A `carousel` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`CarouselMessage` with `kind` required). */
+        CarouselKind: components["schemas"]["CarouselMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "carousel";
+        };
+        /** @description A `template` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`TemplateMessage` with `kind` required). */
+        TemplateKind: components["schemas"]["TemplateMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "template";
+        };
+        /** @description A `contact_card` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ContactCardMessage` with `kind` required). */
+        ContactCardKind: components["schemas"]["ContactCardMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "contact_card";
+        };
+        /** @description A `location` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`LocationMessage` with `kind` required). */
+        LocationKind: components["schemas"]["LocationMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "location";
+        };
+        /** @description An `effect` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`EffectMessage` with `kind` required). */
+        EffectKind: components["schemas"]["EffectMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "effect";
+        };
+        /** @description A `reaction` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ReactionMessage` with `kind` required). */
+        ReactionKind: components["schemas"]["ReactionMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "reaction";
+        };
+        /** @description A `typing` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`TypingMessage` with `kind` required). */
+        TypingKind: components["schemas"]["TypingMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "typing";
+        };
+        /** @description A `read` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ReadMessage` with `kind` required). */
+        ReadKind: components["schemas"]["ReadMessage"] & unknown & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "read";
         };
         /**
-         * @description An image, video, document or audio file, both ways. When sending, give either
-         *     `url` (Flow fetches it) or `file_id` (from `POST /v1/files`). Inbound media
-         *     always has `url`, a Flow file URL (`GET /v1/files/{file_id}`), and `file_id`,
-         *     on every channel (an SMS contact's MMS files included), and `mime_type` and
-         *     `size_bytes` once Flow kept the file. On SMS Flow always keeps its own copy
-         *     (the provider's is deleted): an MMS file it could not fetch or check arrives
-         *     as `file_blocked` instead. Send a received file again by its `file_id`.
+         * @description Send this as an inline reply to an earlier message in the same
+         *     conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+         *     inline replies: there it answers `422 unsupported_content` with `param`
+         *     `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+         *     target is not a message in this conversation, and with `400
+         *     invalid_request` (`param` `reply_to`) when the target never reached the
+         *     channel (for example, it failed). If the target fails after the send was
+         *     accepted, the reply goes out as a normal message.
          */
-        MediaContent: {
+        ReplyTo: components["schemas"]["MessageId"];
+        /**
+         * @description Text, or one media file with an optional caption, in either direction: the
+         *     kind every channel takes (`POST /v1/conversations/{conversation_id}/basic`).
+         *     Give `text`, `media`, or both (then `text` is the caption). A field not
+         *     listed here is refused with `400 invalid_request` naming it in `param`;
+         *     a field or channel block the conversation's channel does not take answers
+         *     `422 unsupported_content` naming it.
+         *
+         *     Received from a contact: their text and/or one file. Inbound media always
+         *     has `url` (a Flow file URL, `GET /v1/files/{file_id}`) and `file_id`, on
+         *     every channel (an SMS contact's MMS files included), and `mime_type` and
+         *     `size_bytes` once Flow kept the file; send a received file again by its
+         *     `file_id`. On SMS Flow always keeps its own copy (the provider's is
+         *     deleted): an MMS file it could not fetch or check arrives as
+         *     `file_blocked` instead.
+         */
+        BasicMessage: {
             /**
-             * @description Always `media`. (enum property replaced by openapi-typescript)
+             * @description Always `basic`. Optional on `POST /v1/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
+             * @default basic
+             * @constant
+             */
+            kind?: "basic";
+            /**
+             * @description The text, sent exactly as written: no markdown, no stripping. At most
+             *     4096 UTF-16 code units on Telegram (an emoji such as 😀 counts as 2),
+             *     4096 characters on WhatsApp, 9999 on iMessage, and 10 segments on SMS
+             *     (see `SmsSegments`). With `media` it is the caption, at most 1024 (UTF-16
+             *     code units on Telegram). Optional when `media` is given. Longer text is
+             *     refused with `400 invalid_request`.
+             */
+            text?: string;
+            media?: components["schemas"]["Media"];
+            reply_to?: components["schemas"]["ReplyTo"];
+            /**
+             * @description Whether links in the text show a rich preview. Left out, the channel's
+             *     default applies (Telegram, WhatsApp and iMessage show previews).
+             *     `false` sends links as plain text. SMS never shows previews: `false`
+             *     is accepted there and `true` answers `422 unsupported_content` with
+             *     `param` `link_preview`.
+             */
+            link_preview?: boolean;
+            telegram?: components["schemas"]["BasicTelegramOptions"];
+            imessage?: components["schemas"]["BasicImessageOptions"];
+            metadata?: components["schemas"]["Metadata"];
+        };
+        /**
+         * @description One image, video, document or audio file. When sending, give exactly one of
+         *     `url` (an HTTPS URL Flow fetches; Flow neither stores nor scans it, and on
+         *     Telegram a document by URL works for PDF and ZIP files) or `file_id` (from
+         *     `POST /v1/files`). Each channel takes files up to its own size: Telegram
+         *     50 MB, WhatsApp and iMessage 100 MB, SMS (MMS) 5 MB; a larger file answers
+         *     `422 unsupported_content` with `param` `media`. SMS carries images, audio
+         *     and video, never documents (`param` `media.type`), and only from numbers
+         *     with MMS (`channel_code` `no_mms`).
+         */
+        Media: {
+            /**
+             * @description What kind of file it is.
              * @enum {string}
              */
-            type: "media";
-            /**
-             * @description What kind of media it is.
-             * @enum {string}
-             */
-            kind: "image" | "video" | "document" | "audio";
+            type: "image" | "video" | "document" | "audio";
             /**
              * Format: uri
              * @description Where the bytes are. Sending, an HTTPS URL Flow can fetch; inbound, a Flow file URL.
              */
             url?: string;
             file_id?: components["schemas"]["FileId"];
-            /** @description Text shown with the media, at most 1024 characters. Telegram counts UTF-16 code units, so an emoji such as 😀 counts as 2. Longer captions are refused with `invalid_request`. */
-            caption?: string;
             /** @description The file's name, shown for documents. */
             filename?: string;
-            /** @description The real type, checked from the file's first bytes. */
+            /** @description Inbound only. The real type, checked from the file's first bytes. */
             readonly mime_type?: string;
-            /** @description The file's size. */
+            /** @description Inbound only. The file's size. */
             readonly size_bytes?: number;
         };
         /**
-         * @description A voice note, both ways. Inbound voice notes always come with the audio file
-         *     (`url`, `file_id`) and, when the app has transcription on, a `transcript`.
-         *     When sending, give `url` or `file_id` of an audio file; channels without
-         *     voice notes need `fallback` (`auto` sends it as an audio file).
+         * @description How Telegram reads the text: `HTML` or `MarkdownV2`, Telegram's own
+         *     formatting (see Telegram's Bot API, "Formatting options"). Without it the
+         *     text is plain. Text that Telegram cannot parse is refused by Telegram:
+         *     the message fails (`message.failed`, `channel_error`).
+         * @enum {string}
          */
-        VoiceContent: {
+        TelegramParseMode: "HTML" | "MarkdownV2";
+        /**
+         * @description Telegram only: how the message looks and notifies on Telegram. On another
+         *     channel the block answers `422 unsupported_content` with `param`
+         *     `telegram`; an unknown key `400 invalid_request`.
+         */
+        BasicTelegramOptions: {
+            parse_mode?: components["schemas"]["TelegramParseMode"];
+            /** @description Deliver silently, with no sound. */
+            disable_notification?: boolean;
+            /** @description Stop the contact forwarding or saving the message. */
+            protect_content?: boolean;
+            /** @description Media only. Show the caption above the photo or video instead of below it. */
+            show_caption_above_media?: boolean;
+            /** @description Media only (photos and videos). Cover it with a spoiler animation until tapped. */
+            has_spoiler?: boolean;
+        };
+        /**
+         * @description iMessage only: styles and a subject line. On another channel the block
+         *     answers `422 unsupported_content` with `param` `imessage`; an unknown key
+         *     `400 invalid_request`. A message that goes by SMS or RCS (see
+         *     `Message.network`) shows neither.
+         */
+        BasicImessageOptions: {
+            /** @description Styled ranges of `text` (see `ImessageStyle`). Each range must lie within `text`; one that does not answers `400 invalid_request` naming it (`imessage.styles[0]`). */
+            styles?: components["schemas"]["ImessageStyle"][];
+            /** @description iMessage's subject line, shown in bold above the text. */
+            subject?: string;
+        };
+        /** @description One styled range of an iMessage text. */
+        ImessageStyle: {
+            /** @description Where the range starts, in UTF-16 code units from the start of `text`. */
+            start: number;
+            /** @description How long the range is, in UTF-16 code units. */
+            length: number;
             /**
-             * @description Always `voice`. (enum property replaced by openapi-typescript)
+             * @description The style. `big` and `small` set the text's size; `shake`, `nod`, `explode`, `ripple`, `bloom` and `jitter` animate it.
              * @enum {string}
              */
-            type: "voice";
+            style: "bold" | "italic" | "underline" | "strikethrough" | "big" | "small" | "shake" | "nod" | "explode" | "ripple" | "bloom" | "jitter";
+        };
+        /**
+         * @description A voice note, in either direction (`POST
+         *     /v1/conversations/{conversation_id}/voice`). When sending, give `url` or
+         *     `file_id` of an audio file. Inbound voice notes always come with the audio
+         *     file (`url`, `file_id`) and, when the app has transcription on, a
+         *     `transcript`.
+         */
+        VoiceMessage: {
+            /**
+             * @description Always `voice`. Optional on its endpoint; required where no URL names the kind.
+             * @default voice
+             * @constant
+             */
+            kind?: "voice";
             /**
              * Format: uri
              * @description Where the audio is. Sending, an HTTPS URL Flow can fetch; inbound, a Flow file URL.
              */
             url?: string;
             file_id?: components["schemas"]["FileId"];
-            /** @description The voice note's length. */
+            reply_to?: components["schemas"]["ReplyTo"];
+            metadata?: components["schemas"]["Metadata"];
+            /** @description Inbound only. The voice note's length. */
             readonly duration_seconds?: number;
             /** @description Inbound only, when transcription is on. What was said. */
             readonly transcript?: string;
         };
         /**
-         * @description Text with buttons, sent only, optionally under a `header`. Telegram shows an
-         *     inline keyboard; WhatsApp shows up to 3 reply buttons, or a list for more;
-         *     iMessage and SMS have no buttons (use `fallback`). A tap arrives as a
-         *     `message.received` event with `button_reply` content carrying the button's
-         *     `id`. URL buttons open a link and send nothing back.
-         *
-         *     On WhatsApp, a message whose only button is one `UrlButton` (no reply buttons)
-         *     goes as a call-to-action URL message: the text, the header if given, and one
-         *     button that opens the link. A list (more than 3 reply buttons) takes only a
-         *     `text` header; a media header there is refused with `invalid_request`. Footers
-         *     are not supported.
-         *
-         *     With a media `header`, Telegram sends one message: the photo, video or
-         *     document with `text` as its caption and the inline keyboard under it, so
-         *     `text` must then fit Telegram's caption limit of 1024 UTF-16 code units. With
-         *     `fallback: auto` on iMessage and SMS, a media header goes as one media message
-         *     whose caption is the numbered text (`delivered_as` type `media`), and a text
-         *     header becomes the first line of the numbered text. SMS (MMS) carries no
-         *     documents: a `document` header there is refused with `unsupported_content`, as
-         *     `media` content is.
+         * @description Text with buttons, sent only (`POST
+         *     /v1/conversations/{conversation_id}/buttons`), optionally under a
+         *     `header`. A tap on a reply button arrives as a `button_reply` message
+         *     carrying the button's `id`. URL buttons open a link and send nothing back.
          */
-        ButtonsContent: {
+        ButtonsMessage: {
             /**
-             * @description Always `buttons`. (enum property replaced by openapi-typescript)
-             * @enum {string}
+             * @description Always `buttons`. Optional on its endpoint; required where no URL names the kind.
+             * @default buttons
+             * @constant
              */
-            type: "buttons";
+            kind?: "buttons";
             header?: components["schemas"]["ContentHeader"];
             /**
-             * @description The text above the buttons: at most 4096 characters on Telegram (the same
-             *     as a text message, in UTF-16 code units), or 1024 when the message has a
-             *     media `header` (Telegram's caption limit), and 1024 on WhatsApp (its limit
-             *     for messages with buttons). On iMessage, `fallback: auto` sends the text and
-             *     the numbered choices as one text message, which must fit the channel's
-             *     `max_text_length`. Longer text is refused with `invalid_request`.
+             * @description The text above the buttons, sent exactly as written: at most 4096 UTF-16
+             *     code units on Telegram, or 1024 when the message has a media `header`
+             *     (Telegram's caption limit), and 1024 characters on WhatsApp (its limit
+             *     for messages with buttons). Longer text is refused with `400
+             *     invalid_request`.
              */
             text: string;
-            /** @description 1 to 10 buttons, in order. */
+            /**
+             * @description The buttons, in order: 1 to 10 on Telegram; on WhatsApp 1 to 3 reply
+             *     buttons or exactly one URL button (anything else answers `422
+             *     unsupported_content` with `param` `buttons`; send a `list` for more
+             *     choices).
+             */
             buttons: components["schemas"]["Button"][];
+            reply_to?: components["schemas"]["ReplyTo"];
+            telegram?: components["schemas"]["ButtonsTelegramOptions"];
+            metadata?: components["schemas"]["Metadata"];
         };
         /**
-         * @description What is shown above a message's text: an image, a video, a document or a
-         *     short title. A media header takes exactly one of `url` (an HTTPS URL Flow
-         *     fetches) or `file_id` (from `POST /v1/files`), and is fetched, checked and
-         *     converted for the channel like `media` content (so WebP and other formats
-         *     work); a `text` header takes `text`. Anything else, or a value over a limit,
-         *     is refused with `invalid_request` naming the field in `param`.
+         * @description Telegram only: how the message looks and notifies on Telegram. On another
+         *     channel the block answers `422 unsupported_content` with `param`
+         *     `telegram`; an unknown key `400 invalid_request`.
+         */
+        ButtonsTelegramOptions: {
+            parse_mode?: components["schemas"]["TelegramParseMode"];
+            /** @description Deliver silently, with no sound. */
+            disable_notification?: boolean;
+            /** @description Stop the contact forwarding or saving the message. */
+            protect_content?: boolean;
+        };
+        /**
+         * @description What is shown above a buttons message's text, or a carousel card's image or
+         *     video: an image, a video, a document or a short title. A media header
+         *     takes exactly one of `url` (an HTTPS URL Flow fetches) or `file_id` (from
+         *     `POST /v1/files`), and is fetched and checked for the channel like a basic
+         *     message's `media` (so WebP and other formats work); a `text` header takes
+         *     `text`. Anything else, or a value over a limit, is refused with `400
+         *     invalid_request` naming the field in `param`.
          *
          *     WhatsApp shows the header at the top of the same message bubble. Telegram
          *     sends one message: the media with the text as its caption and the buttons
-         *     under it; a `text` header becomes the message's first line, in bold.
+         *     under it; a `text` header is the message's first line, in bold.
          * @example {
          *       "type": "image",
          *       "url": "https://example.com/menu.webp"
@@ -2779,43 +3380,58 @@ export interface components {
             /** @description The button's text. */
             label: string;
         };
-        /** @description Inbound only. The contact tapped a reply button (or, where buttons fell back to numbered text, answered with its number). */
-        ButtonReplyContent: {
+        /**
+         * @description WhatsApp's list message, sent only (`POST
+         *     /v1/conversations/{conversation_id}/list`): the text, a button that opens
+         *     the list, and up to 10 rows in sections. A tap on a row arrives as a
+         *     `button_reply` message whose `button_id` is the row's `id` and whose
+         *     `label` is its title. Row `id`s are unique across the list; a repeated one
+         *     is refused with `400 invalid_request`.
+         */
+        ListMessage: {
             /**
-             * @description Always `button_reply`. (enum property replaced by openapi-typescript)
-             * @enum {string}
+             * @description Always `list`. Optional on its endpoint; required where no URL names the kind.
+             * @default list
+             * @constant
              */
-            type: "button_reply";
-            /** @description The `id` of the tapped button. */
-            button_id: string;
-            /** @description The tapped button's label. */
-            label: string;
-            message_id?: components["schemas"]["MessageId"];
+            kind?: "list";
+            /** @description A title shown above the text, 1 to 60 characters. */
+            header?: string;
+            /** @description The message's text, sent exactly as written, 1 to 4096 characters. */
+            text: string;
+            /** @description The label of the button that opens the list, 1 to 20 characters. */
+            button: string;
+            /** @description 1 to 10 sections, in order, with at most 10 rows in all. */
+            sections: components["schemas"]["ListSection"][];
+            reply_to?: components["schemas"]["ReplyTo"];
+            metadata?: components["schemas"]["Metadata"];
+        };
+        /** @description One section of a list. */
+        ListSection: {
+            /** @description The section's title, 1 to 24 characters. Required when the list has more than one section. */
+            title?: string;
+            /** @description The section's rows, in order. */
+            rows: components["schemas"]["ListRow"][];
+        };
+        /** @description One option of a list. */
+        ListRow: {
+            /** @description Your ID for the row, returned in `button_reply` as `button_id`. 1 to 200 characters, unique across the list. */
+            id: string;
+            /** @description The row's title, 1 to 24 characters, returned in `button_reply` as `label`. */
+            title: string;
+            /** @description A line under the title, at most 72 characters. */
+            description?: string;
         };
         /**
          * @description A row of 2 to 10 cards the contact scrolls sideways, under one text, sent
-         *     only. Each card has an image or video, optional text, and its own buttons. A
-         *     tap on a reply button arrives as `button_reply` content carrying the button's
-         *     `id`, as for `buttons`; URL buttons open a link and send nothing back.
-         *
-         *     Rules, each refused with `invalid_request` when broken: every card has the
-         *     same number and kind of buttons; a card has either exactly one URL button or
-         *     1 to 2 reply buttons; reply button `id`s are unique across the carousel.
-         *     Labels may repeat across cards (every card's "Buy"): the `id` says which
-         *     card's button was tapped.
-         *
-         *     WhatsApp shows one interactive carousel message, inside the 24-hour window
-         *     like any message that is not a template (a carousel template is sent as
-         *     `template` content). Telegram, iMessage and SMS have no carousels: with
-         *     `fallback: auto` Flow sends `text`, then each card as its own message (on
-         *     Telegram the photo or video with the card's text as its caption and its
-         *     buttons as an inline keyboard; on iMessage and SMS the photo or video with
-         *     the card's text and its numbered buttons as its caption, reply buttons
-         *     numbered across the whole carousel), in order, each one after the channel
-         *     acknowledged the one before. `delivered_as` reports it (type `media`), and
-         *     `channel_message_id` is the first of those messages.
+         *     only (`POST /v1/conversations/{conversation_id}/carousel`; WhatsApp). Each
+         *     card has an image or video, optional text, and its own buttons. A tap on a
+         *     reply button arrives as a `button_reply` message carrying the button's
+         *     `id`; URL buttons open a link and send nothing back. Every card has the
+         *     same number and kind of buttons; a card has either exactly one URL button
+         *     or 1 to 2 reply buttons; reply button `id`s are unique across the
+         *     carousel. Each rule is refused with `400 invalid_request` when broken.
          * @example {
-         *       "type": "carousel",
          *       "text": "Three picks for you",
          *       "cards": [
          *         {
@@ -2847,20 +3463,22 @@ export interface components {
          *       ]
          *     }
          */
-        CarouselContent: {
+        CarouselMessage: {
             /**
-             * @description Always `carousel`. (enum property replaced by openapi-typescript)
-             * @enum {string}
+             * @description Always `carousel`. Optional on its endpoint; required where no URL names the kind.
+             * @default carousel
+             * @constant
              */
-            type: "carousel";
-            /** @description The message text shown above the cards, 1 to 1024 characters. Longer text is refused with `invalid_request`. */
+            kind?: "carousel";
+            /** @description The message text shown above the cards, 1 to 1024 characters. Longer text is refused with `400 invalid_request`. */
             text: string;
             /** @description 2 to 10 cards, in the order shown (left to right). */
             cards: components["schemas"]["CarouselCard"][];
+            metadata?: components["schemas"]["Metadata"];
         };
         /** @description One card of a carousel. */
         CarouselCard: {
-            /** @description The card's image or video, a `ContentHeader` of type `image` or `video` only (by `url` or `file_id`); any other type is refused with `invalid_request` at `content.cards[i].header.type`. */
+            /** @description The card's image or video, a `ContentHeader` of type `image` or `video` only (by `url` or `file_id`); any other type is refused with `400 invalid_request` at `cards[i].header.type`. */
             header: components["schemas"]["ContentHeader"];
             /** @description The card's text, at most 160 characters and 2 line breaks. */
             text?: string;
@@ -2868,41 +3486,27 @@ export interface components {
             buttons: components["schemas"]["Button"][];
         };
         /**
-         * @description A reaction to a message, both ways. Set `emoji` to `null` to remove your
-         *     reaction. iMessage has a fixed set of tapbacks; with `fallback: "auto"` the
-         *     closest tapback is used, or the reaction is skipped and reported in
-         *     `delivered_as`. Inbound reactions also arrive as `reaction.added` and
-         *     `reaction.removed` events.
-         */
-        ReactionContent: {
-            /**
-             * @description Always `reaction`. (enum property replaced by openapi-typescript)
-             * @enum {string}
-             */
-            type: "reaction";
-            message_id: components["schemas"]["MessageId"];
-            /** @description One emoji, or `null` to remove the reaction. */
-            emoji: string | null;
-        };
-        /**
-         * @description A WhatsApp message template, sent only. Required to start a WhatsApp
-         *     conversation or to write after the 24-hour window closed. The template must be
-         *     `approved`.
+         * @description A WhatsApp message template, sent only (`POST
+         *     /v1/conversations/{conversation_id}/template`, or `POST /v1/messages` to
+         *     start a conversation). Required to start a WhatsApp conversation or to
+         *     write after the 24-hour window closed. The template must be `approved`.
          *
-         *     A media card carousel template (marketing category) is sent the same way, with
-         *     one entry per card in `params.cards`. Inside the 24-hour window a carousel needs
-         *     no template: send `carousel` content.
+         *     A media card carousel template (marketing category) is sent the same way,
+         *     with one entry per card in `params.cards`. Inside the 24-hour window a
+         *     carousel needs no template: send a `carousel` message.
          */
-        TemplateContent: {
+        TemplateMessage: {
             /**
-             * @description Always `template`. (enum property replaced by openapi-typescript)
-             * @enum {string}
+             * @description Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v1/messages`).
+             * @default template
+             * @constant
              */
-            type: "template";
+            kind?: "template";
             template_id: components["schemas"]["TemplateId"];
             /** @description The template language to use, as Meta names it (`en`, `en_US`, `hi`). */
             language: string;
             params?: components["schemas"]["TemplateParams"];
+            metadata?: components["schemas"]["Metadata"];
         };
         /** @description Values for the template's placeholders. */
         TemplateParams: {
@@ -2966,13 +3570,39 @@ export interface components {
             /** @description The URL suffix or the quick-reply payload. */
             value: string;
         };
-        /** @description A place, both ways. Inbound, a location the contact shared. Channels without locations need `fallback` (`auto` sends a maps link). */
-        LocationContent: {
+        /**
+         * @description A contact card, in either direction (`POST
+         *     /v1/conversations/{conversation_id}/contact-card` sends one; Telegram and
+         *     WhatsApp). Inbound, a card the contact shared.
+         */
+        ContactCardMessage: {
             /**
-             * @description Always `location`. (enum property replaced by openapi-typescript)
-             * @enum {string}
+             * @description Always `contact_card`. Optional on its endpoint; required where no URL names the kind.
+             * @default contact_card
+             * @constant
              */
-            type: "location";
+            kind?: "contact_card";
+            /** @description The person's or business's name. */
+            name: string;
+            /** @description Phone numbers, E.164 where known. Telegram needs at least one (else `422 unsupported_content`, `param` `phones`). */
+            phones?: string[];
+            /** @description Email addresses. */
+            emails?: string[];
+            reply_to?: components["schemas"]["ReplyTo"];
+            metadata?: components["schemas"]["Metadata"];
+        };
+        /**
+         * @description A place, in either direction (`POST
+         *     /v1/conversations/{conversation_id}/location` sends one; Telegram and
+         *     WhatsApp). Inbound, a location the contact shared.
+         */
+        LocationMessage: {
+            /**
+             * @description Always `location`. Optional on its endpoint; required where no URL names the kind.
+             * @default location
+             * @constant
+             */
+            kind?: "location";
             /** @description Latitude in degrees. */
             lat: number;
             /** @description Longitude in degrees. */
@@ -2981,77 +3611,138 @@ export interface components {
             name?: string;
             /** @description The place's address. */
             address?: string;
+            reply_to?: components["schemas"]["ReplyTo"];
+            metadata?: components["schemas"]["Metadata"];
         };
-        /** @description A contact card, both ways. Channels without cards need `fallback` (`auto` sends it as text). */
-        ContactCardContent: {
+        /** @description Text sent with an iMessage effect, sent only (`POST /v1/conversations/{conversation_id}/effect`; iMessage). Which effects a contact's device shows may vary. */
+        EffectMessage: {
             /**
-             * @description Always `contact_card`. (enum property replaced by openapi-typescript)
-             * @enum {string}
+             * @description Always `effect`. Optional on its endpoint; required where no URL names the kind.
+             * @default effect
+             * @constant
              */
-            type: "contact_card";
-            /** @description The person's or business's name. */
-            name: string;
-            /** @description Phone numbers, E.164 where known. */
-            phones?: string[];
-            /** @description Email addresses. */
-            emails?: string[];
-        };
-        /** @description Text sent with an iMessage effect, sent only. Other channels need `fallback` (`auto` sends the plain text). Which effects are available may vary. */
-        EffectContent: {
-            /**
-             * @description Always `effect`. (enum property replaced by openapi-typescript)
-             * @enum {string}
-             */
-            type: "effect";
-            /** @description The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 on SMS, where it must also fit in 10 segments, 670 characters when it holds an emoji or other character outside GSM-7; see `GET /v1/capabilities`). Telegram counts UTF-16 code units, so an emoji such as 😀 counts as 2. Longer text is refused with `invalid_request`. */
+            kind?: "effect";
+            /** @description The text, sent exactly as written, at most 9999 characters. Longer text is refused with `400 invalid_request`. */
             text: string;
             /**
              * @description The effect.
              * @enum {string}
              */
             effect: "slam" | "loud" | "gentle" | "invisible_ink" | "echo" | "spotlight" | "balloons" | "confetti" | "love" | "lasers" | "fireworks" | "celebration";
+            reply_to?: components["schemas"]["ReplyTo"];
+            metadata?: components["schemas"]["Metadata"];
         };
-        /** @description The typing indicator, sent only (the stream's and webhook replies' way to type; over HTTP use `POST /v1/conversations/{conversation_id}/typing`). Skipped where the channel has none. */
-        TypingContent: {
+        /**
+         * @description A reaction to a message, in either direction (`POST
+         *     /v1/conversations/{conversation_id}/reaction` sends one). Set `emoji` to
+         *     `null` to remove your reaction. Inbound reactions also arrive as
+         *     `reaction.added` and `reaction.removed` events.
+         */
+        ReactionMessage: {
             /**
-             * @description Always `typing`. (enum property replaced by openapi-typescript)
-             * @enum {string}
+             * @description Always `reaction`. Optional on its endpoint; required where no URL names the kind.
+             * @default reaction
+             * @constant
              */
-            type: "typing";
-            /**
-             * @description `on` shows the indicator, `off` clears it.
-             * @enum {string}
-             */
-            state: "on" | "off";
+            kind?: "reaction";
+            message_id: components["schemas"]["MessageId"];
+            /** @description One emoji, or `null` to remove the reaction. On Telegram only its reaction emoji (listed on the endpoint); any other answers `422 unsupported_content` with `param` `emoji`. */
+            emoji: string | null;
+            telegram?: components["schemas"]["ReactionTelegramOptions"];
         };
-        /** @description A read receipt, sent only (over HTTP use `POST /v1/conversations/{conversation_id}/read`). Skipped on Telegram, where bots cannot send them. On iMessage the whole conversation is marked read. */
-        ReadContent: {
+        /**
+         * @description Telegram only. On another channel the block answers `422
+         *     unsupported_content` with `param` `telegram`; an unknown key `400
+         *     invalid_request`.
+         */
+        ReactionTelegramOptions: {
+            /** @description Show the reaction with a large animation. */
+            is_big?: boolean;
+        };
+        /**
+         * @description The typing indicator, sent only (`POST
+         *     /v1/conversations/{conversation_id}/typing`; a `typing` piece in a webhook
+         *     reply or on the stream does the same). It shows the indicator, which
+         *     clears itself when your next message goes or after a few seconds.
+         */
+        TypingMessage: {
             /**
-             * @description Always `read`. (enum property replaced by openapi-typescript)
-             * @enum {string}
+             * @description Always `typing`. Optional on its endpoint; required where no URL names the kind.
+             * @default typing
+             * @constant
              */
-            type: "read";
-            /** @description The latest inbound message to mark read (default the latest inbound message). No effect on iMessage. */
+            kind?: "typing";
+            imessage?: components["schemas"]["TypingImessageOptions"];
+        };
+        /**
+         * @description iMessage only. On another channel the block answers `422
+         *     unsupported_content` with `param` `imessage`; an unknown key `400
+         *     invalid_request`.
+         */
+        TypingImessageOptions: {
+            /** @description How long to show the indicator, 1 to 60 seconds, unless a message goes first. */
+            duration_seconds?: number;
+        };
+        /**
+         * @description A read receipt, sent only (`POST /v1/conversations/{conversation_id}/read`;
+         *     a `read` piece in a webhook reply or on the stream does the same).
+         */
+        ReadMessage: {
+            /**
+             * @description Always `read`. Optional on its endpoint; required where no URL names the kind.
+             * @default read
+             * @constant
+             */
+            kind?: "read";
+            /** @description WhatsApp only. The latest inbound message to mark read (default the latest inbound message). iMessage marks the whole conversation read, so `up_to` there answers `422 unsupported_content` with `param` `up_to`. */
             up_to?: components["schemas"]["MessageId"];
         };
-        /** @description Replaces the text of one of your sent messages, sent only (over HTTP use `PATCH /v1/messages/{message_id}`). Telegram and iMessage; WhatsApp refuses it with `unsupported_content`. */
-        EditContent: {
+        /**
+         * @description A change to the text of one of your sent messages, as a kind: a piece of a
+         *     webhook reply or on the stream, and the `content` of the message that
+         *     carries an edit (`PATCH /v1/messages/{message_id}` over HTTP, whose rules
+         *     apply). `message_id` names the message to change.
+         */
+        EditMessage: components["schemas"]["EditMessageRequest"] & {
             /**
-             * @description Always `edit`. (enum property replaced by openapi-typescript)
+             * @description Always `edit`.
+             * @constant
+             */
+            kind: "edit";
+            message_id: components["schemas"]["MessageId"];
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "edit";
-            message_id: components["schemas"]["MessageId"];
-            content: components["schemas"]["TextContent"];
+            kind: "edit";
         };
-        /** @description Removes one of your sent messages from the contact's chat, sent only (over HTTP use `DELETE /v1/messages/{message_id}`). Telegram and iMessage; WhatsApp refuses it with `unsupported_content`. */
-        UnsendContent: {
+        /**
+         * @description Removes one of your sent messages from the contact's chat, as a kind: a
+         *     piece of a webhook reply or on the stream, and the `content` of the message
+         *     that carries an unsend (`DELETE /v1/messages/{message_id}` over HTTP,
+         *     whose rules apply).
+         */
+        UnsendMessage: {
             /**
              * @description Always `unsend`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
-            type: "unsend";
+            kind: "unsend";
             message_id: components["schemas"]["MessageId"];
+        };
+        /** @description Inbound only. The contact tapped a reply button of a buttons or carousel message, or a row of a list. */
+        ButtonReplyMessage: {
+            /**
+             * @description Always `button_reply`. (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            kind: "button_reply";
+            /** @description The `id` of the tapped button or list row. */
+            button_id: string;
+            /** @description The tapped button's label, or the list row's title. */
+            label: string;
+            message_id?: components["schemas"]["MessageId"];
         };
         /**
          * @description Inbound only. The contact sent a file that Flow did not keep: it failed the
@@ -3062,22 +3753,22 @@ export interface components {
          *     archives) are, and one Flow could not scan arrives with `reason`
          *     `scan_failed`.
          */
-        FileBlockedContent: {
+        FileBlockedMessage: {
             /**
              * @description Always `file_blocked`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
-            type: "file_blocked";
+            kind: "file_blocked";
             /**
              * @description Why the file was not kept: `malware` (the scan found something), `type_not_allowed`, `scan_failed` (the scanner could not check it; ask the contact to send it again), or `too_large`.
              * @enum {string}
              */
             reason: "malware" | "type_not_allowed" | "scan_failed" | "too_large";
             /**
-             * @description What kind of media the channel said it was.
+             * @description What kind of file the channel said it was.
              * @enum {string}
              */
-            kind?: "image" | "video" | "document" | "audio";
+            media_type?: "image" | "video" | "document" | "audio";
             /** @description The file's name, if it had one. */
             filename?: string;
             /** @description The real type, read from the file's first bytes, when Flow read them. */
@@ -3088,7 +3779,7 @@ export interface components {
             caption?: string;
         };
         /**
-         * @description - `message.received`: the contact sent something with content (a button tap arrives as `button_reply` content).
+         * @description - `message.received`: the contact sent a message (`data.message.content`, with `kind`: `basic`, `voice`, `button_reply` for a tap on a button or list row, `reaction`, `location`, `contact_card` or `file_blocked`).
          *     - `message.sent`, `message.delivered`, `message.read`, `message.failed`: the status of your outbound messages. `message.failed` carries the error in `data.message.error`.
          *     - `reaction.added`, `reaction.removed`: the contact reacted to a message.
          *     - `typing.started`, `typing.stopped`: the contact is typing, where the channel reports it.
@@ -3551,7 +4242,15 @@ export interface components {
             type: "reconnect";
             after?: components["schemas"]["EventId"];
         };
-        /** @description Client to server. Same as `POST /v1/conversations/{conversation_id}/messages`; `ref` is also the idempotency key. */
+        /**
+         * @description Client to server. Sends one message into a conversation, the same as the
+         *     endpoint of its `kind` (`POST /v1/conversations/{conversation_id}/<kind>`,
+         *     or `PATCH` and `DELETE /v1/messages/{message_id}` for `edit` and
+         *     `unsend`); `ref` is also the idempotency key. Frames into one conversation
+         *     go out in the order accepted, in line with the conversation's other sends.
+         *     The frame's `type` is the frame's own type; the message's kind is
+         *     `message.kind`.
+         */
         StreamSendFrame: {
             /**
              * @description Always `send`. (enum property replaced by openapi-typescript)
@@ -3561,9 +4260,9 @@ export interface components {
             /** @description Your ID for this frame, echoed in the answer and used as the idempotency key. */
             ref: string;
             conversation: components["schemas"]["ConversationId"];
-            message: components["schemas"]["SendMessageRequest"];
+            message: components["schemas"]["OutboundKind"];
         };
-        /** @description Client to server. Same as `POST /v1/messages`; `ref` is also the idempotency key. */
+        /** @description Client to server. Same as `POST /v1/messages` (a `basic` or `template` message with `kind`, `sender` and `to`); `ref` is also the idempotency key. */
         StreamStartFrame: {
             /**
              * @description Always `start`. (enum property replaced by openapi-typescript)
@@ -3573,78 +4272,6 @@ export interface components {
             /** @description Your ID for this frame, echoed in the answer and used as the idempotency key. */
             ref: string;
             message: components["schemas"]["StartConversationRequest"];
-        };
-        /** @description What a conversation's channel supports now. */
-        Capabilities: {
-            conversation: components["schemas"]["ConversationId"];
-            channel: components["schemas"]["Channel"];
-            window: components["schemas"]["WindowState"];
-            /** @description One entry per content type that can be sent. */
-            content: components["schemas"]["ContentSupport"][];
-            limits?: components["schemas"]["ChannelLimits"];
-            groups?: components["schemas"]["GroupSupport"];
-            /**
-             * @description The `markdown` styles the channel renders (see `TextContent.format`);
-             *     others are stripped to their text and reported in `delivered_as`.
-             *     iMessage: all of them (none when the conversation's messages go by SMS
-             *     or RCS); Telegram: `bold`, `italic`, `underline`, `strikethrough`;
-             *     WhatsApp: `bold`, `italic`, `strikethrough`; SMS: none.
-             */
-            text_styles?: ("bold" | "italic" | "underline" | "strikethrough" | "size" | "animation")[];
-        };
-        /**
-         * @description What the conversation's sender does with group chats. Dedicated iMessage
-         *     lines receive and reply in groups; Flow's shared iMessage line ignores
-         *     group chats (`receive` and `reply` `false`), and the other channels do
-         *     neither today. No channel lets the API
-         *     create a group or change who is in it (`manage` is always `false`).
-         */
-        GroupSupport: {
-            /** @description Whether messages from group chats your sender is in reach your app, as `group` conversations. */
-            receive: boolean;
-            /** @description Whether you can send into a group conversation. Reactions are refused there (`422 unsupported_content`, `channel_code` `group_unsupported`), and typing and read receipts are skipped (`delivered_as.type` `none`). */
-            reply: boolean;
-            /** @description Whether the API can create a group, rename it, or add or remove people. Always `false`. */
-            manage: boolean;
-        };
-        /** @description Whether free-form messages can be sent now. */
-        WindowState: {
-            /** @description `true` when any content can be sent; `false` when only a `template` can (WhatsApp after 24 hours). */
-            open: boolean;
-            /**
-             * Format: date-time
-             * @description WhatsApp only. When the window closes, if it is open.
-             */
-            open_until?: string;
-        };
-        /** @description How the channel handles one content type. */
-        ContentSupport: {
-            type: components["schemas"]["ContentType"];
-            /**
-             * @description `native` (shown as sent), `fallback` (needs `fallback`; `auto` sends `fallback_type`) or `unsupported` (cannot be sent).
-             * @enum {string}
-             */
-            support: "native" | "fallback" | "unsupported";
-            /**
-             * @description With `support` `fallback`, what `fallback: "auto"` sends instead, or `none` when it is skipped.
-             * @enum {string}
-             */
-            fallback_type?: "text" | "media" | "none";
-            /** @description A limit worth knowing (for example "up to 3 buttons, else a list"). */
-            note?: string;
-        };
-        /** @description Size limits on this channel. */
-        ChannelLimits: {
-            /** @description The longest text one message may carry, in characters (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 on SMS). Telegram counts UTF-16 code units, so an emoji such as 😀 counts as 2; the other channels count Unicode characters. A media caption takes at most 1024. Longer text is refused with `invalid_request`. */
-            max_text_length?: number;
-            /** @description SMS only. The most segments one text may take (10); see `SmsSegments`. A text of more segments is refused with `invalid_request`: 1530 GSM-7 characters (fewer when it uses GSM-7's two-unit characters such as `{` or `€`), or 670 when it holds an emoji or other character outside GSM-7. */
-            max_sms_segments?: number;
-            /** @description The longest caption a media message may carry, and the longest `text` of a buttons message with a media `header` (1024; Telegram counts UTF-16 code units). */
-            max_caption_length?: number;
-            /** @description The most buttons one message may carry natively. */
-            max_buttons?: number;
-            /** @description The largest file one message may carry. */
-            max_file_bytes?: number;
         };
         /** @description A file to upload, as multipart form data. */
         FileUpload: {
@@ -3657,7 +4284,7 @@ export interface components {
             filename?: string;
             channel?: components["schemas"]["Channel"];
         };
-        /** @description A stored file. Send it as `media` or `voice` content by `file_id`. */
+        /** @description A stored file. Send it by `file_id` as a basic message's `media`, a voice note or a header. */
         File: {
             id: components["schemas"]["FileId"];
             /** @description The real type, checked from the first bytes. */
@@ -3831,32 +4458,30 @@ export interface components {
         };
         /** @description One turn from a simulated contact (test keys only). */
         SimulatedInboundRequest: {
-            /**
-             * @description What the contact sends: `text`, `media`, `voice`, `location`,
-             *     `contact_card` or `button_reply` (a tap on a reply button, named by the
-             *     buttons message and the button's `id`). Media and voice take a `file_id`
-             *     from `POST /v1/files`. Other types answer `400 invalid_request`.
-             */
             content: components["schemas"]["SimulatedInboundContent"];
             /** @description Simulated group conversations only, and required there. The participant who writes this turn (a `contact` in the conversation's `group.participants`); another contact answers `400 invalid_request` with `param` `from`. Refused the same way on one-to-one conversations. */
             from?: components["schemas"]["ContactId"];
-            /** @description A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`. */
+            /** @description A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, WhatsApp, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`. */
             reply_to?: components["schemas"]["MessageId"];
         };
         /**
-         * @description What a simulated contact sends in one turn: `text`, `media`, `voice`,
-         *     `location`, `contact_card`, or a tap on a reply button (`button_reply`).
-         *     Other content types answer `400 invalid_request`.
+         * @description What a simulated contact sends in one turn, as a message kind with `kind`
+         *     (required): `basic` (`text` and/or `media` by `file_id`), `voice` (by
+         *     `file_id`), `location`, `contact_card`, or `button_reply` (a tap on a reply
+         *     button, or on a list row, of a message your app sent). Fields a contact
+         *     cannot send (`reply_to` and `metadata` inside the kind, channel blocks,
+         *     `link_preview`, `url`) and other kinds answer `400 invalid_request`.
          */
-        SimulatedInboundContent: components["schemas"]["TextContent"] | components["schemas"]["MediaContent"] | components["schemas"]["VoiceContent"] | components["schemas"]["LocationContent"] | components["schemas"]["ContactCardContent"] | components["schemas"]["SimulatedButtonTap"];
+        SimulatedInboundContent: components["schemas"]["BasicKind"] | components["schemas"]["VoiceKind"] | components["schemas"]["LocationKind"] | components["schemas"]["ContactCardKind"] | components["schemas"]["SimulatedButtonTap"];
         /**
-         * @description The simulated contact taps a reply button of a buttons message your app sent
-         *     in this conversation. Name the message and the button's `id`; Flow fills in
-         *     the label, and the received message is a `button_reply` with the tapped
-         *     button's `label`. On a channel that shows no buttons the contact answers the
-         *     numbered text instead (send the number as `text`).
+         * @description The simulated contact taps a reply button of a buttons or carousel message
+         *     your app sent in this conversation, or a row of a list. Name the message
+         *     and the button's (or row's) `id`; Flow fills in the label, and the received
+         *     message is a `button_reply` with the tapped button's `label` (a row's
+         *     title). A channel that shows no buttons has nothing to tap: the contact
+         *     answers in words, as a `basic` turn.
          * @example {
-         *       "type": "button_reply",
+         *       "kind": "button_reply",
          *       "message_id": "msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2",
          *       "button_id": "yes"
          *     }
@@ -3866,13 +4491,11 @@ export interface components {
              * @description Always `button_reply`. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
-            type: "button_reply";
-            /** @description The buttons message your app sent, which must have reached the contact (its `message.sent`). */
+            kind: "button_reply";
+            /** @description The buttons, carousel or list message your app sent, which must have reached the contact (its `message.sent`). */
             message_id: components["schemas"]["MessageId"];
-            /** @description The `id` of the tapped reply button. */
+            /** @description The `id` of the tapped reply button or list row. */
             button_id: string;
-            /** @description Ignored: Flow uses the tapped button's label. */
-            label?: string;
         };
         /** @description A simulated turn Flow accepted. Its `message.received` event follows. */
         SimulatedInbound: {
@@ -3895,19 +4518,11 @@ export interface components {
             has_more: boolean;
         };
         /**
-         * @description One message of a simulated conversation: the `Message`, plus `shown` for a
-         *     sent message.
+         * @description One message of a simulated conversation, as a `Message`. A sent message's
+         *     `content` is exactly what the simulated contact sees: Flow converts
+         *     nothing.
          */
-        TranscriptEntry: components["schemas"]["Message"] & {
-            /**
-             * @description Sent messages only: what the simulated contact sees, after the send gate
-             *     applied any fallback (the same as `content` when it was shown as sent).
-             *     Absent for received messages, for messages not sent yet or failed, and
-             *     when nothing was shown (`delivered_as.type` `none`, such as typing on
-             *     SMS).
-             */
-            shown?: components["schemas"]["Content"];
-        };
+        TranscriptEntry: components["schemas"]["Message"];
         /** @description A URL that receives your app's events of the types it subscribes to. */
         WebhookEndpoint: {
             id: components["schemas"]["WebhookEndpointId"];
@@ -3978,26 +4593,32 @@ export interface components {
             overlap_seconds?: number;
         };
         /**
-         * @description The optional body of your answer to a `message.received` delivery. `reply` is
-         *     one piece of content or a list of up to 10, sent in order into the event's
-         *     conversation through the send gate. A non-empty string, as `reply` or as an
-         *     item of the list, is text: `{"reply": "Hi"}` is short for
-         *     `{"reply": {"type": "text", "text": "Hi"}}`. Leave `reply` out, set it to `null`, or
-         *     answer `{}`, an empty body or any body that is not a JSON object (such as
-         *     `OK`) to send nothing now; that is not an error.
+         * @description The optional body of your answer to a `message.received` delivery. `reply`
+         *     is one message or a list of up to 11, sent in order into the event's
+         *     conversation through the send gate: each piece is a kind object
+         *     (`OutboundKind`, with `kind`), so a text plus 10 carousel cards sent one by
+         *     one fits. A non-empty string, as `reply` or as an item of the list, is a
+         *     basic message: `{"reply": "Hi"}` is short for `{"reply": {"kind":
+         *     "basic", "text": "Hi"}}`. Leave `reply` out, set it to `null`, or answer
+         *     `{}`, an empty body or any body that is not a JSON object (such as `OK`)
+         *     to send nothing now; that is not an error.
          *
-         *     A JSON object whose `reply` (or `fallback`, alongside a `reply`) does not match
-         *     this shape, or a body that starts with `{` but is not valid JSON, sends
-         *     nothing at all (no piece of a list goes out) and is recorded on the delivery as an `invalid_request` error
-         *     with the reason; the delivery counts as delivered and is not retried.
+         *     A JSON object whose `reply` does not match this shape (a piece that is not
+         *     a kind object or a string, an unknown `kind`, an empty list, more than 11
+         *     pieces), or a body that starts with `{` but is not valid JSON, sends
+         *     nothing at all (no piece of a list goes out) and is recorded on the
+         *     delivery as an `invalid_request` error with the reason; the delivery
+         *     counts as delivered and is not retried. A piece the send gate refuses (for
+         *     example a `carousel` on Telegram, `422 unsupported_content`) is reported
+         *     as a `message.failed` event.
          * @example {
          *       "reply": [
          *         {
-         *           "type": "text",
+         *           "kind": "basic",
          *           "text": "Here are the sizes we have."
          *         },
          *         {
-         *           "type": "buttons",
+         *           "kind": "buttons",
          *           "text": "Which size?",
          *           "buttons": [
          *             {
@@ -4010,15 +4631,12 @@ export interface components {
          *             }
          *           ]
          *         }
-         *       ],
-         *       "fallback": "auto"
+         *       ]
          *     }
          */
         WebhookReply: {
-            /** @description One piece of content, or a list of 1 to 10 pieces sent in order. A non-empty string is text content. `null` sends nothing. */
-            reply?: components["schemas"]["Content"] | string | (components["schemas"]["Content"] | string)[] | null;
-            /** @description What to send when the channel cannot show a piece of `reply`, as on HTTP sends. It applies to every piece. */
-            fallback?: components["schemas"]["Fallback"];
+            /** @description One message, or a list of 1 to 11 sent in order. A non-empty string is a basic message's text. `null` sends nothing. */
+            reply?: components["schemas"]["OutboundKind"] | string | (components["schemas"]["OutboundKind"] | string)[] | null;
         };
     };
     responses: {
@@ -4119,8 +4737,9 @@ export interface components {
                  *       "error": {
                  *         "type": "outside_window",
                  *         "message": "Last message from the contact was 31h ago; WhatsApp allows only templates now.",
-                 *         "hint": "Send a template instead: POST /v1/messages with content.type=template.",
+                 *         "hint": "Send a template instead: POST /v1/conversations/{conversation_id}/template.",
                  *         "doc_url": "https://api.flow.engineer/docs/errors/outside_window",
+                 *         "channel": "whatsapp",
                  *         "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"
                  *       }
                  *     }
@@ -4193,7 +4812,11 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description The channel cannot show this content and the request set no `fallback` (`unsupported_content`). */
+        /**
+         * @description The conversation's channel does not take this kind, field, block or value,
+         *     so nothing was sent (`unsupported_content`). `param` names what was
+         *     refused, `channel` the channel, and `hint` what to send instead.
+         */
         UnsupportedContent: {
             headers: {
                 [name: string]: unknown;
@@ -4203,10 +4826,12 @@ export interface components {
                  * @example {
                  *       "error": {
                  *         "type": "unsupported_content",
-                 *         "message": "iMessage cannot show buttons.",
-                 *         "hint": "Set \"fallback\": \"auto\" to send numbered text instead, or send text.",
+                 *         "channel": "telegram",
+                 *         "param": "kind",
+                 *         "message": "Carousels work on WhatsApp only.",
+                 *         "hint": "On Telegram, send a basic message, then one buttons message with an image header per card.",
                  *         "doc_url": "https://api.flow.engineer/docs/errors/unsupported_content",
-                 *         "param": "content.type"
+                 *         "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"
                  *       }
                  *     }
                  */
@@ -4316,6 +4941,456 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    sendBasic: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BasicMessage"];
+            };
+        };
+        responses: {
+            /** @description The message passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    sendVoice: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceMessage"];
+            };
+        };
+        responses: {
+            /** @description The message passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    sendButtons: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ButtonsMessage"];
+            };
+        };
+        responses: {
+            /** @description The message passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    sendList: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListMessage"];
+            };
+        };
+        responses: {
+            /** @description The message passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    sendCarousel: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CarouselMessage"];
+            };
+        };
+        responses: {
+            /** @description The message passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    sendTemplate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateMessage"];
+            };
+        };
+        responses: {
+            /** @description The message passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    sendContactCard: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactCardMessage"];
+            };
+        };
+        responses: {
+            /** @description The message passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    sendLocation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocationMessage"];
+            };
+        };
+        responses: {
+            /** @description The message passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    sendEffect: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EffectMessage"];
+            };
+        };
+        responses: {
+            /** @description The message passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    sendReaction: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The conversation's ID. */
+                conversation_id: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReactionMessage"];
+            };
+        };
+        responses: {
+            /** @description The reaction passed the gate and is queued for the channel. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
     listConversationMessages: {
         parameters: {
             query?: {
@@ -4350,51 +5425,6 @@ export interface operations {
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            default: components["responses"]["Error"];
-        };
-    };
-    sendMessage: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
-                "Flow-Version"?: components["parameters"]["FlowVersion"];
-                /**
-                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
-                 *     A repeat with the same key within 24 hours returns the first answer instead of
-                 *     acting again. See "Idempotency" in the introduction.
-                 */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description The conversation's ID. */
-                conversation_id: components["parameters"]["ConversationId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SendMessageRequest"];
-            };
-        };
-        responses: {
-            /** @description The message passed the gate and is queued for the channel. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Message"];
-                };
-            };
-            400: components["responses"]["InvalidRequest"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["PermissionDenied"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
@@ -4566,13 +5596,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["TypingRequest"];
+                "application/json": components["schemas"]["TypingMessage"];
             };
         };
         responses: {
-            /** @description The channel showed or cleared the indicator, or `delivered_as` says it was skipped. */
+            /** @description The channel showed the indicator. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -4587,6 +5617,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
@@ -4613,11 +5644,11 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["ReadRequest"];
+                "application/json": components["schemas"]["ReadMessage"];
             };
         };
         responses: {
-            /** @description The channel took the read receipt, or `delivered_as` says it was skipped. */
+            /** @description The channel took the read receipt. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -4632,6 +5663,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["ChannelError"];
             default: components["responses"]["Error"];
@@ -4812,37 +5844,6 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
-            429: components["responses"]["RateLimited"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getCapabilities: {
-        parameters: {
-            query: {
-                /** @description The conversation to describe. */
-                conversation: components["schemas"]["ConversationId"];
-            };
-            header?: {
-                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
-                "Flow-Version"?: components["parameters"]["FlowVersion"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The conversation's capabilities. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Capabilities"];
-                };
-            };
-            400: components["responses"]["InvalidRequest"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };

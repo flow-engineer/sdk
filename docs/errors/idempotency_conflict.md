@@ -27,10 +27,10 @@ Make a new key per logical request (a UUID or ULID) and reuse it only to retry t
 
 ```ts
 const key = crypto.randomUUID(); // one per message you mean to send
-await fetch("https://api.flow.engineer/v1/conversations/" + conv + "/messages", {
+await fetch("https://api.flow.engineer/v1/conversations/" + conv + "/basic", {
   method: "POST",
   headers: { Authorization: `Bearer ${process.env.FLOW_MESSAGING_KEY}`, "Content-Type": "application/json", "Idempotency-Key": key },
-  body: JSON.stringify({ content: { type: "text", text: "Hi" } }),
+  body: JSON.stringify({ text: "Hi" }),
 });
 // On 409: error.channel_code === "in_progress" -> wait error.retry_after seconds and
 // repeat with the same key; "body_mismatch" -> a bug: this key was used for another request.

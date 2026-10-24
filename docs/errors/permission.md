@@ -50,15 +50,15 @@ curl -X POST https://api.flow.engineer/v1/messages \
   -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
   -d '{"sender": "snd_...", "to": {"phone": "+14155550100"},
-       "content": {"type": "text", "text": "Hi Sam, this is Example Clinic. Reply STOP to opt out."},
+       "kind": "basic", "text": "Hi Sam, this is Example Clinic. Reply STOP to opt out.",
        "consent": {"obtained_at": "2026-10-01T15:04:05Z", "method": "web_form", "proof": "signup-8812"}}'
 ```
 
 In a HIPAA account, send from an SMS sender instead; the other channels cannot carry its messages. To test, simulate an SMS conversation: `POST /v1/test/conversations` with `{"channel": "sms"}`.
 
-For `test_mode_only`, call `/v1/test/...` with your `fk_test_` key. For `not_simulated`, create a simulated conversation first (`POST /v1/test/conversations`) and use its ID; a real contact can only be written to by the person. For `simulated_contact`, reply in the contact's simulated conversation (`POST /v1/conversations/{conversation_id}/messages` with its `conv_` ID). For `sandbox_contact_left`, have the contact send your app's join message (the sender's `join_code`) to the sandbox sender again, then send the message again. For `simulated_conversation_limit`, reuse the simulated conversations you have: keep their `conv_` IDs, or post the same `contact` address again, which returns its conversation.
+For `test_mode_only`, call `/v1/test/...` with your `fk_test_` key. For `not_simulated`, create a simulated conversation first (`POST /v1/test/conversations`) and use its ID; a real contact can only be written to by the person. For `simulated_contact`, reply in the contact's simulated conversation (`POST /v1/conversations/{conversation_id}/basic` with its `conv_` ID). For `sandbox_contact_left`, have the contact send your app's join message (the sender's `join_code`) to the sandbox sender again, then send the message again. For `simulated_conversation_limit`, reuse the simulated conversations you have: keep their `conv_` IDs, or post the same `contact` address again, which returns its conversation.
 
-On an iMessage line that may only reply, wait for the contact to message it, then reply in that conversation (`POST /v1/conversations/{conversation_id}/messages`). To write first, ask the Flow team for `can_initiate` on a dedicated line; the shared line cannot. For `sandbox_channel_not_included` on iMessage, sign in at flow.engineer (or run `npx @flow-engineer/flow setup`) to start the free trial, then have people join your app on the shared line with its join message. For `sandbox_contact_limit` on the trial, delete a contact you no longer need (`DELETE /v1/contacts/{contact_id}`, with the key of the app and mode they joined): the oldest held person then gets their place.
+On an iMessage line that may only reply, wait for the contact to message it, then reply in that conversation (`POST /v1/conversations/{conversation_id}/basic`). To write first, ask the Flow team for `can_initiate` on a dedicated line; the shared line cannot. For `sandbox_channel_not_included` on iMessage, sign in at flow.engineer (or run `npx @flow-engineer/flow setup`) to start the free trial, then have people join your app on the shared line with its join message. For `sandbox_contact_limit` on the trial, delete a contact you no longer need (`DELETE /v1/contacts/{contact_id}`, with the key of the app and mode they joined): the oldest held person then gets their place.
 
 ```bash
 # Your join code (app.sandbox_join_code) and the sandbox senders (address.link, join_code)

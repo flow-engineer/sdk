@@ -14,7 +14,7 @@ Telegram, WhatsApp, iMessage or the SMS network did not take the message. `error
 ## Why it happens
 
 - The contact blocked the bot, or never pressed Start on a Telegram bot.
-- Malformed markdown, or text over the channel's limit.
+- Telegram could not parse the text with the `telegram.parse_mode` you gave (malformed HTML or MarkdownV2).
 - The bot token was revoked.
 - SMS (US, in pilot), by `channel_code`:
   - `carrier_filtered`: a carrier's spam filter blocked the message. It usually reads like bulk marketing, carries a public link shortener, or repeats the same text to many people.
