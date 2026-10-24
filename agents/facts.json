@@ -40,7 +40,7 @@
   "caption_cap": 1024,
   "sms_max_segments": 10,
   "sign_in": "a Flow account (flow.engineer: Google, GitHub or an email link)",
-  "sdk_version": "0.3.0",
+  "sdk_version": "0.4.0",
   "cli_tagline": "Telegram, iMessage and WhatsApp for AI agents.",
   "allowance": {
     "anonymous": {
@@ -103,7 +103,6 @@
     "tools": {
       "common": [
         "whoami",
-        "capabilities",
         "explain_error"
       ],
       "test": [

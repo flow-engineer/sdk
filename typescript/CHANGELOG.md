@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.4.0
+
+Breaking: one endpoint per message kind (API version `2026-11-01`). What you send is what
+the contact gets; nothing is converted.
+
+- The API is V0: every request goes to `/v0/...` (was `/v1/...`). `/v1` is kept for
+  the stable release, 1.0.
+- A send the channel cannot take throws `UnsupportedContentError` (422) with `param`
+  and `hint`. The 422 is kept under its `Idempotency-Key`, so send what replaces it
+  with a new key (the refused one plus what it is, such as `evt_123:card:2:basic`).
+
+- `flow.messages` has one method per kind: `basic`, `voice`, `buttons`, `list`,
+  `carousel`, `template`, `contactCard`, `location`, `effect`, `reaction`, and `send`,
+  which takes any kind object (a string is short for `{ kind: "basic", text }`) and
+  sends it to its kind's endpoint (`typing` and `read` too, and `edit` and `unsend` to
+  `PATCH` and `DELETE /v0/messages/{message_id}`). An object with no kind that can be
+  sent throws a `TypeError` before any request.
+- `messages.start` takes a flat `{ sender, to, kind: "basic" | "template", ... }`;
+  `messages.edit(id, text | { text, telegram?, imessage? })`.
+- `conversations.typing(id, body?)` has no `state`: it shows the indicator, which clears
+  itself; `conversations.markRead` is now `conversations.read(id, body?)`, and the
+  conversation handle's `markRead` is `read`. `keepTyping` no longer sends an "off".
+- `Message.content` is a kind object with `kind` (was `type`). The builders return kind
+  objects (`basic`, `image(src, caption?)`, `buttons`, `list`, `carousel`, ...);
+  `text()` and `markdown()` are gone. `contentText` reads the new kinds.
+- `reply()` sends each bubble as `basic` text exactly as written; its `format`,
+  `fallback` and `channel_options` options are gone. `react` sends a reaction with no
+  fallback.
+- Webhook replies (`webhookReply`, `flow-messaging listen`) take kind objects, up to 11,
+  with no `fallback`.
+- Removed: `flow.capabilities`, `fallback`, `channel_options`, `delivered_as`, markdown
+  text and the types for them. `FlowError.channel` is new.
+
 ## 0.3.0
 
 Types regenerated from the spec, and the agent docs that ship in the package updated:

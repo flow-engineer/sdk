@@ -14,7 +14,7 @@ Telegram, WhatsApp, iMessage or the SMS network did not take the message. `error
 ## Why it happens
 
 - The contact blocked the bot, or never pressed Start on a Telegram bot.
-- Malformed markdown, or text over the channel's limit.
+- Telegram could not parse the text with the `telegram.parse_mode` you gave (malformed HTML or MarkdownV2).
 - The bot token was revoked.
 - SMS (US, in pilot), by `channel_code`:
   - `carrier_filtered`: a carrier's spam filter blocked the message. It usually reads like bulk marketing, carries a public link shortener, or repeats the same text to many people.
@@ -24,7 +24,7 @@ Telegram, WhatsApp, iMessage or the SMS network did not take the message. `error
   - `carrier_error`: any other refusal; `error.message` says more.
   - `provider_not_configured`: the SMS sender is not fully set up on Flow's side, so nothing was sent. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer with the message ID.
 - The channel did not answer after the message was sent, and the resends its policy allows did not settle it (`channel_timeout_unknown_outcome`, in `message.failed`). The message may have arrived, possibly twice, or not at all, so Flow does not send it again.
-- The channel failed or timed out on a typing indicator or a read receipt. These call the channel at once (`POST /v1/conversations/{id}/typing` and `/read`), so they answer `502` directly; `unknown_outcome` means the call timed out after it was sent.
+- The channel failed or timed out on a typing indicator or a read receipt. These call the channel at once (`POST /v0/conversations/{id}/typing` and `/read`), so they answer `502` directly; `unknown_outcome` means the call timed out after it was sent.
 
 ## How to fix it
 

@@ -172,20 +172,21 @@ class User:
         _, body = http("GET", SIM + "/_sim/calls", headers=SIM_AUTH)
         return max([c["seq"] for c in body["calls"]], default=0)
 
-    def receive(self, after):
-        """Waits for the next message the bot sends this user after call number `after`."""
-        q = f"token={urllib.request.quote(self.bot)}&method=sendMessage&chat_id={self.id}&after={after}&min=1&wait_ms={WAIT * 1000}"
+    def receive(self, after, method="sendMessage"):
+        """Waits for the next Bot API call of `method` (a message, by default) the bot makes
+        to this user after call number `after`."""
+        q = f"token={urllib.request.quote(self.bot)}&method={method}&chat_id={self.id}&after={after}&min=1&wait_ms={WAIT * 1000}"
         _, body = http("GET", SIM + "/_sim/calls?" + q, headers=SIM_AUTH)
         if not body["calls"]:
-            raise Failed(f"the bot sent user {self.id} nothing within {WAIT}s")
+            raise Failed(f"the bot made no {method} call to user {self.id} within {WAIT}s")
         return body["calls"][0]
 
 
 def sandbox_key():
-    """A new sandbox app, as `curl -X POST .../v1/sandbox/keys` makes it."""
-    status, body = http("POST", API + "/v1/sandbox/keys")
+    """A new sandbox app, as `curl -X POST .../v0/sandbox/keys` makes it."""
+    status, body = http("POST", API + "/v0/sandbox/keys")
     if status != 201:
-        raise Failed(f"POST /v1/sandbox/keys answered {status}: {body}")
+        raise Failed(f"POST /v0/sandbox/keys answered {status}: {body}")
     return body
 
 
@@ -229,11 +230,11 @@ def wait_sent(key, conv, text):
     until the message is there or WAIT runs out."""
     deadline = time.monotonic() + WAIT
     while True:
-        entries = api("GET", f"/v1/test/conversations/{conv}/transcript?limit=100", key)["data"]
-        if any(e["direction"] == "out" and e["content"].get("text") == text for e in entries):
+        entries = api("GET", f"/v0/test/conversations/{conv}/transcript?limit=100", key)["data"]
+        if any(e["direction"] == "out" and e["content"].get("kind") == "basic" and e["content"].get("text") == text for e in entries):
             return
         if time.monotonic() > deadline:
-            raise Failed(f"the agent did not send {text!r} within {WAIT}s; transcript: {[e['content'] for e in entries]}")
+            raise Failed(f"the agent did not send basic {text!r} within {WAIT}s; transcript: {[e['content'] for e in entries]}")
         time.sleep(0.05)
 
 
@@ -351,6 +352,9 @@ def ai_agent(run, fake_llm):
         u.say("Where is my order?")
         call = u.receive(after)
         check(call["params"]["text"] == first, f"agent sent {call['params']['text']!r}")
+        # Typing (POST .../typing with {}, no state) reached Telegram as a chat action.
+        typing = u.receive(after, method="sendChatAction")
+        check(typing["params"].get("action") == "typing", f"agent's typing: {typing['params']}")
         keyboard = call["params"].get("reply_markup", {}).get("inline_keyboard")
         check(keyboard == [[{"callback_data": "talk_to_human", "text": "Talk to a human"}]], f"agent's buttons: {keyboard}")
         p.expect(r"^\[conv_\w+\] customer: Where is my order\?$")
@@ -392,9 +396,9 @@ def webhook_receiver(run):
     sk = sandbox_key()
     port = free_port()
     url = f"http://127.0.0.1:{port}/flow/webhook"
-    status, ep = http("POST", API + "/v1/webhook_endpoints", {"url": url, "events": ["message.received", "message.failed"]},
+    status, ep = http("POST", API + "/v0/webhook_endpoints", {"url": url, "events": ["message.received", "message.failed"]},
                       {"Authorization": "Bearer " + sk["key"], "Idempotency-Key": f"e2e-endpoint-{port}"})
-    check(status == 201, f"POST /v1/webhook_endpoints answered {status}: {ep}")
+    check(status == 201, f"POST /v0/webhook_endpoints answered {status}: {ep}")
     secret = ep["secret"]
     p = run("webhook-receiver", env={"FLOW_MESSAGING_WEBHOOK_SECRET": secret, "PORT": str(port)})
     try:
@@ -408,13 +412,13 @@ def webhook_receiver(run):
         p.expect(r"^evt_\w+ \[conv_\w+\] hi webhook$")
 
         body = json.dumps({"id": "evt_e2eduplicate", "type": "message.received", "conversation": {"id": "conv_e2e"},
-                           "data": {"message": {"id": "msg_e2e", "content": {"type": "text", "text": "twice"}}}}).encode()
+                           "data": {"message": {"id": "msg_e2e", "content": {"kind": "basic", "text": "twice"}}}}).encode()
         for sig, want in [("t=1,v1=" + "0" * 64, 400), (sign(secret, body, time.time() - 600), 400), (sign("whsec_wrong", body), 400)]:
             status, _ = http("POST", url, raw=body, headers={"Flow-Signature": sig})
             check(status == want, f"a bad signature got {status}, want {want}")
             p.expect(r"^rejected: bad Flow-Signature$")
         status, answer = http("POST", url, raw=body, headers={"Flow-Signature": sign(secret, body)})
-        check(status == 200 and answer == {"reply": {"type": "text", "text": "You said: twice"}}, f"first delivery: {status} {answer}")
+        check(status == 200 and answer == {"reply": {"kind": "basic", "text": "You said: twice"}}, f"first delivery: {status} {answer}")
         # While a secret rotation overlaps, the header carries two v1 values; one matching is enough.
         status, answer = http("POST", url, raw=body, headers={"Flow-Signature": sign(secret, body) + ",v1=" + "0" * 64})
         check(status == 200 and answer == {}, f"repeated delivery: {status} {answer}")
@@ -469,19 +473,19 @@ def ask_and_wait_simulated(run):
     p = run("ask-and-wait", env={"FLOW_MESSAGING_KEY": key})
     try:
         p.expect(r"^Waiting for someone to join or write\.\.\.$")
-        conv = api("POST", "/v1/test/conversations", key, {"channel": "telegram"})["id"]
-        api("POST", f"/v1/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "hi"}})
+        conv = api("POST", "/v0/test/conversations", key, {"channel": "telegram"})["id"]
+        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"kind": "basic", "text": "hi"}})
         p.expect(rf"^\[{conv}\] joined on telegram$")
         wait_sent(key, conv, "Hi! What's your name?")
-        api("POST", f"/v1/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Asha"}})
+        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"kind": "basic", "text": "Asha"}})
         p.expect(rf"^\[{conv}\] name: Asha$")
         wait_sent(key, conv, "Nice to meet you, Asha. Which city are you in?")
-        api("POST", f"/v1/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Pune"}})
+        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"kind": "basic", "text": "Pune"}})
         p.expect(rf"^\[{conv}\] city: Pune$")
         msg = p.expect(rf"^\[{conv}\] sent (msg_\w+)$").group(1)
         check(p.wait_exit() == 0, "the example did not exit cleanly")
-        last = api("GET", f"/v1/messages/{msg}", key)
-        check(last["status"] == "sent" and last["content"]["text"] == "Thanks, Asha! You're signed up in Pune.", f"last message: {last}")
+        last = api("GET", f"/v0/messages/{msg}", key)
+        check(last["status"] == "sent" and last["content"]["kind"] == "basic" and last["content"]["text"] == "Thanks, Asha! You're signed up in Pune.", f"last message: {last}")
     finally:
         p.stop()
     return p

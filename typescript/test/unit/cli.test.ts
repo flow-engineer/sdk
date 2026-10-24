@@ -72,11 +72,11 @@ describe("agent files", () => {
 });
 
 describe("init", () => {
-  // A stand-in API for the key check: GET /v1/app and GET /v1/senders.
+  // A stand-in API for the key check: GET /v0/app and GET /v0/senders.
   async function api() {
     const server = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
-      if (req.url?.startsWith("/v1/app")) {
+      if (req.url?.startsWith("/v0/app")) {
         res.end(JSON.stringify({ app: { id: "app_1", name: "Demo", sandbox_join_code: "wild-otter-04508705" }, livemode: false }));
         return;
       }
@@ -174,7 +174,7 @@ describe("init without a key", () => {
   clearFlowEnv();
 
   it("gets a sandbox key, saves it and the claim token, and shows the sandbox, the allowance and login", async () => {
-    const { fetch, calls } = mockFetch((req) => (req.method === "POST" && req.url.pathname === "/v1/sandbox/keys" ? json(201, sandboxKey()) : undefined));
+    const { fetch, calls } = mockFetch((req) => (req.method === "POST" && req.url.pathname === "/v0/sandbox/keys" ? json(201, sandboxKey()) : undefined));
     const dir = tmp();
     const lines: string[] = [];
     await init({ dir, name: "Demo", fetch, baseURL: "https://api.test", agentFiles: false, mcp: false, codex: false, print: (l) => lines.push(l) });
@@ -205,7 +205,7 @@ describe("login", () => {
   it("claims the app with the claim token, polls, and replaces the key in .env", async () => {
     let polls = 0;
     const { fetch, calls } = mockFetch((req) => {
-      if (req.url.pathname === "/v1/device/authorizations") return json(201, deviceAuthorization(2));
+      if (req.url.pathname === "/v0/device/authorizations") return json(201, deviceAuthorization(2));
       polls++;
       return polls < 2 ? json(200, { status: "pending", interval: 2 }) : json(200, approvedToken());
     });
@@ -246,7 +246,7 @@ describe("login", () => {
   it("with --no-wait prints the link and exits, and a second run collects the key", async () => {
     let approved = false;
     const { fetch, calls } = mockFetch((req) => {
-      if (req.url.pathname === "/v1/device/authorizations") return json(201, deviceAuthorization());
+      if (req.url.pathname === "/v0/device/authorizations") return json(201, deviceAuthorization());
       return approved ? json(200, approvedToken()) : json(200, { status: "pending", interval: 5 });
     });
     const dir = project();
@@ -257,7 +257,7 @@ describe("login", () => {
     expect(lines.join("\n")).toContain("run `npx @flow-engineer/messaging login` again");
 
     expect(await login(base)).toBe("pending"); // not approved yet: same sign-in, no new one
-    expect(calls.filter((c) => c.url.pathname === "/v1/device/authorizations")).toHaveLength(1);
+    expect(calls.filter((c) => c.url.pathname === "/v0/device/authorizations")).toHaveLength(1);
 
     approved = true;
     expect(await login(base)).toBe("signed_in");
@@ -265,7 +265,7 @@ describe("login", () => {
   });
 
   it("starts again when the person refused, and says so", async () => {
-    const { fetch } = mockFetch((req) => (req.url.pathname === "/v1/device/authorizations" ? json(201, deviceAuthorization()) : json(200, { status: "denied", interval: 5 })));
+    const { fetch } = mockFetch((req) => (req.url.pathname === "/v0/device/authorizations" ? json(201, deviceAuthorization()) : json(200, { status: "denied", interval: 5 })));
     const dir = project();
     await expect(login({ dir, fetch, wait: true, browser: false, print: () => undefined, sleep: async () => undefined })).rejects.toThrow(/refused.*login/);
     expect(parseDotenv(readFileSync(path.join(dir, ".env"), "utf8")).FLOW_DEVICE_CODE).toBeUndefined();
@@ -280,7 +280,7 @@ describe("listen", () => {
       for await (const c of req) body += c;
       delivered = { headers: req.headers, body };
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ reply: { type: "text", text: "pong" } }));
+      res.end(JSON.stringify({ reply: { kind: "basic", text: "pong" } }));
     });
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
     const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/hook`;
@@ -294,26 +294,29 @@ describe("listen", () => {
       expect(delivered!.headers["flow-event-type"]).toBe("message.received");
       expect(JSON.parse(delivered!.body).conversation.id).toBe(ids.conv);
       expect(api.calls[0]!.headers["idempotency-key"]).toBe(ids.evt(1));
-      expect(api.calls[0]!.body).toEqual({ content: { type: "text", text: "pong" } });
+      expect(api.calls[0]!.url.pathname).toBe(`/v0/conversations/${ids.conv}/basic`);
+      expect(api.calls[0]!.body).toEqual({ kind: "basic", text: "pong" });
     } finally {
       server.close();
     }
   });
 
-  it("reads webhook answers as the API does: all pieces with fallback, or nothing", () => {
-    const text = { type: "text", text: "hi" };
+  it("reads webhook answers as the API does: every piece as a kind object, or nothing", () => {
+    const text = { kind: "basic", text: "hi" };
     expect(readReply({})).toEqual({ list: [] });
     expect(readReply({ reply: null })).toEqual({ list: [] });
-    expect(readReply({ reply: [text, text], fallback: "auto" })).toEqual({ list: [text, text], fallback: "auto" });
+    expect(readReply({ reply: [text, "hi"] })).toEqual({ list: [text, text] });
+    expect(readReply({ reply: "hi" })).toEqual({ list: [text] });
+    expect(readReply({ reply: Array(11).fill(text) })).toEqual({ list: Array(11).fill(text) });
     expect(readReply("OK")).toEqual({ list: [] });
     expect(readReply(undefined)).toEqual({ list: [] });
     expect(readReply(undefined, true)).toHaveProperty("error");
     expect(readReply([text])).toEqual({ list: [] });
-    expect(readReply({ ok: true, fallback: "numbered" })).toEqual({ list: [] });
     expect(readReply({ reply: [] })).toHaveProperty("error");
-    expect(readReply({ reply: Array(11).fill(text) })).toHaveProperty("error");
-    expect(readReply({ reply: [text, "hi"] })).toHaveProperty("error");
-    expect(readReply({ reply: text, fallback: "numbered" })).toHaveProperty("error");
+    expect(readReply({ reply: Array(12).fill(text) })).toHaveProperty("error");
+    expect(readReply({ reply: [text, ""] })).toHaveProperty("error");
+    expect(readReply({ reply: { type: "text", text: "hi" } })).toHaveProperty("error");
+    expect(readReply({ reply: { kind: "button_reply", button_id: "x" } })).toHaveProperty("error");
   });
 });
 

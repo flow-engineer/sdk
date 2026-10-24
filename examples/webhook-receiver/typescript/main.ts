@@ -8,7 +8,7 @@ import http from "node:http";
 const SECRET = process.env.FLOW_MESSAGING_WEBHOOK_SECRET;
 const PORT = Number(process.env.PORT ?? 3000);
 if (!SECRET) {
-  console.error("Set FLOW_MESSAGING_WEBHOOK_SECRET to the whsec_... secret from POST /v1/webhook_endpoints.");
+  console.error("Set FLOW_MESSAGING_WEBHOOK_SECRET to the whsec_... secret from POST /v0/webhook_endpoints.");
   process.exit(1);
 }
 
@@ -57,12 +57,14 @@ http.createServer((req, res) => {
     seen.add(event.id);
 
     if (event.type === "message.received") {
+      // content is one message kind: `basic` is text and/or a file (its text is then the caption).
       const content = event.data.message.content;
-      const said = content.type === "text" ? content.text : `a ${content.type}`;
+      const said = content.kind === "basic" && content.text ? content.text : `a ${content.media?.type ?? content.kind}`;
       console.log(`${event.id} [${event.conversation.id}] ${said}`);
       // The reply goes into this conversation through the send gate, with the event ID as
       // its idempotency key. Keep it fast: slow agents answer {} and send through the API.
-      return answer({ reply: { type: "text", text: `You said: ${said}` } });
+      // `reply` is a message kind object (or a list of up to 11); a plain string is short for a basic text.
+      return answer({ reply: { kind: "basic", text: `You said: ${said}` } });
     }
     if (event.type === "message.failed") {
       const e = event.data.message.error;

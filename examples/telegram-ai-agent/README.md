@@ -6,8 +6,8 @@ a human** button under every answer. A tap hands the conversation to your team a
 the agent stops answering there. Any LLM works: replace `think()`.
 
 Events come from the WebSocket stream, so it runs on your laptop with no public
-URL. Replies go out with `POST /v1/conversations/{id}/messages` and an
-`Idempotency-Key`. Plain HTTP and WebSocket, no Flow SDK.
+URL. Replies go out with `POST /v0/conversations/{id}/buttons` (or `/basic` for
+plain text) and an `Idempotency-Key`. Plain HTTP and WebSocket, no Flow SDK.
 
 | | File | Needs |
 |---|---|---|
@@ -19,7 +19,7 @@ URL. Replies go out with `POST /v1/conversations/{id}/messages` and an
 1. Get a test key. No account needed:
 
    ```bash
-   curl -s -X POST https://api.flow.engineer/v1/sandbox/keys
+   curl -s -X POST https://api.flow.engineer/v0/sandbox/keys
    ```
 
    Copy `key` from the answer (it is shown once), and set it with your Anthropic key:
@@ -72,10 +72,21 @@ In Telegram each answer has a **Talk to a human** button; tapping it gets
 - **History per conversation.** A conversation is one bot talking with one person,
   so `conversation.id` is the key for the LLM's history. It is kept in memory here;
   use your database in production.
-- **Buttons.** The answer is sent as `buttons` content with one reply button
-  (`id: "talk_to_human"`). A tap arrives as `message.received` with content
-  `{"type": "button_reply", "button_id": "talk_to_human", ...}`. `"fallback": "auto"`
-  lets channels without buttons show numbered text instead.
+- **One endpoint per kind.** Each message kind has its own endpoint: the answer goes
+  to `POST /v0/conversations/{id}/buttons` with one reply button
+  (`{"text": ..., "buttons": [{"id": "talk_to_human", "label": "Talk to a human"}]}`),
+  other replies to `/basic` (`{"text": ...}`), and "typing..." to `/typing` (an empty
+  body; it clears itself when the reply goes).
+- **Reading what came in.** An inbound message's `content` is one kind, named by
+  `kind`: `basic` (`text`, and/or a file in `media`), `voice` (`transcript` when
+  transcription is on), and a tap is `{"kind": "button_reply", "button_id":
+  "talk_to_human", "label": "Talk to a human", ...}`.
+- **Nothing is converted.** Flow sends exactly what you ask for, or refuses it: on a
+  channel without buttons (iMessage, SMS), `/buttons` answers `422
+  unsupported_content` with `param` `kind` and sends nothing, and the agent sends the
+  answer to `/basic` instead. A 422 is kept under its `Idempotency-Key`, so that
+  send is a new request with a new key: the refused one plus what it is,
+  `reply-<id>:basic`.
 - **Idempotency.** Each reply's `Idempotency-Key` is `reply-<inbound message id>`, so
   a retry (429 or 5xx, after `Retry-After`) or a replayed event never answers twice.
   An LLM answers differently each time, so if a message was already answered, the

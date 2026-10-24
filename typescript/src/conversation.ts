@@ -1,18 +1,8 @@
 import { BUBBLE_RULES, BubbleSplitter, isTextStreamSource, textChunks, type BubbleRules, type TextStreamSource } from "./bubbles.js";
 import type { RequestOptions } from "./core.js";
 import type { FlowMessaging } from "./client.js";
-import type {
-  Channel,
-  ChannelOptions,
-  Content,
-  ConversationAction,
-  ConversationRef,
-  Fallback,
-  ListMessagesParams,
-  Message,
-  Metadata,
-  SendMessageRequest,
-} from "./types.js";
+import { toKind, type MessageInput, type SendInput, type SendResult } from "./kinds.js";
+import type { BasicKind, Channel, ConversationAction, ConversationRef, ListMessagesParams, Message, Metadata, OutboundKind, ReadMessage, TypingKind, ReadKind, TypingMessage } from "./types.js";
 import {
   waitForInbound,
   waitForMessages,
@@ -22,17 +12,7 @@ import {
   type WaitOptions,
 } from "./wait.js";
 
-/** What `send` and `reply` accept: a string (a text message), one piece of content, or a full request. */
-export type SendInput = string | Content | SendMessageRequest;
-
 export interface ReplyOptions extends Omit<RequestOptions, "idempotencyKey"> {
-  /**
-   * How text is sent: `"markdown"` (the default; channels without formatting get plain
-   * text through `fallback: "auto"`) or `"plain"`.
-   */
-  format?: "markdown" | "plain";
-  /** Fallback for the bubbles (default `"auto"`). */
-  fallback?: Fallback;
   /** Split text into bubbles (default true). `false` sends each text as one message, cut only at the channel's limit. */
   split?: boolean;
   /** Override the channel's bubble rules. */
@@ -44,8 +24,8 @@ export interface ReplyOptions extends Omit<RequestOptions, "idempotencyKey"> {
    * for example to the inbound event's id, to make retrying a whole reply safe.
    */
   idempotencyKey?: string;
+  /** Metadata for each text bubble (kind objects you pass carry their own). */
   metadata?: Metadata;
-  channel_options?: ChannelOptions;
   /** Called after each bubble is accepted. */
   onBubble?: (message: Message, index: number) => void;
   /**
@@ -64,17 +44,11 @@ export interface AskOptions extends WaitOptions, Pick<RequestOptions, "idempoten
 /** Options of `conversation.sendAndWait`: the send's, and the wait's (`until`, `timeoutMs`, `signal`). */
 export interface ConversationSendAndWaitOptions extends MessageWaitOptions, Pick<RequestOptions, "idempotencyKey" | "headers" | "maxRetries"> {}
 
-/** Anything `reply` accepts: text, content, a list of content, or an LLM stream. */
-export type ReplyInput = string | Content | Content[] | TextStreamSource;
+/** Anything `reply` accepts: text, a kind object, a list of kind objects (and strings), or an LLM stream. */
+export type ReplyInput = string | OutboundKind | Array<string | OutboundKind> | TextStreamSource;
 
-/** How often typing is turned on again while a reply is produced; channels clear it after about 5 s. */
+/** How often typing is shown again while a reply is produced; channels clear it after about 5 s. */
 export const TYPING_REFRESH_MS = 4000;
-
-export function toSendRequest(input: SendInput): SendMessageRequest {
-  if (typeof input === "string") return { content: { type: "text", text: input } };
-  if ("type" in input && typeof input.type === "string") return { content: input as Content };
-  return input as SendMessageRequest;
-}
 
 /**
  * A conversation you can act in: one sender talking with one contact, or with an
@@ -117,13 +91,14 @@ export class ConversationHandle {
   }
 
   /**
-   * Sends one message: a string, a piece of content, or a full send request. Resolves
-   * once Flow queued it; `sendAndWait` resolves once the channel accepted it.
+   * Sends one kind object to its kind's endpoint, exactly as given (a string is short
+   * for `{ kind: "basic", text }`); see `flow.messages.send`. Resolves once Flow queued
+   * it; `sendAndWait` resolves once the channel accepted it.
    */
-  async send(input: SendInput, options?: RequestOptions): Promise<Message> {
-    const message = await this.#flow.messages.send(this.id, input, options);
-    this.#after = message.id;
-    return message;
+  async send<I extends SendInput>(input: I, options?: RequestOptions): Promise<SendResult<I>> {
+    const result = await this.#flow.messages.send(this.id, input, options);
+    if ("id" in result) this.#after = result.id;
+    return result;
   }
 
   /**
@@ -137,7 +112,7 @@ export class ConversationHandle {
    * console.log(msg.status); // "sent"
    * ```
    */
-  async sendAndWait(input: SendInput, options: ConversationSendAndWaitOptions = {}): Promise<Message> {
+  async sendAndWait(input: MessageInput, options: ConversationSendAndWaitOptions = {}): Promise<Message> {
     const { idempotencyKey, headers, maxRetries, ...wait } = options;
     const queued = await this.send(input, { idempotencyKey, headers, maxRetries, signal: wait.signal });
     const [sent] = await waitForMessages(this.#flow, [queued.id], wait);
@@ -178,27 +153,27 @@ export class ConversationHandle {
    * const city = contentText((await conversation.ask(`Thanks, ${name}. Which city are you in?`)).content);
    * ```
    */
-  async ask(input: SendInput, options: AskOptions = {}): Promise<Message> {
+  async ask(input: MessageInput, options: AskOptions = {}): Promise<Message> {
     const { idempotencyKey, headers, maxRetries, ...wait } = options;
-    const question = await this.send(input, { idempotencyKey, headers, maxRetries, signal: wait.signal });
+    const question: Message = await this.send(input, { idempotencyKey, headers, maxRetries, signal: wait.signal });
     const reply = await waitForInbound(this.#flow, this.id, { after: question.id, question: question.id }, wait);
     this.#after = reply.id;
     return reply;
   }
 
-  /** Turns the typing indicator on or off. */
-  typing(state: "on" | "off" = "on", options?: RequestOptions): Promise<ConversationAction> {
-    return this.#flow.conversations.typing(this.id, state, options);
+  /** Shows the typing indicator; it clears itself when your next message goes or after a few seconds. */
+  typing(body?: TypingMessage, options?: RequestOptions): Promise<ConversationAction> {
+    return this.#flow.conversations.typing(this.id, body, options);
   }
 
-  /** Marks the contact's messages as read, up to `upTo` (default: the latest). */
-  markRead(upTo?: string, options?: RequestOptions): Promise<ConversationAction> {
-    return this.#flow.conversations.markRead(this.id, upTo, options);
+  /** Sends a read receipt for the contact's messages (WhatsApp up to `body.up_to`, default the latest; iMessage the whole conversation). */
+  read(body?: ReadMessage, options?: RequestOptions): Promise<ConversationAction> {
+    return this.#flow.conversations.read(this.id, body, options);
   }
 
-  /** Reacts to a message (`null` removes your reaction). */
+  /** Reacts to a message with one emoji (`null` removes your reaction). */
   react(messageId: string, emoji: string | null, options?: RequestOptions): Promise<Message> {
-    return this.send({ content: { type: "reaction", message_id: messageId, emoji }, fallback: "auto" }, options);
+    return this.#flow.messages.reaction(this.id, { message_id: messageId, emoji }, options);
   }
 
   /** This conversation's messages, newest first. */
@@ -207,8 +182,8 @@ export class ConversationHandle {
   }
 
   /**
-   * Runs `fn` with the typing indicator on, refreshed until it settles, and always
-   * turned off afterwards, even if `fn` throws.
+   * Runs `fn` with the typing indicator shown, refreshed until it settles (then the
+   * refresh stops, even if `fn` throws; the indicator clears itself).
    *
    * ```ts
    * const answer = await event.conversation.responding(() => agent.run(text));
@@ -223,28 +198,32 @@ export class ConversationHandle {
     }
   }
 
-  /** Turns typing on now and every few seconds until the returned function is called. */
+  /**
+   * Shows typing now and every few seconds until the returned function is called. No
+   * channel clears the indicator on request: it clears itself when your next message
+   * goes or a few seconds after the last refresh. Failures are ignored.
+   */
   keepTyping(): () => Promise<void> {
     let stopped = false;
-    const on = () => this.typing("on", { maxRetries: 0 }).catch(() => undefined);
-    void on();
+    const show = () => this.typing(undefined, { maxRetries: 0 }).catch(() => undefined);
+    void show();
     const timer = setInterval(() => {
-      if (!stopped) void on();
+      if (!stopped) void show();
     }, TYPING_REFRESH_MS);
     return async () => {
-      if (stopped) return;
       stopped = true;
       clearInterval(timer);
-      await this.typing("off", { maxRetries: 0 }).catch(() => undefined);
     };
   }
 
   /**
-   * Replies with text, content, a list of content, or an LLM stream (OpenAI,
+   * Replies with text, a kind object, a list of them, or an LLM stream (OpenAI,
    * Anthropic, Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, LangChain, Mastra,
    * or any `AsyncIterable<string>`). Text is split into bubbles at paragraph and
-   * sentence ends by the channel's rules, and each bubble is sent as soon as it is
-   * complete while typing stays on. Resolves with the sent messages, in order.
+   * sentence ends by the channel's rules, and each bubble is sent as a `basic` message
+   * exactly as written (no markdown is rendered or stripped), as soon as it is
+   * complete, while typing is shown. A kind object is sent as given. Resolves with the
+   * sent messages, in order.
    *
    * ```ts
    * await event.conversation.reply(openai.chat.completions.create({ model, messages, stream: true }));
@@ -255,12 +234,9 @@ export class ConversationHandle {
     if (options.split === false) rules.softLength = Infinity;
     const sent: Message[] = [];
     let index = 0;
-    const sendOne = async (content: Content) => {
-      const req: SendMessageRequest = { content, fallback: options.fallback === undefined ? "auto" : options.fallback };
-      if (options.metadata) req.metadata = options.metadata;
-      if (options.channel_options) req.channel_options = options.channel_options;
+    const sendOne = async (piece: Exclude<OutboundKind, TypingKind | ReadKind>) => {
       const i = index++;
-      const msg = await this.#flow.messages.send(this.id, req, {
+      const msg: Message = await this.#flow.messages.send(this.id, piece, {
         signal: options.signal,
         timeout: options.timeout,
         maxRetries: options.maxRetries,
@@ -279,15 +255,21 @@ export class ConversationHandle {
         { until: options.until, timeoutMs: options.untilTimeoutMs, signal: options.signal },
       );
     };
-    const textContent = (t: string): Content =>
-      options.format === "plain" ? { type: "text", text: t } : { type: "text", text: t, format: "markdown" };
+    const textBubble = (t: string): BasicKind => (options.metadata ? { kind: "basic", text: t, metadata: options.metadata } : { kind: "basic", text: t });
+    const asMessage = (piece: string | OutboundKind) => {
+      const k = toKind(piece);
+      if (k.kind === "typing" || k.kind === "read") throw new TypeError(`reply() sends messages; use conversation.${k.kind}() for ${k.kind}.`);
+      return k;
+    };
 
     if (Array.isArray(input)) {
-      for (const c of input) await sendOne(c);
+      // Checked before anything goes, so a bad piece sends nothing.
+      const pieces = input.map(asMessage);
+      for (const p of pieces) await sendOne(p);
       return settle();
     }
-    if (typeof input === "object" && input !== null && "type" in input && typeof input.type === "string" && !isTextStreamSource(input)) {
-      await sendOne(input as Content);
+    if (typeof input === "object" && input !== null && "kind" in input && typeof input.kind === "string" && !isTextStreamSource(input)) {
+      await sendOne(asMessage(input as OutboundKind));
       return settle();
     }
 
@@ -295,13 +277,13 @@ export class ConversationHandle {
     try {
       const splitter = new BubbleSplitter(rules);
       if (typeof input === "string") {
-        for (const b of [...splitter.push(input), ...splitter.end()]) await sendOne(textContent(b));
+        for (const b of [...splitter.push(input), ...splitter.end()]) await sendOne(textBubble(b));
       } else {
         // Bubbles go out in order while the stream is still being read.
         let chain: Promise<void> = Promise.resolve();
         let failed: unknown;
         const enqueue = (b: string) => {
-          chain = chain.then(() => (failed ? undefined : sendOne(textContent(b)))).catch((e) => {
+          chain = chain.then(() => (failed ? undefined : sendOne(textBubble(b)))).catch((e) => {
             failed ??= e;
           });
         };

@@ -29,12 +29,12 @@ Typing and read receipts go to the channel at once, so they answer HTTP 409 `out
 
 ## How to fix it
 
-On WhatsApp, send an approved template (`content.type=template`), or wait for the contact to write again; their message reopens the window. `GET /v1/capabilities?conversation=...` shows `window.open` and `window.open_until`.
+On WhatsApp, send an approved template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write again; their message reopens the window. The conversation's `window_open_until` (`GET /v0/conversations/{conversation_id}`) says until when free-form messages go.
 
 ```bash
-curl https://api.flow.engineer/v1/messages \
+curl https://api.flow.engineer/v0/conversations/conv_.../template \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
-  -d '{"sender":"snd_...","to":{"contact":"ct_..."},"content":{"type":"template","template_id":"tpl_...","language":"en","params":{"body":["Asha"]}}}'
+  -d '{"template_id":"tpl_...","language":"en","params":{"body":["Asha"]}}'
 ```
 
 For `window_closed`, send the message again as an approved template, or wait for the contact to write. For `queued_too_long`, send it again if it still applies, once the sender is `active` again (`sender.status_changed`).

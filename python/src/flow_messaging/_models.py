@@ -58,7 +58,7 @@ class Account(BaseModel):
     and messages already queued there fail the same way. The sandbox
     senders answer the account's contacts with a fixed refusal and store
     and deliver nothing they send; turning the flag on ends the account's
-    sandbox joins. Only SMS can be simulated (`POST /v1/test/conversations`):
+    sandbox joins. Only SMS can be simulated (`POST /v0/test/conversations`):
     creating a simulated Telegram, WhatsApp or iMessage conversation, or posting a
     turn to one made before the flag was set, answers the same refusal.
     Set by the Flow team.
@@ -137,7 +137,7 @@ class ApiKey(BaseModel):
     expires_at: datetime | None = None
     """
     When the key stops working. Set only on keys of an unclaimed app made with
-    `POST /v1/sandbox/keys` (7 days after it was made); signing in through the
+    `POST /v0/sandbox/keys` (7 days after it was made); signing in through the
     device flow claims the app and removes it. An expired key can still start
     that sign-in for 30 days after this time, and claiming the app within those
     30 days makes the key work again.
@@ -211,7 +211,7 @@ class AppSettings(BaseModel):
     )
     transcription: bool
     """
-    When on, inbound voice notes carry a `transcript` (adds about 1 to 2 seconds to voice notes only).
+    Not used yet. Flow makes no transcripts of its own on any channel; on iMessage, a received voice note carries the transcript iMessage made of it, whatever this setting says.
     """
     auto_read: bool
     """
@@ -219,25 +219,164 @@ class AppSettings(BaseModel):
     """
 
 
-class ButtonReplyContent(BaseModel):
+class BasicImessageOptions(BaseModel):
     """
-    Inbound only. The contact tapped a reply button (or, where buttons fell back to numbered text, answered with its number).
+    iMessage only: styles and a subject line. On another channel the block
+    answers `422 unsupported_content` with `param` `imessage`; an unknown key
+    `400 invalid_request`. A message that goes by SMS or RCS (see
+    `Message.network`) shows neither.
+
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["button_reply"]
+    styles: list[ImessageStyle] | None = None
+    """
+    Styled ranges of `text` (see `ImessageStyle`). Each range must lie within `text`; one that does not answers `400 invalid_request` naming it (`imessage.styles[0]`).
+    """
+    subject: str | None = None
+    """
+    iMessage's subject line, shown in bold above the text.
+    """
+
+
+class BasicMessage(BaseModel):
+    """
+    Text, or one media file with an optional caption, in either direction: the
+    kind every channel takes (`POST /v0/conversations/{conversation_id}/basic`).
+    Give `text`, `media`, or both (then `text` is the caption). A field not
+    listed here is refused with `400 invalid_request` naming it in `param`;
+    a field or channel block the conversation's channel does not take answers
+    `422 unsupported_content` naming it.
+
+    Received from a contact: their text and/or one file. Inbound media always
+    has `url` (a Flow file URL, `GET /v0/files/{file_id}`) and `file_id`, on
+    every channel (an SMS contact's MMS files included), and `mime_type` and
+    `size_bytes` once Flow kept the file; send a received file again by its
+    `file_id`. On SMS Flow always keeps its own copy (the provider's is
+    deleted): an MMS file it could not fetch or check arrives as
+    `file_blocked` instead.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["basic"] = "basic"
+    """
+    Always `basic`. Optional on `POST /v0/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
+    """
+    text: str | None = None
+    """
+    The text, sent exactly as written: no markdown, no stripping. At most
+    4096 UTF-16 code units on Telegram (an emoji such as 😀 counts as 2),
+    4096 characters on WhatsApp, 9999 on iMessage, and 10 segments on SMS
+    (see `SmsSegments`). With `media` it is the caption, at most 1024 (UTF-16
+    code units on Telegram). Optional when `media` is given. Longer text is
+    refused with `400 invalid_request`.
+
+    """
+    media: Media | None = None
+    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
+        None
+    )
+    """
+    Send this as an inline reply to an earlier message in the same
+    conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+    inline replies: there it answers `422 unsupported_content` with `param`
+    `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+    target is not a message in this conversation, and with `400
+    invalid_request` (`param` `reply_to`) when the target never reached the
+    channel (for example, it failed). If the target fails after the send was
+    accepted, the reply goes out as a normal message.
+
+    """
+    link_preview: bool | None = None
+    """
+    Whether links in the text show a rich preview. Left out, the channel's
+    default applies (Telegram, WhatsApp and iMessage show previews).
+    `false` sends links as plain text. SMS never shows previews, and no
+    channel shows one on a media message: `false` is accepted there, and
+    `true` on SMS or with `media` answers `422 unsupported_content` with
+    `param` `link_preview`.
+
+    """
+    telegram: BasicTelegramOptions | None = None
+    imessage: BasicImessageOptions | None = None
+    metadata: dict[str, str] | None = None
+
+
+class BasicKind(BasicMessage):
+    """
+    A `basic` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`BasicMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["basic"]
+    """
+    Always `basic`. Optional on `POST /v0/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
+    """
+
+
+class BasicTelegramOptions(BaseModel):
+    """
+    Telegram only: how the message looks and notifies on Telegram. On another
+    channel the block answers `422 unsupported_content` with `param`
+    `telegram`; an unknown key `400 invalid_request`.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    parse_mode: Literal["HTML", "MarkdownV2"] | None = None
+    """
+    How Telegram reads the text: `HTML` or `MarkdownV2`, Telegram's own
+    formatting (see Telegram's Bot API, "Formatting options"). Without it the
+    text is plain. Text that Telegram cannot parse is refused by Telegram:
+    the message fails (`message.failed`, `channel_error`).
+
+    """
+    disable_notification: bool | None = None
+    """
+    Deliver silently, with no sound.
+    """
+    protect_content: bool | None = None
+    """
+    Stop the contact forwarding or saving the message.
+    """
+    show_caption_above_media: bool | None = None
+    """
+    Media only. Show the caption above the photo or video instead of below it.
+    """
+    has_spoiler: bool | None = None
+    """
+    Media only (photos and videos). Cover it with a spoiler animation until tapped.
+    """
+
+
+class ButtonReplyMessage(BaseModel):
+    """
+    Inbound only. The contact tapped a reply button of a buttons or carousel message, or a row of a list.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["button_reply"]
     """
     Always `button_reply`.
     """
     button_id: str
     """
-    The `id` of the tapped button.
+    The `id` of the tapped button or list row.
     """
     label: str
     """
-    The tapped button's label.
+    The tapped button's label, or the list row's title.
     """
     message_id: Annotated[
         str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])
@@ -247,52 +386,98 @@ class ButtonReplyContent(BaseModel):
     """
 
 
-class ButtonsContent(BaseModel):
+class ButtonsMessage(BaseModel):
     """
-    Text with buttons, sent only, optionally under a `header`. Telegram shows an
-    inline keyboard; WhatsApp shows up to 3 reply buttons, or a list for more;
-    iMessage and SMS have no buttons (use `fallback`). A tap arrives as a
-    `message.received` event with `button_reply` content carrying the button's
-    `id`. URL buttons open a link and send nothing back.
-
-    On WhatsApp, a message whose only button is one `UrlButton` (no reply buttons)
-    goes as a call-to-action URL message: the text, the header if given, and one
-    button that opens the link. A list (more than 3 reply buttons) takes only a
-    `text` header; a media header there is refused with `invalid_request`. Footers
-    are not supported.
-
-    With a media `header`, Telegram sends one message: the photo, video or
-    document with `text` as its caption and the inline keyboard under it, so
-    `text` must then fit Telegram's caption limit of 1024 UTF-16 code units. With
-    `fallback: auto` on iMessage and SMS, a media header goes as one media message
-    whose caption is the numbered text (`delivered_as` type `media`), and a text
-    header becomes the first line of the numbered text. SMS (MMS) carries no
-    documents: a `document` header there is refused with `unsupported_content`, as
-    `media` content is.
+    Text with buttons, sent only (`POST
+    /v0/conversations/{conversation_id}/buttons`), optionally under a
+    `header`. A tap on a reply button arrives as a `button_reply` message
+    carrying the button's `id`. URL buttons open a link and send nothing back.
 
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["buttons"]
+    kind: Literal["buttons"] = "buttons"
     """
-    Always `buttons`.
+    Always `buttons`. Optional on its endpoint; required where no URL names the kind.
     """
     header: ContentHeader | None = None
     text: str
     """
-    The text above the buttons: at most 4096 characters on Telegram (the same
-    as a text message, in UTF-16 code units), or 1024 when the message has a
-    media `header` (Telegram's caption limit), and 1024 on WhatsApp (its limit
-    for messages with buttons). On iMessage, `fallback: auto` sends the text and
-    the numbered choices as one text message, which must fit the channel's
-    `max_text_length`. Longer text is refused with `invalid_request`.
+    The text above the buttons, sent exactly as written: at most 4096 UTF-16
+    code units on Telegram, or 1024 when the message has a media `header`
+    (Telegram's caption limit), and 1024 characters on WhatsApp (its limit
+    for messages with buttons). Longer text is refused with `400
+    invalid_request`.
 
     """
     buttons: list[ReplyButton | UrlButton]
     """
-    1 to 10 buttons, in order.
+    The buttons, in order: 1 to 10 on Telegram; on WhatsApp 1 to 3 reply
+    buttons or exactly one URL button (anything else answers `422
+    unsupported_content` with `param` `buttons`; send a `list` for more
+    choices).
+
+    """
+    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
+        None
+    )
+    """
+    Send this as an inline reply to an earlier message in the same
+    conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+    inline replies: there it answers `422 unsupported_content` with `param`
+    `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+    target is not a message in this conversation, and with `400
+    invalid_request` (`param` `reply_to`) when the target never reached the
+    channel (for example, it failed). If the target fails after the send was
+    accepted, the reply goes out as a normal message.
+
+    """
+    telegram: ButtonsTelegramOptions | None = None
+    metadata: dict[str, str] | None = None
+
+
+class ButtonsKind(ButtonsMessage):
+    """
+    A `buttons` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ButtonsMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["buttons"]
+    """
+    Always `buttons`. Optional on its endpoint; required where no URL names the kind.
+    """
+
+
+class ButtonsTelegramOptions(BaseModel):
+    """
+    Telegram only: how the message looks and notifies on Telegram. On another
+    channel the block answers `422 unsupported_content` with `param`
+    `telegram`; an unknown key `400 invalid_request`.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    parse_mode: Literal["HTML", "MarkdownV2"] | None = None
+    """
+    How Telegram reads the text: `HTML` or `MarkdownV2`, Telegram's own
+    formatting (see Telegram's Bot API, "Formatting options"). Without it the
+    text is plain. Text that Telegram cannot parse is refused by Telegram:
+    the message fails (`message.failed`, `channel_error`).
+
+    """
+    disable_notification: bool | None = None
+    """
+    Deliver silently, with no sound.
+    """
+    protect_content: bool | None = None
+    """
+    Stop the contact forwarding or saving the message.
     """
 
 
@@ -343,42 +528,6 @@ class CallForwarding(BaseModel):
     """
 
 
-class Capabilities(BaseModel):
-    """
-    What a conversation's channel supports now.
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    conversation: Annotated[str, Field(examples=["conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"])]
-    """
-    A conversation ID, `conv_` and a ULID.
-    """
-    channel: Literal["telegram", "whatsapp", "imessage", "sms"]
-    """
-    A messaging channel. `sms` is US SMS and MMS (in pilot), from dedicated numbers only.
-    """
-    window: WindowState
-    content: list[ContentSupport]
-    """
-    One entry per content type that can be sent.
-    """
-    limits: ChannelLimits | None = None
-    groups: GroupSupport | None = None
-    text_styles: list[Literal["bold", "italic", "underline", "strikethrough", "size", "animation"]] | None = (
-        None
-    )
-    """
-    The `markdown` styles the channel renders (see `TextContent.format`);
-    others are stripped to their text and reported in `delivered_as`.
-    iMessage: all of them (none when the conversation's messages go by SMS
-    or RCS); Telegram: `bold`, `italic`, `underline`, `strikethrough`;
-    WhatsApp: `bold`, `italic`, `strikethrough`; SMS: none.
-
-    """
-
-
 class CarouselCard(BaseModel):
     """
     One card of a carousel.
@@ -389,7 +538,7 @@ class CarouselCard(BaseModel):
     )
     header: ContentHeader
     """
-    The card's image or video, a `ContentHeader` of type `image` or `video` only (by `url` or `file_id`); any other type is refused with `invalid_request` at `content.cards[i].header.type`.
+    The card's image or video, a `ContentHeader` of type `image` or `video` only (by `url` or `file_id`); any other type is refused with `400 invalid_request` at `cards[i].header.type`.
     """
     text: str | None = None
     """
@@ -401,113 +550,49 @@ class CarouselCard(BaseModel):
     """
 
 
-class CarouselContent(BaseModel):
+class CarouselMessage(BaseModel):
     """
     A row of 2 to 10 cards the contact scrolls sideways, under one text, sent
-    only. Each card has an image or video, optional text, and its own buttons. A
-    tap on a reply button arrives as `button_reply` content carrying the button's
-    `id`, as for `buttons`; URL buttons open a link and send nothing back.
-
-    Rules, each refused with `invalid_request` when broken: every card has the
-    same number and kind of buttons; a card has either exactly one URL button or
-    1 to 2 reply buttons; reply button `id`s are unique across the carousel.
-    Labels may repeat across cards (every card's "Buy"): the `id` says which
-    card's button was tapped.
-
-    WhatsApp shows one interactive carousel message, inside the 24-hour window
-    like any message that is not a template (a carousel template is sent as
-    `template` content). Telegram, iMessage and SMS have no carousels: with
-    `fallback: auto` Flow sends `text`, then each card as its own message (on
-    Telegram the photo or video with the card's text as its caption and its
-    buttons as an inline keyboard; on iMessage and SMS the photo or video with
-    the card's text and its numbered buttons as its caption, reply buttons
-    numbered across the whole carousel), in order, each one after the channel
-    acknowledged the one before. `delivered_as` reports it (type `media`), and
-    `channel_message_id` is the first of those messages.
+    only (`POST /v0/conversations/{conversation_id}/carousel`; WhatsApp). Each
+    card has an image or video, optional text, and its own buttons. A tap on a
+    reply button arrives as a `button_reply` message carrying the button's
+    `id`; URL buttons open a link and send nothing back. Every card has the
+    same number and kind of buttons; a card has either exactly one URL button
+    or 1 to 2 reply buttons; reply button `id`s are unique across the
+    carousel. Each rule is refused with `400 invalid_request` when broken.
 
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["carousel"]
+    kind: Literal["carousel"] = "carousel"
     """
-    Always `carousel`.
+    Always `carousel`. Optional on its endpoint; required where no URL names the kind.
     """
     text: str
     """
-    The message text shown above the cards, 1 to 1024 characters. Longer text is refused with `invalid_request`.
+    The message text shown above the cards, 1 to 1024 characters. Longer text is refused with `400 invalid_request`.
     """
     cards: list[CarouselCard]
     """
     2 to 10 cards, in the order shown (left to right).
     """
+    metadata: dict[str, str] | None = None
 
 
-class ChannelLimits(BaseModel):
+class CarouselKind(CarouselMessage):
     """
-    Size limits on this channel.
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    max_text_length: int | None = None
-    """
-    The longest text one message may carry, in characters (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 on SMS). Telegram counts UTF-16 code units, so an emoji such as 😀 counts as 2; the other channels count Unicode characters. A media caption takes at most 1024. Longer text is refused with `invalid_request`.
-    """
-    max_sms_segments: int | None = None
-    """
-    SMS only. The most segments one text may take (10); see `SmsSegments`. A text of more segments is refused with `invalid_request`: 1530 GSM-7 characters (fewer when it uses GSM-7's two-unit characters such as `{` or `€`), or 670 when it holds an emoji or other character outside GSM-7.
-
-    """
-    max_caption_length: int | None = None
-    """
-    The longest caption a media message may carry, and the longest `text` of a buttons message with a media `header` (1024; Telegram counts UTF-16 code units).
-    """
-    max_buttons: int | None = None
-    """
-    The most buttons one message may carry natively.
-    """
-    max_file_bytes: int | None = None
-    """
-    The largest file one message may carry.
-    """
-
-
-class ChannelOptions(BaseModel):
-    """
-    **Unstable escape hatch.** Extra channel parameters for how a message looks
-    and notifies, for example `{"parse_mode": "HTML"}` on Telegram. Each channel
-    has an allowlist: keys not on it are dropped, never passed to the channel, and
-    the typed request always wins over a key that sets the same thing. Who
-    receives the message and what it says always come from the typed request.
-    Keys starting with `_flow_` are reserved and refused with `invalid_request`.
-    Flow does not validate the values, and they may break when a channel
-    changes. Prefer typed content.
-
-    - **Telegram** (Bot API parameters, on every send): `parse_mode`,
-      `entities`, `caption_entities`, `link_preview_options`,
-      `disable_web_page_preview`, `show_caption_above_media`,
-      `disable_notification`, `protect_content`, `allow_paid_broadcast`,
-      `message_effect_id`, `has_spoiler`, `supports_streaming`, `duration`,
-      `width`, `height`, `performer`, `horizontal_accuracy`, `foursquare_id`,
-      `foursquare_type`, `google_place_id`, `google_place_type`, `vcard`,
-      `is_big` (reactions).
-    - **iMessage**: on messages, `subject`, `effect`, `preview`,
-      `reply_to_id` and `contact_file` (the typed `TextContent.subject` and
-      `link_preview` win over `subject` and `preview`); on `typing` content, `typing` (how long
-      to show it, 1 to 60 seconds). Reactions, read receipts, edits and unsends
-      take none.
-    - **WhatsApp**: on `text` content, `preview_url` (show a link preview;
-      by default on when the text holds an http(s) link). Everything else
-      (recipient, message type, reply context) comes from the typed fields.
-
+    A `carousel` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`CarouselMessage` with `kind` required).
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
+    kind: Literal["carousel"]
+    """
+    Always `carousel`. Optional on its endpoint; required where no URL names the kind.
+    """
 
 
 class ChannelPeople(BaseModel):
@@ -613,7 +698,7 @@ class Contact(BaseModel):
     consent: ContactConsent | None = None
     simulated: bool | None = None
     """
-    `true` for a simulated contact, who exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise.
+    `true` for a simulated contact, who exists only inside Flow (test mode only, from `POST /v0/test/conversations`); absent otherwise.
     """
     created_at: datetime
     """
@@ -647,17 +732,20 @@ class ContactAddress(BaseModel):
     """
 
 
-class ContactCardContent(BaseModel):
+class ContactCardMessage(BaseModel):
     """
-    A contact card, both ways. Channels without cards need `fallback` (`auto` sends it as text).
+    A contact card, in either direction (`POST
+    /v0/conversations/{conversation_id}/contact-card` sends one; Telegram and
+    WhatsApp). Inbound, a card the contact shared.
+
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["contact_card"]
+    kind: Literal["contact_card"] = "contact_card"
     """
-    Always `contact_card`.
+    Always `contact_card`. Optional on its endpoint; required where no URL names the kind.
     """
     name: str
     """
@@ -665,11 +753,40 @@ class ContactCardContent(BaseModel):
     """
     phones: list[str] | None = None
     """
-    Phone numbers, E.164 where known.
+    Phone numbers, E.164 where known. Telegram needs at least one (else `422 unsupported_content`, `param` `phones`).
     """
     emails: list[str] | None = None
     """
     Email addresses.
+    """
+    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
+        None
+    )
+    """
+    Send this as an inline reply to an earlier message in the same
+    conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+    inline replies: there it answers `422 unsupported_content` with `param`
+    `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+    target is not a message in this conversation, and with `400
+    invalid_request` (`param` `reply_to`) when the target never reached the
+    channel (for example, it failed). If the target fails after the send was
+    accepted, the reply goes out as a normal message.
+
+    """
+    metadata: dict[str, str] | None = None
+
+
+class ContactCardKind(ContactCardMessage):
+    """
+    A `contact_card` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ContactCardMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["contact_card"]
+    """
+    Always `contact_card`. Optional on its endpoint; required where no URL names the kind.
     """
 
 
@@ -742,16 +859,17 @@ class ContactList(BaseModel):
 
 class ContentHeader(BaseModel):
     """
-    What is shown above a message's text: an image, a video, a document or a
-    short title. A media header takes exactly one of `url` (an HTTPS URL Flow
-    fetches) or `file_id` (from `POST /v1/files`), and is fetched, checked and
-    converted for the channel like `media` content (so WebP and other formats
-    work); a `text` header takes `text`. Anything else, or a value over a limit,
-    is refused with `invalid_request` naming the field in `param`.
+    What is shown above a buttons message's text, or a carousel card's image or
+    video: an image, a video, a document or a short title. A media header
+    takes exactly one of `url` (an HTTPS URL Flow fetches) or `file_id` (from
+    `POST /v0/files`), and is fetched and checked for the channel like a basic
+    message's `media` (so WebP and other formats work); a `text` header takes
+    `text`. Anything else, or a value over a limit, is refused with `400
+    invalid_request` naming the field in `param`.
 
     WhatsApp shows the header at the top of the same message bubble. Telegram
     sends one message: the media with the text as its caption and the buttons
-    under it; a `text` header becomes the message's first line, in bold.
+    under it; a `text` header is the message's first line, in bold.
 
     """
 
@@ -779,32 +897,6 @@ class ContentHeader(BaseModel):
     filename: str | None = None
     """
     `document` headers only. The file's name, shown with the document.
-    """
-
-
-class ContentSupport(BaseModel):
-    """
-    How the channel handles one content type.
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    type: Literal["text", "media", "voice", "buttons", "button_reply", "carousel", "reaction", "template", "location", "contact_card", "effect", "typing", "read", "edit", "unsend", "file_blocked"]
-    """
-    The kinds of content. Each is described in its own schema, with the direction it travels in.
-    """
-    support: Literal["native", "fallback", "unsupported"]
-    """
-    `native` (shown as sent), `fallback` (needs `fallback`; `auto` sends `fallback_type`) or `unsupported` (cannot be sent).
-    """
-    fallback_type: Literal["text", "media", "none"] | None = None
-    """
-    With `support` `fallback`, what `fallback: "auto"` sends instead, or `none` when it is skipped.
-    """
-    note: str | None = None
-    """
-    A limit worth knowing (for example "up to 3 buttons, else a list").
     """
 
 
@@ -870,7 +962,7 @@ class Conversation(BaseModel):
     """
     simulated: bool | None = None
     """
-    `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise.
+    `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v0/test/conversations`); absent otherwise.
     """
     metadata: dict[str, str] | None = None
     created_at: datetime
@@ -891,11 +983,10 @@ class ConversationAction(BaseModel):
     """
     A conversation ID, `conv_` and a ULID.
     """
-    action: Literal["typing_on", "typing_off", "read"]
+    action: Literal["typing", "read"]
     """
-    Which action was taken.
+    Which action the channel took. `typing` (the indicator was shown) or `read` (the read receipt was sent).
     """
-    delivered_as: DeliveredAs | None = None
 
 
 class ConversationList(BaseModel):
@@ -959,7 +1050,7 @@ class ConversationRef(BaseModel):
     """
     simulated: bool | None = None
     """
-    `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise.
+    `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v0/test/conversations`); absent otherwise.
     """
 
 
@@ -996,27 +1087,6 @@ class Deleted(BaseModel):
     """
 
 
-class DeliveredAs(BaseModel):
-    """
-    Present when what the contact sees differs from what you sent: the `fallback`
-    was used, or the action was skipped because the channel has no equivalent.
-    Absent when the content was shown as sent.
-
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    type: Literal["text", "media", "voice", "buttons", "carousel", "reaction", "template", "location", "contact_card", "effect", "typing", "read", "edit", "unsend", "none"]
-    """
-    The content type actually shown, or `none` when nothing was shown.
-    """
-    reason: str
-    """
-    Why, in one sentence (for example "iMessage cannot show buttons; sent numbered text").
-    """
-
-
 class DeviceAuthorization(BaseModel):
     """
     A device sign-in waiting for a person to approve it in a browser.
@@ -1027,7 +1097,7 @@ class DeviceAuthorization(BaseModel):
     )
     device_code: Annotated[str, Field(examples=["fdc_..."])]
     """
-    The secret you poll `POST /v1/device/token` with. Never show it to the person.
+    The secret you poll `POST /v0/device/token` with. Never show it to the person.
     """
     user_code: Annotated[str, Field(examples=["WDJB-MJHT"])]
     """
@@ -1055,7 +1125,7 @@ class DeviceAuthorization(BaseModel):
     """
     interval: int
     """
-    Seconds to wait between polls of `POST /v1/device/token`.
+    Seconds to wait between polls of `POST /v0/device/token`.
     """
 
 
@@ -1069,7 +1139,7 @@ class DeviceAuthorizationRequest(BaseModel):
     )
     claim_token: str | None = None
     """
-    The `claim_token` from `POST /v1/sandbox/keys`, to claim that app when the person approves.
+    The `claim_token` from `POST /v0/sandbox/keys`, to claim that app when the person approves.
     """
     client_name: str | None = None
     """
@@ -1124,19 +1194,60 @@ class DeviceTokenRequest(BaseModel):
     )
     device_code: str
     """
-    The `device_code` from `POST /v1/device/authorizations`.
+    The `device_code` from `POST /v0/device/authorizations`.
     """
 
 
-class EditContent(BaseModel):
+class EditImessageOptions(BaseModel):
     """
-    Replaces the text of one of your sent messages, sent only (over HTTP use `PATCH /v1/messages/{message_id}`). Telegram and iMessage; WhatsApp refuses it with `unsupported_content`.
+    iMessage only. Styles for the new text. An unknown key is refused with `400 invalid_request`.
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["edit"]
+    styles: list[ImessageStyle] | None = None
+    """
+    Styled ranges of the new `text` (see `ImessageStyle`).
+    """
+
+
+class EditMessageRequest(BaseModel):
+    """
+    The new text of a sent message (`PATCH /v0/messages/{message_id}`), sent
+    exactly as written. A field not listed here is refused with `400
+    invalid_request` naming it in `param`; a channel block for another channel
+    answers `422 unsupported_content` with `param` the block's name.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    text: str
+    """
+    The new text: at most 4096 UTF-16 code units on Telegram (1024 when it
+    replaces a media message's caption) and 9999 characters on iMessage.
+    Longer text is refused with `400 invalid_request`.
+
+    """
+    telegram: EditTelegramOptions | None = None
+    imessage: EditImessageOptions | None = None
+
+
+class EditMessage(EditMessageRequest):
+    """
+    A change to the text of one of your sent messages, as a kind: a piece of a
+    webhook reply or on the stream, and the `content` of the message that
+    carries an edit (`PATCH /v0/messages/{message_id}` over HTTP, whose rules
+    apply). `message_id` names the message to change.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["edit"]
     """
     Always `edit`.
     """
@@ -1144,39 +1255,74 @@ class EditContent(BaseModel):
     """
     A message ID, `msg_` and a ULID.
     """
-    content: TextContent
 
 
-class EditMessageRequest(BaseModel):
+class EditTelegramOptions(BaseModel):
     """
-    The new text of a sent message. A field not listed here is refused with `400 invalid_request` naming it in `param`.
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    content: TextContent
-
-
-class EffectContent(BaseModel):
-    """
-    Text sent with an iMessage effect, sent only. Other channels need `fallback` (`auto` sends the plain text). Which effects are available may vary.
+    Telegram only. How Telegram reads the new text. An unknown key is refused with `400 invalid_request`.
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["effect"]
+    parse_mode: Literal["HTML", "MarkdownV2"] | None = None
     """
-    Always `effect`.
+    How Telegram reads the text: `HTML` or `MarkdownV2`, Telegram's own
+    formatting (see Telegram's Bot API, "Formatting options"). Without it the
+    text is plain. Text that Telegram cannot parse is refused by Telegram:
+    the message fails (`message.failed`, `channel_error`).
+
+    """
+
+
+class EffectMessage(BaseModel):
+    """
+    Text sent with an iMessage effect, sent only (`POST /v0/conversations/{conversation_id}/effect`; iMessage). Which effects a contact's device shows may vary.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["effect"] = "effect"
+    """
+    Always `effect`. Optional on its endpoint; required where no URL names the kind.
     """
     text: str
     """
-    The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 on SMS, where it must also fit in 10 segments, 670 characters when it holds an emoji or other character outside GSM-7; see `GET /v1/capabilities`). Telegram counts UTF-16 code units, so an emoji such as 😀 counts as 2. Longer text is refused with `invalid_request`.
+    The text, sent exactly as written, at most 9999 characters. Longer text is refused with `400 invalid_request`.
     """
     effect: Literal["slam", "loud", "gentle", "invisible_ink", "echo", "spotlight", "balloons", "confetti", "love", "lasers", "fireworks", "celebration"]
     """
     The effect.
+    """
+    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
+        None
+    )
+    """
+    Send this as an inline reply to an earlier message in the same
+    conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+    inline replies: there it answers `422 unsupported_content` with `param`
+    `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+    target is not a message in this conversation, and with `400
+    invalid_request` (`param` `reply_to`) when the target never reached the
+    channel (for example, it failed). If the target fails after the send was
+    accepted, the reply goes out as a normal message.
+
+    """
+    metadata: dict[str, str] | None = None
+
+
+class EffectKind(EffectMessage):
+    """
+    An `effect` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`EffectMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["effect"]
+    """
+    Always `effect`. Optional on its endpoint; required where no URL names the kind.
     """
 
 
@@ -1206,12 +1352,12 @@ class ErrorBody(BaseModel):
     the error's `doc_url`; the error's `hint` says what to change for the case.
 
     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
-    - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
+    - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v0/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
-    - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a `template` (`POST /v1/messages` with `content.type=template`), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-    - `unsupported_content` (422): the channel cannot show this content and no `fallback` was set. Set `fallback` (`"auto"` or your own content), or check `GET /v1/capabilities` first. In an iMessage group conversation, a reaction answers it with `param` `content.type` and `channel_code` `group_unsupported` (groups take no reactions from your line): leave it out, or set `fallback: "auto"` to skip it. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
+    - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
+    - `unsupported_content` (422): the conversation's channel does not take this kind, field, block or value, and nothing was sent; Flow never converts a message. `param` names what was refused: `kind` (the endpoint's kind is not on this channel, such as a carousel on Telegram), a field or block (`reply_to` on SMS, `telegram` on WhatsApp, `telegram.is_big`), or the field whose value is not taken (`emoji` outside Telegram's reaction emoji, `buttons` for more than 3 WhatsApp buttons). `channel` is the conversation's channel and `hint` says what to send instead over plain HTTP; each endpoint's page lists its channels. In an iMessage group conversation, a reaction, typing or a read receipt answers it with `param` `kind` and `channel_code` `group_unsupported`: leave it out. Media to an SMS number without MMS answers it with `param` `media` and `channel_code` `no_mms`. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v0/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file. (When the scan cannot run at all, the upload answers a retryable `500 api_error` with `Retry-After` instead.)
@@ -1228,14 +1374,15 @@ class ErrorBody(BaseModel):
     hint: Annotated[
         str,
         Field(
-            examples=["Send a template instead: POST /v1/messages with content.type=template."]
+            examples=["Send a template instead: POST /v0/conversations/{conversation_id}/template."]
         ),
     ]
     """
     One sentence saying what to change to make the request succeed, specific
-    to this case, for example "Send a template instead: POST /v1/messages with
-    content.type=template." Written for developers and coding agents alike. Do
-    not parse it; it may be reworded at any time.
+    to this case, for example "Send a template instead: POST
+    /v0/conversations/{conversation_id}/template." For `unsupported_content`
+    it says what to send instead over plain HTTP. Written for developers and
+    coding agents alike. Do not parse it; it may be reworded at any time.
 
     """
     doc_url: Annotated[
@@ -1246,11 +1393,15 @@ class ErrorBody(BaseModel):
     """
     param: str | None = None
     """
-    The request parameter the error is about, as a dotted path (`content.buttons`, `limit`).
+    The request parameter the error is about, as a dotted path (`kind`, `telegram.is_big`, `buttons`, `cards[1].header.type`, `limit`).
     """
     retry_after: int | None = None
     """
     Seconds to wait before retrying, for errors that clear by themselves.
+    """
+    channel: Literal["telegram", "whatsapp", "imessage", "sms"] | None = None
+    """
+    The conversation's channel, on errors about what it takes (`unsupported_content`) and its windows (`outside_window`).
     """
     conversation: Annotated[
         str | None, Field(examples=["conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"])
@@ -1274,7 +1425,7 @@ class ErrorBody(BaseModel):
     the allowance does not cover this sandbox channel), `sign_in_required`
     (`permission`: an app made without an account cannot do this) or
     `sandbox_key_expired` (`authentication`: a key from `POST
-    /v1/sandbox/keys` passed its `expires_at`; `permission`, for a send
+    /v0/sandbox/keys` passed its `expires_at`; `permission`, for a send
     that carries no key, such as a reply in a webhook answer, from such an
     app). For `idempotency_conflict`, always one of `body_mismatch` (the
     key was used for a different request), `in_progress` (the first
@@ -1286,7 +1437,7 @@ class ErrorBody(BaseModel):
     `registration_required`, `carrier_error` and `provider_not_configured`
     (`channel_error`). HIPAA accounts: `hipaa_channel_not_covered`
     (`permission`). Connecting your own WhatsApp number (`POST
-    /v1/senders`): `whatsapp_token_malformed`, `whatsapp_token_rejected`,
+    /v0/senders`): `whatsapp_token_malformed`, `whatsapp_token_rejected`,
     `whatsapp_app_secret_malformed` and `whatsapp_number_not_in_account`
     (`invalid_request`), and `whatsapp_number_taken`,
     `whatsapp_account_taken` and `whatsapp_number_managed` (`permission`).
@@ -1297,9 +1448,11 @@ class ErrorBody(BaseModel):
     `queued_too_long` (`outside_window`), and
     `channel_timeout_unknown_outcome` (`channel_error`: the channel never
     confirmed the send, so it may or may not have arrived). iMessage
-    (`unsupported_content`): `group_unsupported` (a reaction in a group
-    conversation; `param` `content.type`) and
-    `not_on_sms` (an edit or unsend of a message that went by SMS or RCS).
+    (`unsupported_content`): `group_unsupported` (a reaction, typing or a
+    read receipt in a group conversation; `param` `kind`) and
+    `not_on_sms` (an edit or unsend of a message that went by SMS or RCS;
+    `param` `kind`). SMS (`unsupported_content`): `no_mms` (media to a
+    number without MMS; `param` `media`).
     Edits and unsends (`unsupported_content`): `edit_window_closed` and
     `unsend_window_closed` (the message is older than the channel allows
     for the change) and `first_message_not_editable` (iMessage: the message
@@ -1369,7 +1522,7 @@ class CallReceivedEvent(EventBase):
 
 class ContactDeletedEvent(EventBase):
     """
-    A contact was deleted with `DELETE /v1/contacts/{contact_id}`: their address,
+    A contact was deleted with `DELETE /v0/contacts/{contact_id}`: their address,
     messages, files and events are erased at Flow. Delete what you keep about
     them too. Sent once, for the first delete; it has no `conversation`.
 
@@ -1470,7 +1623,7 @@ class EventList(BaseModel):
 
 class File(BaseModel):
     """
-    A stored file. Send it as `media` or `voice` content by `file_id`.
+    A stored file. Send it by `file_id` as a basic message's `media`, a voice note or a header.
     """
 
     model_config = ConfigDict(
@@ -1494,7 +1647,7 @@ class File(BaseModel):
     """
     url: str
     """
-    Its Flow URL (`https://api.flow.engineer/v1/files/{file_id}`), which redirects to the bytes for an authenticated request.
+    Its Flow URL (`https://api.flow.engineer/v0/files/{file_id}`), which redirects to the bytes for an authenticated request.
     """
     livemode: bool
     """
@@ -1510,7 +1663,7 @@ class File(BaseModel):
     """
 
 
-class FileBlockedContent(BaseModel):
+class FileBlockedMessage(BaseModel):
     """
     Inbound only. The contact sent a file that Flow did not keep: it failed the
     malware scan, its real type is one Flow does not pass on (programs, web
@@ -1525,7 +1678,7 @@ class FileBlockedContent(BaseModel):
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["file_blocked"]
+    kind: Literal["file_blocked"]
     """
     Always `file_blocked`.
     """
@@ -1533,9 +1686,9 @@ class FileBlockedContent(BaseModel):
     """
     Why the file was not kept: `malware` (the scan found something), `type_not_allowed`, `scan_failed` (the scanner could not check it; ask the contact to send it again), or `too_large`.
     """
-    kind: Literal["image", "video", "document", "audio"] | None = None
+    media_type: Literal["image", "video", "document", "audio"] | None = None
     """
-    What kind of media the channel said it was.
+    What kind of file the channel said it was.
     """
     filename: str | None = None
     """
@@ -1618,33 +1771,6 @@ class GroupParticipant(BaseModel):
     """
 
 
-class GroupSupport(BaseModel):
-    """
-    What the conversation's sender does with group chats. Dedicated iMessage
-    lines receive and reply in groups; Flow's shared iMessage line ignores
-    group chats (`receive` and `reply` `false`), and the other channels do
-    neither today. No channel lets the API
-    create a group or change who is in it (`manage` is always `false`).
-
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    receive: bool
-    """
-    Whether messages from group chats your sender is in reach your app, as `group` conversations.
-    """
-    reply: bool
-    """
-    Whether you can send into a group conversation. Reactions are refused there (`422 unsupported_content`, `channel_code` `group_unsupported`), and typing and read receipts are skipped (`delivered_as.type` `none`).
-    """
-    manage: bool
-    """
-    Whether the API can create a group, rename it, or add or remove people. Always `false`.
-    """
-
-
 class ImessageSender(BaseModel):
     """
     iMessage senders only: what the line can do beyond replying in iMessage.
@@ -1662,19 +1788,17 @@ class ImessageSender(BaseModel):
     by your app; the message's `network` says which one carried it.
     Included on Flow's shared lines; on a dedicated line, an add-on
     arranged with the Flow team. Off, a message to a contact who is not on
-    iMessage fails (`message.failed`). Flow sends every message as for
-    iMessage, since the network is picked after the send: one that goes
-    by SMS or RCS may lose its styles, effect and `subject`, or show
-    markup as written. Edits and unsends of such a message answer `422
-    unsupported_content` with `channel_code` `not_on_sms` (see
-    `Message.network`).
+    iMessage fails (`message.failed`). A message that goes by SMS or RCS
+    shows no `imessage.styles`, `imessage.subject` or effect, and edits
+    and unsends of it answer `422 unsupported_content` with
+    `channel_code` `not_on_sms` (see `Message.network`).
 
     """
     call_forwarding: CallForwarding | None = None
     can_initiate: bool
     """
     Whether the line may write first: start a conversation with
-    `POST /v1/messages` with a contact who has not messaged it. Off (the
+    `POST /v0/messages` with a contact who has not messaged it. Off (the
     default), the line only replies and a start answers `403 permission`.
     Writing first is available on request from the Flow team, on dedicated
     lines only (always `false` on shared lines); a line that starts
@@ -1684,17 +1808,147 @@ class ImessageSender(BaseModel):
     """
 
 
-class LocationContent(BaseModel):
+class ImessageStyle(BaseModel):
     """
-    A place, both ways. Inbound, a location the contact shared. Channels without locations need `fallback` (`auto` sends a maps link).
+    One styled range of an iMessage text.
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["location"]
+    start: int
     """
-    Always `location`.
+    Where the range starts, in UTF-16 code units from the start of `text`.
+    """
+    length: int
+    """
+    How long the range is, in UTF-16 code units.
+    """
+    style: Literal["bold", "italic", "underline", "strikethrough", "big", "small", "shake", "nod", "explode", "ripple", "bloom", "jitter"]
+    """
+    The style. `big` and `small` set the text's size; `shake`, `nod`, `explode`, `ripple`, `bloom` and `jitter` animate it.
+    """
+
+
+class ListMessage(BaseModel):
+    """
+    WhatsApp's list message, sent only (`POST
+    /v0/conversations/{conversation_id}/list`): the text, a button that opens
+    the list, and up to 10 rows in sections. A tap on a row arrives as a
+    `button_reply` message whose `button_id` is the row's `id` and whose
+    `label` is its title. Row `id`s are unique across the list; a repeated one
+    is refused with `400 invalid_request`.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["list"] = "list"
+    """
+    Always `list`. Optional on its endpoint; required where no URL names the kind.
+    """
+    header: str | None = None
+    """
+    A title shown above the text, 1 to 60 characters.
+    """
+    text: str
+    """
+    The message's text, sent exactly as written, 1 to 4096 characters.
+    """
+    button: str
+    """
+    The label of the button that opens the list, 1 to 20 characters.
+    """
+    sections: list[ListSection]
+    """
+    1 to 10 sections, in order, with at most 10 rows in all.
+    """
+    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
+        None
+    )
+    """
+    Send this as an inline reply to an earlier message in the same
+    conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+    inline replies: there it answers `422 unsupported_content` with `param`
+    `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+    target is not a message in this conversation, and with `400
+    invalid_request` (`param` `reply_to`) when the target never reached the
+    channel (for example, it failed). If the target fails after the send was
+    accepted, the reply goes out as a normal message.
+
+    """
+    metadata: dict[str, str] | None = None
+
+
+class ListKind(ListMessage):
+    """
+    A `list` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ListMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["list"]
+    """
+    Always `list`. Optional on its endpoint; required where no URL names the kind.
+    """
+
+
+class ListRow(BaseModel):
+    """
+    One option of a list.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    id: str
+    """
+    Your ID for the row, returned in `button_reply` as `button_id`. 1 to 200 characters, unique across the list.
+    """
+    title: str
+    """
+    The row's title, 1 to 24 characters, returned in `button_reply` as `label`.
+    """
+    description: str | None = None
+    """
+    A line under the title, at most 72 characters.
+    """
+
+
+class ListSection(BaseModel):
+    """
+    One section of a list.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    title: str | None = None
+    """
+    The section's title, 1 to 24 characters. Required when the list has more than one section.
+    """
+    rows: list[ListRow]
+    """
+    The section's rows, in order.
+    """
+
+
+class LocationMessage(BaseModel):
+    """
+    A place, in either direction (`POST
+    /v0/conversations/{conversation_id}/location` sends one; Telegram and
+    WhatsApp). Inbound, a location the contact shared.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["location"] = "location"
+    """
+    Always `location`. Optional on its endpoint; required where no URL names the kind.
     """
     lat: float
     """
@@ -1712,30 +1966,56 @@ class LocationContent(BaseModel):
     """
     The place's address.
     """
-
-
-class MediaContent(BaseModel):
+    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
+        None
+    )
     """
-    An image, video, document or audio file, both ways. When sending, give either
-    `url` (Flow fetches it) or `file_id` (from `POST /v1/files`). Inbound media
-    always has `url`, a Flow file URL (`GET /v1/files/{file_id}`), and `file_id`,
-    on every channel (an SMS contact's MMS files included), and `mime_type` and
-    `size_bytes` once Flow kept the file. On SMS Flow always keeps its own copy
-    (the provider's is deleted): an MMS file it could not fetch or check arrives
-    as `file_blocked` instead. Send a received file again by its `file_id`.
+    Send this as an inline reply to an earlier message in the same
+    conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+    inline replies: there it answers `422 unsupported_content` with `param`
+    `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+    target is not a message in this conversation, and with `400
+    invalid_request` (`param` `reply_to`) when the target never reached the
+    channel (for example, it failed). If the target fails after the send was
+    accepted, the reply goes out as a normal message.
+
+    """
+    metadata: dict[str, str] | None = None
+
+
+class LocationKind(LocationMessage):
+    """
+    A `location` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`LocationMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["location"]
+    """
+    Always `location`. Optional on its endpoint; required where no URL names the kind.
+    """
+
+
+class Media(BaseModel):
+    """
+    One image, video, document or audio file. When sending, give exactly one of
+    `url` (an HTTPS URL Flow fetches; Flow neither stores nor scans it, and on
+    Telegram a document by URL works for PDF and ZIP files) or `file_id` (from
+    `POST /v0/files`). Each channel takes files up to its own size: Telegram
+    50 MB, WhatsApp and iMessage 100 MB, SMS (MMS) 5 MB; a larger file answers
+    `422 unsupported_content` with `param` `media`. SMS carries images, audio
+    and video, never documents (`param` `media.type`), and only from numbers
+    with MMS (`channel_code` `no_mms`).
 
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["media"]
+    type: Literal["image", "video", "document", "audio"]
     """
-    Always `media`.
-    """
-    kind: Literal["image", "video", "document", "audio"]
-    """
-    What kind of media it is.
+    What kind of file it is.
     """
     url: str | None = None
     """
@@ -1747,27 +2027,26 @@ class MediaContent(BaseModel):
     """
     A file ID, `file_` and a ULID.
     """
-    caption: str | None = None
-    """
-    Text shown with the media, at most 1024 characters. Telegram counts UTF-16 code units, so an emoji such as 😀 counts as 2. Longer captions are refused with `invalid_request`.
-    """
     filename: str | None = None
     """
-    The file's name, shown for documents.
+    The file's name, shown for documents and taken only with `type` `document` (on another type it answers `422 unsupported_content` with `param` `media.filename`). On Telegram it works only with `file_id`: Telegram names a document sent by `url` itself, so `filename` with `url` answers `422 unsupported_content` with `param` `media.filename`.
     """
     mime_type: str | None = None
     """
-    The real type, checked from the file's first bytes.
+    Inbound only. The real type, checked from the file's first bytes.
     """
     size_bytes: int | None = None
     """
-    The file's size.
+    Inbound only. The file's size.
     """
 
 
 class Message(BaseModel):
     """
-    One message in or out of a conversation, with its typed content and delivery status.
+    One message in or out of a conversation, with its kind and content and its
+    delivery status. What you send is what the contact gets: Flow never
+    converts a message into another kind.
+
     """
 
     model_config = ConfigDict(
@@ -1803,53 +2082,30 @@ class Message(BaseModel):
 
     """
     content: Annotated[
-        TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent,
-        Field(discriminator="type"),
+        MessageContent1 | MessageContent2 | MessageContent3 | MessageContent4 | MessageContent5 | MessageContent6 | MessageContent7 | MessageContent8 | MessageContent9 | MessageContent10 | MessageContent11 | MessageContent12 | MessageContent13 | MessageContent14 | MessageContent15 | MessageContent16,
+        Field(discriminator="kind"),
     ]
     """
-    One piece of content, in either direction. `type` selects the shape. Inbound
-    messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `location`,
-    `contact_card` and `file_blocked`; sends use every type except `button_reply`
-    and `file_blocked`.
-
-    A buttons message may carry a `header` (`ContentHeader`): an image, video,
-    document or a short title shown with the text and buttons.
-
-    | type | Telegram | WhatsApp | iMessage | SMS (US, pilot) | `fallback: "auto"` |
-    |---|---|---|---|---|---|
-    | text | yes | yes | yes | yes (at most 10 segments) | markdown to plain |
-    | media | yes | yes | yes | images, audio, video as MMS (no documents) | none |
-    | voice | yes | yes | yes | as an MMS audio file | audio file |
-    | buttons | inline keyboard | up to 3 buttons, else a list; one URL button as a call-to-action link | no | no | numbered text |
-    | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
-    | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
-    | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
-    | reaction | yes | yes | tapbacks, other emoji as emoji reactions (not in groups) | no | closest tapback, else skipped (SMS: none) |
-    | template | no | yes | no | no | none |
-    | location | yes | yes | no | no | maps link as text |
-    | contact_card | yes | yes | no | no | text |
-    | effect | no | no | yes | no | plain text |
-    | typing | yes | yes | yes (within 5 minutes of the contact's last message; skipped in groups) | no | skipped |
-    | read | no (bots) | yes | yes (the whole conversation; skipped in groups) | no | skipped |
-    | edit | yes | no | yes (within 15 minutes; not when it went by SMS or RCS) | no | none |
-    | unsend | yes (within 48 hours) | no | yes (within 2 minutes; not when it went by SMS or RCS) | no | none |
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
     network: Literal["imessage", "sms", "rcs"] | None = None
     """
     iMessage channel only: the network that carried the message. `imessage`,
-    or `sms` or `rcs` when the line has fallback (`Sender.imessage.fallback`)
-    and the contact could not get iMessage. Set on inbound messages, and on
-    your messages once the channel reports it (in `message.sent`,
-    `message.delivered` or `message.failed`, as `data.message.network`);
-    absent before that and on other channels. A message that went by `sms`
-    or `rcs` was sent as for iMessage, so it may have lost its styles, effect
-    and `subject`, or shown markup as written (`delivered_as` does not report
-    it); edits and unsends of it answer `422 unsupported_content` with
-    `channel_code` `not_on_sms`.
+    or `sms` or `rcs` when the line has the SMS/RCS add-on
+    (`Sender.imessage.fallback`) and the contact could not get iMessage. The
+    network is chosen for each message when it is sent, never by your app.
+    Set on inbound messages, and on your messages once the channel reports it
+    (in `message.sent`, `message.delivered` or `message.failed`, as
+    `data.message.network`); absent before that and on other channels. A
+    message that went by `sms` or `rcs` showed no `imessage.styles`, no
+    `imessage.subject` and no effect, and edits and unsends of it answer `422
+    unsupported_content` with `channel_code` `not_on_sms`.
 
     """
-    delivered_as: DeliveredAs | None = None
     error: ErrorBody | None = None
     channel_message_id: str | None = None
     """
@@ -1862,9 +2118,9 @@ class Message(BaseModel):
     """
     The Flow ID of the message this one replies to. For a sent message, the
     message the send named in `reply_to`. For a received message, the message it
-    replies to inline (a Telegram reply; on iMessage, the thread's root message).
-    Absent when the message is not a reply or the quoted message is not known
-    to Flow.
+    replies to inline (a Telegram or WhatsApp reply; on iMessage, the thread's
+    root message). Absent when the message is not a reply or the quoted
+    message is not known to Flow.
 
     """
     livemode: bool
@@ -1879,6 +2135,306 @@ class Message(BaseModel):
     updated_at: datetime | None = None
     """
     When the status last changed.
+    """
+
+
+class MessageContent1(BasicKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["basic"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
+class MessageContent13(EditMessage):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["edit"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
+class MessageContent15(ButtonReplyMessage):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["button_reply"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
+class MessageContent16(FileBlockedMessage):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["file_blocked"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
+class MessageContent3(ButtonsKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["buttons"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
+class MessageContent4(ListKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["list"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
+class MessageContent5(CarouselKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["carousel"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
+class MessageContent7(ContactCardKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["contact_card"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
+class MessageContent8(LocationKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["location"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
+class MessageContent9(EffectKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["effect"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
     """
 
 
@@ -2076,33 +2632,6 @@ class ReactionAddedEvent(EventBase):
     data: ReactionEventData
 
 
-class ReactionContent(BaseModel):
-    """
-    A reaction to a message, both ways. Set `emoji` to `null` to remove your
-    reaction. iMessage has a fixed set of tapbacks; with `fallback: "auto"` the
-    closest tapback is used, or the reaction is skipped and reported in
-    `delivered_as`. Inbound reactions also arrive as `reaction.added` and
-    `reaction.removed` events.
-
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    type: Literal["reaction"]
-    """
-    Always `reaction`.
-    """
-    message_id: Annotated[str, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])]
-    """
-    A message ID, `msg_` and a ULID.
-    """
-    emoji: str | None
-    """
-    One emoji, or `null` to remove the reaction.
-    """
-
-
 class ReactionEventData(BaseModel):
     """
     A reaction the contact added or removed.
@@ -2127,6 +2656,77 @@ class ReactionEventData(BaseModel):
     """
 
 
+class ReactionMessage(BaseModel):
+    """
+    A reaction to a message, in either direction (`POST
+    /v0/conversations/{conversation_id}/reaction` sends one). Set `emoji` to
+    `null` to remove your reaction. Inbound reactions also arrive as
+    `reaction.added` and `reaction.removed` events.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["reaction"] = "reaction"
+    """
+    Always `reaction`. Optional on its endpoint; required where no URL names the kind.
+    """
+    message_id: Annotated[str, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])]
+    """
+    A message ID, `msg_` and a ULID.
+    """
+    emoji: str | None
+    """
+    One emoji, or `null` to remove the reaction. On Telegram only its reaction emoji (listed on the endpoint); any other answers `422 unsupported_content` with `param` `emoji`.
+    """
+    telegram: ReactionTelegramOptions | None = None
+
+
+class ReactionKind(ReactionMessage):
+    """
+    A `reaction` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ReactionMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["reaction"]
+    """
+    Always `reaction`. Optional on its endpoint; required where no URL names the kind.
+    """
+
+
+class MessageContent10(ReactionKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["reaction"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
+    """
+
+
 class ReactionRemovedEvent(EventBase):
     """
     The contact removed a reaction.
@@ -2142,39 +2742,86 @@ class ReactionRemovedEvent(EventBase):
     data: ReactionEventData
 
 
-class ReadContent(BaseModel):
+class ReactionTelegramOptions(BaseModel):
     """
-    A read receipt, sent only (over HTTP use `POST /v1/conversations/{conversation_id}/read`). Skipped on Telegram, where bots cannot send them. On iMessage the whole conversation is marked read.
+    Telegram only. On another channel the block answers `422
+    unsupported_content` with `param` `telegram`; an unknown key `400
+    invalid_request`.
+
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["read"]
+    is_big: bool | None = None
     """
-    Always `read`.
-    """
-    up_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
-        None
-    )
-    """
-    The latest inbound message to mark read (default the latest inbound message). No effect on iMessage.
+    Show the reaction with a large animation.
     """
 
 
-class ReadRequest(BaseModel):
+class ReadMessage(BaseModel):
     """
-    Which messages to mark as read.
+    A read receipt, sent only (`POST /v0/conversations/{conversation_id}/read`;
+    a `read` piece in a webhook reply or on the stream does the same).
+
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
+    kind: Literal["read"] = "read"
+    """
+    Always `read`. Optional on its endpoint; required where no URL names the kind.
+    """
     up_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
         None
     )
     """
-    The latest inbound message to mark read (default the latest inbound message). On iMessage it has no effect, since the whole conversation is marked read.
+    WhatsApp only. The latest inbound message to mark read (default the latest inbound message). iMessage marks the whole conversation read, so `up_to` there answers `422 unsupported_content` with `param` `up_to`.
+    """
+
+
+class ReadKind(ReadMessage):
+    """
+    A `read` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`ReadMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["read"]
+    """
+    Always `read`. Optional on its endpoint; required where no URL names the kind.
+    """
+
+
+class MessageContent12(ReadKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["read"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
     """
 
 
@@ -2234,7 +2881,7 @@ class ReplyButton(BaseModel):
 class SandboxAllowance(BaseModel):
     """
     What the app may still send on the shared sandbox senders for free. Present
-    only on apps that have one: apps made with `POST /v1/sandbox/keys`
+    only on apps that have one: apps made with `POST /v0/sandbox/keys`
     (`anonymous`, one allowance per app), and apps of people who signed in
     (`signed_in`, one allowance per person: every app the person owns or claimed
     draws on the same contacts and messages, so the counts here are the
@@ -2301,7 +2948,7 @@ class SandboxKey(BaseModel):
     claim_token: Annotated[str, Field(examples=["fct_..."])]
     """
     Proves you hold this app when a person signs in to claim it: pass it to
-    `POST /v1/device/authorizations`. Shown once; keep it with the key. It
+    `POST /v0/device/authorizations`. Shown once; keep it with the key. It
     stops working once the app is claimed.
 
     """
@@ -2331,97 +2978,6 @@ class SandboxKeyRequest(BaseModel):
     """
 
 
-class SendMessageRequest(BaseModel):
-    """
-    One piece of content to send into a conversation. A field not listed here is
-    refused with `400 invalid_request` naming it in `param`, never ignored. There
-    are no scheduled sends: a message goes out as soon as it passes the gate, so
-    to send later, wait in your own code and send then.
-
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    content: Annotated[
-        TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent,
-        Field(discriminator="type"),
-    ]
-    """
-    One piece of content, in either direction. `type` selects the shape. Inbound
-    messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `location`,
-    `contact_card` and `file_blocked`; sends use every type except `button_reply`
-    and `file_blocked`.
-
-    A buttons message may carry a `header` (`ContentHeader`): an image, video,
-    document or a short title shown with the text and buttons.
-
-    | type | Telegram | WhatsApp | iMessage | SMS (US, pilot) | `fallback: "auto"` |
-    |---|---|---|---|---|---|
-    | text | yes | yes | yes | yes (at most 10 segments) | markdown to plain |
-    | media | yes | yes | yes | images, audio, video as MMS (no documents) | none |
-    | voice | yes | yes | yes | as an MMS audio file | audio file |
-    | buttons | inline keyboard | up to 3 buttons, else a list; one URL button as a call-to-action link | no | no | numbered text |
-    | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
-    | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
-    | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
-    | reaction | yes | yes | tapbacks, other emoji as emoji reactions (not in groups) | no | closest tapback, else skipped (SMS: none) |
-    | template | no | yes | no | no | none |
-    | location | yes | yes | no | no | maps link as text |
-    | contact_card | yes | yes | no | no | text |
-    | effect | no | no | yes | no | plain text |
-    | typing | yes | yes | yes (within 5 minutes of the contact's last message; skipped in groups) | no | skipped |
-    | read | no (bots) | yes | yes (the whole conversation; skipped in groups) | no | skipped |
-    | edit | yes | no | yes (within 15 minutes; not when it went by SMS or RCS) | no | none |
-    | unsend | yes (within 48 hours) | no | yes (within 2 minutes; not when it went by SMS or RCS) | no | none |
-
-    """
-    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
-        None
-    )
-    """
-    Send this as a reply to an earlier message in the same conversation.
-    Telegram and iMessage show it as an inline reply; channels without inline
-    replies send it as a normal message. Refused with `not_found` (`param`
-    `reply_to`) when the target is not a message in this conversation, and with
-    `invalid_request` (`param` `reply_to`) when the content is `typing`, `read`,
-    `reaction`, `edit` or `unsend`, or when the target never reached the
-    channel (for example, it failed). If the target fails after the send was
-    accepted, the reply goes out as a normal message.
-
-    """
-    fallback: Literal["auto"] | TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent | None = (
-        None
-    )
-    """
-    What to send when the channel cannot show `content`. Without it, such a send
-    fails with `unsupported_content`; nothing is converted silently.
-
-    - `"auto"`: use the documented default for the content type (markdown becomes
-      plain text, buttons become numbered text whose replies are matched back to
-      the button IDs (by number, or by a label only one of the buttons has), a carousel becomes its text and then one message per card,
-      a voice note becomes an audio file, a location becomes a
-      maps link, a contact card becomes text, an effect becomes plain text, a
-      reaction becomes the closest tapback or is skipped).
-    - A `Content` object: send exactly this instead.
-    - `null`: no fallback, the same as leaving it out.
-
-    The message's `delivered_as` reports what was used.
-
-    """
-    link_preview: bool | None = True
-    """
-    Whether links in the text show a rich preview. On by default; `false`
-    sends links as plain text. iMessage and WhatsApp follow it on text
-    messages, Telegram on text messages; SMS never shows previews. It
-    wins over a `channel_options` key that sets the same thing (`preview`,
-    `preview_url`, `link_preview_options`, `disable_web_page_preview`).
-
-    """
-    channel_options: ChannelOptions | None = None
-    metadata: dict[str, str] | None = None
-
-
 class Sender(BaseModel):
     """
     What your agent talks from: a Telegram bot, a WhatsApp number, an iMessage
@@ -2447,7 +3003,7 @@ class Sender(BaseModel):
     """
     `shared` (the sandbox), `dedicated` (yours) or `simulated` (test mode only:
     your app's stand-in for a channel, used by simulated conversations from
-    `POST /v1/test/conversations`; it never touches a network).
+    `POST /v0/test/conversations`; it never touches a network).
 
     """
     livemode: bool
@@ -2468,11 +3024,11 @@ class Sender(BaseModel):
       bot is also `flagged` when Telegram rejects its token (revoked in
       @BotFather): it then sends nothing, new sends answer `403 permission`, and
       queued messages wait until you connect the bot again with its new token
-      (`POST /v1/senders`). They wait at most 72 hours after Flow accepted
+      (`POST /v0/senders`). They wait at most 72 hours after Flow accepted
       them; older ones fail with `outside_window` (`channel_code`
       `queued_too_long`) in `message.failed` instead of going out late.
     - `banned`: it cannot send or receive: the channel banned it, you
-      disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was
+      disconnected it (`DELETE /v0/senders/{sender_id}`), or its bot or line was
       connected to another app.
 
     """
@@ -2493,7 +3049,7 @@ class Sender(BaseModel):
         str | None, Field(examples=["Hi Sandbox app (ref brave-otter-40718263)"])
     ] = None
     """
-    Shared senders only. The whole message a contact sends to this sender to join your app: `Hi `, the app's name (`there` when it has none), then the app's `sandbox_join_code` (from `GET /v1/app`) in brackets after `ref`, for example `Hi Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets.
+    Shared senders only. The whole message a contact sends to this sender to join your app: `Hi `, the app's name (`there` when it has none), then the app's `sandbox_join_code` (from `GET /v0/app`) in brackets after `ref`, for example `Hi Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets.
 
     """
     created_at: datetime
@@ -2641,7 +3197,7 @@ class SenderRequest(BaseModel):
 
 class SenderSetup(BaseModel):
     """
-    Only in the answer to `POST /v1/senders` that connected a WhatsApp number:
+    Only in the answer to `POST /v0/senders` that connected a WhatsApp number:
     what you still set in your own Meta app, which Flow cannot set for you.
     Flow already points the number's webhooks at `callback_url` (Meta's
     phone-number-level override); entering the same URL in your app makes its
@@ -2700,11 +3256,11 @@ class SenderStatusChangedData(BaseModel):
       bot is also `flagged` when Telegram rejects its token (revoked in
       @BotFather): it then sends nothing, new sends answer `403 permission`, and
       queued messages wait until you connect the bot again with its new token
-      (`POST /v1/senders`). They wait at most 72 hours after Flow accepted
+      (`POST /v0/senders`). They wait at most 72 hours after Flow accepted
       them; older ones fail with `outside_window` (`channel_code`
       `queued_too_long`) in `message.failed` instead of going out late.
     - `banned`: it cannot send or receive: the channel banned it, you
-      disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was
+      disconnected it (`DELETE /v0/senders/{sender_id}`), or its bot or line was
       connected to another app.
 
     """
@@ -2757,32 +3313,29 @@ class SignedInUser(BaseModel):
 
 class SimulatedButtonTap(BaseModel):
     """
-    The simulated contact taps a reply button of a buttons message your app sent
-    in this conversation. Name the message and the button's `id`; Flow fills in
-    the label, and the received message is a `button_reply` with the tapped
-    button's `label`. On a channel that shows no buttons the contact answers the
-    numbered text instead (send the number as `text`).
+    The simulated contact taps a reply button of a buttons or carousel message
+    your app sent in this conversation, or a row of a list. Name the message
+    and the button's (or row's) `id`; Flow fills in the label, and the received
+    message is a `button_reply` with the tapped button's `label` (a row's
+    title). A channel that shows no buttons has nothing to tap: the contact
+    answers in words, as a `basic` turn.
 
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["button_reply"]
+    kind: Literal["button_reply"]
     """
     Always `button_reply`.
     """
     message_id: Annotated[str, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])]
     """
-    The buttons message your app sent, which must have reached the contact (its `message.sent`).
+    The buttons, carousel or list message your app sent, which must have reached the contact (its `message.sent`).
     """
     button_id: str
     """
-    The `id` of the tapped reply button.
-    """
-    label: str | None = None
-    """
-    Ignored: Flow uses the tapped button's label.
+    The `id` of the tapped reply button or list row.
     """
 
 
@@ -2821,14 +3374,16 @@ class SimulatedInboundRequest(BaseModel):
         extra="allow",
     )
     content: Annotated[
-        TextContent | MediaContent | VoiceContent | LocationContent | ContactCardContent | SimulatedButtonTap,
-        Field(discriminator="type"),
+        BasicKind | VoiceKind | LocationKind | ContactCardKind | SimulatedButtonTap,
+        Field(discriminator="kind"),
     ]
     """
-    What the contact sends: `text`, `media`, `voice`, `location`,
-    `contact_card` or `button_reply` (a tap on a reply button, named by the
-    buttons message and the button's `id`). Media and voice take a `file_id`
-    from `POST /v1/files`. Other types answer `400 invalid_request`.
+    What a simulated contact sends in one turn, as a message kind with `kind`
+    (required): `basic` (`text` and/or `media` by `file_id`), `voice` (by
+    `file_id`), `location`, `contact_card`, or `button_reply` (a tap on a reply
+    button, or on a list row, of a message your app sent). Fields a contact
+    cannot send (`reply_to` and `metadata` inside the kind, channel blocks,
+    `link_preview`, `url`) and other kinds answer `400 invalid_request`.
 
     """
     from_: Annotated[
@@ -2841,7 +3396,7 @@ class SimulatedInboundRequest(BaseModel):
         None
     )
     """
-    A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`.
+    A message of this conversation the contact replies to inline, on channels with inline replies (Telegram, WhatsApp, iMessage; on SMS it answers `400 invalid_request`). The received message shows it in `reply_to`.
     """
 
 
@@ -2851,8 +3406,11 @@ class SmsSegments(BaseModel):
     deliver SMS in segments: 160 GSM-7 characters fit one segment (153 each
     when split), but a single character outside GSM-7 (an emoji, curly quotes,
     most non-Latin letters) makes the whole text UCS-2, 70 characters in one
-    segment (67 each when split). An SMS send may use at most `max_sms_segments`
-    (`GET /v1/capabilities`, 10). Absent on MMS and on other channels.
+    segment (67 each when split). An SMS send may use at most 10 segments:
+    1530 GSM-7 characters (fewer when it uses GSM-7's two-unit characters such
+    as `{` or `€`), or 670 when it holds an emoji or other character outside
+    GSM-7; a longer text is refused with `400 invalid_request`. Absent on MMS
+    and on other channels.
 
     """
 
@@ -2898,21 +3456,14 @@ class SmsSender(BaseModel):
     """
     mms: bool
     """
-    Whether the number sends and receives MMS (images, audio and video). Without it, `media` and `voice` sends answer `422 unsupported_content`.
+    Whether the number sends and receives MMS (images, audio and video). Without it, a basic message with `media` answers `422 unsupported_content` with `param` `media` and `channel_code` `no_mms`.
     """
     quiet_hours: QuietHours | None = None
 
 
-class StartConversationRequest(BaseModel):
+class StartConversationTarget(BaseModel):
     """
-    The first message from one of your senders to a contact. A field not listed
-    here is refused with `400 invalid_request` naming it in `param`, never
-    ignored. On iMessage the sender must be able to write first
-    (`Sender.imessage.can_initiate`, available on request); otherwise the start
-    answers `403 permission`. A start always makes a `direct` conversation:
-    there is no way to start a group. There are no scheduled sends: to start a conversation later, wait
-    in your own code and send then.
-
+    Where a start goes. Part of every `StartConversationRequest`.
     """
 
     model_config = ConfigDict(
@@ -2923,72 +3474,23 @@ class StartConversationRequest(BaseModel):
     A sender ID, `snd_` and a ULID.
     """
     to: Recipient
-    content: Annotated[
-        TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent,
-        Field(discriminator="type"),
-    ]
-    """
-    One piece of content, in either direction. `type` selects the shape. Inbound
-    messages use `text`, `media`, `voice`, `button_reply`, `reaction`, `location`,
-    `contact_card` and `file_blocked`; sends use every type except `button_reply`
-    and `file_blocked`.
-
-    A buttons message may carry a `header` (`ContentHeader`): an image, video,
-    document or a short title shown with the text and buttons.
-
-    | type | Telegram | WhatsApp | iMessage | SMS (US, pilot) | `fallback: "auto"` |
-    |---|---|---|---|---|---|
-    | text | yes | yes | yes | yes (at most 10 segments) | markdown to plain |
-    | media | yes | yes | yes | images, audio, video as MMS (no documents) | none |
-    | voice | yes | yes | yes | as an MMS audio file | audio file |
-    | buttons | inline keyboard | up to 3 buttons, else a list; one URL button as a call-to-action link | no | no | numbered text |
-    | buttons with a media `header` | one message: the media, the text as its caption (1024), the keyboard | the header of the same message (not with a list) | no | no | the media with the numbered text as its caption (SMS: no documents) |
-    | buttons with a text `header` | a bold first line | the header of the same message | no | no | a first line of the numbered text |
-    | carousel | no | yes (2 to 10 cards) | no | no | the text, then each card as its own message |
-    | reaction | yes | yes | tapbacks, other emoji as emoji reactions (not in groups) | no | closest tapback, else skipped (SMS: none) |
-    | template | no | yes | no | no | none |
-    | location | yes | yes | no | no | maps link as text |
-    | contact_card | yes | yes | no | no | text |
-    | effect | no | no | yes | no | plain text |
-    | typing | yes | yes | yes (within 5 minutes of the contact's last message; skipped in groups) | no | skipped |
-    | read | no (bots) | yes | yes (the whole conversation; skipped in groups) | no | skipped |
-    | edit | yes | no | yes (within 15 minutes; not when it went by SMS or RCS) | no | none |
-    | unsend | yes (within 48 hours) | no | yes (within 2 minutes; not when it went by SMS or RCS) | no | none |
-
-    """
-    fallback: Literal["auto"] | TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent | None = (
-        None
-    )
-    """
-    What to send when the channel cannot show `content`. Without it, such a send
-    fails with `unsupported_content`; nothing is converted silently.
-
-    - `"auto"`: use the documented default for the content type (markdown becomes
-      plain text, buttons become numbered text whose replies are matched back to
-      the button IDs (by number, or by a label only one of the buttons has), a carousel becomes its text and then one message per card,
-      a voice note becomes an audio file, a location becomes a
-      maps link, a contact card becomes text, an effect becomes plain text, a
-      reaction becomes the closest tapback or is skipped).
-    - A `Content` object: send exactly this instead.
-    - `null`: no fallback, the same as leaving it out.
-
-    The message's `delivered_as` reports what was used.
-
-    """
-    link_preview: bool | None = True
-    """
-    Whether links in the text show a rich preview. On by default; `false`
-    sends links as plain text. iMessage and WhatsApp follow it on text
-    messages, Telegram on text messages; SMS never shows previews. It
-    wins over a `channel_options` key that sets the same thing (`preview`,
-    `preview_url`, `link_preview_options`, `disable_web_page_preview`).
-
-    """
-    channel_options: ChannelOptions | None = None
-    metadata: dict[str, str] | None = None
     consent: Consent | None = None
     """
-    SMS. The contact's consent, required when they have never texted any of your SMS numbers; recorded on the contact. Ignored on other channels.
+    SMS only. The contact's consent, required when they have never texted any of your SMS numbers; recorded on the contact. On another channel it answers `422 unsupported_content` with `param` `consent`.
+    """
+
+
+class StartBasicMessage(StartConversationTarget, BasicMessage):
+    """
+    A start whose first message is a basic message (`kind` `basic`).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["basic"]
+    """
+    Always `basic`. Optional on `POST /v0/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
     """
 
 
@@ -3013,7 +3515,7 @@ class StreamAckFrame(BaseModel):
 
 class StreamErrorFrame(BaseModel):
     """
-    Server to client. A `send` or `start` frame was refused (with its `ref`), or the stream itself was refused or failed (without `ref`; the server then closes the socket with a 4000-range close code, `4401` for `authentication`, see `GET /v1/stream`).
+    Server to client. A `send` or `start` frame was refused (with its `ref`), or the stream itself was refused or failed (without `ref`; the server then closes the socket with a 4000-range close code, `4401` for `authentication`, see `GET /v0/stream`).
     """
 
     model_config = ConfigDict(
@@ -3077,7 +3579,14 @@ class StreamReconnectFrame(BaseModel):
 
 class StreamSendFrame(BaseModel):
     """
-    Client to server. Same as `POST /v1/conversations/{conversation_id}/messages`; `ref` is also the idempotency key.
+    Client to server. Sends one message into a conversation, the same as the
+    endpoint of its `kind` (`POST /v0/conversations/{conversation_id}/<kind>`,
+    or `PATCH` and `DELETE /v0/messages/{message_id}` for `edit` and
+    `unsend`); `ref` is also the idempotency key. Frames into one conversation
+    go out in the order accepted, in line with the conversation's other sends.
+    The frame's `type` is the frame's own type; the message's kind is
+    `message.kind`.
+
     """
 
     model_config = ConfigDict(
@@ -3095,12 +3604,26 @@ class StreamSendFrame(BaseModel):
     """
     A conversation ID, `conv_` and a ULID.
     """
-    message: SendMessageRequest
+    message: Annotated[
+        BasicKind | VoiceKind | ButtonsKind | ListKind | CarouselKind | TemplateKind | ContactCardKind | LocationKind | EffectKind | ReactionKind | TypingKind | ReadKind | EditMessage | UnsendMessage,
+        Field(
+            discriminator="kind",
+            examples=[{"kind": "basic", "text": "Here are the sizes we have."}, {"kind": "buttons", "text": "Which size?", "buttons": [{"id": "size_s", "label": "Small"}, {"id": "size_m", "label": "Medium"}]}],
+        ),
+    ]
+    """
+    One message to send where no URL names the kind: a piece of a webhook
+    reply (`WebhookReply`) or the `message` of a stream `send` frame. `kind`
+    is required and selects the shape; the fields and channel rules are the
+    same as on the kind's endpoint (`edit` and `unsend` as on `PATCH` and
+    `DELETE /v0/messages/{message_id}`, with the target in `message_id`).
+
+    """
 
 
 class StreamStartFrame(BaseModel):
     """
-    Client to server. Same as `POST /v1/messages`; `ref` is also the idempotency key.
+    Client to server. Same as `POST /v0/messages` (a `basic` or `template` message with `kind`, `sender` and `to`); `ref` is also the idempotency key.
     """
 
     model_config = ConfigDict(
@@ -3114,7 +3637,22 @@ class StreamStartFrame(BaseModel):
     """
     Your ID for this frame, echoed in the answer and used as the idempotency key.
     """
-    message: StartConversationRequest
+    message: Annotated[
+        StartBasicMessage | StartTemplateMessage, Field(discriminator="kind")
+    ]
+    """
+    The first message from one of your senders to a contact: a `basic` or a
+    `template` message, with `kind` saying which (required here), plus
+    `sender`, `to` and, on SMS, `consent`. A field not listed for the kind is
+    refused with `400 invalid_request` naming it in `param`, never ignored; a
+    `kind` other than `basic` or `template` answers `422 unsupported_content`
+    with `param` `kind`. On iMessage the sender must be able to write first
+    (`Sender.imessage.can_initiate`, available on request); otherwise the
+    start answers `403 permission`. A start always makes a `direct`
+    conversation: there is no way to start a group. There are no scheduled
+    sends: to start a conversation later, wait in your own code and send then.
+
+    """
 
 
 class StreamFrame(
@@ -3132,7 +3670,7 @@ class StreamFrame(
         Field(discriminator="type"),
     ]
     """
-    One JSON frame on the `/v1/stream` WebSocket. The server sends `event`, `ack`,
+    One JSON frame on the `/v0/stream` WebSocket. The server sends `event`, `ack`,
     `error` and `reconnect`; the client sends `send` and `start`.
 
     """
@@ -3303,36 +3841,6 @@ class TemplateComponent(BaseModel):
     """
 
 
-class TemplateContent(BaseModel):
-    """
-    A WhatsApp message template, sent only. Required to start a WhatsApp
-    conversation or to write after the 24-hour window closed. The template must be
-    `approved`.
-
-    A media card carousel template (marketing category) is sent the same way, with
-    one entry per card in `params.cards`. Inside the 24-hour window a carousel needs
-    no template: send `carousel` content.
-
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    type: Literal["template"]
-    """
-    Always `template`.
-    """
-    template_id: Annotated[str, Field(examples=["tpl_01JB8Z9X2D4F6H8K0M2P4R6T8V"])]
-    """
-    A template ID, `tpl_` and a ULID.
-    """
-    language: str
-    """
-    The template language to use, as Meta names it (`en`, `en_US`, `hi`).
-    """
-    params: TemplateParams | None = None
-
-
 class TemplateCreateRequest(BaseModel):
     """
     A template to submit to Meta.
@@ -3403,6 +3911,110 @@ class TemplateList(BaseModel):
     has_more: bool
     """
     Whether more items lie beyond this page in the direction you paged.
+    """
+
+
+class TemplateMessage(BaseModel):
+    """
+    A WhatsApp message template, sent only (`POST
+    /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` to
+    start a conversation). Required to start a WhatsApp conversation or to
+    write after the 24-hour window closed. The template must be `approved`.
+
+    A media card carousel template (marketing category) is sent the same way,
+    with one entry per card in `params.cards`. Inside the 24-hour window a
+    carousel needs no template: send a `carousel` message.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["template"] = "template"
+    """
+    Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v0/messages`).
+    """
+    template_id: Annotated[str, Field(examples=["tpl_01JB8Z9X2D4F6H8K0M2P4R6T8V"])]
+    """
+    A template ID, `tpl_` and a ULID.
+    """
+    language: str
+    """
+    The template language to use, as Meta names it (`en`, `en_US`, `hi`).
+    """
+    params: TemplateParams | None = None
+    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
+        None
+    )
+    """
+    Send this as an inline reply to an earlier message in the same
+    conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+    inline replies: there it answers `422 unsupported_content` with `param`
+    `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+    target is not a message in this conversation, and with `400
+    invalid_request` (`param` `reply_to`) when the target never reached the
+    channel (for example, it failed). If the target fails after the send was
+    accepted, the reply goes out as a normal message.
+
+    """
+    metadata: dict[str, str] | None = None
+
+
+class StartTemplateMessage(StartConversationTarget, TemplateMessage):
+    """
+    A start whose first message is a WhatsApp template (`kind` `template`).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["template"]
+    """
+    Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v0/messages`).
+    """
+
+
+class TemplateKind(TemplateMessage):
+    """
+    A `template` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`TemplateMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["template"]
+    """
+    Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v0/messages`).
+    """
+
+
+class MessageContent6(TemplateKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["template"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
     """
 
 
@@ -3528,7 +4140,7 @@ class TestGroupRequest(BaseModel):
     `imessage` only: make a simulated group conversation (`type` `group`)
     instead of a one-to-one one, with these participants. Not with `contact`
     or `name`. Each turn names the participant who writes (`from` on
-    `POST /v1/test/conversations/{conversation_id}/inbound`). Another channel
+    `POST /v0/test/conversations/{conversation_id}/inbound`). Another channel
     answers `400 invalid_request` with `param` `group`.
 
     """
@@ -3565,63 +4177,6 @@ class TestTranscript(BaseModel):
     """
 
 
-class TextContent(BaseModel):
-    """
-    Text, both ways. With `format` `markdown`, Flow renders it in each channel's own formatting; a channel without formatting needs `fallback`.
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    type: Literal["text"]
-    """
-    Always `text`.
-    """
-    text: str
-    """
-    The text, at most the channel's `max_text_length` characters (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 on SMS, where it must also fit in 10 segments, 670 characters when it holds an emoji or other character outside GSM-7; see `GET /v1/capabilities`). Telegram counts UTF-16 code units of the text as shown (after markdown), so an emoji such as 😀 counts as 2. In an edit of a media message the text replaces its caption, and the caption limit applies (1024). Longer text is refused with `invalid_request`.
-    """
-    format: Literal["plain", "markdown"] | None = "plain"
-    """
-    How to read `text`. `plain` is sent as written, so a channel's own marks
-    (WhatsApp's `*bold*`) work with `plain`. Inbound text is always `plain`.
-
-    `markdown` is CommonMark (`**bold**`, `*italic*`) with GFM
-    strikethrough (`~~strike~~`) and Flow's tags, each written
-    `<name>text</name>`: `<u>` (underline), `<big>` and `<small>` (text
-    size), and the animations `<shake>`, `<nod>`, `<explode>`, `<ripple>`,
-    `<bloom>` and `<jitter>`. Flow converts them to each channel's own marks:
-
-    | style | iMessage | WhatsApp | Telegram |
-    |---|---|---|---|
-    | bold, italic | yes | yes | yes |
-    | `~~strike~~` | yes | yes | yes |
-    | `<u>` | yes | stripped | yes |
-    | `<big>`, `<small>` | yes | stripped | stripped |
-    | animations | yes | stripped | stripped |
-
-    A stripped style keeps its text and loses only the style, and the
-    message reports it in `delivered_as` (`type` `text`, `reason` naming
-    what was dropped); it never needs `fallback`. An iMessage message that
-    goes by SMS or RCS (`Message.network`) may lose its styles or show the
-    markup as written. On the SMS channel, markdown needs `fallback` as before (`auto`
-    sends the plain text). Tags must be closed and may nest; an unknown or
-    unclosed tag is sent as written. `GET /v1/capabilities` lists what a
-    channel renders in `text_styles`.
-
-    """
-    subject: str | None = None
-    """
-    Sends only: a title shown before the text. iMessage shows it as its
-    bold subject line; WhatsApp and Telegram send it as a bold first line;
-    SMS as a plain first line. An iMessage message that goes by SMS or RCS
-    (`Message.network`) may lose it. It counts
-    toward the channel's text limit on channels that send it as a line.
-    Ignored in edits. Inbound text has none.
-
-    """
-
-
 class Timing(BaseModel):
     """
     When the event moved through Flow, to measure Flow's overhead
@@ -3646,8 +4201,8 @@ class Timing(BaseModel):
     where you read it. In a webhook delivery's body, it is when that delivery
     attempt started (each attempt to each endpoint gets its own), unless an
     endpoint had already accepted the event, in which case it is that
-    acceptance time. In the event log (`GET /v1/events`,
-    `GET /v1/events/{event_id}`, the stream), it is when the first endpoint
+    acceptance time. In the event log (`GET /v0/events`,
+    `GET /v0/events/{event_id}`, the stream), it is when the first endpoint
     accepted the event, and it is absent until one has (always, for an app
     with no webhook endpoints).
 
@@ -3656,44 +4211,15 @@ class Timing(BaseModel):
 
 class TranscriptEntry(Message):
     """
-    One message of a simulated conversation: the `Message`, plus `shown` for a
-    sent message.
+    One message of a simulated conversation, as a `Message`. A sent message's
+    `content` is exactly what the simulated contact sees: Flow converts
+    nothing.
 
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    shown: Annotated[
-        TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent | None,
-        Field(discriminator="type"),
-    ] = None
-    """
-    Sent messages only: what the simulated contact sees, after the send gate
-    applied any fallback (the same as `content` when it was shown as sent).
-    Absent for received messages, for messages not sent yet or failed, and
-    when nothing was shown (`delivered_as.type` `none`, such as typing on
-    SMS).
-
-    """
-
-
-class TypingContent(BaseModel):
-    """
-    The typing indicator, sent only (the stream's and webhook replies' way to type; over HTTP use `POST /v1/conversations/{conversation_id}/typing`). Skipped where the channel has none.
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    type: Literal["typing"]
-    """
-    Always `typing`.
-    """
-    state: Literal["on", "off"]
-    """
-    `on` shows the indicator, `off` clears it.
-    """
 
 
 class TypingEventData(BaseModel):
@@ -3710,17 +4236,83 @@ class TypingEventData(BaseModel):
     """
 
 
-class TypingRequest(BaseModel):
+class TypingImessageOptions(BaseModel):
     """
-    Turn the typing indicator on or off.
+    iMessage only. On another channel the block answers `422
+    unsupported_content` with `param` `imessage`; an unknown key `400
+    invalid_request`.
+
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    state: Literal["on", "off"]
+    duration_seconds: int | None = None
     """
-    `on` shows the indicator, `off` clears it.
+    How long to show the indicator, 1 to 60 seconds, unless a message goes first.
+    """
+
+
+class TypingMessage(BaseModel):
+    """
+    The typing indicator, sent only (`POST
+    /v0/conversations/{conversation_id}/typing`; a `typing` piece in a webhook
+    reply or on the stream does the same). It shows the indicator, which
+    clears itself when your next message goes or after a few seconds.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["typing"] = "typing"
+    """
+    Always `typing`. Optional on its endpoint; required where no URL names the kind.
+    """
+    imessage: TypingImessageOptions | None = None
+
+
+class TypingKind(TypingMessage):
+    """
+    A `typing` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`TypingMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["typing"]
+    """
+    Always `typing`. Optional on its endpoint; required where no URL names the kind.
+    """
+
+
+class MessageContent11(TypingKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["typing"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
     """
 
 
@@ -3754,21 +4346,55 @@ class TypingStoppedEvent(EventBase):
     data: TypingEventData
 
 
-class UnsendContent(BaseModel):
+class UnsendMessage(BaseModel):
     """
-    Removes one of your sent messages from the contact's chat, sent only (over HTTP use `DELETE /v1/messages/{message_id}`). Telegram and iMessage; WhatsApp refuses it with `unsupported_content`.
+    Removes one of your sent messages from the contact's chat, as a kind: a
+    piece of a webhook reply or on the stream, and the `content` of the message
+    that carries an unsend (`DELETE /v0/messages/{message_id}` over HTTP,
+    whose rules apply).
+
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["unsend"]
+    kind: Literal["unsend"]
     """
     Always `unsend`.
     """
     message_id: Annotated[str, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])]
     """
     A message ID, `msg_` and a ULID.
+    """
+
+
+class MessageContent14(UnsendMessage):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["unsend"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
     """
 
 
@@ -3790,21 +4416,22 @@ class UrlButton(BaseModel):
     """
 
 
-class VoiceContent(BaseModel):
+class VoiceMessage(BaseModel):
     """
-    A voice note, both ways. Inbound voice notes always come with the audio file
-    (`url`, `file_id`) and, when the app has transcription on, a `transcript`.
-    When sending, give `url` or `file_id` of an audio file; channels without
-    voice notes need `fallback` (`auto` sends it as an audio file).
+    A voice note, in either direction (`POST
+    /v0/conversations/{conversation_id}/voice`). When sending, give `url` or
+    `file_id` of an audio file. Inbound voice notes always come with the audio
+    file (`url`, `file_id`). On iMessage, a received voice note also carries
+    a `transcript` when iMessage made one of it; no other channel has one.
 
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    type: Literal["voice"]
+    kind: Literal["voice"] = "voice"
     """
-    Always `voice`.
+    Always `voice`. Optional on its endpoint; required where no URL names the kind.
     """
     url: str | None = None
     """
@@ -3816,13 +4443,72 @@ class VoiceContent(BaseModel):
     """
     A file ID, `file_` and a ULID.
     """
+    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
+        None
+    )
+    """
+    Send this as an inline reply to an earlier message in the same
+    conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+    inline replies: there it answers `422 unsupported_content` with `param`
+    `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+    target is not a message in this conversation, and with `400
+    invalid_request` (`param` `reply_to`) when the target never reached the
+    channel (for example, it failed). If the target fails after the send was
+    accepted, the reply goes out as a normal message.
+
+    """
+    metadata: dict[str, str] | None = None
     duration_seconds: float | None = None
     """
-    The voice note's length.
+    Inbound only. The voice note's length.
     """
     transcript: str | None = None
     """
-    Inbound only, when transcription is on. What was said.
+    Inbound only, on iMessage, when iMessage made a transcript of the voice note. What was said.
+    """
+
+
+class VoiceKind(VoiceMessage):
+    """
+    A `voice` message with `kind` given, as in a message's `content`, a webhook reply or a stream frame (`VoiceMessage` with `kind` required).
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["voice"]
+    """
+    Always `voice`. Optional on its endpoint; required where no URL names the kind.
+    """
+
+
+class MessageContent2(VoiceKind):
+    """
+    A message's content: one kind object, in either direction, with `kind`
+    (always present here) saying which. It is exactly what was sent or
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    kind: Literal["voice"]
+    """
+    The kinds of message. A closed list: a new kind arrives only with a new API
+    version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
+    and, where it can be sent over HTTP, its own endpoint of the same name
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
+    the stream and in a message's `content`. `button_reply` and `file_blocked`
+    are inbound only.
+
+    Received from a contact: `basic`, `voice`, `button_reply`, `reaction`,
+    `location`, `contact_card` and `file_blocked`. Sent: every kind but
+    `button_reply` and `file_blocked`.
+
     """
 
 
@@ -3939,35 +4625,35 @@ class WebhookEndpointUpdateRequest(BaseModel):
 
 class WebhookReply(BaseModel):
     """
-    The optional body of your answer to a `message.received` delivery. `reply` is
-    one piece of content or a list of up to 10, sent in order into the event's
-    conversation through the send gate. A non-empty string, as `reply` or as an
-    item of the list, is text: `{"reply": "Hi"}` is short for
-    `{"reply": {"type": "text", "text": "Hi"}}`. Leave `reply` out, set it to `null`, or
-    answer `{}`, an empty body or any body that is not a JSON object (such as
-    `OK`) to send nothing now; that is not an error.
+    The optional body of your answer to a `message.received` delivery. `reply`
+    is one message or a list of up to 11, sent in order into the event's
+    conversation through the send gate: each piece is a kind object
+    (`OutboundKind`, with `kind`), so a text plus 10 carousel cards sent one by
+    one fits. A non-empty string, as `reply` or as an item of the list, is a
+    basic message: `{"reply": "Hi"}` is short for `{"reply": {"kind":
+    "basic", "text": "Hi"}}`. Leave `reply` out, set it to `null`, or answer
+    `{}`, an empty body or any body that is not a JSON object (such as `OK`)
+    to send nothing now; that is not an error.
 
-    A JSON object whose `reply` (or `fallback`, alongside a `reply`) does not match
-    this shape, or a body that starts with `{` but is not valid JSON, sends
-    nothing at all (no piece of a list goes out) and is recorded on the delivery as an `invalid_request` error
-    with the reason; the delivery counts as delivered and is not retried.
+    A JSON object whose `reply` does not match this shape (a piece that is not
+    a kind object or a string, an unknown `kind`, an empty list, more than 11
+    pieces), or a body that starts with `{` but is not valid JSON, sends
+    nothing at all (no piece of a list goes out) and is recorded on the
+    delivery as an `invalid_request` error with the reason; the delivery
+    counts as delivered and is not retried. A piece the send gate refuses (for
+    example a `carousel` on Telegram, `422 unsupported_content`) is reported
+    as a `message.failed` event.
 
     """
 
     model_config = ConfigDict(
         extra="allow",
     )
-    reply: str | list[str | TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent] | TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent | None = (
+    reply: str | list[str | BasicKind | VoiceKind | ButtonsKind | ListKind | CarouselKind | TemplateKind | ContactCardKind | LocationKind | EffectKind | ReactionKind | TypingKind | ReadKind | EditMessage | UnsendMessage] | BasicKind | VoiceKind | ButtonsKind | ListKind | CarouselKind | TemplateKind | ContactCardKind | LocationKind | EffectKind | ReactionKind | TypingKind | ReadKind | EditMessage | UnsendMessage | None = (
         None
     )
     """
-    One piece of content, or a list of 1 to 10 pieces sent in order. A non-empty string is text content. `null` sends nothing.
-    """
-    fallback: Literal["auto"] | TextContent | MediaContent | VoiceContent | ButtonsContent | ButtonReplyContent | CarouselContent | ReactionContent | TemplateContent | LocationContent | ContactCardContent | EffectContent | TypingContent | ReadContent | EditContent | UnsendContent | FileBlockedContent | None = (
-        None
-    )
-    """
-    What to send when the channel cannot show a piece of `reply`, as on HTTP sends. It applies to every piece.
+    One message, or a list of 1 to 11 sent in order. A non-empty string is a basic message's text. `null` sends nothing.
     """
 
 
@@ -3996,22 +4682,4 @@ class WindowClosingData(BaseModel):
     window_open_until: datetime
     """
     After this time only templates can be sent.
-    """
-
-
-class WindowState(BaseModel):
-    """
-    Whether free-form messages can be sent now.
-    """
-
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    open: bool
-    """
-    `true` when any content can be sent; `false` when only a `template` can (WhatsApp after 24 hours).
-    """
-    open_until: datetime | None = None
-    """
-    WhatsApp only. When the window closes, if it is open.
     """

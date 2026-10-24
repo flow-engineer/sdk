@@ -1,7 +1,7 @@
 // Waiting for what happens next: a reply, a send's outcome, a new conversation.
 //
 // Each wait holds one live stream (`events.stream`: the WebSocket, resumed with
-// `after` on every reconnect, or polling GET /v1/events where there is no
+// `after` on every reconnect, or polling GET /v0/events where there is no
 // WebSocket). Once the stream is connected, and again after every reconnect, it
 // asks the API whether what it waits for already happened (before the call, or
 // while the stream was away), so nothing that happened shortly before is missed.

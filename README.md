@@ -7,7 +7,7 @@ No key yet? Get a test key in one call, with no account (or run
 `npx @flow-engineer/messaging init`, which saves it to `.env`):
 
 ```sh
-curl -X POST https://api.flow.engineer/v1/sandbox/keys
+curl -X POST https://api.flow.engineer/v0/sandbox/keys
 # save "key" as FLOW_MESSAGING_KEY and "claim_token" as FLOW_CLAIM_TOKEN (both shown once);
 # open senders[].address.link on your phone to join the sandbox
 ```
@@ -33,9 +33,9 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 Without the SDK, from any language:
 
 ```sh
-curl https://api.flow.engineer/v1/conversations/conv_.../messages \
+curl https://api.flow.engineer/v0/conversations/conv_.../basic \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
-  -d '{"content": {"type": "text", "text": "Hello!"}}'
+  -d '{"text": "Hello!"}'
 ```
 
 ## Why it exists
@@ -44,8 +44,9 @@ An agent should be reachable where people already chat. Flow Messaging hosts the
 senders (Telegram bots, WhatsApp numbers, iMessage lines), receives every inbound
 message into an ordered log, and passes every send through one gate that applies each
 channel's rules. You get typed events in (webhooks, a live stream, or polling) and send
-typed content out; you never handle a channel's keys or webhooks. Replies can be an LLM
-stream, sent as chat bubbles with typing on.
+one kind of message per endpoint out (`basic`, `buttons`, `list`, ...), exactly as
+given or refused; you never handle a channel's keys or webhooks. Replies can be an
+LLM stream, sent as chat bubbles while typing shows.
 
 <!-- agents:mcp-note -->
 MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript or Python SDK, which wrap it) for everything it does at runtime. The hosted MCP server at `https://api.flow.engineer/mcp` is an optional tool for testing and operating the integration during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. If its tools are already available to a coding agent, it can use them for sandbox testing.

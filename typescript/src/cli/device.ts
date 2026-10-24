@@ -1,5 +1,5 @@
 // `flow-messaging login`: sign in with a Flow account from the terminal (the device
-// flow, POST /v1/device/authorizations and POST /v1/device/token on the API base URL).
+// flow, POST /v0/device/authorizations and POST /v0/device/token on the API base URL).
 // With the FLOW_CLAIM_TOKEN that `init` saved (or the sandbox key as the bearer) the
 // sign-in claims the sandbox app: its keys stop expiring and its allowance is lifted.
 // The new key replaces FLOW_MESSAGING_KEY in .env and the claim token is removed.

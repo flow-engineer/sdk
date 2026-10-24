@@ -34,7 +34,7 @@ person opens the sandbox link and taps Start first.
 {{> sign-in}} {{> allowance-errors}} In the SDK these are `PermissionError` (with
 `channelCode`) and `AuthenticationError`. Dashboard: {{dashboard_url}}. Going live:
 signed-in users make `fk_live_` keys in the dashboard and connect their own Telegram
-bot or their own WhatsApp number (`POST /v1/senders` with `channel` `whatsapp`, or the
+bot or their own WhatsApp number (`POST /v0/senders` with `channel` `whatsapp`, or the
 dashboard's Senders page; the Flow team can still help); dedicated iMessage lines and SMS numbers are arranged with the Flow team
 ({{team_contacts|or}}; send them your app ID and the number's details, never secrets or tokens).
 If the user asks for WhatsApp, tell them they can connect their own WhatsApp number with a live key, and build and test on simulated WhatsApp conversations or Telegram meanwhile: the code does not change per channel. Details:
@@ -57,10 +57,11 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 }
 ```
 
-`reply` takes a string, content, a list of content, or a stream from OpenAI,
+`reply` takes a string, a message of any kind, a list of them, or a stream from OpenAI,
 Anthropic, the Vercel AI SDK, the OpenAI Agents SDK, the Claude Agent SDK,
-LangChain, Mastra or any `AsyncIterable<string>`. It keeps typing on, splits the text
-into chat bubbles at paragraph and sentence ends, and sends each bubble as it is ready.
+LangChain, Mastra or any `AsyncIterable<string>`. It shows typing, splits the text
+into chat bubbles at paragraph and sentence ends, and sends each bubble as a `basic`
+message as it is ready, exactly as written (no markdown is rendered).
 Run with `node --env-file=.env agent.mjs`. Type handlers with `FlowEvent` (or
 `FlowEventOf<"message.received">`), not `Event`: only `FlowEvent`'s `conversation` can `reply`.
 
@@ -87,9 +88,9 @@ it is async and needs the **raw** body. Local development: `npx @flow-engineer/m
 
 ```ts
 const conv = await flow.test.createConversation({ channel: "sms" }); // a simulated contact; also telegram, whatsapp, imessage
-await flow.test.inbound(conv.id, { type: "text", text: "Do you deliver on Sundays?" });
+await flow.test.inbound(conv.id, { kind: "basic", text: "Do you deliver on Sundays?" });
 // your agent gets a real message.received and replies as usual; then:
-for await (const m of flow.test.transcript(conv.id)) console.log(m.direction, m.shown ?? m.content);
+for await (const m of flow.test.transcript(conv.id)) console.log(m.direction, m.content); // exactly what the contact sees
 ```
 
 Free (not in the sandbox allowance); sends pass the real gate and end `message.sent`
@@ -130,10 +131,12 @@ contacts included) is graded.
 ## Rules that save debugging
 
 - Reply into a conversation (`event.conversation`, or `flow.conversation("conv_...")`);
-  you never choose a channel per message. Start new ones with `flow.messages.start({ sender, to, content })`.
+  you never choose a channel per message. Start new ones with `flow.messages.start({ sender, to, kind: "basic", text })`.
 - Contacts may have no phone number (Telegram users, iMessage email handles).
-- Content a channel cannot show fails with `UnsupportedContentError` unless the send
-  sets `fallback: "auto"` (`reply` sets it). Check `flow.capabilities.retrieve(convId)`.
+- One endpoint per message kind (basic, buttons, list, carousel, ...), each listing the
+  channels it works on. A kind, field or value the channel does not take fails with
+  `UnsupportedContentError` (`param` names it; `hint` says what to send instead):
+  nothing is converted, and `text` is sent as written.
 - WhatsApp: free-form only within 24 h of the contact's last message, else
   `OutsideWindowError`: send a `template(...)`.
 - Errors are classes per `error.type` (`OutsideWindowError`, `RateLimitError`,
@@ -141,5 +144,5 @@ contacts included) is graded.
 - Deliveries are at least once: deduplicate on `event.id`.
 - {{> mcp-short}}
 
-More: [API and content types](reference/api.md) · [frameworks](reference/frameworks.md) ·
+More: [API and message kinds](reference/api.md) · [frameworks](reference/frameworks.md) ·
 [CLI and MCP](reference/cli-mcp.md) · docs https://docs.flow.engineer

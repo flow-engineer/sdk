@@ -15,7 +15,6 @@ from .conversation import AsyncConversationHandle
 from .http import AsyncHTTPClient
 from .resources import (
     AsyncAppResource,
-    AsyncCapabilitiesResource,
     AsyncContacts,
     AsyncConversations,
     AsyncDevice,
@@ -97,7 +96,6 @@ class AsyncFlow:
         self.messages = AsyncMessages(http)
         self.conversations = AsyncConversations(http)
         self.events = AsyncEvents(http)
-        self.capabilities = AsyncCapabilitiesResource(http)
         self.files = AsyncFiles(http)
         self.senders = AsyncSenders(http)
         self.templates = AsyncTemplates(http)

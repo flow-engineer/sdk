@@ -1,6 +1,6 @@
 # Flow Messaging: agent quickstart
 
-**No key? `curl -X POST https://api.flow.engineer/v1/sandbox/keys`**: no account, no
+**No key? `curl -X POST https://api.flow.engineer/v0/sandbox/keys`**: no account, no
 API key sent. Save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as
 `FLOW_CLAIM_TOKEN` (both shown once), then open a sender's `address.link` from the
 answer on your phone (section 0). Check `FLOW_MESSAGING_KEY` first: never get a new
@@ -25,13 +25,13 @@ base_url: https://api.flow.engineer
 spec: https://api.flow.engineer/openapi.yaml   # OpenAPI 3.1, version 2026-11-01
 llms_txt: https://api.flow.engineer/llms.txt
 mcp_server: https://api.flow.engineer/mcp     # optional, for development only; the project owner adds it (section 12)
-get_a_key: "curl -X POST https://api.flow.engineer/v1/sandbox/keys"   # no account, no key sent; 201: key, claim_token (shown once), senders
+get_a_key: "curl -X POST https://api.flow.engineer/v0/sandbox/keys"   # no account, no key sent; 201: key, claim_token (shown once), senders
 cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the sandbox link and join message
-sandbox_allowance:                           # outbound messages only (inbound is free); GET /v1/app returns allowance
+sandbox_allowance:                           # outbound messages only (inbound is free); GET /v0/app returns allowance
   anonymous: 1 contact, 50 messages in total, Telegram sandbox; the key expires after 7 days
   signed_in: 3 contacts x 100 messages each, no expiry, one allowance per person over the apps they claimed   # iMessage is in neither
-  own_account: the free trial instead, from your first sign-in: 25 people per channel on the shared Telegram, WhatsApp and iMessage senders   # no allowance in GET /v1/app
-sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v1/device/authorizations, then poll POST /v1/device/token
+  own_account: the free trial instead, from your first sign-in: 25 people per channel on the shared Telegram, WhatsApp and iMessage senders   # no allowance in GET /v0/app
+sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v0/device/authorizations, then poll POST /v0/device/token
 dashboard: https://api.flow.engineer/admin    # sign in with a Flow account
 flow_team: [samyak@flow.engineer, prabal@flow.engineer]   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
@@ -42,18 +42,20 @@ key_prefixes:
 sandbox_join: open the sandbox sender's address.link (https://t.me/<bot>?start=<code>) and tap Start,
               or send its join_code text as is ("Hi Sandbox app (ref wild-otter-04508705)");
               then conversation.started (via sandbox_join), then the join as the first message.received
-simulated_contacts: POST /v1/test/conversations, then POST /v1/test/conversations/{id}/inbound   # test keys; no phone; free: no contact slot, no messages; simulated: true; section 2
+simulated_contacts: POST /v0/test/conversations, then POST /v0/test/conversations/{id}/inbound   # test keys; no phone; free: no contact slot, no messages; simulated: true; section 2
 version_header: "Flow-Version: 2026-11-01"   # optional; pins the API version
-content_type: application/json               # except POST /v1/files (multipart/form-data)
+content_type: application/json               # except POST /v0/files (multipart/form-data)
 idempotency_header: "Idempotency-Key: <unique string, max 255 chars>"   # every POST; kept 24 h
-receive_events: webhook (public HTTPS URL) or WebSocket GET wss://api.flow.engineer/v1/stream (no public URL; best for local dev; starts live unless ?after=evt_...)
-event_log: GET /v1/events?after=evt_...&before=evt_...&limit=1..100&type=message.received&type=...&conversation=conv_...   # oldest first; {data, has_more}; section 3c
+receive_events: webhook (public HTTPS URL) or WebSocket GET wss://api.flow.engineer/v0/stream (no public URL; best for local dev; starts live unless ?after=evt_...)
+event_log: GET /v0/events?after=evt_...&before=evt_...&limit=1..100&type=message.received&type=...&conversation=conv_...   # oldest first; {data, has_more}; section 3c
 recipes: section 14   # ask and wait for a reply, many bots, serverless, files, reminders, broadcasts, GDPR, leaked key, CI tests, ...
 webhook_signature_header: "Flow-Signature: t=<unix>,v1=<hex hmac-sha256>"
 webhook_signed_payload: "t.{t}.{raw body}"   # HMAC key = the endpoint secret, whsec_ prefix included
 webhook_timeout_seconds: 10
 webhook_tolerance_seconds: 300
-max_text_length: {telegram: 4096, imessage: 9999, whatsapp: 4096}   # characters (Telegram: UTF-16 code units); captions 1024; GET /v1/capabilities
+max_text_length: {telegram: 4096, imessage: 9999, whatsapp: 4096}   # characters (Telegram: UTF-16 code units); captions 1024; each endpoint's page lists its limits
+send: POST /v0/conversations/{conversation_id}/{basic|voice|buttons|list|carousel|template|contact-card|location|effect|reaction|typing|read}   # one endpoint per kind; the body is that kind's fields; section 6
+exact_or_422: a kind, field, channel block or value the channel does not take answers 422 unsupported_content (param names it, hint says what to send instead); nothing is converted
 error_shape: '{"error": {"type": "...", "message": "...", "hint": "...", "doc_url": "https://api.flow.engineer/docs/errors/<type>", "param": "...", "retry_after": 0, "channel_code": "...", "request_id": "..."}}'
 error_handling: read error.hint first (what to change for this case), then switch on error.type
 error_types: [invalid_request, authentication, permission, not_found, idempotency_conflict,
@@ -68,7 +70,7 @@ send_outcome: every send ends message.sent or message.failed (Telegram never sen
 rate_limit_headers: [RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After]
 id_prefixes: {app: app_, sender: snd_, contact: ct_, conversation: conv_, message: msg_,
               event: evt_, file: file_, webhook_endpoint: we_}
-channels_live: [telegram, whatsapp, imessage]   # connect your own WhatsApp number with POST /v1/senders (live key); US SMS (pilot) numbers are connected by the Flow team, like dedicated iMessage lines (POST /v1/senders answers 501 not_implemented)
+channels_live: [telegram, whatsapp, imessage]   # connect your own WhatsApp number with POST /v0/senders (live key); US SMS (pilot) numbers are connected by the Flow team, like dedicated iMessage lines (POST /v0/senders answers 501 not_implemented)
 ```
 
 ## Rules for the agent writing the integration
@@ -84,7 +86,7 @@ channels_live: [telegram, whatsapp, imessage]   # connect your own WhatsApp numb
    `200 {}` at once and reply later through the API.
 5. Send every `POST` with an `Idempotency-Key`. Retry `429` and `5xx` with the
    **same** key, after `Retry-After` seconds when given.
-6. Branch on `error.type` and `content.type`, never on message text. When an error
+6. Branch on `error.type` and `content.kind`, never on message text. When an error
    comes back, read `error.hint` first: it says what to change for this case;
    `error.doc_url` is the type's page.
 7. Reply into conversations (`conv_...`). You never choose a channel per message.
@@ -101,7 +103,7 @@ Check `FLOW_MESSAGING_KEY` (the environment, `.env`) first. When you already hav
 key, use it: do not get another. Otherwise:
 
 ```bash
-curl -s -X POST https://api.flow.engineer/v1/sandbox/keys
+curl -s -X POST https://api.flow.engineer/v0/sandbox/keys
 # optional: -H "Content-Type: application/json" -d '{"name": "my agent"}'
 ```
 
@@ -134,7 +136,7 @@ No API key is sent. The answer (`201`, abridged):
 Saving it from a shell (needs `jq`):
 
 ```bash
-R=$(curl -s -X POST https://api.flow.engineer/v1/sandbox/keys)
+R=$(curl -s -X POST https://api.flow.engineer/v0/sandbox/keys)
 if echo "$R" | jq -e .key >/dev/null; then
   printf 'FLOW_MESSAGING_KEY=%s\nFLOW_CLAIM_TOKEN=%s\n' "$(echo "$R" | jq -r .key)" "$(echo "$R" | jq -r .claim_token)" >> .env
   grep -qxF .env .gitignore 2>/dev/null || echo .env >> .gitignore
@@ -153,11 +155,11 @@ one, writes both to `.env`, and prints the sandbox link and join message).
 | Messages | 50 in total | 100 per contact |
 | Key expires | after 7 days | never |
 
-Apps of your own Flow account (made in the dashboard or by `npx @flow-engineer/flow setup`) get the free trial instead, started at your first sign-in: 25 people per channel on Flow's shared Telegram, WhatsApp and iMessage senders, over all the account's apps, and `GET /v1/app` shows no `allowance`.
+Apps of your own Flow account (made in the dashboard or by `npx @flow-engineer/flow setup`) get the free trial instead, started at your first sign-in: 25 people per channel on Flow's shared Telegram, WhatsApp and iMessage senders, over all the account's apps, and `GET /v0/app` shows no `allowance`.
 
 The allowance covers the Telegram sandbox (and WhatsApp's when it opens; it is not
 live yet), not iMessage. Only messages your agent sends count; inbound messages are
-free. `GET /v1/app` returns `allowance`: `tier`, `channels`, `contacts` (`limit`,
+free. `GET /v0/app` returns `allowance`: `tier`, `channels`, `contacts` (`limit`,
 `used`), `messages_per_contact`, `messages` (`limit`, `used`, `remaining`),
 `expires_at`, `upgrade`. When the key expires it stops working (`401 authentication`,
 `channel_code` `sandbox_key_expired`) and the contact is removed from the sandbox; a
@@ -184,13 +186,13 @@ approve to collect the key.
 Without the CLI (the device flow):
 
 ```bash
-curl -s -X POST https://api.flow.engineer/v1/device/authorizations \
+curl -s -X POST https://api.flow.engineer/v0/device/authorizations \
   -H "Content-Type: application/json" \
   -d "{\"claim_token\": \"$FLOW_CLAIM_TOKEN\", \"client_name\": \"Claude Code\"}"
 # 201: {"device_code": "fdc_...", "user_code": "WDJB-MJHT", "verification_uri":
 #       "https://api.flow.engineer/admin/device", "interval": 5, "expires_in": 900, ...}
 
-curl -s -X POST https://api.flow.engineer/v1/device/token \
+curl -s -X POST https://api.flow.engineer/v0/device/token \
   -H "Content-Type: application/json" -d '{"device_code": "fdc_..."}'
 # 200: {"status": "pending", "interval": 5}  ...then  {"status": "approved", "key": "fk_test_...", "claimed": true, ...}
 ```
@@ -199,7 +201,7 @@ curl -s -X POST https://api.flow.engineer/v1/device/token \
    and type the code you show them; a link alone never approves a sign-in
    (`verification_uri_complete` opens the same page). **Never show `device_code`**: it
    is the secret you poll with.
-2. Poll `POST /v1/device/token` every `interval` seconds. `429 rate_limited` means
+2. Poll `POST /v0/device/token` every `interval` seconds. `429 rate_limited` means
    too fast: wait `retry_after`.
 3. `approved`: the answer has the new `key` (shown once). Replace
    `FLOW_MESSAGING_KEY` with it and drop `FLOW_CLAIM_TOKEN`: **the old sandbox key
@@ -224,7 +226,7 @@ with their own bot (section 7), and connect your own WhatsApp number (section 11
 
 ```bash
 export FLOW_MESSAGING_KEY=fk_test_...   # from section 0; keep it server side
-curl -s https://api.flow.engineer/v1/app -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+curl -s https://api.flow.engineer/v0/app -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
 ```
 
 ```ts
@@ -242,7 +244,7 @@ export async function flow(method: string, path: string, body?: unknown, idempot
   return data;
 }
 
-const me = await flow("GET", "/v1/app");   // { account, app, api_key, livemode, allowance }
+const me = await flow("GET", "/v0/app");   // { account, app, api_key, livemode, allowance }
 ```
 
 ```python
@@ -268,7 +270,7 @@ def flow(method, path, body=None, idempotency_key=None, params=None):
         raise FlowError(r.status_code, data["error"], r.headers)
     return data
 
-me = flow("GET", "/v1/app")  # {"account", "app", "api_key", "livemode", "allowance"}
+me = flow("GET", "/v0/app")  # {"account", "app", "api_key", "livemode", "allowance"}
 ```
 
 `livemode` is `false` for an `fk_test_` key and `true` for an `fk_live_` key.
@@ -280,11 +282,11 @@ me = flow("GET", "/v1/app")  # {"account", "app", "api_key", "livemode", "allowa
 
 A sender is what your agent talks from (a Telegram bot, an iMessage line, a WhatsApp
 number). A test key sees the **shared sandbox senders**; a live key sees your own
-(section 7). The answer of `POST /v1/sandbox/keys` lists them (`senders`); later, ask
+(section 7). The answer of `POST /v0/sandbox/keys` lists them (`senders`); later, ask
 for the sandbox bot:
 
 ```bash
-curl -s "https://api.flow.engineer/v1/senders?channel=telegram" -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+curl -s "https://api.flow.engineer/v0/senders?channel=telegram" -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
 ```
 
 ```json
@@ -347,68 +349,69 @@ contacts and the events' `conversation` carry `simulated: true`, real ones have 
 
 ```bash
 # 1. A conversation with a new simulated contact (201; made-up address, so each call is fresh)
-curl -s https://api.flow.engineer/v1/test/conversations \
+curl -s https://api.flow.engineer/v0/test/conversations \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" -d '{"channel": "sms", "name": "Test contact"}'
 # {"id": "conv_...", "channel": "sms", "sender": "snd_...", "contact": "ct_...", "simulated": true, ...}
 
-# 2. Write as the contact (202). Media: upload with POST /v1/files first, then
-#    {"type": "media", "kind": "image", "file_id": "file_...", "caption": "..."}
-curl -s https://api.flow.engineer/v1/test/conversations/conv_.../inbound \
+# 2. Write as the contact (202). Media: upload with POST /v0/files first, then
+#    {"kind": "basic", "text": "...", "media": {"type": "image", "file_id": "file_..."}}
+curl -s https://api.flow.engineer/v0/test/conversations/conv_.../inbound \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
-  -H "Idempotency-Key: $(uuidgen)" -d '{"content": {"type": "text", "text": "Do you deliver on Sundays?"}}'
+  -H "Idempotency-Key: $(uuidgen)" -d '{"content": {"kind": "basic", "text": "Do you deliver on Sundays?"}}'
 # {"message": "msg_...", "conversation": "conv_...", "channel_message_id": "sim_...", "status": "queued"}
 
 # 3. Read both sides, oldest first; page on with ?after=<last message id>
-curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
+curl -s https://api.flow.engineer/v0/test/conversations/conv_.../transcript \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
 ```
 
 - Each turn reaches your agent exactly like a real one: `message.received` with the
-  `message` ID from step 2, by webhook, on the stream and in `GET /v1/events`, in
+  `message` ID from step 2, by webhook, on the stream and in `GET /v0/events`, in
   order. The conversation starts with its first message: the contact's first turn
   (`conversation.started`, `via` `inbound`), or your first send to the contact, such
   as a WhatsApp template or an SMS send with consent (`via` `outbound`). The
   conversation and contact carry `simulated: true`.
 - Your agent replies as usual (HTTP, stream frame or webhook answer). The send passes
-  the real gate (content support, `fallback`, text limits, edit targets) and ends
+  the real gate (the channel's kinds and fields, text limits, edit targets) and ends
   `message.sent` on your app's simulated sender (`kind: simulated`), which never
-  touches a network. Transcript entries are messages; a sent one has `shown`, what
-  the contact saw (for example numbered text for buttons on SMS; answering `2`
-  comes back as `button_reply`). On Telegram, as with a real bot, the contact writes
+  touches a network. Transcript entries are messages; a sent one's `content` is
+  exactly what the contact sees. A tap on a button or list row is a turn
+  `{"kind": "button_reply", "message_id": "msg_...", "button_id": "..."}`. On Telegram, as with a real bot, the contact writes
   first: a send before their first turn is accepted and then ends `message.failed`
   (`channel_error`, `channel_code` `403`), as on real Telegram.
 - The channel's rules apply to what the contact sends: no documents or locations
   over SMS (`422 unsupported_content`), text up to the channel's `max_text_length`,
   no inline `reply_to` on SMS; an SMS contact's `phone` is a US number (`+1` and ten
-  digits). On SMS and iMessage the contact answers buttons with their number (`"2"`).
+  digits). SMS and iMessage have no buttons: a buttons message answers `422
+  unsupported_content`, as on a real line.
   A simulated iMessage line, like Flow's real lines, only replies: post a turn
   before your agent sends.
 - Simulated WhatsApp keeps WhatsApp's rules. The contact's turns go through the
   real WhatsApp inbound path, so each turn opens the 24-hour window; outside it
   (also before the contact's first turn) only a `template` can be sent (`409
-  outside_window`). Buttons go as up to 3 reply buttons, or a list for 4 to 10;
+  outside_window`). Buttons take up to 3 reply buttons (a `list` up to 10 rows);
   reactions and `reply_to` work; edits and unsends answer `422
   unsupported_content`. The contact's address is a `phone`.
 - Simulated SMS keeps the rules that concern the contact. Before the contact's
   first turn, a send to them is a start that needs their consent: without
-  `consent` on `POST /v1/messages` (`to.contact`), it answers `403 permission`
+  `consent` on `POST /v0/messages` (`to.contact`), it answers `403 permission`
   (`consent_required`). A turn with the text STOP opts the contact out (its
   `opted_out_at` is set, `opted_out_via` `keyword`; sends answer `403 permission`,
   `contact_opted_out`) and START lifts it; both turns still reach your agent, and
   the transcript shows no automatic keyword reply. A simulated SMS sender keeps no
   quiet hours (a test never depends on the time of day) and sends media as MMS.
-- A HIPAA account (`hipaa` on the account in `GET /v1/app`) can simulate only SMS:
+- A HIPAA account (`hipaa` on the account in `GET /v0/app`) can simulate only SMS:
   a simulated `telegram`, `whatsapp` or `imessage` conversation, or a turn in one made before
   the flag was set, answers `403 permission` (`hipaa_channel_not_covered`).
 - Limits: an app has at most 500
   simulated conversations (then `403 permission`, `simulated_conversation_limit`:
   reuse conversations, or post an address that has one), and a key makes at most
-  120 requests a minute to `/v1/test/` (`429 rate_limited`). A media turn refers
+  120 requests a minute to `/v0/test/` (`429 rate_limited`). A media turn refers
   to your upload's `file_id` itself. The gate skips pacing, new-contact budgets and abuse throttling for
   simulated senders, so tests can run in parallel.
 - Live keys get `403 permission` (`channel_code` `test_mode_only`); a real
-  conversation gets `403 permission` (`not_simulated`). `GET /v1/senders` leaves
+  conversation gets `403 permission` (`not_simulated`). `GET /v0/senders` leaves
   simulated senders out unless you pass `kind=simulated`.
 - MCP (if available to you): `simulate_inbound` and `get_test_transcript` do the
   same.
@@ -417,7 +420,7 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
 
 ### a) WebSocket: no public URL needed (use this on localhost)
 
-`GET wss://api.flow.engineer/v1/stream` pushes `{"type": "event", "event": {...}}`
+`GET wss://api.flow.engineer/v0/stream` pushes `{"type": "event", "event": {...}}`
 frames in log order, and you can send on the same socket. Authenticate with the
 `Authorization` header, or, where a client cannot set headers (browsers, Node's
 global `WebSocket`), offer the subprotocols `["flow", "flow.key." + key]`. Never put
@@ -429,7 +432,7 @@ frame, and closes with code `4401` (`4403` forbidden, `4400` bad request; `4429`
 ```bash
 # brew install websocat (or cargo install websocat). Prints each frame as one JSON line.
 websocat -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
-  "wss://api.flow.engineer/v1/stream?type=message.received&type=message.failed"
+  "wss://api.flow.engineer/v0/stream?type=message.received&type=message.failed"
 ```
 
 A complete echo agent (Node 22+, no dependencies):
@@ -440,18 +443,18 @@ let lastEventId = "";
 
 function connect() {
   const after = lastEventId ? `&after=${lastEventId}` : "";
-  const ws = new WebSocket(`wss://api.flow.engineer/v1/stream?type=message.received&type=message.failed${after}`,
+  const ws = new WebSocket(`wss://api.flow.engineer/v0/stream?type=message.received&type=message.failed${after}`,
     ["flow", "flow.key." + KEY]);
   ws.onmessage = (m) => {
     const f = JSON.parse(String(m.data));
     if (f.type === "event") {
       const ev = f.event; lastEventId = ev.id;   // dedupe on ev.id in production
       const msg = ev.data.message;
-      if (ev.type === "message.received" && msg.content.type === "text") {
+      if (ev.type === "message.received" && msg.content.kind === "basic" && msg.content.text) {
         ws.send(JSON.stringify({
           type: "send", ref: `reply-to-${msg.id}`,   // ref is the idempotency key
           conversation: ev.conversation.id,
-          message: { content: { type: "text", text: `You said: ${msg.content.text}` } },
+          message: { kind: "basic", text: `You said: ${msg.content.text}` },
         }));
       } else if (ev.type === "message.failed") console.error("send failed", msg.id, msg.error);
     } else if (f.type === "error") console.error(f.ref, f.error);  // f.type "ack": the send was queued
@@ -475,7 +478,7 @@ KEY = os.environ["FLOW_MESSAGING_KEY"]
 async def main():
     last = ""
     while True:
-        url = "wss://api.flow.engineer/v1/stream?type=message.received" + (f"&after={last}" if last else "")
+        url = "wss://api.flow.engineer/v0/stream?type=message.received" + (f"&after={last}" if last else "")
         try:
             async with websockets.connect(url, subprotocols=["flow", "flow.key." + KEY]) as ws:
                 async for raw in ws:
@@ -483,10 +486,10 @@ async def main():
                     if f["type"] == "event":
                         ev = f["event"]; last = ev["id"]  # dedupe on ev["id"] in production
                         msg = ev["data"]["message"]
-                        if msg["content"]["type"] == "text":
+                        if msg["content"]["kind"] == "basic" and msg["content"].get("text"):
                             await ws.send(json.dumps({"type": "send", "ref": f"reply-to-{msg['id']}",
                                 "conversation": ev["conversation"]["id"],
-                                "message": {"content": {"type": "text", "text": "You said: " + msg["content"]["text"]}}}))
+                                "message": {"kind": "basic", "text": "You said: " + msg["content"]["text"]}}))
                     elif f["type"] == "error":
                         print(f.get("ref"), f["error"])
                     elif f["type"] == "reconnect":
@@ -500,9 +503,10 @@ async def main():
 asyncio.run(main())
 ```
 
-Frames you send: `{"type": "send", "ref", "conversation", "message": {"content", "reply_to"?, "fallback"?}}`
-replies into a conversation; `{"type": "start", "ref", "message": {"sender", "to",
-"content"}}` works like `POST /v1/messages`. Each gets `{"type": "ack", "ref",
+Frames you send: `{"type": "send", "ref", "conversation", "message": {"kind", ...}}`
+replies into a conversation (the message is one kind object, as on the kind's
+endpoint, with `kind` required); `{"type": "start", "ref", "message": {"sender",
+"to", "kind": "basic" | "template", ...}}` works like `POST /v0/messages`. Each gets `{"type": "ack", "ref",
 "message"}` or `{"type": "error", "ref", "error"}`. On `{"type": "reconnect"}` (server
 restart, or the connection's 24-hour lifetime) connect again with `after` set to the
 last event you saw: nothing is lost.
@@ -526,7 +530,7 @@ The answer's `secret` (`whsec_...`) is shown **only once**: store it as
 `FLOW_MESSAGING_WEBHOOK_SECRET`.
 
 ```bash
-curl -s https://api.flow.engineer/v1/webhook_endpoints \
+curl -s https://api.flow.engineer/v0/webhook_endpoints \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -536,7 +540,7 @@ curl -s https://api.flow.engineer/v1/webhook_endpoints \
 ```
 
 ```ts
-const ep = await flow("POST", "/v1/webhook_endpoints", {
+const ep = await flow("POST", "/v0/webhook_endpoints", {
   url: "https://agent.example.com/flow/webhook",
   events: ["message.received", "message.failed", "conversation.started"],
 }, "webhook-setup-v1");
@@ -544,7 +548,7 @@ console.log("store this once:", ep.id); // ep.secret goes to your secret store, 
 ```
 
 ```python
-ep = flow("POST", "/v1/webhook_endpoints", {
+ep = flow("POST", "/v0/webhook_endpoints", {
     "url": "https://agent.example.com/flow/webhook",
     "events": ["message.received", "message.failed", "conversation.started"],
 }, idempotency_key="webhook-setup-v1")
@@ -554,10 +558,10 @@ ep = flow("POST", "/v1/webhook_endpoints", {
 Endpoints belong to the key's mode: one registered with a test key gets sandbox
 events, one registered with a live key gets live events. Subscribe only to what you
 handle (`message.sent`, `message.delivered` and `message.read` are high volume).
-Manage endpoints with `GET /v1/webhook_endpoints` and `GET|PATCH|DELETE
-/v1/webhook_endpoints/{webhook_endpoint_id}` (`PATCH` takes `url`, `events`,
+Manage endpoints with `GET /v0/webhook_endpoints` and `GET|PATCH|DELETE
+/v0/webhook_endpoints/{webhook_endpoint_id}` (`PATCH` takes `url`, `events`,
 `description`, `enabled`). Rotate a signing secret with `POST
-/v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret` (`{"overlap_seconds":
+/v0/webhook_endpoints/{webhook_endpoint_id}/rotate_secret` (`{"overlap_seconds":
 3600}`; default one day): the answer shows the new `secret` once, and the old one
 keeps signing until `previous_secret_expires_at`.
 
@@ -566,13 +570,13 @@ the bot. When the Flow MCP tools are available to you, `get_webhook_deliveries` 
 Flow sent, your status code and answer, the next retry) and `replay_event` help too
 (section 12).
 
-### c) Event log: `GET /v1/events` (catch up, poll)
+### c) Event log: `GET /v0/events` (catch up, poll)
 
 Every event webhooks and the stream deliver is also in the app's event log (kept as
 long as your plan's retention, 30 days today). Read it oldest first:
 
 ```bash
-curl -s "https://api.flow.engineer/v1/events?type=message.received&type=message.failed&after=evt_...&limit=100" \
+curl -s "https://api.flow.engineer/v0/events?type=message.received&type=message.failed&after=evt_...&limit=100" \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
 # {"data": [{"id": "evt_...", "type": "message.received", ...}], "has_more": false}
 ```
@@ -586,7 +590,7 @@ curl -s "https://api.flow.engineer/v1/events?type=message.received&type=message.
 | `conversation` | Only events in this conversation (`conv_...`). |
 
 Page on with `after` set to the last `id` while `has_more` is `true`. Reading forward
-with `after` never skips an event. `GET /v1/events/{event_id}` reads one.
+with `after` never skips an event. `GET /v0/events/{event_id}` reads one.
 
 ## 4. Verify `Flow-Signature` (webhooks)
 
@@ -665,16 +669,17 @@ The event (abridged; IDs are examples), the same over a webhook or the stream:
                    "sender": "snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T", "contact": "ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"},
   "data": {"message": {"id": "msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2", "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
                        "direction": "in", "status": "received", "livemode": false,
-                       "content": {"type": "text", "text": "Do you deliver to 94103?"},
+                       "content": {"kind": "basic", "text": "Do you deliver to 94103?"},
                        "created_at": "2026-10-10T09:12:03Z"}},
   "timing": {"received_at": "2026-10-10T09:12:03Z", "stored_at": "2026-10-10T09:12:03Z"}
 }
 ```
 
-Inbound `content.type` is one of `text`, `media`, `voice`, `button_reply`,
-`reaction`, `location`, `contact_card`, `file_blocked`. `media` and `voice` carry
-`url` and `file_id`: `GET /v1/files/{file_id}` with your key redirects to the bytes
-(the redirect URL lives 5 minutes). `voice` may carry a `transcript`. `file_blocked`
+Inbound `content.kind` is one of `basic` (`text` and/or one `media` file), `voice`,
+`button_reply` (a tap on a button or list row: `button_id`, `label`), `reaction`,
+`location`, `contact_card`, `file_blocked`. A basic message's `media` (`type`
+`image|video|document|audio`) and a `voice` note carry `url` and `file_id`: `GET /v0/files/{file_id}` with your key redirects to the bytes
+(the redirect URL lives 5 minutes). `voice` may carry a `transcript` (iMessage only, when iMessage made one). `file_blocked`
 means the contact sent a file Flow did not keep (`reason`: `malware`,
 `type_not_allowed`, `scan_failed`, `too_large`). Documents and archives contacts send
 (PDF, Office files, zip and the like) are malware-scanned before Flow keeps them; one
@@ -705,9 +710,10 @@ http.createServer((req, res) => {
     seen.add(event.id);
 
     let answer: unknown = {};
-    if (event.type === "message.received" && event.data.message.content.type === "text") {
+    const content = event.data?.message?.content;
+    if (event.type === "message.received" && content.kind === "basic" && content.text) {
       // Fast agent: reply in the webhook answer (section 6a). Must finish well within 10 s.
-      answer = { reply: { type: "text", text: await agentAnswer(event.data.message.content.text) } };
+      answer = { reply: { kind: "basic", text: await agentAnswer(content.text) } };
     } else if (event.type === "message.failed") {
       console.error("send failed", event.data.message.id, event.data.message.error); // see section 9
     }
@@ -738,8 +744,9 @@ def flow_webhook():
     if event["id"] in seen:
         return {}
     seen.add(event["id"])
-    if event["type"] == "message.received" and event["data"]["message"]["content"]["type"] == "text":
-        return {"reply": {"type": "text", "text": agent_answer(event["data"]["message"]["content"]["text"])}}
+    content = event.get("data", {}).get("message", {}).get("content", {})
+    if event["type"] == "message.received" and content.get("kind") == "basic" and content.get("text"):
+        return {"reply": {"kind": "basic", "text": agent_answer(content["text"])}}
     if event["type"] == "message.failed":
         app.logger.error("send failed %s %s", event["data"]["message"]["id"], event["data"]["message"].get("error"))
     return {}
@@ -748,9 +755,9 @@ def flow_webhook():
 Delivery rules: any answer other than `2xx` within 10 seconds is a failure and is
 retried with backoff for 3 days; later events in the same conversation wait behind
 it. Missed events can always be read back, oldest first:
-`GET /v1/events?after=evt_...` (filter with repeated `type=` and `conversation=`).
+`GET /v0/events?after=evt_...` (filter with repeated `type=` and `conversation=`).
 
-To see who wrote: `GET /v1/contacts/{contact_id}` returns `address` (`username` /
+To see who wrote: `GET /v0/contacts/{contact_id}` returns `address` (`username` /
 `telegram_user_id` on Telegram; `handle` and, for a number, `phone` on iMessage) and
 `name` when the channel gives one.
 
@@ -758,20 +765,24 @@ To see who wrote: `GET /v1/contacts/{contact_id}` returns `address` (`username` 
 
 ### a) In the webhook answer (fastest, for `message.received` only)
 
-Answer `200` with `{"reply": <content>}` or `{"reply": [<content>, ...]}` (up to 10,
-sent in order). It goes into the event's conversation through the same gate as an
-API send, with the event `id` as its idempotency key, so a retried delivery never
-sends twice. Answer `{}` (or an empty body) to send nothing.
+Answer `200` with `{"reply": <message>}` or `{"reply": [<message>, ...]}` (up to 11,
+sent in order). Each message is one kind object with `kind` (the same fields as the
+kind's endpoint, section 6c); a string is a basic message's text. It goes into the
+event's conversation through the same gate as an API send, with the event `id` as
+its idempotency key, so a retried delivery never sends twice. Answer `{}` (or an
+empty body) to send nothing.
 
 ```json
-{"reply": {"type": "text", "text": "Yes, we deliver to 94103."}}
+{"reply": [
+  "Yes, we deliver to 94103.",
+  {"kind": "buttons", "text": "When?", "buttons": [{"id": "today", "label": "Today"}, {"id": "tomorrow", "label": "Tomorrow"}]}
+]}
 ```
 
-A webhook answer takes the same `fallback` as an API send, applied to every item:
-`{"reply": [...], "fallback": "auto"}`. An answer that is not a JSON object (plain
-`OK` included) or has no `reply` sends nothing and is not an error. A JSON object with
-an invalid `reply` (malformed, more than 10 items, an unknown `fallback`), or a body
-that starts with `{` but is not valid JSON, sends nothing at all; the delivery is
+An answer that is not a JSON object (plain `OK` included) or has no `reply` sends
+nothing and is not an error. A JSON object with an invalid `reply` (malformed, a
+piece without a known `kind`, more than 11 items), or a body that starts with `{` but
+is not valid JSON, sends nothing at all; the delivery is
 recorded with an `invalid_request` error saying why (MCP `get_webhook_deliveries`
 shows it). An item the gate refuses becomes a `message.failed` event.
 
@@ -784,64 +795,81 @@ A `send` frame (section 3a) with `ref` as its idempotency key.
 Answer the webhook `200 {}` at once, then:
 
 ```bash
-curl -s "https://api.flow.engineer/v1/conversations/$CONV/messages" \
+curl -s "https://api.flow.engineer/v0/conversations/$CONV/basic" \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: reply-to-$MSG" \
-  -d '{"content": {"type": "text", "text": "Yes, we deliver to 94103."}}'
+  -d '{"text": "Yes, we deliver to 94103."}'
 ```
 
 ```ts
 async function reply(convId: string, inboundMsgId: string, text: string) {
   // Optional. Typing calls the channel at once and can fail (502 channel_error, or 409
   // outside_window on iMessage); never let that stop the reply.
-  await flow("POST", `/v1/conversations/${convId}/typing`, { state: "on" }).catch(() => {});
-  return flow("POST", `/v1/conversations/${convId}/messages`,
-    { content: { type: "text", text } }, `reply-to-${inboundMsgId}`);         // 202, status "queued"
+  await flow("POST", `/v0/conversations/${convId}/typing`, {}).catch(() => {});
+  return flow("POST", `/v0/conversations/${convId}/basic`,
+    { text }, `reply-to-${inboundMsgId}`);                                    // 202, status "queued"
 }
 ```
 
 ```python
 def reply(conv_id, inbound_msg_id, text):
     try:  # optional; typing calls the channel at once and can fail: never let it stop the reply
-        flow("POST", f"/v1/conversations/{conv_id}/typing", {"state": "on"})
+        flow("POST", f"/v0/conversations/{conv_id}/typing", {})
     except FlowError:
         pass
-    return flow("POST", f"/v1/conversations/{conv_id}/messages",
-                {"content": {"type": "text", "text": text}},
+    return flow("POST", f"/v0/conversations/{conv_id}/basic",
+                {"text": text},
                 idempotency_key=f"reply-to-{inbound_msg_id}")  # 202, status "queued"
 ```
 
 The answer is `202` with the message (`status: "queued"`). Every send then ends in
 `message.sent` or `message.failed` (with `data.message.error`); `message.delivered`
 and `message.read` follow only where the channel reports them (never on Telegram).
-Messages in one conversation go out one at a time, in the order accepted. Add
-`"reply_to": "msg_..."` to show the message as an inline reply (Telegram, iMessage).
+Sends to one conversation go out one at a time, in the order accepted, across every
+endpoint, webhook replies and the stream; give each call its own `Idempotency-Key`
+(for example `evt_123:card:2`). Add `"reply_to": "msg_..."` to show the message as an
+inline reply (Telegram, WhatsApp, iMessage; SMS answers `422`).
 
-Other content: `media` (`kind` `image|video|document|audio`, plus `url` or `file_id`
-from `POST /v1/files`, optional `caption`; documents and archives are malware-scanned
-when uploaded, and one that fails answers `422 file_blocked`), `voice`, `buttons`
-(optional `header`: `{"type": "image|video|document", "url" or "file_id"}` or
-`{"type": "text", "text": "<=60 chars"}`; with a media header `text` is at most 1024),
-`carousel` (WhatsApp: `text` plus 2 to 10 `cards`, each an image or video `header`,
-optional `text` up to 160 and the same 1 to 2 reply buttons or one URL button; other
-channels need `"fallback": "auto"`, which sends the text and then one message per card),
-`reaction` (`message_id`, `emoji`, `null` removes), `location`, `contact_card`, `effect`.
+**One endpoint per kind.** `POST /v0/conversations/{conversation_id}/<kind>` with that
+kind's fields as the body. A send is exact or it fails: a kind, field, channel block or
+value the conversation's channel does not take answers `422 unsupported_content`, with
+`param` naming it and `hint` saying what to send instead; nothing is converted.
 
-Text is 1 to the channel's `max_text_length` characters:
+| Endpoint | Body | Telegram | WhatsApp | iMessage | SMS |
+|---|---|---|---|---|---|
+| `basic` | `text`, and/or `media` (`{"type": "image\|video\|document\|audio", "url" or "file_id"}`; `text` is then the caption, at most 1024) | Yes | Yes | Yes | Yes (media only on MMS numbers, no documents) |
+| `voice` | `url` or `file_id` of an audio file | Yes | Yes | Yes | No |
+| `buttons` | `text`, `buttons` (`{"id", "label"}` or `{"url", "label"}`), optional `header` | Yes (up to 10) | Yes (up to 3 reply buttons, or one URL button) | No | No |
+| `list` | `text`, `button`, `sections` (`{"title", "rows": [{"id", "title", "description"}]}`, 10 rows in all) | No | Yes | No | No |
+| `carousel` | `text`, 2 to 10 `cards` (an image or video `header`, `text` up to 160, 1 to 2 buttons) | No | Yes | No | No |
+| `template` | `template_id`, `language`, `params` | No | Yes | No | No |
+| `contact-card` | `name`, `phones`, `emails` | Yes (a phone needed) | Yes | No | No |
+| `location` | `lat`, `lng`, `name`, `address` | Yes | Yes | No | No |
+| `effect` | `text`, `effect` | No | No | Yes | No |
+| `reaction` | `message_id`, `emoji` (`null` removes) | Yes (Telegram's emoji set) | Yes | Yes (not in groups) | No |
+| `typing` | optional | Yes | Yes | Yes (5 minutes after the contact wrote) | No |
+| `read` | optional `up_to` (WhatsApp) | No | Yes | Yes | No |
+
+Where a kind is No, send what the channel takes: a carousel on Telegram is a basic
+message, then one `buttons` message with an image `header` per card; on iMessage and
+SMS, basic messages with an image and a caption per card; buttons or a list there is a
+basic message that lists the choices; a location is a basic message with a maps link.
+Documents and archives are malware-scanned when uploaded (`POST /v0/files`), and one
+that fails answers `422 file_blocked`.
+
+Text is 1 to the channel's limit:
 **4096 on Telegram, 9999 on iMessage** (4096 on WhatsApp). Telegram counts
-UTF-16 code units of the text as shown (after markdown), so an emoji such as 😀 counts 2. A media
-`caption` takes at most 1024, also when an edit replaces it. Longer text is refused with
-`400 invalid_request`: split it. `"format": "markdown"` is CommonMark (`**bold**`,
-`*italic*`) and renders in the channel's formatting (iMessage has none: add
-`"fallback": "auto"` and it goes as plain text). `plain`, the default, is sent as
-written, so a channel's own marks (WhatsApp's `*bold*`) work with `plain`.
+UTF-16 code units, so an emoji such as 😀 counts 2. A media
+caption takes at most 1024, also when an edit replaces it. Longer text is refused with
+`400 invalid_request`: split it. Text is sent exactly as written: Flow does not read
+markdown or strip marks. Style it in the channel's own terms: on Telegram
+`"telegram": {"parse_mode": "HTML"}` (or `MarkdownV2`), on iMessage
+`"imessage": {"styles": [{"start": 0, "length": 5, "style": "bold"}]}` (and
+`"subject"`); WhatsApp's app shows its own `*bold*` and `_italic_`. A block for
+another channel than the conversation's answers `422` with `param` the block's name.
 
-Set `"fallback": "auto"` to let the channel's documented fallback replace what it cannot
-show; without it such a send fails with `422 unsupported_content`. Ask `GET
-/v1/capabilities?conversation=conv_...` before sending anything unusual. Other
-actions: `POST /v1/conversations/{id}/read` (body optional, `{"up_to": "msg_..."}`),
-`PATCH /v1/messages/{id}` (`{"content": {"type": "text", "text": "..."}}`, edit),
-`DELETE /v1/messages/{id}` (unsend).
+Edit and unsend: `PATCH /v0/messages/{id}` (`{"text": "..."}`, edit),
+`DELETE /v0/messages/{id}` (unsend).
 
 Edits and unsends are checked against the channel's limits when you call
 (Telegram: unsend within 48 hours; iMessage: edit within 15 minutes, not the
@@ -867,7 +895,7 @@ earlier messages, and ends `message.sent` (an unsent message then shows `status`
 ```bash
 export FLOW_MESSAGING_LIVE_KEY=fk_live_...       # made in the dashboard; kept apart from your test key
 export TELEGRAM_BOT_TOKEN=...                     # from @BotFather; never commit
-curl -s https://api.flow.engineer/v1/senders \
+curl -s https://api.flow.engineer/v0/senders \
   -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: connect-my-bot" \
   -d "{\"channel\": \"telegram\", \"telegram_bot_token\": \"$TELEGRAM_BOT_TOKEN\"}"
@@ -906,11 +934,11 @@ endpoints and streams of your **live** key. Webhook endpoints and their secrets 
 to one mode: register your endpoint again with the live key and store the new
 `whsec_...` secret (the test endpoint keeps getting sandbox events).
 
-To disconnect a bot, call `DELETE /v1/senders/{sender_id}` with your live key: Flow
+To disconnect a bot, call `DELETE /v0/senders/{sender_id}` with your live key: Flow
 removes the bot's webhook, deletes its stored token and retires the sender (`status`
 `banned`, `sender.status_changed`); messages still queued from it fail. The sender and
 its conversations stay readable. Repeating the call is safe. To use the bot again,
-connect it with `POST /v1/senders`; it becomes a new sender.
+connect it with `POST /v0/senders`; it becomes a new sender.
 
 ## 8. Idempotency
 
@@ -941,7 +969,7 @@ why it happens, how to fix it. For example:
            "message": "text must be 1 to 4096 characters on Telegram.",
            "hint": "The text is 5120 characters and Telegram takes at most 4096 characters (counted in UTF-16 code units, so an emoji such as 😀 is 2); split it into several messages.",
            "doc_url": "https://api.flow.engineer/docs/errors/invalid_request",
-           "param": "content.text",
+           "param": "text",
            "request_id": "req_01JB8ZF6P8R0T2V4X6Z8B0C2D4"}}
 ```
 
@@ -951,19 +979,19 @@ the same error shape in `data.message.error`).
 
 | `error.type` | HTTP | What to do |
 |---|---|---|
-| `invalid_request` | 400 | Fix the request; `param` names the field. Do not retry. Send, start and edit bodies refuse any top-level field they do not list (for example `send_at`: there are no scheduled sends). |
+| `invalid_request` | 400 | Fix the request; `param` names the field. Do not retry. Send, start and edit bodies refuse any field they do not list, also inside a channel block (for example `send_at`: there are no scheduled sends). |
 | `authentication` | 401 | Check `FLOW_MESSAGING_KEY`. `channel_code` `sandbox_key_expired`: the sandbox key passed its 7 days (see below). Do not retry. |
 | `permission` | 403 | Not allowed: a test key messaging someone who has not joined your app on the sandbox, a test key connecting a bot, connecting a Flow sandbox bot's token, sending from a sender `flagged` because Telegram rejected its token (connect the bot again), starting an iMessage conversation with someone who never wrote, the sandbox allowance (see below). Do not retry. |
 | `not_found` | 404 | Wrong ID, or it belongs to the other mode (test vs live). |
 | `idempotency_conflict` | 409 | See section 8. |
 | `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. |
-| `unsupported_content` | 422 | The channel cannot show it: resend with `"fallback": "auto"` or other content. An upload of a type Flow does not take (programs, web pages) gets it too. |
+| `unsupported_content` | 422 | The channel does not take this kind, field or value (`param` names it, `channel` is the channel); nothing was sent. Send what `hint` says instead (for example a basic message, then one buttons message per card, for a carousel on Telegram). An upload of a type Flow does not take (programs, web pages) gets it too. |
 | `file_blocked` | 422 | The upload failed the malware scan and was not stored. Send a different file. |
 | `new_contact_limit` | 429 | The sender's budget for new conversations is used up. `retry_after` can be an hour: queue the start, do not block on it. |
 | `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` (24 hours by default). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |
 | `channel_error` | in `message.failed` (502 from typing/read/file download) | The channel refused or failed it; `channel_code` is its code. A 502 may be retried; a failed message needs a new send. |
-| `not_implemented` | 501 | Not available through the API. `POST /v1/senders` for an iMessage or SMS sender answers it first, with any key: the Flow team connects those (write to samyak@flow.engineer or prabal@flow.engineer). Build meanwhile on simulated conversations of that channel (`POST /v1/test/conversations`). |
+| `not_implemented` | 501 | Not available through the API. `POST /v0/senders` for an iMessage or SMS sender answers it first, with any key: the Flow team connects those (write to samyak@flow.engineer or prabal@flow.engineer). Build meanwhile on simulated conversations of that channel (`POST /v0/test/conversations`). |
 | `api_error` | 500, 503 | Our side. Retry with backoff and the same key. |
 
 Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code`:
@@ -974,8 +1002,9 @@ cannot do this). An expired sandbox key is `401 authentication` with
 `sandbox_key_expired`. The fix for all of them: have a person sign in (`npx
 @flow-engineer/messaging login`, section 0), or get a new key.
 
-Sends (`POST /v1/messages`, `.../messages`, webhook replies, stream frames) are only
-queued, so channel refusals never come back on the HTTP answer: they arrive as
+Sends (`POST /v0/messages`, the kinds' endpoints, webhook replies, stream frames) are
+checked against the channel's kinds and fields at once (`422`), then queued, so the
+channel's own refusals never come back on the HTTP answer: they arrive as
 `message.failed`. A body over 32 MB gets `413` `invalid_request`.
 
 ```ts
@@ -1022,7 +1051,7 @@ and new conversations per hour and per day, growing during a new sender's warm-u
 ### Sending limits and abuse signals
 
 Defaults for dedicated senders (your own bot, line or number). A sender's `limits`
-(`GET /v1/senders/{sender_id}`: `messages_per_second`, `new_contacts_per_day`,
+(`GET /v0/senders/{sender_id}`: `messages_per_second`, `new_contacts_per_day`,
 `new_contacts_per_hour`) shows its own numbers.
 
 | | Pace | New conversations |
@@ -1056,14 +1085,16 @@ iMessage lines have stricter limits of their own.
 - **Statuses**: `message.sent` or `message.failed` only. Telegram has no delivery or
   read receipts for bots, so never wait for `message.delivered` or `message.read`.
 - **Text** up to 4096 characters, counted in UTF-16 code units (an emoji such as 😀 is 2);
-  `"format": "markdown"` shows Telegram formatting. Media captions up to 1024.
-- **Buttons**: an inline keyboard, up to 10, one per row; a tap arrives as
-  `button_reply` content (`button_id`, `label`).
+  `"telegram": {"parse_mode": "HTML"}` (or `MarkdownV2`) for Telegram's formatting. Media captions up to 1024.
+- **Buttons**: an inline keyboard, up to 10, one per row; a tap arrives as a
+  `button_reply` message (`button_id`, `label`). No lists or carousels: send buttons.
 - **Media** by `https` URL (Telegram fetches it: photos up to 5 MB, other files up to
   20 MB) or a `file_id` (images up to 10 MB, other files up to 50 MB); voice notes as OGG/Opus.
-- **Reactions**: Telegram allows a fixed set of reaction emoji.
-- **Typing** (`state: "on"`) shows for about 5 seconds or until a message arrives.
-  Bots cannot send read receipts (`read` is skipped).
+- **Reactions**: only Telegram's fixed set of reaction emoji (listed on `POST
+  /v0/conversations/{conversation_id}/reaction`; another answers `422`, `param`
+  `emoji`); `"telegram": {"is_big": true}` for the large animation.
+- **Typing** shows for about 5 seconds or until a message arrives.
+  Bots cannot send read receipts (`read` answers `422 unsupported_content`).
 - **Edit** text (up to 4096) or a media caption (up to 1024), with no time limit; **unsend** within 48 hours of sending (later: `422 unsupported_content`, `unsend_window_closed`).
 - **Contacts**: `address.username` (when set) and `address.telegram_user_id`; no
   phone number.
@@ -1072,24 +1103,24 @@ iMessage lines have stricter limits of their own.
 
 ### iMessage
 
-- Flow's shared iMessage line is self-serve on sign-in at flow.engineer (or through the Flow CLI, `npx @flow-engineer/flow setup`): the first sign-in starts the account's free trial, and every app of the account then sees the line in `GET /v1/senders`. People join an app on it by sending the app's join message (the sender's `join_code` text, for example `Hi Sandbox app (ref wild-otter-04508705)`) to the line. The trial has room for 25 people per channel in total, over all the account's apps; the next person is held: their messages are kept, not delivered, and sends to them answer `403 permission` with `sandbox_contact_limit`, until you delete a contact you no longer need (`DELETE /v1/contacts/{contact_id}`). Otherwise the Flow team can grant an account the line. The shared line replies only (the person writes first) and ignores group chats. Dedicated iMessage lines are set up by the Flow team; writing first (`sender.imessage.can_initiate`) is available on request, on dedicated lines only.
+- Flow's shared iMessage line is self-serve on sign-in at flow.engineer (or through the Flow CLI, `npx @flow-engineer/flow setup`): the first sign-in starts the account's free trial, and every app of the account then sees the line in `GET /v0/senders`. People join an app on it by sending the app's join message (the sender's `join_code` text, for example `Hi Sandbox app (ref wild-otter-04508705)`) to the line. The trial has room for 25 people per channel in total, over all the account's apps; the next person is held: their messages are kept, not delivered, and sends to them answer `403 permission` with `sandbox_contact_limit`, until you delete a contact you no longer need (`DELETE /v0/contacts/{contact_id}`). Otherwise the Flow team can grant an account the line. The shared line replies only (the person writes first) and ignores group chats. Dedicated iMessage lines are set up by the Flow team; writing first (`sender.imessage.can_initiate`) is available on request, on dedicated lines only.
 - **Dedicated iMessage lines are connected by the Flow team**, not through the API, and
   are listed only with a live key. Without the trial or a grant,
-  `GET /v1/senders?channel=imessage` with a test key is an empty list, not an error.
+  `GET /v0/senders?channel=imessage` with a test key is an empty list, not an error.
 - **Replies only** unless the line can write first (`sender.imessage.can_initiate`,
   available on request for dedicated lines): the person texts the line first and
-  your agent replies. `POST /v1/messages` to someone who never wrote fails with
+  your agent replies. `POST /v0/messages` to someone who never wrote fails with
   `403 permission`. No cold outreach or bulk sends.
 - **Group chats** (dedicated lines; the shared line ignores them): a group the line
   was added to is one conversation with `type` `group`, no `contact`, and
   `group.participants`; each inbound message's `from` names who wrote. Reply with the
-  normal send. Reactions in groups answer `422 unsupported_content`
-  (`channel_code` `group_unsupported`); typing and read receipts are skipped. The
+  normal sends. Reactions, typing and read receipts in groups answer `422
+  unsupported_content` (`channel_code` `group_unsupported`): leave them out. The
   API cannot create a group or change who is in it.
-- **SMS and RCS fallback**: when `sender.imessage.fallback` is on, a contact who
-  cannot get iMessage gets SMS or RCS instead; `message.network` says which. Styles
-  and effects are dropped there, and edits and unsends answer `422
-  unsupported_content` (`channel_code` `not_on_sms`).
+- **SMS/RCS add-on**: when `sender.imessage.fallback` is on, a contact who
+  cannot get iMessage gets the message by SMS or RCS; `message.network` says which.
+  Such a message shows no `imessage.styles`, subject or effect, and edits and
+  unsends of it answer `422 unsupported_content` (`channel_code` `not_on_sms`).
 - **FaceTime calls** to the line arrive as `call.received` (`data.call.contact`); the
   line cannot answer them, and a call does not count as the person writing.
 - **Get people to write first** with the line's opt-in link (or its QR code): the
@@ -1103,14 +1134,14 @@ iMessage lines have stricter limits of their own.
   `address.phone` only for a number). iMessage reaches Apple devices only.
 - **Statuses**: `message.sent`, `message.delivered` and `message.failed` (a message can
   fail after `sent`). No `message.read` and no typing events.
-- **Text** up to 9999 characters. `format: "markdown"` renders bold,
-  italic, `~~strike~~`, and Flow's tags `<u>`, `<big>`, `<small>` and the animations
-  `<shake>`, `<nod>`, `<explode>`, `<ripple>`, `<bloom>`, `<jitter>`; `subject` adds a
-  bold title, and `link_preview: false` turns off link previews.
-  No buttons: with `"fallback": "auto"` they go as numbered text and a numeric answer
-  comes back as `button_reply`. Locations and contact cards need `"fallback": "auto"`.
-  Screen and bubble effects (`effect` content). Media up to 100 MB, by `url` (HTTPS, at
-  most 256 characters) or, better, a `file_id` from `POST /v1/files`.
+- **Text** up to 9999 characters, shown exactly as written.
+  `"imessage": {"styles": [...]}` styles ranges of it (bold, italic, underline,
+  strikethrough, big, small, and the animations shake, nod, explode, ripple, bloom,
+  jitter; `start` and `length` in UTF-16 code units); `"imessage": {"subject": "..."}`
+  adds a bold subject line, and `link_preview: false` turns off link previews.
+  No buttons, lists, carousels, locations or contact cards (`422`): send basic
+  messages instead. Screen and bubble effects: `POST .../effect`. Media up to 100 MB,
+  by `url` (HTTPS, at most 256 characters) or, better, a `file_id` from `POST /v0/files`.
 - **Reactions**: tapbacks ❤️ 👍 👎 😂 ‼️ ❓ arrive as `reaction.added` /
   `reaction.removed`; other emoji go as emoji reactions.
 - **Typing** shows only within 5 minutes of the contact's last message; **read** marks
@@ -1123,10 +1154,10 @@ iMessage lines have stricter limits of their own.
 ### SMS (US): in pilot
 
 - **US numbers (10DLC or toll-free) are registered and connected by the Flow team**
-  for each customer; `POST /v1/senders` with `"channel": "sms"` answers `501`. Not in
+  for each customer; `POST /v0/senders` with `"channel": "sms"` answers `501`. Not in
   the sandbox allowance. The sender's `sms` shows `number_type`,
   `registration_status`, `mms` and `quiet_hours`.
-- **Consent first**: `POST /v1/messages` to someone who never texted your numbers
+- **Consent first**: `POST /v0/messages` to someone who never texted your numbers
   needs `"consent": {"obtained_at": "...", "method": "web_form"}` (else `403
   permission`, `consent_required`).
 - **STOP is final until START**: a contact who texts STOP (or a variant) gets
@@ -1141,8 +1172,10 @@ iMessage lines have stricter limits of their own.
   `retry_after`.
 - **Text** up to 1530 characters and 10 segments (an
   emoji makes the text UCS-2: 670 characters); `message.sms` shows `segments` and
-  `encoding`. Images, audio and video go as MMS; buttons, locations and contact
-  cards need `"fallback": "auto"`; no reactions, edits, unsends, typing or read.
+  `encoding`. Images, audio and video go as MMS (numbers with `mms`; else `422`,
+  `no_mms`); only basic messages: buttons, lists, carousels, voice notes, locations,
+  contact cards, reactions, edits, unsends, typing and read receipts answer `422
+  unsupported_content`, and so do `reply_to` and `link_preview: true`.
 
 ### WhatsApp
 
@@ -1161,7 +1194,7 @@ iMessage lines have stricter limits of their own.
   store; never paste them into a chat or commit them):
 
 ```bash
-curl -s https://api.flow.engineer/v1/senders \
+curl -s https://api.flow.engineer/v0/senders \
   -H "Authorization: Bearer $FLOW_MESSAGING_LIVE_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: connect-my-whatsapp-number" \
   -d "{\"channel\": \"whatsapp\", \"whatsapp_phone_number_id\": \"$WHATSAPP_PHONE_NUMBER_ID\",
@@ -1181,7 +1214,7 @@ curl -s https://api.flow.engineer/v1/senders \
   again). A number of another app is refused (`403 permission`, `whatsapp_number_taken`
   or `whatsapp_account_taken`); a bad token is `400 invalid_request`
   (`whatsapp_token_malformed`, `whatsapp_token_rejected`), and a number outside that
-  business account `whatsapp_number_not_in_account`. `DELETE /v1/senders/{sender_id}`
+  business account `whatsapp_number_not_in_account`. `DELETE /v0/senders/{sender_id}`
   disconnects it (nothing changes in your Meta app: remove Flow's callback URL there
   yourself).
 - **24-hour window**: free-form content only within 24 hours of the contact's last
@@ -1189,9 +1222,11 @@ curl -s https://api.flow.engineer/v1/senders \
   outside_window`).
 - **Typing** only within 24 hours of the contact's last message, and only after they
   wrote at least once.
-- **Text** up to 4096 characters; `channel_options.preview_url` turns
-  the link preview on or off. Edits and unsends are refused (`422
-  unsupported_content`).
+- **Text** up to 4096 characters; `link_preview` turns the link
+  preview on or off. The app shows its own `*bold*` and `_italic_` marks.
+- **Buttons**: up to 3 reply buttons, or one URL button; more answer `422`
+  (`param` `buttons`): send a `list` (up to 10 rows) instead. Carousels: 2 to 10
+  cards. Edits and unsends are refused (`422 unsupported_content`).
 
 ## 12. MCP server (optional, for development)
 
@@ -1223,7 +1258,7 @@ Cursor (`~/.cursor/mcp.json`):
 
 Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session). Added with an empty key already? `export FLOW_MESSAGING_KEY=fk_test_...`, then `claude mcp remove flow`, run the add command again, and restart.
 
-Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `edit_message`, `unsend_message`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
+Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `edit_message`, `unsend_message`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
 
 Without a key, `/mcp` answers `401` and its `hint` gives the one call that gets a test
 key (section 0). After `send_test_message`, pass the `cursor` it returned as `after` to
@@ -1251,7 +1286,11 @@ for event in flow.events.stream(types=["message.received"]):
 
 Webhooks: `construct_event(raw_body, flow_signature_header)` checks `Flow-Signature`
 (the secret defaults to `FLOW_MESSAGING_WEBHOOK_SECRET`) and returns the typed event;
-`webhook_reply("...")` is the answer that replies at once. Errors raise a subclass of
+`webhook_reply("...")` is the answer that replies at once. Sends: one method per kind
+(`flow.messages.basic`, `.buttons`, `.list`, ..., `.contact_card`) and
+`flow.messages.send(conversation_id, kind_object)` for any kind (builders in
+`flow_messaging.content`: `buttons(...)`, `list_message(...)`, `image(...)`, ...);
+`flow.conversations.typing(id)` has no state. Errors raise a subclass of
 `FlowError` per `error.type` (`OutsideWindowError`, `PermissionDeniedError`, ...) with
 `hint`, `doc_url` and `code`. Full reference: https://github.com/flow-engineer/sdk/tree/main/python.
 
@@ -1264,8 +1303,8 @@ here.
 
 A program that asks a person one thing on Telegram, waits for the answer and goes on (a CLI, a script, a test). Four rules make it reliable:
 
-1. **Open the stream first.** `GET /v1/stream` without `after` starts at the moment it opens: anything earlier is not replayed. Once it is open, nothing later is missed.
-2. **Then look for a join that already happened.** A person who joined before the program started is already a conversation: `GET /v1/conversations?channel=telegram` (newest first). Skip `simulated: true` ones. Only when there is none, show the join link and wait for `conversation.started`, then for that conversation's first `message.received`: the join itself (`/start` from the link, or the join message without its code), so it is not read as an answer.
+1. **Open the stream first.** `GET /v0/stream` without `after` starts at the moment it opens: anything earlier is not replayed. Once it is open, nothing later is missed.
+2. **Then look for a join that already happened.** A person who joined before the program started is already a conversation: `GET /v0/conversations?channel=telegram` (newest first). Skip `simulated: true` ones. Only when there is none, show the join link and wait for `conversation.started`, then for that conversation's first `message.received`: the join itself (`/start` from the link, or the join message without its code), so it is not read as an answer.
 3. **Confirm the send.** The `202` only means queued: wait for `message.sent` or `message.failed` with that message's `id` (Telegram never sends `message.delivered`).
 4. **Wait for the reply with a timeout.** The next `message.received` in that conversation is the answer; give up after a time you choose and tell the person.
 
@@ -1285,7 +1324,7 @@ const api = async (path: string, init: Init = {}) => {
 // 1. Stream first. Events wait in `inbox` until something takes them.
 const inbox: any[] = [];
 let wake = () => {};
-const ws = new WebSocket(`wss://api.flow.engineer/v1/stream?type=conversation.started` +
+const ws = new WebSocket(`wss://api.flow.engineer/v0/stream?type=conversation.started` +
   `&type=message.received&type=message.sent&type=message.failed`, ["flow", "flow.key." + KEY]);
 ws.onmessage = (m) => {
   const f = JSON.parse(String(m.data));
@@ -1306,10 +1345,10 @@ function next(match: (ev: any) => boolean, ms: number): Promise<any> {
 }
 
 // 2. A join from before the program started is already a conversation.
-const convs = await api("/v1/conversations?channel=telegram&limit=20");
+const convs = await api("/v0/conversations?channel=telegram&limit=20");
 let conv: string | undefined = convs.data.find((c: any) => !c.simulated)?.id;
 if (!conv) {
-  const bots = await api("/v1/senders?channel=telegram");
+  const bots = await api("/v0/senders?channel=telegram");
   console.log(`Open ${bots.data[0].address.link} on your phone and tap Start.`);
   conv = (await next((e) => e.type === "conversation.started" && !e.conversation.simulated, 10 * 60_000)).conversation.id;
   // The join itself arrives next, as their first message.received ("/start"): take it.
@@ -1319,9 +1358,9 @@ if (!conv) {
 // 3 and 4. Ask, confirm the send, wait for the answer.
 async function ask(text: string, timeoutMs = 5 * 60_000): Promise<string | null> {
   inbox.splice(0); // what the person wrote before the question is not its answer
-  const msg = await api(`/v1/conversations/${conv}/messages`, {
+  const msg = await api(`/v0/conversations/${conv}/basic`, {
     method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() },
-    body: JSON.stringify({ content: { type: "text", text } }),
+    body: JSON.stringify({ text }),
   });
   const outcome = await next((e) => e.data?.message?.id === msg.id &&
     (e.type === "message.sent" || e.type === "message.failed"), 60_000);
@@ -1332,7 +1371,7 @@ async function ask(text: string, timeoutMs = 5 * 60_000): Promise<string | null>
   try {
     const ev = await next((e) => e.type === "message.received" && e.conversation.id === conv, timeoutMs);
     const c = ev.data.message.content;
-    return c.type === "text" ? c.text : c.type === "button_reply" ? c.label : `[${c.type}]`;
+    return c.kind === "basic" && c.text ? c.text : c.kind === "button_reply" ? c.label : `[${c.kind}]`;
   } catch {
     return null; // timed out: say so, or ask again later
   }
@@ -1344,20 +1383,20 @@ ws.close();
 ```
 
 - **Long waits**: the stream ends after 24 hours or on a server restart with a `reconnect` frame. Reconnect with `after` set to the last event `id` you saw: it replays what you missed, then goes live.
-- **No WebSocket** (serverless, cron): poll the event log instead, `GET /v1/events?conversation=conv_...&type=message.received&type=message.sent&type=message.failed&after=evt_...` (oldest first; `after` is the last event you handled; page while `has_more`). Or register a webhook and keep the question's state in your store.
-- **In tests without a phone**, post the person's answer with `POST /v1/test/conversations/{conversation_id}/inbound` on a simulated conversation (`POST /v1/test/conversations`): free, and it arrives as the same `message.received`.
+- **No WebSocket** (serverless, cron): poll the event log instead, `GET /v0/events?conversation=conv_...&type=message.received&type=message.sent&type=message.failed&after=evt_...` (oldest first; `after` is the last event you handled; page while `has_more`). Or register a webhook and keep the question's state in your store.
+- **In tests without a phone**, post the person's answer with `POST /v0/test/conversations/{conversation_id}/inbound` on a simulated conversation (`POST /v0/test/conversations`): free, and it arrives as the same `message.received`.
 
 ### Many Telegram bots (one per customer, brand or language)
 
 - A person creates each bot in Telegram's @BotFather (`/newbot`, a name, a username ending in `bot`); an agent cannot. Ask them: "Create the bot in @BotFather and put its token in `.env` (or your secret store) as `TELEGRAM_BOT_TOKEN_<NAME>`; don't paste it here." Never ask for the token in chat.
-- With a live key, `POST /v1/senders {"channel":"telegram","telegram_bot_token":"..."}` once per bot (`Idempotency-Key` per bot). One bot is one sender; connecting it again updates that sender; connecting it to another of your apps moves it there. There is no limit on bots per app.
-- Send from a bot with `"sender": "snd_..."` on `POST /v1/messages`; replies go into the conversation and leave from its bot. Every event names its `conversation.sender`, so route by sender.
+- With a live key, `POST /v0/senders {"channel":"telegram","telegram_bot_token":"..."}` once per bot (`Idempotency-Key` per bot). One bot is one sender; connecting it again updates that sender; connecting it to another of your apps moves it there. There is no limit on bots per app.
+- Send from a bot with `"sender": "snd_..."` on `POST /v0/messages`; replies go into the conversation and leave from its bot. Every event names its `conversation.sender`, so route by sender.
 
 ### Serverless (Vercel, Workers, Lambda): webhooks only
 
-- Register `https://<your-app>/api/flow` once with `POST /v1/webhook_endpoints` and store the `whsec_...` secret as `FLOW_MESSAGING_WEBHOOK_SECRET`. Verify `Flow-Signature` on the raw body (in TypeScript `flow.webhooks.handler(...)` does it), dedupe on `event.id`, answer within 10 seconds.
-- Fast answer: return `{"reply": ...}` in the webhook answer. Slow agent: answer `200 {}` at once, then reply with `POST /v1/conversations/{conversation_id}/messages` (on Vercel inside `waitUntil`). Keep conversation state in your database, keyed by `conversation.id`.
-- Missed deliveries are retried for 3 days; to catch up, read `GET /v1/events?after=evt_...` from a cron job.
+- Register `https://<your-app>/api/flow` once with `POST /v0/webhook_endpoints` and store the `whsec_...` secret as `FLOW_MESSAGING_WEBHOOK_SECRET`. Verify `Flow-Signature` on the raw body (in TypeScript `flow.webhooks.handler(...)` does it), dedupe on `event.id`, answer within 10 seconds.
+- Fast answer: return `{"reply": ...}` in the webhook answer. Slow agent: answer `200 {}` at once, then reply with `POST /v0/conversations/{conversation_id}/basic` (or another kind's endpoint; on Vercel inside `waitUntil`). Keep conversation state in your database, keyed by `conversation.id`.
+- Missed deliveries are retried for 3 days; to catch up, read `GET /v0/events?after=evt_...` from a cron job.
 - Previews and local runs: Flow calls only public HTTPS URLs. Locally, no tunnel needed: `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow` reads the stream and `POST`s each event to your handler, signed like a real delivery with `FLOW_MESSAGING_WEBHOOK_SECRET`.
 
 ### Add Flow to the IDE (MCP)
@@ -1366,20 +1405,20 @@ The hosted MCP server is an optional development tool. Adding it is the project 
 
 ### Send a PDF, receive a voice note
 
-- Uploads (`POST /v1/files`, multipart, up to 100 MB) take images, audio, video, plain text and documents (PDF, Office files, zip and other archives). Documents are malware-scanned before Flow stores them: one that fails answers `422 file_blocked` and is not stored; if the scan cannot run just then, the upload answers a retryable `500 api_error` with `Retry-After` (retry with the same `Idempotency-Key`). Then send `{"type":"media","kind":"document","file_id":"file_...","filename":"receipt.pdf"}` (Telegram takes documents up to 50 MB; SMS takes none). A PDF you already host can go by `url` instead of `file_id`; the channel fetches it (Telegram: PDF and ZIP, up to 20 MB).
-- A voice note arrives as `message.received` with `{"type":"voice","file_id":"file_...","url":"...","duration_seconds":4}`. Download it with `GET /v1/files/{file_id}` (your API key; it answers `302` to a short-lived signed URL, so follow redirects). Send one with `{"type":"voice","file_id":"file_..."}` (OGG/Opus on Telegram).
+- Uploads (`POST /v0/files`, multipart, up to 100 MB) take images, audio, video, plain text and documents (PDF, Office files, zip and other archives). Documents are malware-scanned before Flow stores them: one that fails answers `422 file_blocked` and is not stored; if the scan cannot run just then, the upload answers a retryable `500 api_error` with `Retry-After` (retry with the same `Idempotency-Key`). Then send it with `POST /v0/conversations/{conversation_id}/basic` and `{"media":{"type":"document","file_id":"file_...","filename":"receipt.pdf"}}` (Telegram takes documents up to 50 MB; SMS takes none). A PDF you already host can go by `url` instead of `file_id`; the channel fetches it (Telegram: PDF and ZIP, up to 20 MB).
+- A voice note arrives as `message.received` with `{"kind":"voice","file_id":"file_...","url":"...","duration_seconds":4}`. Download it with `GET /v0/files/{file_id}` (your API key; it answers `302` to a short-lived signed URL, so follow redirects). Send one with `POST /v0/conversations/{conversation_id}/voice` and `{"file_id":"file_..."}` (OGG/Opus on Telegram).
 
 ### WhatsApp: a reminder the next day
 
-Flow has no scheduled sends: schedule in your own app (cron, queue) and send then. Next day is usually outside WhatsApp's 24-hour window, so only an approved `template` goes (`POST /v1/templates` on your WhatsApp sender with a live key, with a realistic sample for each placeholder in `examples`, which WhatsApp reviews it with; else `409 outside_window`). Test it now on a simulated WhatsApp conversation: templates on the simulated sender are approved at once. Connect your own WhatsApp number with `POST /v1/senders` (quickstart section 11).
+Flow has no scheduled sends: schedule in your own app (cron, queue) and send then. Next day is usually outside WhatsApp's 24-hour window, so only an approved `template` goes (`POST /v0/templates` on your WhatsApp sender with a live key, with a realistic sample for each placeholder in `examples`, which WhatsApp reviews it with; else `409 outside_window`). Test it now on a simulated WhatsApp conversation: templates on the simulated sender are approved at once. Connect your own WhatsApp number with `POST /v0/senders` (quickstart section 11).
 
 ### Move a live polling bot to Flow
 
-Connect its token with a live key (`POST /v1/senders`). Flow sets the bot's webhook, which ends `getUpdates` polling: stop the old poller first (Telegram answers its next `getUpdates` with `409 Conflict`). Updates Telegram still holds are delivered to Flow, not dropped. Conversations start fresh in Flow (it has no history from before); people do not need to press Start again. To go back, `DELETE /v1/senders/{sender_id}` removes the webhook.
+Connect its token with a live key (`POST /v0/senders`). Flow sets the bot's webhook, which ends `getUpdates` polling: stop the old poller first (Telegram answers its next `getUpdates` with `409 Conflict`). Updates Telegram still holds are delivered to Flow, not dropped. Conversations start fresh in Flow (it has no history from before); people do not need to press Start again. To go back, `DELETE /v0/senders/{sender_id}` removes the webhook.
 
 ### Broadcast to many people
 
-- There is no bulk endpoint: one `POST /v1/messages` per person, each with its own `Idempotency-Key` (for example `campaign-7-ct_...`), from a queue of your own.
+- There is no bulk endpoint: one `POST /v0/messages` per person, each with its own `Idempotency-Key` (for example `campaign-7-ct_...`), from a queue of your own.
 - Telegram: a bot can message only people who started it, so a broadcast goes to people who wrote to your bot. Each bot sends about 20 messages a second (burst 40); faster answers `429 rate_limited` with `Retry-After`. The per-key request limit is 600 a minute on the free plan (`RateLimit-*` headers), so 5,000 messages take about 9 minutes.
 - New conversations per sender are budgeted: the sender's `limits` (`new_contacts_per_day`, `new_contacts_per_hour`) show today's numbers; past them a start answers `429 new_contact_limit` with `retry_after`: queue it, do not loop. iMessage lines start no cold conversations; WhatsApp needs a template and Meta's tier caps new contacts a day; SMS needs consent.
 - The same first message to 20 new contacts within an hour throttles a dedicated sender for 24 hours (`429 sender_throttled` on starts; replies still go). Personalise first messages; templates and media without a caption do not count. Limits and signals: quickstart section 10.
@@ -1387,15 +1426,15 @@ Connect its token with a live key (`POST /v1/senders`). Flow sets the bot's webh
 
 ### Delete a person's data (GDPR)
 
-`DELETE /v1/contacts/{contact_id}` (`204`, repeat-safe) erases the contact's name and address, all their message content and files, their events' payloads, pending deliveries and queued sends at once, and emits `contact.deleted`. IDs and timestamps stay. Find the contact ID on their events (`conversation.contact`) or `GET /v1/contacts`; there is no lookup by phone number or username. Content is otherwise kept 30 days.
+`DELETE /v0/contacts/{contact_id}` (`204`, repeat-safe) erases the contact's name and address, all their message content and files, their events' payloads, pending deliveries and queued sends at once, and emits `contact.deleted`. IDs and timestamps stay. Find the contact ID on their events (`conversation.contact`) or `GET /v0/contacts`; there is no lookup by phone number or username. Content is otherwise kept 30 days.
 
-Erasure removes Flow's copy only: messages already delivered stay on the person's phone. To remove those too, unsend them first (`DELETE /v1/messages/{message_id}`: Telegram within 48 hours, iMessage within 2 minutes; WhatsApp and SMS cannot), wait until each shows `status` `unsent`, then erase. After erasure nothing can be unsent.
+Erasure removes Flow's copy only: messages already delivered stay on the person's phone. To remove those too, unsend them first (`DELETE /v0/messages/{message_id}`: Telegram within 48 hours, iMessage within 2 minutes; WhatsApp and SMS cannot), wait until each shows `status` `unsent`, then erase. After erasure nothing can be unsent.
 
 ### A leaked API key
 
 1. Make a new key: dashboard (https://api.flow.engineer/admin/keys, `?mode=live` for live keys) > **Create live key** (or test). Put it where the old one was and deploy.
 2. Revoke the old one: Keys > **Revoke** on the key ending in its last four characters. It stops working at once; open streams close within a minute (`4401`).
-3. Read `GET /v1/events` for sends you did not make. A leaked webhook secret: `POST /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret`. A leaked bot token: revoke it in @BotFather and connect the new one (`POST /v1/senders`, same sender).
+3. Read `GET /v0/events` for sends you did not make. A leaked webhook secret: `POST /v0/webhook_endpoints/{webhook_endpoint_id}/rotate_secret`. A leaked bot token: revoke it in @BotFather and connect the new one (`POST /v0/senders`, same sender).
 
 An app made without an account has no dashboard: get a new sandbox key, or sign in first.
 
@@ -1403,12 +1442,12 @@ An app made without an account has no dashboard: get a new sandbox key, or sign 
 
 1. Sign in to keep the app (`npx @flow-engineer/messaging login`): the app, its data and webhooks stay.
 2. Dashboard > Live > **Create live key**; keep it apart from the test key (`FLOW_MESSAGING_LIVE_KEY`).
-3. Connect your own Telegram bot (`POST /v1/senders`, quickstart section 7) or your own WhatsApp number (`POST /v1/senders`, quickstart section 11); dedicated iMessage lines and SMS numbers are connected by the Flow team. Flow's shared iMessage line needs no live key: it comes with the free trial a sign-in starts (25 people per channel).
+3. Connect your own Telegram bot (`POST /v0/senders`, quickstart section 7) or your own WhatsApp number (`POST /v0/senders`, quickstart section 11); dedicated iMessage lines and SMS numbers are connected by the Flow team. Flow's shared iMessage line needs no live key: it comes with the free trial a sign-in starts (25 people per channel).
 4. Register the webhook again with the live key (endpoints belong to one mode). Nothing else in the code changes.
 
 ### Multi-tenant SaaS: one bot per customer
 
-One app holds many senders: connect each customer's bot with your live key (`POST /v1/senders`) and keep the mapping customer to `snd_...` in your database. Events name the sender (`conversation.sender`) and the conversation, so route by those; replies leave from the conversation's own bot. Apps cannot be created through the API or the dashboard today (each sign-in has one app; up to 10 sandbox apps can be claimed), so per-customer apps are not self-serve. A key belongs to one app and one mode.
+One app holds many senders: connect each customer's bot with your live key (`POST /v0/senders`) and keep the mapping customer to `snd_...` in your database. Events name the sender (`conversation.sender`) and the conversation, so route by those; replies leave from the conversation's own bot. Apps cannot be created through the API or the dashboard today (each sign-in has one app; up to 10 sandbox apps can be claimed), so per-customer apps are not self-serve. A key belongs to one app and one mode.
 
 ### Delivery guarantees
 
@@ -1419,7 +1458,7 @@ One app holds many senders: connect each customer's bot with your live key (`POS
 
 ### Sent but not received: a checklist
 
-1. **Did the send end?** `GET /v1/messages/{message_id}`, or `GET /v1/events?conversation=conv_...&type=message.sent&type=message.failed`. `queued`: still waiting (an earlier message in the conversation, the sender's pace, or a bot whose token Telegram rejected: reconnect it). `sent`: the channel took it (Telegram reports nothing after that). `failed`: read `error.type`, `error.channel_code` and `error.hint`.
+1. **Did the send end?** `GET /v0/messages/{message_id}`, or `GET /v0/events?conversation=conv_...&type=message.sent&type=message.failed`. `queued`: still waiting (an earlier message in the conversation, the sender's pace, or a bot whose token Telegram rejected: reconnect it). `sent`: the channel took it (Telegram reports nothing after that). `failed`: read `error.type`, `error.channel_code` and `error.hint`.
 2. **Common `message.failed` codes**: `permission` with `sandbox_contact_left` (the person joined another app on the shared sandbox bot while the message waited: they send your app's `join_code` message again); `channel_error` with `channel_code` `403` on Telegram (the person blocked the bot, or never started it); `outside_window` (iMessage: they have not written recently; WhatsApp: `window_closed`, send a template; `queued_too_long`); `channel_timeout_unknown_outcome` (may have arrived).
 3. **Sandbox (test key)**: the person joined *your* app: opened the sandbox bot's `address.link` and tapped Start, or sent the sender's `join_code` message. The join is also the conversation's first `message.received` (`/start`, or the join message without its code), right after `conversation.started`. One person belongs to one app per sandbox bot, so joining another app moves them (sends answer `403 permission`). A key made without an account expires after 7 days and its contact is removed. Allowance refusals are `403 permission` (`sandbox_allowance_used`, `sandbox_contact_limit`).
 4. **Your own bot (live key)**: the person pressed Start on that bot (a Telegram bot cannot write first), and you send with the live key: sandbox conversations belong to the test key and answer `404 not_found` with a live one.
@@ -1428,7 +1467,7 @@ One app holds many senders: connect each customer's bot with your live key (`POS
 
 ### Tests in CI, without a phone
 
-Use a test key and simulated conversations: `POST /v1/test/conversations`, post the contact's turns to `.../inbound`, assert on your agent's replies with `.../transcript`. Free, no phone, parallel-safe; at most 500 simulated conversations per app (reuse them) and 120 requests a minute to `/v1/test/`. Keep the key in your CI's secret store. In tests, wait for events (stream or `GET /v1/events`), never fixed sleeps.
+Use a test key and simulated conversations: `POST /v0/test/conversations`, post the contact's turns to `.../inbound`, assert on your agent's replies with `.../transcript`. Free, no phone, parallel-safe; at most 500 simulated conversations per app (reuse them) and 120 requests a minute to `/v0/test/`. Keep the key in your CI's secret store. In tests, wait for events (stream or `GET /v0/events`), never fixed sleeps.
 
 ### Give a cofounder access
 
@@ -1436,19 +1475,19 @@ Not built yet: an account has one member (whoever signed in), and there are no i
 
 ### What the Flow team arranges, and how to ask
 
-Some things are set up by the Flow team, not through the API: SMS numbers, dedicated iMessage lines, writing first on iMessage, pricing and support. Flow's shared iMessage line is self-serve: it comes with the free trial a sign-in at flow.engineer (or `npx @flow-engineer/flow setup`) starts. You connect your own WhatsApp number yourself (`POST /v1/senders` with `"channel": "whatsapp"` and a live key, or the dashboard's Senders page; quickstart section 11), and the Flow team can still help with it. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer. For each, what to do today, what to build meanwhile, and what to send.
+Some things are set up by the Flow team, not through the API: SMS numbers, dedicated iMessage lines, writing first on iMessage, pricing and support. Flow's shared iMessage line is self-serve: it comes with the free trial a sign-in at flow.engineer (or `npx @flow-engineer/flow setup`) starts. You connect your own WhatsApp number yourself (`POST /v0/senders` with `"channel": "whatsapp"` and a live key, or the dashboard's Senders page; quickstart section 11), and the Flow team can still help with it. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer. For each, what to do today, what to build meanwhile, and what to send.
 
 **Never send secrets in chat or email, and never paste them to a coding agent or commit them**: API keys, bot tokens, provider auth tokens, access tokens, app secrets. The Flow team tells you how to hand credentials over, and Flow stores them encrypted. A coding agent that finds credentials in `.env` or a secret manager leaves them where they are and tells the person this.
 
-**Build meanwhile on Telegram or simulated conversations.** Your code does not change per channel: you reply into conversations, switch on `content.type` and `error.type`, and set `"fallback": "auto"`. Simulated conversations (`POST /v1/test/conversations` with `"channel": "sms"`, `"whatsapp"` or `"imessage"`) keep each channel's rules (SMS consent and STOP, WhatsApp's 24-hour window and templates, iMessage replies only), are free and need no number. When the number or line is connected, switch to a live key; nothing else changes.
+**Build meanwhile on Telegram or simulated conversations.** Your code does not change per channel: you reply into conversations and switch on `content.kind` and `error.type`; where a kind is not on a channel, the `422` `hint` says what to send instead. Simulated conversations (`POST /v0/test/conversations` with `"channel": "sms"`, `"whatsapp"` or `"imessage"`) keep each channel's rules (SMS consent and STOP, WhatsApp's 24-hour window and templates, iMessage replies only), are free and need no number. When the number or line is connected, switch to a live key; nothing else changes.
 
 | You want | Today | Send the Flow team |
 |---|---|---|
-| **US SMS** (in pilot), including on your own SMS provider account | `POST /v1/senders` with `"channel": "sms"` answers `501`; the team connects the number. Build on simulated SMS. | Your app ID (`app_...`, from `GET /v1/app` with your live key) and account ID (`account` there); the number in E.164 (`+1` and ten digits), 10DLC or toll-free, and its registration status; whether it is on your own provider account (which provider) or Flow should provide one; what you send and how people opt in. Not the auth token: the team arranges that. |
-| **Help with WhatsApp on your own WhatsApp Business Account** (credentials in your own secret manager is fine) | Self-serve: `POST /v1/senders` with `"channel": "whatsapp"` and a live key connects the number at once, and its answer's `setup` says what to set in your Meta app. Ask the team if you want help with it. Build on simulated WhatsApp (templates are approved at once there). | Your app and account IDs; the phone number ID and WhatsApp Business Account ID (in WhatsApp Manager); whether the number is on your own Meta app. Not the access token or the app secret: send those only to `POST /v1/senders`, or ask the team how they reach Flow. Meta bills you directly, so the account needs a payment method in WhatsApp Manager. |
+| **US SMS** (in pilot), including on your own SMS provider account | `POST /v0/senders` with `"channel": "sms"` answers `501`; the team connects the number. Build on simulated SMS. | Your app ID (`app_...`, from `GET /v0/app` with your live key) and account ID (`account` there); the number in E.164 (`+1` and ten digits), 10DLC or toll-free, and its registration status; whether it is on your own provider account (which provider) or Flow should provide one; what you send and how people opt in. Not the auth token: the team arranges that. |
+| **Help with WhatsApp on your own WhatsApp Business Account** (credentials in your own secret manager is fine) | Self-serve: `POST /v0/senders` with `"channel": "whatsapp"` and a live key connects the number at once, and its answer's `setup` says what to set in your Meta app. Ask the team if you want help with it. Build on simulated WhatsApp (templates are approved at once there). | Your app and account IDs; the phone number ID and WhatsApp Business Account ID (in WhatsApp Manager); whether the number is on your own Meta app. Not the access token or the app secret: send those only to `POST /v0/senders`, or ask the team how they reach Flow. Meta bills you directly, so the account needs a payment method in WhatsApp Manager. |
 | **iMessage** | Flow's shared line is self-serve: sign in at flow.engineer (or run `npx @flow-engineer/flow setup`) and every app of the account sees it, for up to 25 people per channel in total; it replies only. Dedicated lines are connected by the team; they reply only (the person writes first) unless the line is enabled to start conversations, which is on request. Build on the shared line, simulated iMessage or Telegram. | Your app and account IDs; what the agent does; expected people per day; whether you need to write first (and why the person expects it). |
 | **Pricing and billing** | Billing is not live, so everything is free today. Payments are coming; there are no prices or dates yet. With your own provider account (your own SMS provider account, or your own WhatsApp Business Account), the provider bills you directly and Flow charges nothing while billing is not live. | Expected volume per channel and month, if you want to talk about it. |
-| **Support: "sent but not delivered"** | First read the message: `GET /v1/messages/{message_id}` and its events (`GET /v1/events?conversation=conv_...`). Every send ends `message.sent` or `message.failed` (with `error.type`, `channel_code` and `hint`); Telegram never reports `message.delivered`, so `sent` is the last status there. | The message ID (`msg_...`), conversation ID (`conv_...`), the `request_id` of the call (also the `Flow-Request-Id` header), test or live, the time, and what you expected. Not your API key, and no message content unless asked. |
+| **Support: "sent but not delivered"** | First read the message: `GET /v0/messages/{message_id}` and its events (`GET /v0/events?conversation=conv_...`). Every send ends `message.sent` or `message.failed` (with `error.type`, `channel_code` and `hint`); Telegram never reports `message.delivered`, so `sent` is the last status there. | The message ID (`msg_...`), conversation ID (`conv_...`), the `request_id` of the call (also the `Flow-Request-Id` header), test or live, the time, and what you expected. Not your API key, and no message content unless asked. |
 
 ## 15. Endpoint index
 
@@ -1456,43 +1495,51 @@ Every operation in the spec (https://api.flow.engineer/openapi.yaml):
 
 | Method and path | Use |
 |---|---|
-| `POST /v1/sandbox/keys` | Get a test key without an account |
-| `POST /v1/device/authorizations` | Start a sign-in from an agent or CLI (device flow) |
-| `POST /v1/device/token` | Poll a device sign-in for its key |
-| `GET /v1/app` | Get the calling app |
-| `POST /v1/conversations/{conversation_id}/messages` | Send a message into a conversation |
-| `POST /v1/messages` | Start a conversation |
-| `GET /v1/messages/{message_id}` | Get a message |
-| `PATCH /v1/messages/{message_id}` | Edit a sent message |
-| `DELETE /v1/messages/{message_id}` | Unsend a message |
-| `GET /v1/conversations/{conversation_id}/messages` | List a conversation's messages |
-| `POST /v1/conversations/{conversation_id}/typing` | Show or stop the typing indicator |
-| `POST /v1/conversations/{conversation_id}/read` | Mark messages as read |
-| `GET /v1/conversations` | List conversations |
-| `GET /v1/conversations/{conversation_id}` | Get a conversation |
-| `GET /v1/events` | List events |
-| `GET /v1/events/{event_id}` | Get an event |
-| `GET /v1/stream` | Open the live event stream (WebSocket) |
-| `GET /v1/capabilities` | Get a conversation's capabilities |
-| `POST /v1/files` | Upload a file |
-| `GET /v1/files/{file_id}` | Download a file |
-| `GET /v1/senders` | List senders |
-| `POST /v1/senders` | Request a dedicated sender |
-| `GET /v1/senders/{sender_id}` | Get a sender |
-| `DELETE /v1/senders/{sender_id}` | Disconnect a sender |
-| `GET /v1/templates` | List templates |
-| `POST /v1/templates` | Create a template |
-| `GET /v1/templates/{template_id}` | Get a template |
-| `DELETE /v1/templates/{template_id}` | Delete a template |
-| `GET /v1/webhook_endpoints` | List webhook endpoints |
-| `POST /v1/webhook_endpoints` | Create a webhook endpoint |
-| `GET /v1/webhook_endpoints/{webhook_endpoint_id}` | Get a webhook endpoint |
-| `PATCH /v1/webhook_endpoints/{webhook_endpoint_id}` | Update a webhook endpoint |
-| `DELETE /v1/webhook_endpoints/{webhook_endpoint_id}` | Delete a webhook endpoint |
-| `POST /v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret` | Rotate a webhook endpoint's signing secret |
-| `GET /v1/contacts` | List contacts |
-| `GET /v1/contacts/{contact_id}` | Get a contact |
-| `DELETE /v1/contacts/{contact_id}` | Delete a contact and their data |
-| `POST /v1/test/conversations` | Create a simulated conversation |
-| `POST /v1/test/conversations/{conversation_id}/inbound` | Write as the simulated contact |
-| `GET /v1/test/conversations/{conversation_id}/transcript` | Read a simulated conversation, both ways |
+| `POST /v0/sandbox/keys` | Get a test key without an account |
+| `POST /v0/device/authorizations` | Start a sign-in from an agent or CLI (device flow) |
+| `POST /v0/device/token` | Poll a device sign-in for its key |
+| `GET /v0/app` | Get the calling app |
+| `POST /v0/conversations/{conversation_id}/basic` | Send a basic message (text, or media with a caption) |
+| `POST /v0/conversations/{conversation_id}/voice` | Send a voice note |
+| `POST /v0/conversations/{conversation_id}/buttons` | Send text with buttons |
+| `POST /v0/conversations/{conversation_id}/list` | Send a list to pick one option from |
+| `POST /v0/conversations/{conversation_id}/carousel` | Send a carousel of cards |
+| `POST /v0/conversations/{conversation_id}/template` | Send a WhatsApp template |
+| `POST /v0/conversations/{conversation_id}/contact-card` | Send a contact card |
+| `POST /v0/conversations/{conversation_id}/location` | Send a place |
+| `POST /v0/conversations/{conversation_id}/effect` | Send text with an iMessage effect |
+| `POST /v0/conversations/{conversation_id}/reaction` | React to a message |
+| `POST /v0/messages` | Start a conversation |
+| `GET /v0/messages/{message_id}` | Get a message |
+| `PATCH /v0/messages/{message_id}` | Edit a sent message |
+| `DELETE /v0/messages/{message_id}` | Unsend a message |
+| `GET /v0/conversations/{conversation_id}/messages` | List a conversation's messages |
+| `POST /v0/conversations/{conversation_id}/typing` | Show the typing indicator |
+| `POST /v0/conversations/{conversation_id}/read` | Mark messages as read |
+| `GET /v0/conversations` | List conversations |
+| `GET /v0/conversations/{conversation_id}` | Get a conversation |
+| `GET /v0/events` | List events |
+| `GET /v0/events/{event_id}` | Get an event |
+| `GET /v0/stream` | Open the live event stream (WebSocket) |
+| `POST /v0/files` | Upload a file |
+| `GET /v0/files/{file_id}` | Download a file |
+| `GET /v0/senders` | List senders |
+| `POST /v0/senders` | Request a dedicated sender |
+| `GET /v0/senders/{sender_id}` | Get a sender |
+| `DELETE /v0/senders/{sender_id}` | Disconnect a sender |
+| `GET /v0/templates` | List templates |
+| `POST /v0/templates` | Create a template |
+| `GET /v0/templates/{template_id}` | Get a template |
+| `DELETE /v0/templates/{template_id}` | Delete a template |
+| `GET /v0/webhook_endpoints` | List webhook endpoints |
+| `POST /v0/webhook_endpoints` | Create a webhook endpoint |
+| `GET /v0/webhook_endpoints/{webhook_endpoint_id}` | Get a webhook endpoint |
+| `PATCH /v0/webhook_endpoints/{webhook_endpoint_id}` | Update a webhook endpoint |
+| `DELETE /v0/webhook_endpoints/{webhook_endpoint_id}` | Delete a webhook endpoint |
+| `POST /v0/webhook_endpoints/{webhook_endpoint_id}/rotate_secret` | Rotate a webhook endpoint's signing secret |
+| `GET /v0/contacts` | List contacts |
+| `GET /v0/contacts/{contact_id}` | Get a contact |
+| `DELETE /v0/contacts/{contact_id}` | Delete a contact and their data |
+| `POST /v0/test/conversations` | Create a simulated conversation |
+| `POST /v0/test/conversations/{conversation_id}/inbound` | Write as the simulated contact |
+| `GET /v0/test/conversations/{conversation_id}/transcript` | Read a simulated conversation, both ways |

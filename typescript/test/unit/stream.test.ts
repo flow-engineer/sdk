@@ -19,7 +19,7 @@ afterEach(async () => {
   servers = [];
 });
 
-/** A fake /v1/stream; `next()` resolves with each new connection. */
+/** A fake /v0/stream; `next()` resolves with each new connection. */
 async function fakeStream() {
   const wss = new WebSocketServer({ port: 0, host: "127.0.0.1" });
   servers.push(wss);
@@ -50,12 +50,12 @@ describe("events.stream", () => {
     const first = it.next();
     const conn = await srv.next();
     expect(conn.auth).toBe("Bearer fk_test_unit");
-    expect(conn.url.pathname).toBe("/v1/stream");
+    expect(conn.url.pathname).toBe("/v0/stream");
     expect(conn.url.searchParams.getAll("type")).toEqual(["message.received"]);
     send(conn, { type: "event", event: receivedEvent(1, "hi") });
     const ev = (await first).value!;
     expect(ev.type).toBe("message.received");
-    expect(ev.data.message.content).toEqual({ type: "text", text: "hi" });
+    expect(ev.data.message.content).toEqual({ kind: "basic", text: "hi" });
     expect(ev.conversation).toBeInstanceOf(ConversationHandle);
     expect(stream.lastEventId).toBe(ids.evt(1));
     stream.close();
@@ -127,7 +127,7 @@ describe("events.stream", () => {
     expect(err.message).toBe("permission: not allowed");
   });
 
-  it("polls GET /v1/events when asked to", async () => {
+  it("polls GET /v0/events when asked to", async () => {
     let n = 0;
     const { fetch, calls } = mockFetch((req) => {
       n++;

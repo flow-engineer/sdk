@@ -3,7 +3,7 @@
 #: The API version this SDK's models were generated from; sent as ``Flow-Version``.
 API_VERSION = "2026-11-01"
 #: This package's version.
-SDK_VERSION = "0.1.0"
+SDK_VERSION = "0.2.0"
 DEFAULT_BASE_URL = "https://api.flow.engineer"
 
 #: The API key, ``fk_test_...`` or ``fk_live_...``.
@@ -22,5 +22,5 @@ MAX_RETRY_WAIT = 60.0
 
 NO_KEY_HELP = (
     "No key yet? Get a test key in one call, no account needed: "
-    "`Flow().sandbox.create_key()`, or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`."
+    "`Flow().sandbox.create_key()`, or `curl -X POST https://api.flow.engineer/v0/sandbox/keys`."
 )

@@ -62,27 +62,94 @@ async with AsyncFlow() as aflow:      # the same API, with await
 
 ## Sending
 
+Each kind of message has its own endpoint and its own method, and what you send is what
+the contact gets: Flow never converts a message into another kind.
+
 ```python
-from flow_messaging.content import buttons, image, markdown
+from flow_messaging import content
 
-flow.messages.send("conv_...", "Your order shipped.")
-flow.messages.send("conv_...", buttons("Size?", ["S", "M", "L"]), fallback="auto")
-flow.messages.send("conv_...", markdown("**Done.**"), reply_to="msg_...")
+flow.messages.basic("conv_...", text="Your order shipped.")
+flow.messages.basic("conv_...", text="Yes, that one.", reply_to="msg_...")  # an inline reply
+flow.messages.buttons("conv_...", content.buttons("Which size?", ["S", "M", "L"]))
+flow.messages.list("conv_...", content.list_message("Which size?", "Sizes", [{"id": "s", "title": "Small"}]))
 file = flow.files.upload("photo.jpg")
-flow.messages.send("conv_...", image(file.id, caption="Your order"))
-
-flow.messages.start(sender="snd_...", to="ct_...", content="Your table is ready.")
-flow.messages.edit("msg_...", "Fixed typo")      # Telegram
-flow.messages.unsend("msg_...")                  # Telegram, within 48 hours
-flow.conversations.typing("conv_...", "on")
-flow.conversations.mark_read("conv_...")
+flow.messages.basic("conv_...", content.image(file.id, "Your order"))
+flow.messages.reaction("conv_...", message_id="msg_...", emoji="👍")
 ```
 
-Content is a string (text), a dict in the API's shape, a model from
-`flow_messaging.types`, or a builder from `flow_messaging.content`. `content_text()`
-gives the text a person would read in any piece of content. A handle bundles the calls
-for one conversation: `flow.conversation(event).send("Hi")`, `.typing()`,
-`.mark_read()`, `.react(message_id, "👍")`.
+| Method | Endpoint (`POST /v0/conversations/{conversation_id}/...`) | Builder |
+| --- | --- | --- |
+| `messages.basic` | `basic`: text and/or one file, every channel | `basic`, `media`, `image`, `video`, `audio`, `document` |
+| `messages.voice` | `voice`: a voice note | `voice` |
+| `messages.buttons` | `buttons`: reply buttons, or one URL button | `buttons` |
+| `messages.list` | `list`: a WhatsApp list | `list_message` |
+| `messages.carousel` | `carousel`: WhatsApp cards | `carousel` |
+| `messages.template` | `template`: an approved WhatsApp template | `template` |
+| `messages.contact_card` | `contact-card` | `contact_card` |
+| `messages.location` | `location` | `location` |
+| `messages.effect` | `effect`: iMessage screen and bubble effects | `effect` |
+| `messages.reaction` | `reaction`: one emoji, or `emoji=None` to remove yours | `reaction` |
+| `conversations.typing` | `typing`: shows the indicator | |
+| `conversations.read` | `read`: a read receipt | |
+
+Each method takes the message as a dict, a model from `flow_messaging.types` or a
+builder from `flow_messaging.content`, with keyword fields laid over it; the builders
+return plain dicts with `kind` set. Text is sent exactly as written: no markdown is
+rendered or stripped (style it with the channel's own `telegram` or `imessage` block).
+
+`messages.send` takes any kind object and sends it to its kind's endpoint, so code that
+gets messages from elsewhere (an LLM's tool call, a queue) needs no switch. A string is
+short for `{"kind": "basic", "text": ...}`. `typing` and `read` answer a
+`ConversationAction`, and `edit` and `unsend` go to `PATCH` and `DELETE
+/v0/messages/{message_id}`. An object without a `kind` that can be sent raises
+`ValueError` before any request.
+
+```python
+flow.messages.send("conv_...", "Your order shipped.")
+flow.messages.send("conv_...", content.buttons("Which size?", ["S", "M", "L"]))
+flow.messages.send("conv_...", {"kind": "location", "lat": 52.52, "lng": 13.405, "name": "Our shop"})
+```
+
+Starting a conversation takes a `basic` or a `template` message (the only kind WhatsApp
+delivers outside its 24-hour window), sent as one flat body with the sender and the
+recipient:
+
+```python
+flow.messages.start(sender="snd_...", to="ct_...", message="Your table is ready.")
+flow.messages.start(sender="snd_...", to="+15555550100", message=content.template("tpl_...", "en"))
+```
+
+Changing and acting:
+
+```python
+flow.messages.edit("msg_...", "Fixed typo")       # Telegram; iMessage within 15 minutes
+flow.messages.unsend("msg_...")                   # Telegram within 48 hours, iMessage within 2 minutes
+flow.conversations.typing("conv_...")             # clears itself; there is no "off"
+flow.conversations.typing("conv_...", imessage={"duration_seconds": 10})
+flow.conversations.read("conv_...")               # WhatsApp: up_to="msg_..." marks up to that message
+```
+
+A handle bundles the calls for one conversation: `flow.conversation(event)` gives
+`.send(message)`, `.typing()`, `.read()`, `.react(message_id, "👍")` and `.messages()`.
+`content_text()` gives the text a person would read in any message's content.
+
+### When a channel cannot take a message
+
+A kind or a field the conversation's channel does not take is refused with `422
+unsupported_content`, raised as `UnsupportedContentError`: `param` names what was
+refused (`kind`, a field, a channel block) and `hint` says what to send instead. Send
+the replacement yourself. The `422` is kept under its `Idempotency-Key` like any answer,
+so the replacement needs a new key: the refused one's plus what it is.
+
+```python
+from flow_messaging import UnsupportedContentError
+
+try:
+    flow.messages.carousel(conv_id, cards_message, idempotency_key=f"{event.id}:card")
+except UnsupportedContentError as e:
+    print(e.param, e.hint)
+    flow.messages.basic(conv_id, text=summary, idempotency_key=f"{event.id}:card:basic")
+```
 
 ## Events
 
@@ -91,7 +158,7 @@ for event in flow.events.stream(types=["message.received"]):
     print(event.conversation.id, content_text(event.data.message.content))
 ```
 
-The stream is a WebSocket (`GET /v1/stream`) that reconnects by itself and resumes with
+The stream is a WebSocket (`GET /v0/stream`) that reconnects by itself and resumes with
 `after`, so no event is lost and none is handed out twice. `stream.last_event_id` is the
 last event you got: pass it as `after=` to resume across restarts. Use it as a context
 manager (`with flow.events.stream(...) as events:`) to connect before you say you are
@@ -120,6 +187,12 @@ async def flow_webhook(request: Request):
         return webhook_reply("Got it!")  # replies at once from the answer
     return {}
 ```
+
+`webhook_reply` builds the answer that replies at once: a kind object, a string (basic
+text), or a list of up to 11 of them, sent in order exactly as given
+(`webhook_reply(["Here is the menu:", content.image(url)])`); `None` sends nothing now.
+A piece without a `kind` that can be sent, or more than 11 pieces, raises `ValueError`
+in your handler. A piece the channel refuses is reported as `message.failed`.
 
 `secret` defaults to `FLOW_MESSAGING_WEBHOOK_SECRET`; pass a list of secrets while
 rotating. `verify_signature` checks without parsing, and `sign_payload` builds a header
@@ -165,6 +238,7 @@ your agent as a real `message.received`; your replies pass the real send gate.
 ```python
 conv = flow.test.create_conversation("telegram")
 flow.test.inbound(conv.id, "Do you deliver on Sundays?")
+flow.test.inbound(conv.id, {"kind": "button_reply", "message_id": "msg_...", "button_id": "s"})  # a tap
 for entry in flow.test.transcript(conv.id):
     print(entry.direction, content_text(entry.content))
 ```

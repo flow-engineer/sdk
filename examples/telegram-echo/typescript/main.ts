@@ -1,17 +1,17 @@
 // Telegram echo agent: answers every message with what it said.
-// It reads events from the WebSocket stream (GET /v1/stream), so no public URL is
+// It reads events from the WebSocket stream (GET /v0/stream), so no public URL is
 // needed, and replies with `send` frames on the same socket.
 // Run: FLOW_MESSAGING_KEY=fk_test_... node main.ts   (Node 22.18 or later, no dependencies)
 
 const KEY = process.env.FLOW_MESSAGING_KEY;
 const BASE = (process.env.FLOW_MESSAGING_BASE_URL ?? "https://api.flow.engineer").replace(/\/+$/, "");
 if (!KEY) {
-  console.error("Set FLOW_MESSAGING_KEY. No key yet? curl -X POST https://api.flow.engineer/v1/sandbox/keys");
+  console.error("Set FLOW_MESSAGING_KEY. No key yet? curl -X POST https://api.flow.engineer/v0/sandbox/keys");
   process.exit(1);
 }
 
 // Show where to write: the sandbox bot's link (it joins your app when tapped).
-const res = await fetch(`${BASE}/v1/senders?channel=telegram`, { headers: { Authorization: `Bearer ${KEY}` } });
+const res = await fetch(`${BASE}/v0/senders?channel=telegram`, { headers: { Authorization: `Bearer ${KEY}` } });
 const senders = await res.json();
 if (!res.ok) throw new Error(`${senders.error.type}: ${senders.error.message} (${senders.error.hint})`);
 for (const s of senders.data) {
@@ -22,7 +22,7 @@ let lastEventId: string | undefined; // resume point after a reconnect
 const seen = new Set<string>(); // delivery is at least once: dedupe on event.id
 
 function connect() {
-  const url = new URL(`${BASE.replace(/^http/, "ws")}/v1/stream`);
+  const url = new URL(`${BASE.replace(/^http/, "ws")}/v0/stream`);
   url.searchParams.append("type", "message.received");
   if (lastEventId) url.searchParams.set("after", lastEventId);
   // Node's WebSocket cannot set headers, so the key goes in the subprotocol, never the URL.
@@ -37,14 +37,16 @@ function connect() {
       if (seen.has(event.id)) return;
       seen.add(event.id);
       const message = event.data.message;
-      const said = message.content.type === "text" ? message.content.text : `a ${message.content.type}`;
+      // content is one message kind: `basic` is text and/or a file (its text is then the caption).
+      const content = message.content;
+      const said = content.kind === "basic" && content.text ? content.text : `a ${content.media?.type ?? content.kind}`;
       console.log(`[${event.conversation.id}] ${said}`);
       // `ref` is the idempotency key: derived from the inbound message, so a replay never sends twice.
       ws.send(JSON.stringify({
         type: "send",
         ref: `echo-${message.id}`,
         conversation: event.conversation.id,
-        message: { content: { type: "text", text: `You said: ${said}` } },
+        message: { kind: "basic", text: `You said: ${said}` }, // sent exactly as written
       }));
     } else if (frame.type === "ack") {
       console.log(`  -> sent ${frame.message.id}`);

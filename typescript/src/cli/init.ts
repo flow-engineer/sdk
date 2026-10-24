@@ -1,5 +1,5 @@
 // `flow-messaging init`: takes the key (--key, else FLOW_MESSAGING_KEY), or with none
-// gets a sandbox key in one call (POST /v1/sandbox/keys, no account) and writes it and
+// gets a sandbox key in one call (POST /v0/sandbox/keys, no account) and writes it and
 // its claim token to .env (FLOW_MESSAGING_KEY, FLOW_CLAIM_TOKEN). Then shows how to join
 // the sandbox and what is left of its allowance. The agent files and the MCP server
 // registration are installed only with consent: a yes to the question, or --yes.
@@ -182,7 +182,7 @@ export async function init(o: InitOptions): Promise<void> {
       print(`  ${s.channel.padEnd(9)} ${where}${code ? `   send: ${code}` : ""}`);
     }
   } else if (joinCode) {
-    print(`Your sandbox join code: ${joinCode} (GET /v1/senders gives each sandbox sender's join message, join_code)`);
+    print(`Your sandbox join code: ${joinCode} (GET /v0/senders gives each sandbox sender's join message, join_code)`);
   }
 
   // 6. The allowance, and how to keep a sandbox app.

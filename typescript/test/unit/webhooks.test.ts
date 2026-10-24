@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { ConversationHandle, FlowMessaging, WebhookSignatureError, signPayload } from "../../src/index.js";
+import { ConversationHandle, FlowMessaging, WebhookSignatureError, buttons, signPayload } from "../../src/index.js";
 import { receivedEvent } from "../helpers.js";
 
 const secret = "whsec_unit_test_secret";
@@ -21,7 +21,7 @@ describe("webhooks", () => {
     const event = await flow.webhooks.constructEvent(body, nodeSign(body, secret, now), secret, { now });
     expect(event.type).toBe("message.received");
     if (event.type !== "message.received") throw new Error("narrowing");
-    expect(event.data.message.content).toEqual({ type: "text", text: "hello" });
+    expect(event.data.message.content).toEqual({ kind: "basic", text: "hello" });
     expect(event.conversation).toBeInstanceOf(ConversationHandle);
     expect(event.conversation.channel).toBe("telegram");
     expect(JSON.parse(JSON.stringify(event)).conversation).toEqual(JSON.parse(body).conversation);
@@ -48,9 +48,15 @@ describe("webhooks", () => {
   });
 
   it("reply builds the webhook answer", () => {
-    expect(flow.webhooks.reply("Hi")).toEqual({ reply: { type: "text", text: "Hi" } });
+    expect(flow.webhooks.reply("Hi")).toEqual({ reply: { kind: "basic", text: "Hi" } });
     expect(flow.webhooks.reply(undefined)).toEqual({});
-    expect(flow.webhooks.reply([{ type: "text", text: "a" }])).toEqual({ reply: [{ type: "text", text: "a" }] });
+    expect(flow.webhooks.reply(["a", buttons("b?", ["Yes"])])).toEqual({
+      reply: [{ kind: "basic", text: "a" }, { kind: "buttons", text: "b?", buttons: [{ id: "Yes", label: "Yes" }] }],
+    });
+    // A text plus 10 cards fits; a 12th piece does not.
+    expect(flow.webhooks.reply(Array(11).fill("x")).reply).toHaveLength(11);
+    expect(() => flow.webhooks.reply(Array(12).fill("x"))).toThrow(RangeError);
+    expect(() => flow.webhooks.reply([{ text: "no kind" } as never])).toThrow(TypeError);
   });
 
   it("handler verifies, calls onEvent and answers with the reply", async () => {
@@ -58,7 +64,7 @@ describe("webhooks", () => {
     const t = Math.floor(Date.now() / 1000);
     const ok = await handler(new Request("https://x.test/hook", { method: "POST", body, headers: { "Flow-Signature": nodeSign(body, secret, t) } }));
     expect(ok.status).toBe(200);
-    expect(await ok.json()).toEqual({ reply: { type: "text", text: "pong" } });
+    expect(await ok.json()).toEqual({ reply: { kind: "basic", text: "pong" } });
     const bad = await handler(new Request("https://x.test/hook", { method: "POST", body, headers: { "Flow-Signature": nodeSign(body, "whsec_x", t) } }));
     expect(bad.status).toBe(400);
   });

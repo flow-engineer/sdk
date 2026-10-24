@@ -17,6 +17,6 @@ with flow.events.stream(types=["message.received"]) as events:  # connected from
     print("Echo agent ready. From your phone, open the sandbox link and tap Start, or send the join message.", flush=True)
     for event in events:
         content = event.data.message.content
-        said = content_text(content) or f"a {content.type}"
+        said = content_text(content) or f"a {content.kind}"
         print(f"[{event.conversation.channel}] {event.conversation.id}: {said}", flush=True)
         flow.conversation(event).send(f"You said: {said}")

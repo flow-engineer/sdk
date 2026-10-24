@@ -1,7 +1,7 @@
 # Telegram echo
 
 The smallest Flow Messaging agent: it answers every Telegram message with what it
-said. It reads events from the WebSocket stream (`GET /v1/stream`), so it runs on
+said. It reads events from the WebSocket stream (`GET /v0/stream`), so it runs on
 your laptop with no public URL, and replies on the same socket. Plain HTTP and
 WebSocket, no Flow SDK.
 
@@ -15,7 +15,7 @@ WebSocket, no Flow SDK.
 1. Get a test key. No account needed:
 
    ```bash
-   curl -s -X POST https://api.flow.engineer/v1/sandbox/keys
+   curl -s -X POST https://api.flow.engineer/v0/sandbox/keys
    ```
 
    Copy `key` from the answer (it is shown once) and set it:
@@ -61,13 +61,18 @@ and the bot answers `You said: hello` in Telegram.
 
 ## How it works
 
-- `GET /v1/stream?type=message.received` pushes `{"type": "event", "event": {...}}`
+- `GET /v0/stream?type=message.received` pushes `{"type": "event", "event": {...}}`
   frames. The key goes in the `Authorization` header (Python) or, where a WebSocket
   cannot set headers, as the subprotocols `["flow", "flow.key.<key>"]` (Node). Never
   put the key in the URL.
-- A `{"type": "send", "ref": ..., "conversation": ..., "message": {...}}` frame sends
-  a message; `ref` is its idempotency key. It is `echo-<inbound message id>`, so a
-  replayed event never sends twice. Each send gets an `ack` or `error` frame.
+- An inbound message's `content` is one message kind, with `kind` saying which:
+  `basic` is text and/or a file (its `text` is then the caption), and other kinds
+  (`voice`, `location`, `button_reply`, ...) are echoed by name.
+- A `{"type": "send", "ref": ..., "conversation": ..., "message": {"kind": "basic",
+  "text": ...}}` frame sends a message: `message` is a kind object, as in a webhook
+  reply, sent exactly as written (no markdown); `ref` is its idempotency key. It is
+  `echo-<inbound message id>`, so a replayed event never sends twice. Each send gets
+  an `ack` or `error` frame.
 - Events arrive at least once: the agent skips event IDs it has seen. On a
   `reconnect` frame or a dropped socket it reconnects with `after=<last event id>`
   and misses nothing.

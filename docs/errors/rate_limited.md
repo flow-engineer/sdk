@@ -11,21 +11,21 @@ HTTP 429. Too many requests for this key, or sends faster than the sender's send
 
 Two limits answer with this type:
 
-- **The per-key request limit.** Every answer carries `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; over the limit, any request is refused. The Testing endpoints (`/v1/test/...`, simulated contacts) have a lower limit of their own, 120 requests a minute per key, and their answers' headers show it.
+- **The per-key request limit.** Every answer carries `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset`; over the limit, any request is refused. The Testing endpoints (`/v0/test/...`, simulated contacts) have a lower limit of their own, 120 requests a minute per key, and their answers' headers show it.
 - **The sender's sending rate (pacing).** The send gate lets each sender send only so many messages a second, whichever key or conversation they come from. Over it, a send is refused and `error.sender` names the sender.
 
 Both carry a `Retry-After` header and `error.retry_after` in seconds.
 
 ## Why it happens
 
-- Polling `GET /v1/events` or `GET /v1/conversations` in a tight loop, or a simulated conversation's transcript (`GET /v1/test/conversations/{conversation_id}/transcript`).
+- Polling `GET /v0/events` or `GET /v0/conversations` in a tight loop, or a simulated conversation's transcript (`GET /v0/test/conversations/{conversation_id}/transcript`).
 - Sending many messages from one sender at once, for example a reply split into many short bubbles, or a burst of starts.
-- Asking for many sandbox keys (`POST /v1/sandbox/keys`) or device sign-ins from one address or network. Keep the key you got and reuse it; a person can sign in to lift its allowance instead.
-- Polling `POST /v1/device/token` faster than its `interval`.
+- Asking for many sandbox keys (`POST /v0/sandbox/keys`) or device sign-ins from one address or network. Keep the key you got and reuse it; a person can sign in to lift its allowance instead.
+- Polling `POST /v0/device/token` faster than its `interval`.
 
 ## How to fix it
 
-Wait `Retry-After` seconds (also `error.retry_after`) and retry with the same `Idempotency-Key`, so a send that did go through is not sent twice. Receive events by webhook or `GET /v1/stream` instead of polling, and send long answers as fewer, longer messages. The TypeScript SDK does the wait and the retry for you.
+Wait `Retry-After` seconds (also `error.retry_after`) and retry with the same `Idempotency-Key`, so a send that did go through is not sent twice. Receive events by webhook or `GET /v0/stream` instead of polling, and send long answers as fewer, longer messages. The TypeScript SDK does the wait and the retry for you.
 
 ```ts
 const res = await fetch(url, init);

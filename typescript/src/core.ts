@@ -9,7 +9,7 @@ import type { ErrorBody } from "./types.js";
 
 /** The API version this SDK's types were generated from; sent as `Flow-Version`. */
 export const API_VERSION = "2026-11-01";
-export const SDK_VERSION = "0.3.0";
+export const SDK_VERSION = "0.4.0";
 export const DEFAULT_BASE_URL = "https://api.flow.engineer";
 
 export interface ClientOptions {
@@ -64,7 +64,7 @@ interface RequestArgs {
 
 /** What to do without a key, said by every error about a missing one. */
 export const NO_KEY_HELP =
-  "No key yet? Get a test key in one call, no account needed: `npx @flow-engineer/messaging init` (saves it to .env), `await new FlowMessaging().sandbox.createKey()`, or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`.";
+  "No key yet? Get a test key in one call, no account needed: `npx @flow-engineer/messaging init` (saves it to .env), `await new FlowMessaging().sandbox.createKey()`, or `curl -X POST https://api.flow.engineer/v0/sandbox/keys`.";
 
 /** Reads an environment variable where `process` exists (Node, Bun, Deno's node compat). */
 export function readEnv(name: string): string | undefined {

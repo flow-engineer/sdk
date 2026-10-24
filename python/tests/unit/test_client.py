@@ -28,7 +28,7 @@ from flow_messaging import API_VERSION, AuthenticationError, Flow
 def test_key_and_base_url_from_environment(monkeypatch: pytest.MonkeyPatch, mock: respx.MockRouter) -> None:
     monkeypatch.setenv("FLOW_MESSAGING_KEY", "fk_test_env")
     monkeypatch.setenv("FLOW_MESSAGING_BASE_URL", "https://env.test/")
-    route = mock.get("https://env.test/v1/messages/" + MSG).respond(json=message())
+    route = mock.get("https://env.test/v0/messages/" + MSG).respond(json=message())
     with Flow() as flow:
         assert flow.api_key == "fk_test_env"
         assert flow.base_url == "https://env.test"
@@ -52,7 +52,7 @@ def test_default_base_url() -> None:
 
 
 def test_headers_on_get(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url(f"/v1/messages/{MSG}")).respond(json=message())
+    route = mock.get(url(f"/v0/messages/{MSG}")).respond(json=message())
     flow.messages.retrieve(MSG)
     h = route.calls.last.request.headers
     assert h["authorization"] == f"Bearer {KEY}"
@@ -63,14 +63,14 @@ def test_headers_on_get(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_no_flow_version_when_none(mock: respx.MockRouter) -> None:
-    route = mock.get(url(f"/v1/messages/{MSG}")).respond(json=message())
+    route = mock.get(url(f"/v0/messages/{MSG}")).respond(json=message())
     with Flow(KEY, base_url=BASE, flow_version=None) as flow:
         flow.messages.retrieve(MSG)
     assert "flow-version" not in route.calls.last.request.headers
 
 
 def test_custom_flow_version_and_default_headers(mock: respx.MockRouter) -> None:
-    route = mock.get(url(f"/v1/messages/{MSG}")).respond(json=message())
+    route = mock.get(url(f"/v0/messages/{MSG}")).respond(json=message())
     with Flow(KEY, base_url=BASE, flow_version="2026-01-01", default_headers={"X-Extra": "1"}) as flow:
         flow.messages.retrieve(MSG)
     h = route.calls.last.request.headers
@@ -79,7 +79,7 @@ def test_custom_flow_version_and_default_headers(mock: respx.MockRouter) -> None
 
 
 def test_idempotency_key_on_authenticated_post(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v1/conversations/{CONV}/messages")).respond(json=message())
+    route = mock.post(url(f"/v0/conversations/{CONV}/basic")).respond(json=message())
     flow.messages.send(CONV, "hi")
     flow.messages.send(CONV, "hi")
     first, second = (c.request.headers["idempotency-key"] for c in route.calls)
@@ -87,20 +87,20 @@ def test_idempotency_key_on_authenticated_post(flow: Flow, mock: respx.MockRoute
 
 
 def test_callers_idempotency_key_used_verbatim(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v1/conversations/{CONV}/messages")).respond(json=message())
+    route = mock.post(url(f"/v0/conversations/{CONV}/basic")).respond(json=message())
     flow.messages.send(CONV, "hi", idempotency_key="my-key-1")
     assert route.calls.last.request.headers["idempotency-key"] == "my-key-1"
-    t = mock.post(url(f"/v1/conversations/{CONV}/typing")).respond(json=conversation_action())
+    t = mock.post(url(f"/v0/conversations/{CONV}/typing")).respond(json=conversation_action())
     flow.conversations.typing(CONV, idempotency_key="my-key-2")
     assert t.calls.last.request.headers["idempotency-key"] == "my-key-2"
 
 
 def test_no_idempotency_key_on_get_patch_delete(flow: Flow, mock: respx.MockRouter) -> None:
     routes = [
-        mock.get(url(f"/v1/messages/{MSG}")).respond(json=message()),
-        mock.patch(url(f"/v1/messages/{MSG}")).respond(json=message()),
-        mock.delete(url(f"/v1/messages/{MSG}")).respond(json=message(status="unsent")),
-        mock.get(url("/v1/conversations")).respond(json=page([conversation()])),
+        mock.get(url(f"/v0/messages/{MSG}")).respond(json=message()),
+        mock.patch(url(f"/v0/messages/{MSG}")).respond(json=message()),
+        mock.delete(url(f"/v0/messages/{MSG}")).respond(json=message(status="unsent")),
+        mock.get(url("/v0/conversations")).respond(json=page([conversation()])),
     ]
     flow.messages.retrieve(MSG)
     flow.messages.edit(MSG, "new")
@@ -112,7 +112,7 @@ def test_no_idempotency_key_on_get_patch_delete(flow: Flow, mock: respx.MockRout
 
 
 def test_same_idempotency_key_across_retries(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v1/conversations/{CONV}/messages"))
+    route = mock.post(url(f"/v0/conversations/{CONV}/basic"))
     route.side_effect = [
         httpx.Response(503, json={"error": {"type": "api_error", "message": "busy"}}),
         httpx.ConnectError("refused"),
@@ -143,9 +143,9 @@ def test_without_key_raises_before_any_request(mock: respx.MockRouter) -> None:
 
 
 def test_keyless_calls_without_key(mock: respx.MockRouter) -> None:
-    keys = mock.post(url("/v1/sandbox/keys")).respond(201, json=sandbox_key())
-    auth = mock.post(url("/v1/device/authorizations")).respond(json=device_authorization())
-    tok = mock.post(url("/v1/device/token")).respond(json=device_token())
+    keys = mock.post(url("/v0/sandbox/keys")).respond(201, json=sandbox_key())
+    auth = mock.post(url("/v0/device/authorizations")).respond(json=device_authorization())
+    tok = mock.post(url("/v0/device/token")).respond(json=device_token())
     with Flow(base_url=BASE) as flow:
         created = flow.sandbox.create_key(name="My agent")
         flow.device.authorize()
@@ -161,8 +161,8 @@ def test_keyless_calls_without_key(mock: respx.MockRouter) -> None:
 
 
 def test_keyless_calls_send_no_key_even_when_client_has_one(flow: Flow, mock: respx.MockRouter) -> None:
-    keys = mock.post(url("/v1/sandbox/keys")).respond(201, json=sandbox_key())
-    tok = mock.post(url("/v1/device/token")).respond(json=device_token())
+    keys = mock.post(url("/v0/sandbox/keys")).respond(201, json=sandbox_key())
+    tok = mock.post(url("/v0/device/token")).respond(json=device_token())
     flow.sandbox.create_key()
     flow.device.poll("dc_x")
     for route in (keys, tok):
@@ -172,7 +172,7 @@ def test_keyless_calls_send_no_key_even_when_client_has_one(flow: Flow, mock: re
 
 
 def test_with_options(mock: respx.MockRouter) -> None:
-    route = mock.get(url(f"/v1/messages/{MSG}")).respond(json=message())
+    route = mock.get(url(f"/v0/messages/{MSG}")).respond(json=message())
     with Flow(KEY, base_url=BASE, timeout=30, max_retries=2, default_headers={"X-A": "1"}) as flow:
         copy = flow.with_options(timeout=5, max_retries=0, default_headers={"X-B": "2"})
         assert copy is not flow
@@ -199,7 +199,7 @@ def test_with_options(mock: respx.MockRouter) -> None:
 
 
 def test_with_options_max_retries_zero_is_respected(mock: respx.MockRouter) -> None:
-    route = mock.get(url(f"/v1/messages/{MSG}")).respond(503, json={"error": {"type": "api_error", "message": "x"}})
+    route = mock.get(url(f"/v0/messages/{MSG}")).respond(503, json={"error": {"type": "api_error", "message": "x"}})
     with Flow(KEY, base_url=BASE) as flow:
         copy = flow.with_options(max_retries=0)
         with pytest.raises(flow_messaging.APIError):
@@ -223,7 +223,7 @@ def test_context_manager_leaves_callers_client_open() -> None:
 
 
 def test_timeout_passed_per_request(mock: respx.MockRouter) -> None:
-    route = mock.get(url(f"/v1/messages/{MSG}")).respond(json=message())
+    route = mock.get(url(f"/v0/messages/{MSG}")).respond(json=message())
     with Flow(KEY, base_url=BASE, timeout=7) as flow:
         flow.messages.retrieve(MSG)
     assert route.calls.last.request.extensions["timeout"]["read"] == 7

@@ -33,6 +33,7 @@ from flow_messaging import (
     Flow,
     NotFoundError,
     NotImplementedYetError,
+    UnsupportedContentError,
     construct_event,
     content_text,
 )
@@ -132,8 +133,11 @@ def test_simulated_conversation_round_trip(flow: Flow) -> None:
 
         handle = flow.conversation(received)
         assert handle.id == conv.id and handle.channel == "telegram"
-        handle.typing("on")
-        handle.mark_read()
+        handle.typing()
+        # Telegram takes no read receipts: exact or 422, nothing sent.
+        with pytest.raises(UnsupportedContentError) as refused:
+            handle.read()
+        assert refused.value.param == "kind" and refused.value.hint
         reply = handle.send(f"You said: {content_text(received.data.message.content)}")
         sent = events.next(MessageSentEvent)
         assert sent.data.message.id == reply.id
@@ -221,7 +225,7 @@ def test_files_upload_and_download(flow: Flow) -> None:
     assert flow.files.download(file.id) == png
     assert flow.files.download(file.url) == png
     conv = flow.test.create_conversation("telegram")
-    flow.test.inbound(conv.id, {"type": "media", "kind": "image", "file_id": file.id, "caption": "a dot"})
+    flow.test.inbound(conv.id, {"kind": "basic", "text": "a dot", "media": {"type": "image", "file_id": file.id}})
 
 
 def test_contacts_and_delete(flow: Flow) -> None:

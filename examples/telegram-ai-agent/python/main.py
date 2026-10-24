@@ -3,7 +3,8 @@
 It keeps each conversation's history, answers with Claude (any LLM works: replace
 think()), and offers a "Talk to a human" button that hands the conversation to
 your team. Events come from the WebSocket stream, so no public URL is needed;
-replies go out with POST /v1/conversations/{id}/messages and an Idempotency-Key.
+replies go out with POST /v0/conversations/{id}/buttons (or /basic) and an
+Idempotency-Key.
 
 Run: python main.py             (FLOW_MESSAGING_KEY and ANTHROPIC_API_KEY set)
      python main.py --fake-llm  (no Anthropic key: a canned answer, for testing)
@@ -23,7 +24,7 @@ KEY = os.environ.get("FLOW_MESSAGING_KEY")
 BASE = os.environ.get("FLOW_MESSAGING_BASE_URL", "https://api.flow.engineer").rstrip("/")
 FAKE_LLM = "--fake-llm" in sys.argv
 if not KEY:
-    sys.exit("Set FLOW_MESSAGING_KEY. No key yet? curl -X POST https://api.flow.engineer/v1/sandbox/keys")
+    sys.exit("Set FLOW_MESSAGING_KEY. No key yet? curl -X POST https://api.flow.engineer/v0/sandbox/keys")
 
 MODEL = "claude-sonnet-5-5"
 SYSTEM = """You are the support agent of Acme, chatting with a customer on Telegram.
@@ -82,38 +83,47 @@ async def handle(event: dict) -> None:
         print(f"[{conv}] send failed: {e['type']}: {e['message']} ({e.get('hint', '')})", flush=True)
         return
     message = event["data"]["message"]
-    content = message["content"]
-    send_path = f"/v1/conversations/{conv}/messages"
+    content = message["content"]  # one message kind, named by content["kind"]
+    kind = content["kind"]
 
-    if content["type"] == "button_reply" and content["button_id"] == HUMAN:
+    async def say(text: str) -> None:
+        """A basic message (plain text) into this conversation; the key comes from the inbound message."""
+        await flow(f"/v0/conversations/{conv}/basic", {"text": text}, f"reply-{message['id']}")
+
+    if kind == "button_reply" and content["button_id"] == HUMAN:
         with_human.add(conv)
         print(f"[{conv}] handed to a human", flush=True)  # notify your team here
-        await flow(send_path, {"content": {"type": "text", "text": "Thanks. A person from our team will answer here soon."}},
-                   f"reply-{message['id']}")
+        await say("Thanks. A person from our team will answer here soon.")
         return
-    text = content.get("text") if content["type"] == "text" else content.get("label") if content["type"] == "button_reply" else None
+    # What the customer said: their text (or a file's caption), a tapped button's label,
+    # or a voice note's transcript (when the app has transcription on).
+    text = {"basic": content.get("text"), "button_reply": content.get("label"), "voice": content.get("transcript")}.get(kind)
     if conv in with_human:
-        print(f"[{conv}] (with a human) {text or content['type']}", flush=True)
+        print(f"[{conv}] (with a human) {text or kind}", flush=True)
         return
-    print(f"[{conv}] customer: {text or content['type']}", flush=True)
+    print(f"[{conv}] customer: {text or kind}", flush=True)
     if text is None:
-        await flow(send_path, {"content": {"type": "text", "text": "I can read text messages only."}}, f"reply-{message['id']}")
+        await say("I can read text messages only.")
         return
 
-    # Optional: show "typing..." while the LLM thinks. It can fail; never let that stop the reply.
+    # Optional: show "typing..." while the LLM thinks (it clears itself when the reply goes).
+    # It can fail; never let that stop the reply.
     try:
-        await flow(f"/v1/conversations/{conv}/typing", {"state": "on"}, f"typing-{message['id']}")
+        await flow(f"/v0/conversations/{conv}/typing", {}, f"typing-{message['id']}")
     except (FlowError, httpx.HTTPError):
         pass
     answer = await think(conv, text)
     print(f"[{conv}] agent: {answer}", flush=True)
     try:
         # The key comes from the inbound message: one reply per message, however often this runs.
-        await flow(send_path, {
-            "content": {"type": "buttons", "text": answer[:1024], "buttons": [{"id": HUMAN, "label": "Talk to a human"}]},
-            "fallback": "auto",  # channels without buttons get numbered text instead
-        }, f"reply-{message['id']}")
+        await flow(f"/v0/conversations/{conv}/buttons",
+                   {"text": answer[:1024], "buttons": [{"id": HUMAN, "label": "Talk to a human"}]}, f"reply-{message['id']}")
     except FlowError as e:
+        if e.error["type"] == "unsupported_content" and e.error.get("param") == "kind":
+            # A channel without buttons (iMessage, SMS) refuses them and sends nothing:
+            # send the answer as plain text instead, with its own key.
+            await flow(f"/v0/conversations/{conv}/basic", {"text": answer}, f"reply-{message['id']}:basic")
+            return
         # An LLM answers differently each time: if this message was already answered (a
         # replayed event after a crash), the same key with a new body is refused. Keep the first.
         if e.error["type"] != "idempotency_conflict":
@@ -141,7 +151,7 @@ async def main() -> None:
         query = [("type", "message.received"), ("type", "message.failed")]
         if last_event_id:
             query.append(("after", last_event_id))
-        url = BASE.replace("http", "ws", 1) + "/v1/stream?" + urllib.parse.urlencode(query)
+        url = BASE.replace("http", "ws", 1) + "/v0/stream?" + urllib.parse.urlencode(query)
         try:
             async with websockets.connect(url, additional_headers={"Authorization": f"Bearer {KEY}"}) as ws:
                 print(f"Support agent ready{' (fake LLM)' if FAKE_LLM else ''}. Write to your sandbox bot.", flush=True)

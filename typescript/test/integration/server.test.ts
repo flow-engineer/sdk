@@ -204,8 +204,9 @@ describe.skipIf(!available)("against the local Flow Messaging service", () => {
       expect(sent).toHaveLength(2);
       expect(sent.every((m) => m.status === "queued" || m.status === "sent")).toBe(true);
       const calls = await simCalls("sendMessage", 2);
-      expect(calls.map((c) => c.text)).toEqual(["Hi Asha! Your order ships <b>today</b>.", "Anything else?"]);
-      expect(calls[0]!.params.parse_mode).toBe("HTML");
+      // Sent exactly as written: Flow renders no markdown and sets no parse_mode.
+      expect(calls.map((c) => c.text)).toEqual(["Hi Asha! Your order ships **today**.", "Anything else?"]);
+      expect(calls[0]!.params.parse_mode).toBeUndefined();
       const typing = await simCalls("sendChatAction", 1);
       expect(typing[0]!.params.action).toBe("typing");
 
@@ -231,9 +232,9 @@ describe.skipIf(!available)("against the local Flow Messaging service", () => {
     }
   }, 60_000);
 
-  // Skipped until the service checkout serves POST /v1/sandbox/keys: before then its
+  // Skipped until the service checkout serves POST /v0/sandbox/keys: before then its
   // key middleware answers 401 (or the router 404, a stub 501) to a keyless call.
-  it("sandbox key without an account, and its allowance on GET /v1/app", async (ctx) => {
+  it("sandbox key without an account, and its allowance on GET /v0/app", async (ctx) => {
     let sandbox;
     try {
       sandbox = await new FlowMessaging({ baseURL: h.base_url }).sandbox.createKey({ name: "SDK integration" });

@@ -45,14 +45,14 @@ With a test key, a simulated contact plays the person (free, not counted in the
 sandbox allowance). While the agent waits, in another terminal:
 
 ```sh
-curl -s https://api.flow.engineer/v1/test/conversations -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+curl -s https://api.flow.engineer/v0/test/conversations -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   -H "Content-Type: application/json" -d '{"channel": "telegram"}'        # note its "id"
-curl -s https://api.flow.engineer/v1/test/conversations/conv_.../inbound -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
-  -H "Content-Type: application/json" -d '{"content": {"type": "text", "text": "hi"}}'
+curl -s https://api.flow.engineer/v0/test/conversations/conv_.../inbound -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
+  -H "Content-Type: application/json" -d '{"content": {"kind": "basic", "text": "hi"}}'
 ```
 
 Send each answer the same way once the agent has asked
-(`GET /v1/test/conversations/conv_.../transcript` shows both sides). From code, the
+(`GET /v0/test/conversations/conv_.../transcript` shows both sides). From code, the
 same is `flow.test.createConversation({ channel: "telegram" })` and
 `flow.test.inbound(conv.id, "Asha")`. `scripts/check-examples.sh --e2e` runs this
 example both ways against a local copy of the service.

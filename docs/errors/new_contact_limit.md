@@ -13,7 +13,7 @@ Each sender may start a limited number of new conversations per hour and per day
 
 ## Why it happens
 
-- Many `POST /v1/messages` starts in a short time.
+- Many `POST /v0/messages` starts in a short time.
 - A new sender that is still warming up.
 
 ## How to fix it

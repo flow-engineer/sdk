@@ -13,7 +13,7 @@ npx @flow-engineer/messaging mcp                       # MCP over stdio, bridged
 ```
 
 With no key in the environment or `.env`, `init` gets a test key without an account
-(`POST /v1/sandbox/keys`), writes `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env`
+(`POST /v0/sandbox/keys`), writes `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env`
 at once and prints the sandbox link and join code, the allowance and the expiry. It then asks one yes/no
 question before writing the skill, `AGENTS.md` and `.mcp.json` and running
 `codex mcp add`. With no terminal or no answer it skips them and prints the commands
@@ -26,7 +26,7 @@ conversation, like the API does for real webhooks.
 
 ## Sign in to keep the app
 
-A key from `init` (or `POST /v1/sandbox/keys`) allows 1 contact and 50 messages on the
+A key from `init` (or `POST /v0/sandbox/keys`) allows 1 contact and 50 messages on the
 Telegram sandbox and expires after 7 days. `login` signs a person in with a Flow account
 (device flow) and claims the app: data and keys kept, no expiry, 3 contacts x 100
 messages each. It reads `FLOW_CLAIM_TOKEN` from `.env`, prints a link and a short code
@@ -35,11 +35,11 @@ messages each. It reads `FLOW_CLAIM_TOKEN` from `.env`, prints a link and a shor
 a browser. A coding agent that cannot wait runs `login --no-wait` (prints the link and
 code, exits), shows them to the user, and runs `login` again once they approve.
 
-The same over HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_...",
+The same over HTTP: `POST /v0/device/authorizations` with `{"claim_token": "fct_...",
 "client_name": "Claude Code"}` answers `device_code` (`fdc_...`, never show it),
 `user_code` and `verification_uri` (show both: the person opens the page and types the
 code) and `interval`. Poll
-`POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds
+`POST /v0/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds
 (`429 rate_limited`: wait `retry_after`) until `status` is `approved` (with `key`, shown
 once), `denied` or `expired`. Signed-in people manage keys at https://api.flow.engineer/admin.
 
@@ -74,7 +74,7 @@ Cursor (`~/.cursor/mcp.json`):
 
 Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session). Added with an empty key already? `export FLOW_MESSAGING_KEY=fk_test_...`, then `claude mcp remove flow`, run the add command again, and restart.
 
-Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `edit_message`, `unsend_message`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
+Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `edit_message`, `unsend_message`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
 <!-- /agents:mcp -->
 
 The owner can also use the stdio bridge, which reads `FLOW_MESSAGING_KEY` from the

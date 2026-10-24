@@ -1,7 +1,7 @@
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketServer, type WebSocket } from "ws";
-import { ChannelError, FlowMessaging, WaitTimeoutError, contentText, text, toFlowEvent, type Event } from "../../src/index.js";
+import { ChannelError, FlowMessaging, WaitTimeoutError, contentText, toFlowEvent, type Event } from "../../src/index.js";
 import { ids, json, message, mockFetch, receivedEvent, type Recorded } from "../helpers.js";
 
 interface Conn {
@@ -20,7 +20,7 @@ afterEach(async () => {
   servers = [];
 });
 
-/** A fake /v1/stream; `next()` resolves with each new connection. */
+/** A fake /v0/stream; `next()` resolves with each new connection. */
 async function fakeStream() {
   const wss = new WebSocketServer({ port: 0, host: "127.0.0.1" });
   servers.push(wss);
@@ -69,8 +69,8 @@ describe("conversation.ask", () => {
     const srv = await fakeStream();
     const question = message(1, "What's your name?");
     const { fetch, calls } = mockFetch((req) => {
-      if (path(req) === `POST /v1/conversations/${ids.conv}/messages`) return json(201, question);
-      if (path(req) === `GET /v1/conversations/${ids.conv}/messages`) return json(200, { data: [question], has_more: false });
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, question);
+      if (path(req) === `GET /v0/conversations/${ids.conv}/messages`) return json(200, { data: [question], has_more: false });
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
     const conv = flow.conversation(ids.conv);
@@ -83,16 +83,16 @@ describe("conversation.ask", () => {
     const reply = await answer;
     expect(contentText(reply.content)).toBe("Asha");
     await c.closed;
-    expect(calls[0]!.body).toEqual({ content: { type: "text", text: "What's your name?" } });
+    expect(calls[0]!.body).toEqual({ kind: "basic", text: "What's your name?" });
   });
 
   it("returns a reply that came before the stream connected", async () => {
     const srv = await fakeStream();
     const question = message(1, "Which size?");
     const { fetch } = mockFetch((req) => {
-      if (path(req) === `POST /v1/conversations/${ids.conv}/messages`) return json(201, question);
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, question);
       // Newest first: two answers came after the question; the first one is the reply.
-      if (path(req) === `GET /v1/conversations/${ids.conv}/messages`)
+      if (path(req) === `GET /v0/conversations/${ids.conv}/messages`)
         return json(200, { data: [inbound(3, "or M"), inbound(2, "L"), { ...question, status: "sent" }, inbound(0, "hi")], has_more: false });
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
@@ -106,8 +106,8 @@ describe("conversation.ask", () => {
     const srv = await fakeStream();
     const question = message(1, "Still there?");
     const { fetch } = mockFetch((req) => {
-      if (path(req) === `POST /v1/conversations/${ids.conv}/messages`) return json(201, question);
-      if (path(req) === `GET /v1/conversations/${ids.conv}/messages`) return json(200, { data: [question], has_more: false });
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, question);
+      if (path(req) === `GET /v0/conversations/${ids.conv}/messages`) return json(200, { data: [question], has_more: false });
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
     const answer = flow.conversation(ids.conv).ask("Still there?").catch((e) => e);
@@ -168,8 +168,8 @@ describe("conversation.waitForReply", () => {
   it("falls back to the event log where there is no WebSocket", async () => {
     let eventCalls = 0;
     const { fetch, calls } = mockFetch((req) => {
-      if (path(req) === `GET /v1/conversations/${ids.conv}/messages`) return json(200, { data: [], has_more: false });
-      if (path(req) === "GET /v1/events") {
+      if (path(req) === `GET /v0/conversations/${ids.conv}/messages`) return json(200, { data: [], has_more: false });
+      if (path(req) === "GET /v0/events") {
         eventCalls++;
         // The first read finds where the log ends; the next one has the reply.
         return json(200, { data: eventCalls === 1 ? [receivedEvent(1, "old")] : [receivedEvent(2, "new")], has_more: false });
@@ -178,7 +178,7 @@ describe("conversation.waitForReply", () => {
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", fetch });
     const reply = await flow.conversation(ids.conv).waitForReply({ transport: "poll" });
     expect(contentText(reply.content)).toBe("new");
-    const polls = calls.filter((r) => r.url.pathname === "/v1/events");
+    const polls = calls.filter((r) => r.url.pathname === "/v0/events");
     expect(polls[1]!.url.searchParams.get("after")).toBe(ids.evt(1));
     expect(polls[1]!.url.searchParams.getAll("type")).toEqual(["message.received"]);
   });
@@ -189,8 +189,8 @@ describe("sendAndWait and messages.waitFor", () => {
     const srv = await fakeStream();
     const queued = message(1, "Your order shipped.");
     const { fetch } = mockFetch((req) => {
-      if (path(req) === `POST /v1/conversations/${ids.conv}/messages`) return json(201, queued);
-      if (path(req) === `GET /v1/messages/${queued.id}`) return json(200, queued);
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, queued);
+      if (path(req) === `GET /v0/messages/${queued.id}`) return json(200, queued);
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
     const sending = flow.conversation(ids.conv).sendAndWait("Your order shipped.");
@@ -207,7 +207,7 @@ describe("sendAndWait and messages.waitFor", () => {
   it("resolves at once when the message was sent before the wait connected", async () => {
     const srv = await fakeStream();
     const msg = { ...message(1, "hi"), status: "sent" };
-    const { fetch } = mockFetch((req) => (path(req) === `GET /v1/messages/${msg.id}` ? json(200, msg) : undefined));
+    const { fetch } = mockFetch((req) => (path(req) === `GET /v0/messages/${msg.id}` ? json(200, msg) : undefined));
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
     const waiting = flow.messages.waitFor(msg.id);
     const c = await srv.next();
@@ -220,7 +220,7 @@ describe("sendAndWait and messages.waitFor", () => {
     const a = message(1, "a");
     const b = message(2, "b");
     const { fetch } = mockFetch((req) => {
-      if (req.url.pathname.startsWith("/v1/messages/")) return json(200, req.url.pathname.endsWith(a.id) ? a : b);
+      if (req.url.pathname.startsWith("/v0/messages/")) return json(200, req.url.pathname.endsWith(a.id) ? a : b);
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
     const delivered = flow.messages.waitFor(a.id, { until: "delivered" });
@@ -244,11 +244,11 @@ describe("sendAndWait and messages.waitFor", () => {
     const srv = await fakeStream();
     let n = 0;
     const { fetch } = mockFetch((req) => {
-      if (path(req) === `POST /v1/conversations/${ids.conv}/messages`) return json(201, message(++n, "bubble"));
-      if (req.url.pathname.startsWith("/v1/messages/")) return json(200, message(Number(req.url.pathname.slice(-2)), "bubble"));
+      if (path(req) === `POST /v0/conversations/${ids.conv}/basic`) return json(201, message(++n, "bubble"));
+      if (req.url.pathname.startsWith("/v0/messages/")) return json(200, message(Number(req.url.pathname.slice(-2)), "bubble"));
     });
     const flow = new FlowMessaging({ apiKey: "fk_test_unit", baseURL: srv.baseURL, fetch });
-    const replying = flow.conversation(ids.conv).reply([text("one"), text("two")], { until: "sent" });
+    const replying = flow.conversation(ids.conv).reply(["one", "two"], { until: "sent" });
     const c = await srv.next();
     push(c, statusEvent(10, "sent", message(2, "bubble")));
     push(c, statusEvent(11, "sent", message(1, "bubble")));
@@ -267,9 +267,9 @@ describe("conversations.waitForNew", () => {
     const mine = conversation(conv2, "2026-11-01T00:01:00Z");
     const joined = conversation(ids.conv, "2026-11-01T00:02:00Z");
     const { fetch, calls } = mockFetch((req) => {
-      if (path(req) === "GET /v1/conversations")
+      if (path(req) === "GET /v0/conversations")
         return json(200, { data: [joined, mine, conversation("conv_01JB8ZC3K5M7P9R1T3V5X7Z9B3", "2026-10-31T23:59:59Z")], has_more: false });
-      if (path(req) === "GET /v1/events") {
+      if (path(req) === "GET /v0/events") {
         const id = req.url.searchParams.get("conversation")!;
         const via = id === conv2 ? "outbound" : "sandbox_join";
         return json(200, { data: [event(id === conv2 ? 1 : 2, "conversation.started", { conversation: id === conv2 ? mine : joined, via }, id)], has_more: false });
@@ -282,7 +282,7 @@ describe("conversations.waitForNew", () => {
     const conv = await waiting;
     expect(conv.id).toBe(ids.conv);
     expect(conv.channel).toBe("telegram");
-    expect(calls.find((r) => r.url.pathname === "/v1/conversations")!.url.searchParams.get("channel")).toBe("telegram");
+    expect(calls.find((r) => r.url.pathname === "/v0/conversations")!.url.searchParams.get("channel")).toBe("telegram");
     await c.closed;
   });
 

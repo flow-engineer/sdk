@@ -1,11 +1,15 @@
-"""Builders for the content union. Every send takes a plain string (a text message) or
-one of these; they build plain dicts, so the API's shape stays visible.
+"""Builders for kind objects. Each returns a plain dict with ``kind`` set, ready for
+``flow.messages.send``, a webhook reply or the kind's own method
+(``flow.messages.buttons(conversation_id, buttons(...))``). They only build dicts:
+nothing is converted, so what you build is what the API gets.
 
 .. code-block:: python
 
-    from flow_messaging.content import buttons, image, markdown
+    from flow_messaging.content import basic, buttons, image
 
-    flow.messages.send(conversation_id, buttons("Size?", ["S", "M", "L"]), fallback="auto")
+    flow.messages.send(conversation_id, buttons("Which size?", ["S", "M", "L"]))
+    flow.messages.send(conversation_id, image("https://example.com/menu.png", "Today's menu"))
+    flow.messages.send(conversation_id, basic("See https://example.com", link_preview=False))
 """
 
 from __future__ import annotations
@@ -15,125 +19,168 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-MediaKind = Literal["image", "video", "document", "audio"]
+from ._base import jsonable
+
+MediaType = Literal["image", "video", "document", "audio"]
+#: A file by HTTPS URL (a string), by ``file_id`` (a string starting ``file_``, from
+#: ``files.upload``), or as ``{"url": ...}`` / ``{"file_id": ...}``.
+Source = str | Mapping[str, str]
 
 
-def text(value: str) -> dict[str, Any]:
-    """Plain text."""
-    return {"type": "text", "text": value}
-
-
-def markdown(value: str) -> dict[str, Any]:
-    """Markdown text, shown in each channel's own formatting. Pair with ``fallback="auto"``
-    for channels without formatting."""
-    return {"type": "text", "text": value, "format": "markdown"}
-
-
-def _source(source: str | Mapping[str, str]) -> dict[str, str]:
+def _source(source: Source) -> dict[str, str]:
     if isinstance(source, str):
         return {"file_id": source} if source.startswith("file_") else {"url": source}
     return dict(source)
 
 
-def media(
-    kind: MediaKind, source: str | Mapping[str, str], *, caption: str | None = None, filename: str | None = None
-) -> dict[str, Any]:
-    """An image, video, document or audio file, by HTTPS URL or by ``file_id`` (``file_...``)
-    from ``files.upload``."""
-    out: dict[str, Any] = {"type": "media", "kind": kind, **_source(source)}
-    if caption is not None:
-        out["caption"] = caption
-    if filename is not None:
-        out["filename"] = filename
+def _kind(kind: str, fields: Mapping[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {"kind": kind}
+    out.update({k: jsonable(v) for k, v in fields.items() if v is not None})
     return out
 
 
-def image(source: str | Mapping[str, str], *, caption: str | None = None) -> dict[str, Any]:
-    return media("image", source, caption=caption)
+def basic(text: str | None = None, **fields: Any) -> dict[str, Any]:
+    """A ``basic`` message: text, sent exactly as written, and/or the other fields of a
+    basic message (``media``, ``reply_to``, ``link_preview``, ``metadata``, a
+    ``telegram`` or ``imessage`` block).
+
+    .. code-block:: python
+
+        basic("Your order shipped.")
+        basic("See https://example.com", link_preview=False)
+    """
+    return _kind("basic", {"text": text, **fields})
 
 
-def video(source: str | Mapping[str, str], *, caption: str | None = None) -> dict[str, Any]:
-    return media("video", source, caption=caption)
+def media(
+    type: MediaType, source: Source, caption: str | None = None, *, filename: str | None = None, **fields: Any
+) -> dict[str, Any]:
+    """A ``basic`` message with one file, by HTTPS URL or ``file_id``. ``caption`` is the
+    message's ``text``; ``fields`` are the basic message's other fields (``reply_to``, ...)."""
+    m: dict[str, Any] = {"type": type, **_source(source)}
+    if filename is not None:
+        m["filename"] = filename
+    return _kind("basic", {"text": caption, "media": m, **fields})
+
+
+def image(source: Source, caption: str | None = None, **fields: Any) -> dict[str, Any]:
+    """A ``basic`` message with an image, by URL or ``file_id``, and an optional caption."""
+    return media("image", source, caption, **fields)
+
+
+def video(source: Source, caption: str | None = None, **fields: Any) -> dict[str, Any]:
+    """A ``basic`` message with a video, by URL or ``file_id``, and an optional caption."""
+    return media("video", source, caption, **fields)
+
+
+def audio(source: Source, caption: str | None = None, **fields: Any) -> dict[str, Any]:
+    """A ``basic`` message with an audio file, by URL or ``file_id``. For a voice note use ``voice``."""
+    return media("audio", source, caption, **fields)
 
 
 def document(
-    source: str | Mapping[str, str], *, caption: str | None = None, filename: str | None = None
+    source: Source, caption: str | None = None, *, filename: str | None = None, **fields: Any
 ) -> dict[str, Any]:
-    return media("document", source, caption=caption, filename=filename)
+    """A ``basic`` message with a document, by URL or ``file_id``, an optional caption and file name."""
+    return media("document", source, caption, filename=filename, **fields)
 
 
-def audio(source: str | Mapping[str, str], *, caption: str | None = None) -> dict[str, Any]:
-    return media("audio", source, caption=caption)
+def voice(source: Source, **fields: Any) -> dict[str, Any]:
+    """A ``voice`` note, by HTTPS URL or ``file_id`` (``reply_to`` and ``metadata`` optional)."""
+    return _kind("voice", {**_source(source), **fields})
 
 
-def voice(source: str | Mapping[str, str]) -> dict[str, Any]:
-    """A voice note, by HTTPS URL or ``file_id``."""
-    return {"type": "voice", **_source(source)}
+def _button(b: str | Mapping[str, Any] | BaseModel) -> Any:
+    return {"id": b, "label": b} if isinstance(b, str) else jsonable(b)
 
 
-def buttons(value: str, items: Sequence[str | Mapping[str, Any]]) -> dict[str, Any]:
-    """Text with reply buttons (1 to 10). A tap arrives as ``message.received`` with
-    ``button_reply`` content carrying the button's ``id``. A string becomes a button whose
-    id and label are that string."""
-    return {
-        "type": "buttons",
-        "text": value,
-        "buttons": [{"id": b, "label": b} if isinstance(b, str) else dict(b) for b in items],
-    }
+def buttons(text: str, items: Sequence[str | Mapping[str, Any] | BaseModel], **fields: Any) -> dict[str, Any]:
+    """A ``buttons`` message: text with reply buttons, or with one URL button. A string
+    becomes a reply button whose id and label are that string. A tap arrives as
+    ``message.received`` with ``button_reply`` content carrying the button's ``id``.
+    ``fields`` are the other fields (``header``, ``reply_to``, ``telegram``, ``metadata``)."""
+    return _kind("buttons", {"text": text, "buttons": [_button(b) for b in items], **fields})
 
 
-def reaction(message_id: str, emoji: str | None) -> dict[str, Any]:
-    """React to a message with one emoji, or None to remove your reaction."""
-    return {"type": "reaction", "message_id": message_id, "emoji": emoji}
+def list_message(
+    text: str, button: str, rows: Sequence[Mapping[str, Any] | BaseModel], **fields: Any
+) -> dict[str, Any]:
+    """A WhatsApp ``list`` message: ``text``, the menu button's label and its rows, given
+    as sections (each with ``rows``) or, for one section without a title, as rows. A tap
+    arrives as ``button_reply`` with the row's ``id``.
+
+    .. code-block:: python
+
+        list_message("Which size?", "Sizes", [{"id": "s", "title": "Small"}, {"id": "m", "title": "Medium"}])
+    """
+    items = [jsonable(r) for r in rows]
+    sections = items if items and "rows" in items[0] else [{"rows": items}]
+    return _kind("list", {"text": text, "button": button, "sections": sections, **fields})
 
 
-def template(template_id: str, language: str, params: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """A WhatsApp template (to start a conversation or write after the 24-hour window)."""
-    out: dict[str, Any] = {"type": "template", "template_id": template_id, "language": language}
-    if params is not None:
-        out["params"] = dict(params)
-    return out
+def carousel(text: str, cards: Sequence[Mapping[str, Any] | BaseModel], **fields: Any) -> dict[str, Any]:
+    """A WhatsApp ``carousel``: text and 2 to 10 cards, each with an image or video
+    ``header`` and ``buttons``."""
+    return _kind("carousel", {"text": text, "cards": [jsonable(c) for c in cards], **fields})
 
 
-def location(lat: float, lng: float, *, name: str | None = None, address: str | None = None) -> dict[str, Any]:
-    """A place."""
-    out: dict[str, Any] = {"type": "location", "lat": lat, "lng": lng}
-    if name is not None:
-        out["name"] = name
-    if address is not None:
-        out["address"] = address
-    return out
+def template(
+    template_id: str, language: str, params: Mapping[str, Any] | BaseModel | None = None, **fields: Any
+) -> dict[str, Any]:
+    """A WhatsApp ``template`` (to start a conversation, or to write after the 24-hour window)."""
+    return _kind("template", {"template_id": template_id, "language": language, "params": params, **fields})
+
+
+def location(
+    lat: float, lng: float, *, name: str | None = None, address: str | None = None, **fields: Any
+) -> dict[str, Any]:
+    """A ``location``: a point, with an optional place name and address."""
+    return _kind("location", {"lat": lat, "lng": lng, "name": name, "address": address, **fields})
 
 
 def contact_card(
-    name: str, *, phones: Sequence[str] | None = None, emails: Sequence[str] | None = None
+    name: str, *, phones: Sequence[str] | None = None, emails: Sequence[str] | None = None, **fields: Any
 ) -> dict[str, Any]:
-    """A contact card."""
-    out: dict[str, Any] = {"type": "contact_card", "name": name}
-    if phones is not None:
-        out["phones"] = list(phones)
-    if emails is not None:
-        out["emails"] = list(emails)
+    """A ``contact_card``. Telegram needs at least one phone."""
+    return _kind(
+        "contact_card",
+        {
+            "name": name,
+            "phones": None if phones is None else [*phones],
+            "emails": None if emails is None else [*emails],
+            **fields,
+        },
+    )
+
+
+def effect(text: str, name: str, **fields: Any) -> dict[str, Any]:
+    """An iMessage ``effect``: text sent with a screen or bubble effect (``"confetti"``,
+    ``"slam"``, ...). iMessage only."""
+    return _kind("effect", {"text": text, "effect": name, **fields})
+
+
+def reaction(message_id: str, emoji: str | None, **fields: Any) -> dict[str, Any]:
+    """A ``reaction`` to a message: one emoji, or None to remove yours."""
+    out = _kind("reaction", {"message_id": message_id, **fields})
+    out["emoji"] = emoji
     return out
 
 
-def effect(value: str, name: str) -> dict[str, Any]:
-    """Text with an iMessage effect (other channels need ``fallback="auto"``)."""
-    return {"type": "effect", "text": value, "effect": name}
-
-
 def content_text(content: Any) -> str:
-    """The text a person would read in a piece of content (a model or a dict): the text, a
-    media caption, a voice note's transcript, a tapped button's label, a place's name.
-    ``""`` when there is none."""
+    """The text a person would read in a message's content (a model or a dict): its text
+    (a media caption included), a voice note's transcript, a tapped button's label, a
+    place's name. ``""`` when there is none.
+
+    .. code-block:: python
+
+        said = content_text(event.data.message.content)
+    """
     if content is None:
         return ""
     c = content.model_dump() if isinstance(content, BaseModel) else dict(content)
-    kind = c.get("type")
-    if kind in ("text", "effect", "buttons", "carousel"):
+    kind = c.get("kind")
+    if kind in ("basic", "buttons", "list", "carousel", "effect", "edit"):
         return str(c.get("text") or "")
-    if kind in ("media", "file_blocked"):
-        return str(c.get("caption") or "")
     if kind == "voice":
         return str(c.get("transcript") or "")
     if kind == "button_reply":
@@ -142,4 +189,28 @@ def content_text(content: Any) -> str:
         return ", ".join(str(x) for x in (c.get("name"), c.get("address")) if x)
     if kind == "contact_card":
         return str(c.get("name") or "")
+    if kind == "file_blocked":
+        return str(c.get("caption") or "")
     return ""
+
+
+__all__ = [
+    "MediaType",
+    "Source",
+    "audio",
+    "basic",
+    "buttons",
+    "carousel",
+    "contact_card",
+    "content_text",
+    "document",
+    "effect",
+    "image",
+    "list_message",
+    "location",
+    "media",
+    "reaction",
+    "template",
+    "video",
+    "voice",
+]

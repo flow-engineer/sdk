@@ -71,7 +71,7 @@ def test_every_error_type_maps_to_its_class(
             "sender": "snd_x",
         }
     }
-    mock.get(url(f"/v1/messages/{MSG}")).respond(status, json=body, headers={"Flow-Request-Id": "req_header"})
+    mock.get(url(f"/v0/messages/{MSG}")).respond(status, json=body, headers={"Flow-Request-Id": "req_header"})
     # max_retries=0 so the retryable types raise at once; a 120 s retry_after is never waited anyway.
     with Flow("fk_test_x", base_url="https://api.test", max_retries=0) as flow, pytest.raises(cls) as e:
         flow.messages.retrieve(MSG)
@@ -100,7 +100,7 @@ def test_every_error_type_maps_to_its_class(
 
 
 def test_request_id_from_header_when_body_has_none(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url(f"/v1/messages/{MSG}")).respond(
+    mock.get(url(f"/v0/messages/{MSG}")).respond(
         404,
         json={"error": {"type": "not_found", "message": "No such message.", "hint": "h", "doc_url": "d"}},
         headers={"Flow-Request-Id": "req_hdr"},
@@ -120,7 +120,7 @@ def test_unknown_type_becomes_flow_error() -> None:
 
 
 def test_unknown_type_over_http(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url(f"/v1/messages/{MSG}")).respond(400, json={"error": {"type": "brand_new", "message": "New."}})
+    mock.get(url(f"/v0/messages/{MSG}")).respond(400, json={"error": {"type": "brand_new", "message": "New."}})
     with pytest.raises(FlowError) as e:
         flow.messages.retrieve(MSG)
     assert type(e.value) is FlowError
@@ -138,7 +138,7 @@ def test_unknown_type_over_http(flow: Flow, mock: respx.MockRouter) -> None:
 def test_non_json_body_gives_typed_error_by_status(
     status: int, cls: type[FlowError], etype: str, mock: respx.MockRouter
 ) -> None:
-    mock.get(url(f"/v1/messages/{MSG}")).respond(status, text="<html>oops</html>", headers={"Flow-Request-Id": "req_h"})
+    mock.get(url(f"/v0/messages/{MSG}")).respond(status, text="<html>oops</html>", headers={"Flow-Request-Id": "req_h"})
     with Flow("fk_test_x", base_url="https://api.test", max_retries=0) as flow, pytest.raises(cls) as e:
         flow.messages.retrieve(MSG)
     assert e.value.type == etype
@@ -149,7 +149,7 @@ def test_non_json_body_gives_typed_error_by_status(
 
 
 def test_json_body_without_error_object(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url(f"/v1/messages/{MSG}")).respond(403, json={"detail": "nope"})
+    mock.get(url(f"/v0/messages/{MSG}")).respond(403, json={"detail": "nope"})
     with pytest.raises(InvalidRequestError) as e:
         flow.messages.retrieve(MSG)
     assert e.value.status == 403

@@ -8,7 +8,11 @@ import {
   OutsideWindowError,
   UnsupportedContentError,
   buttons,
+  contactCard,
+  list,
+  reaction,
   toFlowEvent,
+  type ConversationAction,
   type FlowEventOf,
   type Message,
 } from "../../src/index.js";
@@ -33,20 +37,84 @@ describe("client", () => {
     const m = await flow.messages.send(ids.conv, "hi");
     expect(m.id).toBe(ids.msg(1));
     const c = calls[0]!;
-    expect(c.url.toString()).toBe(`https://example.test/v1/conversations/${ids.conv}/messages`);
+    expect(c.url.toString()).toBe(`https://example.test/v0/conversations/${ids.conv}/basic`);
     expect(c.headers.authorization).toBe(`Bearer ${key}`);
     expect(c.headers["flow-version"]).toBe(API_VERSION);
     expect(c.headers["idempotency-key"]).toMatch(/.{16,}/);
-    expect(c.body).toEqual({ content: { type: "text", text: "hi" } });
+    expect(c.body).toEqual({ kind: "basic", text: "hi" });
   });
 
-  it("accepts content or a full request", async () => {
+  it("sends each kind to its own endpoint, exactly as given", async () => {
+    const { fetch, calls } = mockFetch((req) =>
+      req.url.pathname.endsWith("/typing") || req.url.pathname.endsWith("/read")
+        ? json(202, { conversation: ids.conv, action: req.url.pathname.endsWith("/typing") ? "typing" : "read" })
+        : json(req.method === "POST" ? 202 : 200, message(1, "x")),
+    );
+    const flow = new FlowMessaging({ apiKey: key, fetch, baseURL: "https://example.test" });
+    await flow.messages.send(ids.conv, buttons("Size?", ["S", "M"]));
+    await flow.messages.send(ids.conv, list("Which size?", "Sizes", [{ id: "s", title: "Small" }]));
+    await flow.messages.send(ids.conv, contactCard("Asha", { phones: ["+15550100"] }));
+    await flow.messages.send(ids.conv, reaction(ids.msg(1), "👍"));
+    const typing: ConversationAction = await flow.messages.send(ids.conv, { kind: "typing" });
+    await flow.messages.send(ids.conv, { kind: "read", up_to: ids.msg(1) });
+    await flow.messages.send(ids.conv, { kind: "edit", message_id: ids.msg(1), text: "Fixed" });
+    await flow.messages.send(ids.conv, { kind: "unsend", message_id: ids.msg(1) });
+    expect(typing.action).toBe("typing");
+    expect(calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual([
+      `POST /v0/conversations/${ids.conv}/buttons`,
+      `POST /v0/conversations/${ids.conv}/list`,
+      `POST /v0/conversations/${ids.conv}/contact-card`,
+      `POST /v0/conversations/${ids.conv}/reaction`,
+      `POST /v0/conversations/${ids.conv}/typing`,
+      `POST /v0/conversations/${ids.conv}/read`,
+      `PATCH /v0/messages/${ids.msg(1)}`,
+      `DELETE /v0/messages/${ids.msg(1)}`,
+    ]);
+    expect(calls[0]!.body).toEqual({ kind: "buttons", text: "Size?", buttons: [{ id: "S", label: "S" }, { id: "M", label: "M" }] });
+    expect(calls[1]!.body).toEqual({ kind: "list", text: "Which size?", button: "Sizes", sections: [{ rows: [{ id: "s", title: "Small" }] }] });
+    expect(calls[4]!.body).toEqual({ kind: "typing" });
+    expect(calls[6]!.body).toEqual({ text: "Fixed" });
+    expect(calls[7]!.body).toBeUndefined();
+  });
+
+  it("has one method per kind endpoint, and typing and read without state", async () => {
+    const { fetch, calls } = mockFetch((req) =>
+      req.url.pathname.endsWith("/typing") || req.url.pathname.endsWith("/read")
+        ? json(202, { conversation: ids.conv, action: "typing" })
+        : json(202, message(1, "x")),
+    );
+    const flow = new FlowMessaging({ apiKey: key, fetch, baseURL: "https://example.test" });
+    await flow.messages.basic(ids.conv, { text: "See https://example.com", link_preview: false });
+    await flow.messages.voice(ids.conv, { file_id: "file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5" });
+    await flow.messages.carousel(ids.conv, { text: "Pick one", cards: [] });
+    await flow.messages.template(ids.conv, { template_id: "tpl_01JB8ZG7Q9S1V3X5Z7B9D1F3G5", language: "en" });
+    await flow.messages.contactCard(ids.conv, { name: "Asha", phones: ["+15550100"] });
+    await flow.messages.location(ids.conv, { lat: 1, lng: 2 });
+    await flow.messages.effect(ids.conv, { text: "Happy birthday", effect: "balloons" });
+    await flow.conversations.typing(ids.conv);
+    await flow.conversations.typing(ids.conv, { imessage: { duration_seconds: 10 } });
+    await flow.conversations.read(ids.conv);
+    expect(calls.map((c) => c.url.pathname.split("/").at(-1))).toEqual([
+      "basic", "voice", "carousel", "template", "contact-card", "location", "effect", "typing", "typing", "read",
+    ]);
+    expect(calls[7]!.body).toEqual({});
+    expect(calls[8]!.body).toEqual({ imessage: { duration_seconds: 10 } });
+  });
+
+  it("refuses an object with no kind it can send, before any request", async () => {
     const { fetch, calls } = mockFetch(() => json(202, message(1, "x")));
     const flow = new FlowMessaging({ apiKey: key, fetch });
-    await flow.messages.send(ids.conv, buttons("Size?", ["S", "M"]));
-    await flow.messages.send(ids.conv, { content: buttons("Size?", ["S"]), fallback: "auto" });
-    expect(calls[0]!.body).toEqual({ content: { type: "buttons", text: "Size?", buttons: [{ id: "S", label: "S" }, { id: "M", label: "M" }] } });
-    expect(calls[1]!.body).toMatchObject({ fallback: "auto" });
+    await expect(flow.messages.send(ids.conv, { text: "hi" } as never)).rejects.toThrow(TypeError);
+    await expect(flow.messages.send(ids.conv, { kind: "button_reply" } as never)).rejects.toThrow(/button_reply/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("starts a conversation with a flat basic or template message", async () => {
+    const { fetch, calls } = mockFetch(() => json(202, message(1, "Your table is ready.")));
+    const flow = new FlowMessaging({ apiKey: key, fetch, baseURL: "https://example.test" });
+    await flow.messages.start({ sender: "snd_x", to: { contact: "ct_x" }, kind: "basic", text: "Your table is ready." });
+    expect(calls[0]!.url.pathname).toBe("/v0/messages");
+    expect(calls[0]!.body).toEqual({ sender: "snd_x", to: { contact: "ct_x" }, kind: "basic", text: "Your table is ready." });
   });
 
   it("can send no Flow-Version, to use the app's pinned one", async () => {
@@ -85,7 +153,7 @@ describe("client", () => {
         : json(429, { error: { type: "new_contact_limit", message: "budget", retry_after: 3600, sender: "snd_x" } });
     });
     const flow = new FlowMessaging({ apiKey: key, fetch });
-    const err = await flow.messages.start({ sender: "snd_x", to: { telegram_user_id: "1" }, content: { type: "text", text: "hi" } }).catch((e) => e);
+    const err = await flow.messages.start({ sender: "snd_x", to: { telegram_user_id: "1" }, kind: "basic", text: "hi" }).catch((e) => e);
     expect(err).toBeInstanceOf(NewContactLimitError);
     expect(err.retryAfter).toBe(3600);
     expect(err.sender).toBe("snd_x");
@@ -118,13 +186,13 @@ describe("client", () => {
     ] as const;
     for (const [status, type, Cls] of cases) {
       const { fetch } = mockFetch(() =>
-        json(status, { error: { type, message: "m", conversation: ids.conv, param: "content.type", request_id: "req_1", doc_url: "https://api.flow.engineer/docs/errors/x", hint: "h" } }),
+        json(status, { error: { type, message: "m", conversation: ids.conv, param: "kind", request_id: "req_1", doc_url: "https://api.flow.engineer/docs/errors/x", hint: "h" } }),
       );
       const err = await new FlowMessaging({ apiKey: key, fetch }).messages.send(ids.conv, "x").catch((e) => e);
       expect(err).toBeInstanceOf(Cls);
       expect(err.type).toBe(type);
       expect(err.status).toBe(status);
-      expect(err.param).toBe("content.type");
+      expect(err.param).toBe("kind");
       expect(err.requestId).toBe("req_1");
       expect(err.docUrl).toBe("https://api.flow.engineer/docs/errors/x");
       expect(err.hint).toBe("h");
@@ -176,7 +244,7 @@ describe("client", () => {
     expect(got.secret).toBe("whsec_new");
     await flow.webhookEndpoints.rotateSecret(endpoint.id);
     expect(calls[0]!.method).toBe("POST");
-    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/webhook_endpoints/${endpoint.id}/rotate_secret`);
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v0/webhook_endpoints/${endpoint.id}/rotate_secret`);
     expect(calls[0]!.body).toEqual({ overlap_seconds: 3600 });
     expect(calls[0]!.headers["idempotency-key"]).toMatch(/.{16,}/);
     expect(calls[1]!.body).toEqual({});
@@ -198,7 +266,7 @@ describe("client", () => {
     const got = await flow.senders.disconnect(sender.id);
     expect(got.status).toBe("banned");
     expect(calls[0]!.method).toBe("DELETE");
-    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/senders/${sender.id}`);
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v0/senders/${sender.id}`);
   });
 
   it("deletes a contact with DELETE and resolves on 204", async () => {
@@ -209,23 +277,23 @@ describe("client", () => {
     await expect(flow.contacts.delete(contact)).resolves.toBeUndefined();
     expect(calls).toHaveLength(2);
     expect(calls[0]!.method).toBe("DELETE");
-    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/contacts/${contact}`);
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v0/contacts/${contact}`);
   });
 
   it("sends reply_to and reads it back on the message", async () => {
     const target = ids.msg(1);
     const { fetch, calls } = mockFetch(() => json(202, { ...message(2, "Yes, that one."), reply_to: target }));
     const flow = new FlowMessaging({ apiKey: key, fetch, baseURL: "https://example.test" });
-    const m: Message = await flow.messages.send(ids.conv, { content: { type: "text", text: "Yes, that one." }, reply_to: target });
+    const m: Message = await flow.messages.send(ids.conv, { kind: "basic", text: "Yes, that one.", reply_to: target });
     const replyTo: string | undefined = m.reply_to;
     expect(replyTo).toBe(target);
-    expect(calls[0]!.url.pathname).toBe(`/v1/conversations/${ids.conv}/messages`);
-    expect(calls[0]!.body).toEqual({ content: { type: "text", text: "Yes, that one." }, reply_to: target });
+    expect(calls[0]!.url.pathname).toBe(`/v0/conversations/${ids.conv}/basic`);
+    expect(calls[0]!.body).toEqual({ kind: "basic", text: "Yes, that one.", reply_to: target });
   });
 
   it("drives a simulated conversation: create, inbound, transcript oldest first", async () => {
     const { fetch, calls } = mockFetch((req) => {
-      if (req.url.pathname === "/v1/test/conversations")
+      if (req.url.pathname === "/v0/test/conversations")
         return json(201, { id: ids.conv, app: "app_x", channel: "sms", sender: "snd_x", contact: "ct_x", livemode: false, opted_in: true, simulated: true, created_at: "2026-11-01T00:00:00Z" });
       if (req.url.pathname.endsWith("/inbound"))
         return json(202, { message: ids.msg(1), conversation: ids.conv, channel_message_id: "sim_1", status: "queued" });
@@ -234,7 +302,7 @@ describe("client", () => {
           return json(200, { conversation: ids.conv, data: [{ ...message(1, "hi"), direction: "in", status: "received" }], has_more: true });
         return json(200, {
           conversation: ids.conv,
-          data: [{ ...message(2, "Size?"), status: "sent", shown: { type: "text", text: "Size?\n1. S\n2. M" } }],
+          data: [{ ...message(2, "Size?"), status: "sent", content: { kind: "buttons", text: "Size?", buttons: [{ id: "S", label: "S" }] } }],
           has_more: false,
         });
       }
@@ -246,15 +314,17 @@ describe("client", () => {
     expect(calls[0]!.headers["idempotency-key"]).toMatch(/.{16,}/);
     const turn = await flow.test.inbound(conv.id, "hi");
     expect(turn.message).toBe(ids.msg(1));
-    expect(calls[1]!.url.pathname).toBe(`/v1/test/conversations/${ids.conv}/inbound`);
-    expect(calls[1]!.body).toEqual({ content: { type: "text", text: "hi" } });
-    await flow.test.inbound(conv.id, { type: "media", kind: "image", file_id: "file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5" });
-    expect(calls[2]!.body).toEqual({ content: { type: "media", kind: "image", file_id: "file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5" } });
-    await flow.test.inbound(conv.id, { content: { type: "text", text: "that one" }, reply_to: ids.msg(1) });
-    expect(calls[3]!.body).toEqual({ content: { type: "text", text: "that one" }, reply_to: ids.msg(1) });
+    expect(calls[1]!.url.pathname).toBe(`/v0/test/conversations/${ids.conv}/inbound`);
+    expect(calls[1]!.body).toEqual({ content: { kind: "basic", text: "hi" } });
+    await flow.test.inbound(conv.id, { kind: "basic", media: { type: "image", file_id: "file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5" } });
+    expect(calls[2]!.body).toEqual({ content: { kind: "basic", media: { type: "image", file_id: "file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5" } } });
+    await flow.test.inbound(conv.id, { content: { kind: "basic", text: "that one" }, reply_to: ids.msg(1) });
+    expect(calls[3]!.body).toEqual({ content: { kind: "basic", text: "that one" }, reply_to: ids.msg(1) });
+    await flow.test.inbound(conv.id, { kind: "button_reply", message_id: ids.msg(2), button_id: "S" });
+    expect(calls[4]!.body).toEqual({ content: { kind: "button_reply", message_id: ids.msg(2), button_id: "S" } });
     const seen: string[] = [];
-    for await (const m of flow.test.transcript(conv.id)) seen.push(`${m.direction}:${m.shown?.type ?? m.content.type}`);
-    expect(seen).toEqual(["in:text", "out:text"]);
+    for await (const m of flow.test.transcript(conv.id)) seen.push(`${m.direction}:${m.content.kind}`);
+    expect(seen).toEqual(["in:basic", "out:buttons"]);
     expect(calls.at(-1)!.url.searchParams.get("after")).toBe(ids.msg(1));
   });
 
@@ -264,6 +334,6 @@ describe("client", () => {
     const onMessage = (event: FlowEventOf<"message.received">) => event.conversation.reply("Got it", { split: false, typing: false });
     const event = toFlowEvent(flow, receivedEvent(1, "hi") as never) as FlowEventOf<"message.received">;
     await onMessage(event);
-    expect(calls[0]!.url.pathname).toBe(`/v1/conversations/${ids.conv}/messages`);
+    expect(calls[0]!.url.pathname).toBe(`/v0/conversations/${ids.conv}/basic`);
   });
 });

@@ -128,11 +128,69 @@ def body(**fields: Any) -> dict[str, Any]:
     return {k: jsonable(v) for k, v in fields.items() if v is not None}
 
 
-def content(value: Any) -> Any:
-    """Content from a string (a text message), a model or a mapping."""
+def fields(value: Any, extra: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """A request body from a model or mapping (or None) and keyword fields, as given: the
+    fields are laid over it, nothing is converted, and an explicit None stays. A model
+    keeps its ``kind`` even when it was left at its default."""
+    if value is None:
+        out: dict[str, Any] = {}
+    elif isinstance(value, BaseModel):
+        out = jsonable(value)
+        if "kind" in type(value).model_fields and "kind" not in out:
+            out["kind"] = value.model_dump(include={"kind"})["kind"]
+    elif isinstance(value, Mapping):
+        out = jsonable(value)
+    else:
+        raise TypeError(f"Expected a dict or a model, not {type(value).__name__}.")
+    out.update(jsonable(dict(extra or {})))
+    return out
+
+
+def kind_object(value: Any) -> dict[str, Any]:
+    """A kind object from a string (short for ``{"kind": "basic", "text": ...}``, the only
+    shorthand), a model or a mapping. The object is otherwise sent as given."""
     if isinstance(value, str):
-        return {"type": "text", "text": value}
-    return jsonable(value)
+        return {"kind": "basic", "text": value}
+    return fields(value)
+
+
+#: The endpoint of each kind sent with ``POST /v0/conversations/{conversation_id}/<path>``.
+KIND_PATHS: dict[str, str] = {
+    "basic": "basic",
+    "voice": "voice",
+    "buttons": "buttons",
+    "list": "list",
+    "carousel": "carousel",
+    "template": "template",
+    "contact_card": "contact-card",
+    "location": "location",
+    "effect": "effect",
+    "reaction": "reaction",
+    "typing": "typing",
+    "read": "read",
+}
+#: Every kind that can be sent: those, and the changes to a sent message
+#: (``PATCH`` and ``DELETE /v0/messages/{message_id}``).
+SENDABLE_KINDS: tuple[str, ...] = (*KIND_PATHS, "edit", "unsend")
+#: Kinds Flow receives and never sends.
+INBOUND_ONLY_KINDS = ("button_reply", "file_blocked")
+
+
+def sendable(value: Any) -> dict[str, Any]:
+    """``kind_object(value)``, checked to name a kind that can be sent; raises ``ValueError``
+    otherwise, so a bad message never reaches the API."""
+    if value is None:
+        raise ValueError("Nothing to send: give a string (basic text) or a kind object with `kind`.")
+    obj = kind_object(value)
+    kind = obj.get("kind")
+    if isinstance(kind, str) and kind in SENDABLE_KINDS:
+        return obj
+    known = ", ".join(SENDABLE_KINDS)
+    if kind is None:
+        raise ValueError(f"Cannot send an object without a `kind`: give one of {known}, or a string for basic text.")
+    if kind in INBOUND_ONLY_KINDS:
+        raise ValueError(f"Cannot send kind {kind!r}: Flow receives it, never sends it. Give one of {known}.")
+    raise ValueError(f"Cannot send kind {kind!r}: give one of {known}, or a string for basic text.")
 
 
 def error_from_response(response: httpx.Response) -> FlowError:
@@ -177,7 +235,7 @@ def parser(model: type[M]) -> Callable[[Any], M]:
 
 
 def file_id(file_id_or_url: str) -> str:
-    """A file ID from an ID or from a file URL (``.../v1/files/file_...``)."""
+    """A file ID from an ID or from a file URL (``.../v0/files/file_...``)."""
     return file_id_or_url.rstrip("/").rsplit("/", 1)[-1] if "/" in file_id_or_url else file_id_or_url
 
 
