@@ -334,7 +334,7 @@ export interface paths {
          * Send a contact card
          * @description | Channel | Works | Limits |
          *     |---|---|---|
-         *     | Telegram | Yes | at least one phone number; every phone number and email address goes on the card |
+         *     | Telegram | Yes | at least one phone number; every phone number and email address goes on the card, which Telegram caps at 2048 bytes (a longer one answers `400 invalid_request` with `param` `phones`) |
          *     | WhatsApp | Yes | |
          *     | iMessage | No | |
          *     | SMS (US, pilot) | No | |
@@ -2989,7 +2989,8 @@ export interface components {
         /**
          * @description A message's content: one kind object, in either direction, with `kind`
          *     (always present here) saying which. It is exactly what was sent or
-         *     received.
+         *     received, except `metadata`, which is kept once, at the message's own
+         *     `metadata`, and not repeated here.
          */
         MessageContent: {
             kind: components["schemas"]["MessageKind"];
@@ -3196,7 +3197,7 @@ export interface components {
              */
             url?: string;
             file_id?: components["schemas"]["FileId"];
-            /** @description The file's name, shown for documents. On Telegram it works only with `file_id`: Telegram names a document sent by `url` itself, so `filename` with `url` answers `422 unsupported_content` with `param` `media.filename`. */
+            /** @description The file's name, shown for documents and taken only with `type` `document` (on another type it answers `422 unsupported_content` with `param` `media.filename`). On Telegram it works only with `file_id`: Telegram names a document sent by `url` itself, so `filename` with `url` answers `422 unsupported_content` with `param` `media.filename`. */
             filename?: string;
             /** @description Inbound only. The real type, checked from the file's first bytes. */
             readonly mime_type?: string;

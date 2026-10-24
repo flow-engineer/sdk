@@ -259,7 +259,8 @@ info:
     `2xx` for something it did not send. Fields that only one channel has sit in
     a block named after it (`telegram`, `imessage`), typed per endpoint; an
     unknown key in a block, or an unknown field, is refused with `400
-    invalid_request` naming it.
+    invalid_request` naming it, and so is a read-only field Flow fills on
+    received messages (such as `media.mime_type` or a voice note's `transcript`).
 
     `text` is sent exactly as written on every channel: Flow does not read
     markdown, strip marks or warn. Style it in the channel's own terms:
@@ -958,7 +959,7 @@ paths:
       description: |
         | Channel | Works | Limits |
         |---|---|---|
-        | Telegram | Yes | at least one phone number; every phone number and email address goes on the card |
+        | Telegram | Yes | at least one phone number; every phone number and email address goes on the card, which Telegram caps at 2048 bytes (a longer one answers `400 invalid_request` with `param` `phones`) |
         | WhatsApp | Yes | |
         | iMessage | No | |
         | SMS (US, pilot) | No | |
@@ -5105,7 +5106,8 @@ components:
       description: |
         A message's content: one kind object, in either direction, with `kind`
         (always present here) saying which. It is exactly what was sent or
-        received.
+        received, except `metadata`, which is kept once, at the message's own
+        `metadata`, and not repeated here.
       required: [kind]
       properties:
         kind:
@@ -5346,7 +5348,9 @@ components:
           type: string
           maxLength: 255
           description: >-
-            The file's name, shown for documents. On Telegram it works only with
+            The file's name, shown for documents and taken only with `type`
+            `document` (on another type it answers `422 unsupported_content` with
+            `param` `media.filename`). On Telegram it works only with
             `file_id`: Telegram names a document sent by `url` itself, so
             `filename` with `url` answers `422 unsupported_content` with `param`
             `media.filename`.
