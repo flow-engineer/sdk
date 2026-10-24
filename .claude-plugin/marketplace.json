@@ -6,7 +6,7 @@
     {
       "name": "flow-messaging",
       "source": "./plugin",
-      "description": "WhatsApp, Telegram and iMessage for AI agents: the @flow-engineer/messaging skill and the Flow Messaging MCP server."
+      "description": "WhatsApp, Telegram and iMessage for AI agents: the @flow-engineer/messaging skill and the Flow Messaging MCP server, plus the V0 migration skill."
     }
   ]
 }
