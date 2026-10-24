@@ -23,7 +23,7 @@ export interface paths {
          * Send a basic message (text, or media with a caption)
          * @description | Channel | Works | Limits |
          *     |---|---|---|
-         *     | Telegram | Yes | `text` 4096 UTF-16 code units (an emoji such as 😀 counts as 2); a caption 1024; files up to 50 MB |
+         *     | Telegram | Yes | `text` 4096 UTF-16 code units (an emoji such as 😀 counts as 2); a caption 1024; files up to 50 MB; `media.filename` only with `file_id` (Telegram names a document sent by `url` itself) |
          *     | WhatsApp | Yes | `text` 4096 characters; a caption 1024; files up to 100 MB |
          *     | iMessage | Yes | `text` 9999 characters; a caption 1024; files up to 100 MB |
          *     | SMS (US, pilot) | Yes | `text` at most 10 segments (1530 GSM-7 characters, 670 with an emoji or other character outside GSM-7; see `SmsSegments`); `media` only from numbers with MMS (`Sender.sms.mms`): images, audio and video up to 5 MB, no documents |
@@ -334,7 +334,7 @@ export interface paths {
          * Send a contact card
          * @description | Channel | Works | Limits |
          *     |---|---|---|
-         *     | Telegram | Yes | at least one phone number |
+         *     | Telegram | Yes | at least one phone number; every phone number and email address goes on the card |
          *     | WhatsApp | Yes | |
          *     | iMessage | No | |
          *     | SMS (US, pilot) | No | |
@@ -374,7 +374,7 @@ export interface paths {
          * Send a place
          * @description | Channel | Works | Limits |
          *     |---|---|---|
-         *     | Telegram | Yes | |
+         *     | Telegram | Yes | `name` and `address` together, or neither |
          *     | WhatsApp | Yes | |
          *     | iMessage | No | |
          *     | SMS (US, pilot) | No | |
@@ -383,8 +383,10 @@ export interface paths {
          *     example `https://maps.google.com/?q=12.9716,77.5946`) and the place's name
          *     and address in its text.
          *
-         *     Sends a place on a map, with its name and address when given. iMessage and
-         *     SMS answer `422 unsupported_content` with `param` `kind`. Sends to one
+         *     Sends a place on a map, with its name and address when given. Telegram
+         *     shows a name only with an address: a `name` without `address`, or an
+         *     `address` without `name`, answers `422 unsupported_content` with `param`
+         *     naming the one given. iMessage and SMS answer `422 unsupported_content` with `param` `kind`. Sends to one
          *     conversation go out in the order they were accepted (see "Order and
          *     duplicates").
          */
@@ -3193,7 +3195,7 @@ export interface components {
              */
             url?: string;
             file_id?: components["schemas"]["FileId"];
-            /** @description The file's name, shown for documents. */
+            /** @description The file's name, shown for documents. On Telegram it works only with `file_id`: Telegram names a document sent by `url` itself, so `filename` with `url` answers `422 unsupported_content` with `param` `media.filename`. */
             filename?: string;
             /** @description Inbound only. The real type, checked from the file's first bytes. */
             readonly mime_type?: string;
