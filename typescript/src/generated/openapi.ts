@@ -24,7 +24,7 @@ export interface paths {
          * @description | Channel | Works | Limits |
          *     |---|---|---|
          *     | Telegram | Yes | `text` 4096 UTF-16 code units (an emoji such as 😀 counts as 2); a caption 1024; files up to 50 MB; `media.filename` only with `file_id` (Telegram names a document sent by `url` itself) |
-         *     | WhatsApp | Yes | `text` 4096 characters; a caption 1024; files up to 100 MB |
+         *     | WhatsApp | Yes | `text` 4096 characters; a caption 1024 (none on audio: `text` with `media.type` `audio` is refused, send the text as its own message); files up to 100 MB |
          *     | iMessage | Yes | `text` 9999 characters; a caption 1024; files up to 100 MB |
          *     | SMS (US, pilot) | Yes | `text` at most 10 segments (1530 GSM-7 characters, 670 with an emoji or other character outside GSM-7; see `SmsSegments`); `media` only from numbers with MMS (`Sender.sms.mms`): images, audio and video up to 5 MB, no documents |
          *
@@ -3164,8 +3164,9 @@ export interface components {
             /**
              * @description Whether links in the text show a rich preview. Left out, the channel's
              *     default applies (Telegram, WhatsApp and iMessage show previews).
-             *     `false` sends links as plain text. SMS never shows previews: `false`
-             *     is accepted there and `true` answers `422 unsupported_content` with
+             *     `false` sends links as plain text. SMS never shows previews, and no
+             *     channel shows one on a media message: `false` is accepted there, and
+             *     `true` on SMS or with `media` answers `422 unsupported_content` with
              *     `param` `link_preview`.
              */
             link_preview?: boolean;
@@ -3511,6 +3512,7 @@ export interface components {
             /** @description The template language to use, as Meta names it (`en`, `en_US`, `hi`). */
             language: string;
             params?: components["schemas"]["TemplateParams"];
+            reply_to?: components["schemas"]["ReplyTo"];
             metadata?: components["schemas"]["Metadata"];
         };
         /** @description Values for the template's placeholders. */

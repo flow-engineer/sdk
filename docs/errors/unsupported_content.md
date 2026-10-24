@@ -29,7 +29,7 @@ A send is exact or it fails: Flow never converts a message into another kind, ne
 | Case | `param` | `channel_code` |
 |---|---|---|
 | The endpoint's kind is not on this channel (a carousel to Telegram, buttons to iMessage, a template outside WhatsApp, typing on SMS, a read receipt on Telegram) | `kind` | |
-| A field or block the channel does not take (`reply_to` on SMS, `link_preview: true` on SMS, a `telegram` block to WhatsApp, `consent` on a start that is not SMS, `up_to` on iMessage) | the field or block, such as `reply_to`, `telegram`, `telegram.is_big` | |
+| A field or block the channel does not take (`reply_to` on SMS, `link_preview: true` on SMS or with `media`, `text` with an audio `media` on WhatsApp, a `telegram` block to WhatsApp, `consent` on a start that is not SMS, `up_to` on iMessage) | the field or block, such as `reply_to`, `link_preview`, `text`, `telegram`, `telegram.is_big` | |
 | A value the channel does not take (a Telegram reaction emoji outside Telegram's list, more than 3 WhatsApp buttons or a mix of reply and URL buttons, a contact card with no phone number on Telegram, a place's `name` without its `address` (or the reverse) on Telegram, a `media.filename` with a `url` on Telegram, a document on SMS, a file larger than the channel takes) | the field, such as `emoji`, `buttons`, `phones`, `name`, `address`, `media.filename`, `media.type`, `media` | |
 | A reaction, typing or a read receipt in an iMessage group conversation: groups take none of these from your line | `kind` | `group_unsupported` |
 | An edit or unsend of an iMessage message that went by SMS or RCS (its `network` is `sms` or `rcs`) | `kind` | `not_on_sms` |
