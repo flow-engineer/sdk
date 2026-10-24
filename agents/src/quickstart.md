@@ -1258,7 +1258,11 @@ for event in flow.events.stream(types=["message.received"]):
 
 Webhooks: `construct_event(raw_body, flow_signature_header)` checks `Flow-Signature`
 (the secret defaults to `{{env.webhook_secret}}`) and returns the typed event;
-`webhook_reply("...")` is the answer that replies at once. Errors raise a subclass of
+`webhook_reply("...")` is the answer that replies at once. Sends: one method per kind
+(`flow.messages.basic`, `.buttons`, `.list`, ..., `.contact_card`) and
+`flow.messages.send(conversation_id, kind_object)` for any kind (builders in
+`flow_messaging.content`: `buttons(...)`, `list_message(...)`, `image(...)`, ...);
+`flow.conversations.typing(id)` has no state. Errors raise a subclass of
 `FlowError` per `error.type` (`OutsideWindowError`, `PermissionDeniedError`, ...) with
 `hint`, `doc_url` and `code`. Full reference: https://github.com/flow-engineer/sdk/tree/main/python.
 
