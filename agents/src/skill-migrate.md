@@ -69,14 +69,14 @@ or a field the channel does not take, answers `422`; an unknown field `400`.
 | `text` `{text}` | `/basic` `{text}` | all |
 | `text` with `format: "markdown"` | `/basic` with the text in the channel's own terms (see 4) | all |
 | `text` with `subject` | iMessage: `/basic` `{text, imessage: {subject}}`; elsewhere write the line into `text` yourself (Telegram `<b>Subject</b>\n...` with `telegram: {parse_mode: "HTML"}`, WhatsApp `*Subject*\n...`, SMS a plain first line) | |
-| `media` `{kind, url or file_id, caption, filename}` | `/basic` `{media: {type, url or file_id, filename}, text: caption}` (`media.kind` is now `media.type`; the caption is `text`) | all; SMS only images, audio, video, from numbers with MMS |
+| `media` `{kind, url or file_id, caption, filename}` | `/basic` `{media: {type, url or file_id, filename}, text: caption}` (`media.kind` is now `media.type`; the caption is `text`). `filename` only on a `document` (on Telegram only with `file_id`: Telegram names a document sent by `url` itself). WhatsApp shows no caption on audio: send the audio, then the text as its own `basic` | all; SMS only images, audio, video, from numbers with MMS |
 | `voice` | `/voice` `{url or file_id}` | Telegram, WhatsApp, iMessage |
 | `buttons` (1 to 3 on WhatsApp, up to 10 on Telegram) | `/buttons` `{text, buttons, header}` | Telegram, WhatsApp |
 | `buttons` with more than 3 reply buttons on WhatsApp (Flow used to send a list) | `/list` `{text, button: "<menu label>", sections: [{rows: [{id, title, description}]}]}` (at most 10 rows) | WhatsApp |
 | `carousel` | `/carousel` `{text, cards}` | WhatsApp |
-| `template` | `/template` `{template_id, language, params}` | WhatsApp |
-| `location` | `/location` `{lat, lng, name, address}` | Telegram, WhatsApp |
-| `contact_card` | `/contact-card` `{name, phones, emails}` (Telegram needs a phone) | Telegram, WhatsApp |
+| `template` | `/template` `{template_id, language, params, reply_to}` | WhatsApp |
+| `location` | `/location` `{lat, lng, name, address}` (Telegram: `name` and `address` together, or neither) | Telegram, WhatsApp |
+| `contact_card` | `/contact-card` `{name, phones, emails}` (Telegram needs a phone, and puts every phone and email on a card of at most 2048 bytes) | Telegram, WhatsApp |
 | `effect` | `/effect` `{text, effect}` | iMessage |
 | `reaction` | `/reaction` `{message_id, emoji}` (`null` removes) | Telegram (its emoji list only), WhatsApp, iMessage (not groups) |
 | `typing` `{state: "on"}` | `POST /v0/conversations/{id}/typing` with `{}` or no body | Telegram, WhatsApp, iMessage (not groups) |
@@ -89,9 +89,9 @@ Fields that used to sit beside `content`:
 
 | Old field | New place |
 |---|---|
-| `reply_to` (top level) | inside the kind: `basic`, `voice`, `buttons`, `list`, `contact_card`, `location`, `effect`. `carousel` and `template` take none: send them without it. SMS refuses it: leave it out there. |
+| `reply_to` (top level) | inside the kind: `basic`, `voice`, `buttons`, `list`, `contact_card`, `location`, `effect`, `template`. `carousel` takes none: send it without it. SMS refuses it: leave it out there. |
 | `metadata` (top level) | inside the kind (every message kind but `reaction`, `typing`, `read` and edits) |
-| `link_preview` (default `true`) | `basic.link_preview`; leave it out for the channel's default (previews on). Send only `false` when you want plain links: `true` on SMS answers `422`. |
+| `link_preview` (default `true`) | `basic.link_preview`; leave it out for the channel's default (previews on). Send only `false` when you want plain links: `true` on SMS, or with `media` on any channel, answers `422`. |
 | `fallback` | gone: choose the substitute yourself (section 3) |
 | `delivered_as` | gone: what you send is what the contact gets |
 
@@ -183,7 +183,8 @@ Pick one per channel:
 - **Telegram:** turn markdown into Telegram HTML and send `telegram: {parse_mode: "HTML"}`.
   Escape `&`, `<` and `>` in the text first; then `**x**` → `<b>x</b>`, `*x*` or `_x_` →
   `<i>x</i>`, `~~x~~` → `<s>x</s>`, `` `x` `` → `<code>x</code>`, `[t](https://u)` → `<a href="https://u">t</a>`.
-  Text Telegram cannot parse fails as `message.failed` (`channel_error`).
+  Text Telegram cannot parse fails as `message.failed` (`channel_error`). Telegram's length
+  limits (4096, a caption 1024) count the text after its tags are parsed, so the HTML may be longer.
 - **iMessage:** remove the marks and send their places as `imessage.styles`
   (`[{start, length, style}]`, counted in UTF-16 code units, which is how JavaScript string
   indexes count; in Python `len(s.encode("utf-16-le")) // 2`). Styles: `bold`, `italic`,
@@ -219,8 +220,8 @@ The same goes for edits: `PATCH /v0/messages/{id}` sends `text` as written, styl
 block or value, and nothing was sent. Do not retry the same request. The error carries:
 
 - `param`: what was refused: `kind` (the endpoint), a field or block (`reply_to`,
-  `link_preview`, `telegram`, `telegram.is_big`, `consent`, `up_to`), or a value's field
-  (`emoji`, `buttons`, `phones`, `media`, `media.type`);
+  `link_preview`, `text`, `telegram`, `telegram.is_big`, `consent`, `up_to`), or a value's field
+  (`emoji`, `buttons`, `phones`, `name`, `address`, `media`, `media.type`, `media.filename`);
 - `channel`: the conversation's channel;
 - `channel_code` for cases that depend on the conversation or message: `group_unsupported`
   (reaction, typing or read in an iMessage group: leave it out), `not_on_sms` (edit or
@@ -247,6 +248,12 @@ transcripts included) is a kind object with `kind`:
 | `{type: "button_reply", button_id, label, message_id}` | `{kind: "button_reply", ...}`; a tap on a WhatsApp list row arrives the same way, with the row's `id` and title |
 | `{type: "location" / "contact_card" / "reaction", ...}` | `{kind: ..., ...}` (same fields) |
 | `{type: "file_blocked", kind: "document", reason, ...}` | `{kind: "file_blocked", media_type: "document", reason, ...}` |
+
+`metadata` is kept once, at the message's own `metadata`, and is not repeated inside
+`content`. To send a received piece on (a photo, a voice note), copy only what a send takes
+(`media.type` with its `file_id` or `url`, `text`): fields Flow fills on received messages,
+such as `media.mime_type`, `media.size_bytes` or a voice note's `transcript`, answer
+`400 invalid_request` on a send.
 
 Other changes: `delivered_as` is gone from messages and from typing/read answers
 (`ConversationAction` keeps `conversation` and `action`); iMessage messages and their events
@@ -318,10 +325,14 @@ Python, `{{python_package}}` 0.1 → 0.2.0 (the same names on `Flow` and `AsyncF
 | Before | After |
 |---|---|
 | `flow.messages.send(conv, content, reply_to=..., fallback=..., channel_options=...)` | `flow.messages.send(conv, {"kind": "basic", "text": "Hi", "reply_to": "msg_..."})`, or the kind's method with keyword fields: `flow.messages.basic(conv, text="Hi")`, `.voice`, `.buttons`, `.list`, `.carousel`, `.template`, `.contact_card`, `.location`, `.effect`, `.reaction` |
+| `content.text("Hi")`, `content.markdown("**Hi**")` | `content.basic("Hi")` (or the string itself); markdown: section 4 |
+| `content.image(src, caption=...)` and the other media builders | the same names (`image`, `video`, `audio`, `document`, `media`), now `basic` kind dicts; `caption` may also go second |
+| `content.buttons`, `voice`, `location`, `contact_card`, `effect`, `reaction`, `template` | same names, now returning kind dicts; new `content.list_message(text, button, rows)` and `content.carousel(text, cards)` |
 | `flow.messages.start(sender=..., to=..., content=...)` | `flow.messages.start(sender=..., to=..., message={"kind": "basic", "text": "Hi"})` (`consent=` on SMS) |
 | `flow.messages.edit(id, content)` | `flow.messages.edit(id, text="New")` (with `telegram=` or `imessage=` blocks) |
-| `flow.conversations.typing(conv, "on")` | `flow.conversations.typing(conv)` (`imessage={"duration_seconds": 10}` on iMessage) |
-| `flow.conversations.mark_read(conv, up_to)` | `flow.conversations.read(conv, up_to="msg_...")` (WhatsApp) |
+| `flow.conversations.typing(conv, "on")`, `flow.conversation(conv).typing("on")` | `flow.conversations.typing(conv)`, `flow.conversation(conv).typing()` (`imessage={"duration_seconds": 10}` on iMessage); `"off"` calls: delete them |
+| `flow.conversations.mark_read(conv, up_to)`, `flow.conversation(conv).mark_read(up_to)` | `flow.conversations.read(conv, up_to="msg_...")`, `flow.conversation(conv).read(...)` (`up_to` on WhatsApp only) |
+| `flow.test.inbound(conv, "Hi")` with old content dicts | `flow.test.inbound(conv, {"kind": "basic", "text": "Hi"})` or a string |
 | `flow.capabilities.retrieve(conv)` | gone |
 | `webhook_reply(reply, fallback=...)` | `webhook_reply(reply)` with kind dicts |
 
