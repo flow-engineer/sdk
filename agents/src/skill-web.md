@@ -52,7 +52,7 @@ export const POST = flow.webhooks.handler({
 });
 ```
 
-`reply()` takes a string, a message of any kind (`{ kind: "buttons", ... }`), a list of them, or an LLM stream (OpenAI, Anthropic, Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, LangChain, Mastra) and sends it as chat bubbles with typing on.
+`reply()` takes a string, a message of any kind (`{ kind: "buttons", ... }`), a list of them, or an LLM stream (OpenAI, Anthropic, Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, LangChain, Mastra) and sends it as chat bubbles while typing shows.
 
 ## HTTP equivalents
 

@@ -59,8 +59,9 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 
 `reply` takes a string, a message of any kind, a list of them, or a stream from OpenAI,
 Anthropic, the Vercel AI SDK, the OpenAI Agents SDK, the Claude Agent SDK,
-LangChain, Mastra or any `AsyncIterable<string>`. It keeps typing on, splits the text
-into chat bubbles at paragraph and sentence ends, and sends each bubble as it is ready.
+LangChain, Mastra or any `AsyncIterable<string>`. It shows typing, splits the text
+into chat bubbles at paragraph and sentence ends, and sends each bubble as a `basic`
+message as it is ready, exactly as written (no markdown is rendered).
 Run with `node --env-file=.env agent.mjs`. Type handlers with `FlowEvent` (or
 `FlowEventOf<"message.received">`), not `Event`: only `FlowEvent`'s `conversation` can `reply`.
 

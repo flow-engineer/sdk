@@ -7,11 +7,12 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 
 | SDK | HTTP |
 |---|---|
-| `flow.messages.send(convId, "text" \| message \| {..., reply_to})` (`reply_to: "msg_..."` is an inline reply; `message.reply_to` echoes it) | `POST /v0/conversations/{id}/{kind}`: `basic`, `voice`, `buttons`, `list`, `carousel`, `template`, `contact-card`, `location`, `effect`, `reaction` |
-| `flow.messages.start({ sender, to: { telegram_user_id \| phone \| handle \| contact }, content })` | `POST /v0/messages` |
+| `flow.messages.basic(convId, { text, media?, reply_to?, link_preview? })` · `.voice` · `.buttons` · `.list` · `.carousel` · `.template` · `.contactCard` · `.location` · `.effect` · `.reaction` (one method per kind; `reply_to: "msg_..."` is an inline reply) | `POST /v0/conversations/{id}/{kind}`: `basic`, `voice`, `buttons`, `list`, `carousel`, `template`, `contact-card`, `location`, `effect`, `reaction` |
+| `flow.messages.send(convId, "text" \| kindObject)` (sends a kind object, such as `buttons("Size?", ["S", "M"])`, to its kind's endpoint; a string is a `basic` text) | the kind's endpoint |
+| `flow.messages.start({ sender, to: { telegram_user_id \| phone \| handle \| contact }, kind: "basic", text })` (or `kind: "template"`) | `POST /v0/messages` |
 | `flow.messages.retrieve(id)` · `.edit(id, "new text")` · `.unsend(id)` | `GET` · `PATCH` · `DELETE /v0/messages/{id}` |
 | `flow.conversations.list()` · `.retrieve(id)` · `.messages(id)` | `GET /v0/conversations[/{id}[/messages]]` |
-| `flow.conversations.typing(id, "on")` · `.markRead(id)` (call the channel at once; `409 outside_window` or `502 channel_error` are safe to ignore) | `POST /v0/conversations/{id}/typing` · `/read` |
+| `flow.conversations.typing(id)` (no state: it clears itself) · `.read(id, { up_to? })` (call the channel at once; `422 unsupported_content` where the channel has none, `409 outside_window` or `502 channel_error` are safe to ignore) | `POST /v0/conversations/{id}/typing` · `/read` |
 | `flow.events.stream({ types, after })` | `GET /v0/stream` (WebSocket; in browsers the key goes as subprotocol `flow.key.<key>` next to `flow`) |
 | `flow.events.list({ after, type })` · `.retrieve(id)` | `GET /v0/events` (oldest first) |
 | `flow.files.upload({ file, filename })` (`file`: Blob, Uint8Array/Buffer or ArrayBuffer; returns a `File` whose `id` is the `file_id`) · `.download(id)` | `POST /v0/files` · `GET /v0/files/{id}` |
@@ -23,8 +24,8 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 | `(await flow.app.retrieve()).allowance` (sandbox allowance: `contacts`, `messages.remaining`, `expires_at`) | `GET /v0/app` |
 
 Handle helpers: `flow.conversation(id)` or `event.conversation` gives `.reply(x)`,
-`.send(x)`, `.typing("on")`, `.markRead()`, `.react(msgId, "👍")`,
-`.responding(fn)` (typing on until `fn` settles), `.messages()`.
+`.send(x)`, `.typing()`, `.read()`, `.react(msgId, "👍")`,
+`.responding(fn)` (typing shown until `fn` settles), `.messages()`.
 
 Waits (never poll `flow.events.list` in a loop): `flow.conversations.waitForNew({ since })`
 (the next contact to join or write first, or one since `since`; resolves with a handle),
@@ -38,9 +39,10 @@ types (`ListEventsParams`, `ListConversationsParams`, ...).
 
 ## Message kinds (both directions; `kind` picks the shape)
 
-Builders: `text("hi")`, `markdown("**hi**")`, `image(url | "file_...", { caption })`,
-`video`, `document`, `audio`, `voice(url)`, `buttons("Size?", ["S", "M", { id: "l", label: "Large" }])`,
-`reaction(msgId, "👍" | null)`, `template(tplId, "en", { body: ["Asha"] })`,
+Builders (each returns a kind object): `basic("hi")`, `image(url | "file_...", caption?)`,
+`video`, `document`, `audio`, `media(type, src, { caption, filename })`, `voice(url)`,
+`buttons("Size?", ["S", "M", { id: "l", label: "Large" }])`, `list(text, buttonLabel, rows)`,
+`carousel(text, cards)`, `reaction(msgId, "👍" | null)`, `template(tplId, "en", { body: ["Asha"] })`,
 `location(lat, lng, { name })`, `contactCard(name, { phones })`, `effect(text, "confetti")`.
 
 Inbound only: `button_reply` (`button_id`, `label`; also a tap on a list row) and
@@ -51,7 +53,9 @@ Inbound only: `button_reply` (`button_id`, `label`; also a tap on a list row) an
 Each kind has its own endpoint, whose page in the spec opens with the channels it works
 on. A send is exact or it fails: a kind, field, channel block or value the channel does
 not take answers `422 unsupported_content` (`param` names it, `hint` says what to send
-instead); nothing is converted. Per channel: `basic` everywhere (SMS media only on MMS
+instead); nothing is converted. The 422 is kept under its `Idempotency-Key`, so send
+what replaces it with a new key (the refused one plus what it is:
+`evt_123:card:2:basic`). Per channel: `basic` everywhere (SMS media only on MMS
 numbers, no documents); `buttons` on Telegram (up to 10) and WhatsApp (1 to 3 reply
 buttons or one URL button; more: send a `list`), not iMessage or SMS (send a basic
 message listing the choices). A buttons message may carry a `header` (image, video,
