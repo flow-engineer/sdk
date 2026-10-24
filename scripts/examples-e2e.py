@@ -320,7 +320,7 @@ class StubLLM(ThreadingHTTPServer):
                 answer = json.dumps({"id": f"msg_stub{n}", "type": "message", "role": "assistant", "model": body["model"],
                                      "content": [{"type": "text", "text": f"Stub answer {n}"}], "stop_reason": "end_turn",
                                      "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 1}}).encode()
-                self.send_response(200 if self.path.startswith("/v0/messages") else 404)
+                self.send_response(200 if self.path.startswith("/v1/messages") else 404)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(answer)))
                 self.end_headers()
@@ -352,6 +352,9 @@ def ai_agent(run, fake_llm):
         u.say("Where is my order?")
         call = u.receive(after)
         check(call["params"]["text"] == first, f"agent sent {call['params']['text']!r}")
+        # Typing (POST .../typing with {}, no state) reached Telegram as a chat action.
+        typing = u.receive(after, method="sendChatAction")
+        check(typing["params"].get("action") == "typing", f"agent's typing: {typing['params']}")
         keyboard = call["params"].get("reply_markup", {}).get("inline_keyboard")
         check(keyboard == [[{"callback_data": "talk_to_human", "text": "Talk to a human"}]], f"agent's buttons: {keyboard}")
         p.expect(r"^\[conv_\w+\] customer: Where is my order\?$")
@@ -409,13 +412,13 @@ def webhook_receiver(run):
         p.expect(r"^evt_\w+ \[conv_\w+\] hi webhook$")
 
         body = json.dumps({"id": "evt_e2eduplicate", "type": "message.received", "conversation": {"id": "conv_e2e"},
-                           "data": {"message": {"id": "msg_e2e", "content": {"type": "text", "text": "twice"}}}}).encode()
+                           "data": {"message": {"id": "msg_e2e", "content": {"kind": "basic", "text": "twice"}}}}).encode()
         for sig, want in [("t=1,v1=" + "0" * 64, 400), (sign(secret, body, time.time() - 600), 400), (sign("whsec_wrong", body), 400)]:
             status, _ = http("POST", url, raw=body, headers={"Flow-Signature": sig})
             check(status == want, f"a bad signature got {status}, want {want}")
             p.expect(r"^rejected: bad Flow-Signature$")
         status, answer = http("POST", url, raw=body, headers={"Flow-Signature": sign(secret, body)})
-        check(status == 200 and answer == {"reply": {"type": "text", "text": "You said: twice"}}, f"first delivery: {status} {answer}")
+        check(status == 200 and answer == {"reply": {"kind": "basic", "text": "You said: twice"}}, f"first delivery: {status} {answer}")
         # While a secret rotation overlaps, the header carries two v1 values; one matching is enough.
         status, answer = http("POST", url, raw=body, headers={"Flow-Signature": sign(secret, body) + ",v1=" + "0" * 64})
         check(status == 200 and answer == {}, f"repeated delivery: {status} {answer}")
@@ -471,18 +474,18 @@ def ask_and_wait_simulated(run):
     try:
         p.expect(r"^Waiting for someone to join or write\.\.\.$")
         conv = api("POST", "/v0/test/conversations", key, {"channel": "telegram"})["id"]
-        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "hi"}})
+        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"kind": "basic", "text": "hi"}})
         p.expect(rf"^\[{conv}\] joined on telegram$")
         wait_sent(key, conv, "Hi! What's your name?")
-        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Asha"}})
+        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"kind": "basic", "text": "Asha"}})
         p.expect(rf"^\[{conv}\] name: Asha$")
         wait_sent(key, conv, "Nice to meet you, Asha. Which city are you in?")
-        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Pune"}})
+        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"kind": "basic", "text": "Pune"}})
         p.expect(rf"^\[{conv}\] city: Pune$")
         msg = p.expect(rf"^\[{conv}\] sent (msg_\w+)$").group(1)
         check(p.wait_exit() == 0, "the example did not exit cleanly")
         last = api("GET", f"/v0/messages/{msg}", key)
-        check(last["status"] == "sent" and last["content"]["text"] == "Thanks, Asha! You're signed up in Pune.", f"last message: {last}")
+        check(last["status"] == "sent" and last["content"]["kind"] == "basic" and last["content"]["text"] == "Thanks, Asha! You're signed up in Pune.", f"last message: {last}")
     finally:
         p.stop()
     return p

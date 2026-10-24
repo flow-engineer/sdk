@@ -65,8 +65,12 @@ and the bot answers `You said: hello` in Telegram.
   frames. The key goes in the `Authorization` header (Python) or, where a WebSocket
   cannot set headers, as the subprotocols `["flow", "flow.key.<key>"]` (Node). Never
   put the key in the URL.
-- A `{"type": "send", "ref": ..., "conversation": ..., "message": {...}}` frame sends
-  a message; `ref` is its idempotency key. It is `echo-<inbound message id>`, so a
+- An inbound message's `content` is one message kind, with `kind` saying which:
+  `basic` is text and/or a file (its `text` is then the caption), and other kinds
+  (`voice`, `location`, `button_reply`, ...) are echoed by name.
+- A `{"type": "send", "ref": ..., "conversation": ..., "message": {"kind": "basic",
+  "text": ...}}` frame sends a message: `message` is a kind object, as in a webhook
+  reply, sent exactly as written (no markdown); `ref` is its idempotency key. It is `echo-<inbound message id>`, so a
   replayed event never sends twice. Each send gets an `ack` or `error` frame.
 - Events arrive at least once: the agent skips event IDs it has seen. On a
   `reconnect` frame or a dropped socket it reconnects with `after=<last event id>`

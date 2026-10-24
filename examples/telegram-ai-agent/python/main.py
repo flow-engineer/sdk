@@ -122,7 +122,7 @@ async def handle(event: dict) -> None:
         if e.error["type"] == "unsupported_content" and e.error.get("param") == "kind":
             # A channel without buttons (iMessage, SMS) refuses them and sends nothing:
             # send the answer as plain text instead, with its own key.
-            await flow(f"/v0/conversations/{conv}/basic", {"text": answer}, f"reply-{message['id']}:text")
+            await flow(f"/v0/conversations/{conv}/basic", {"text": answer}, f"reply-{message['id']}:basic")
             return
         # An LLM answers differently each time: if this message was already answered (a
         # replayed event after a crash), the same key with a new body is refused. Keep the first.

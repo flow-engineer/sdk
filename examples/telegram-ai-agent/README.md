@@ -84,7 +84,9 @@ In Telegram each answer has a **Talk to a human** button; tapping it gets
 - **Nothing is converted.** Flow sends exactly what you ask for, or refuses it: on a
   channel without buttons (iMessage, SMS), `/buttons` answers `422
   unsupported_content` with `param` `kind` and sends nothing, and the agent sends the
-  answer to `/basic` instead (with its own key, `reply-<id>:text`).
+  answer to `/basic` instead. A 422 is kept under its `Idempotency-Key`, so that
+  send is a new request with a new key: the refused one plus what it is,
+  `reply-<id>:basic`.
 - **Idempotency.** Each reply's `Idempotency-Key` is `reply-<inbound message id>`, so
   a retry (429 or 5xx, after `Retry-After`) or a replayed event never answers twice.
   An LLM answers differently each time, so if a message was already answered, the

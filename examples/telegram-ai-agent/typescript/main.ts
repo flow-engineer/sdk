@@ -107,7 +107,7 @@ async function handle(event: any) {
     // A channel without buttons (iMessage, SMS) refuses them with 422 unsupported_content,
     // param "kind", and sends nothing: send the answer as plain text instead, with its own key.
     if (err.error?.type === "unsupported_content" && err.error.param === "kind") {
-      await flow(`/v0/conversations/${conv}/basic`, { text: answer }, `reply-${message.id}:text`);
+      await flow(`/v0/conversations/${conv}/basic`, { text: answer }, `reply-${message.id}:basic`);
       return;
     }
     // An LLM answers differently each time: if this message was already answered (a
