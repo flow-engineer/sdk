@@ -16,7 +16,7 @@ its answer: `{"reply": ...}`. No Flow SDK.
    and on your phone open `senders[0].address.link` and tap **Start**:
 
    ```bash
-   curl -s -X POST https://api.flow.engineer/v1/sandbox/keys
+   curl -s -X POST https://api.flow.engineer/v0/sandbox/keys
    export FLOW_MESSAGING_KEY=fk_test_...
    ```
 
@@ -25,7 +25,7 @@ its answer: `{"reply": ...}`. No Flow SDK.
    from the answer (it is shown once):
 
    ```bash
-   curl -s https://api.flow.engineer/v1/webhook_endpoints \
+   curl -s https://api.flow.engineer/v0/webhook_endpoints \
      -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
      -H "Idempotency-Key: $(uuidgen)" \
      -d '{"url": "https://YOUR-TUNNEL/flow/webhook", "events": ["message.received", "message.failed"]}'
@@ -44,7 +44,7 @@ its answer: `{"reply": ...}`. No Flow SDK.
 
 | Variable | Required | Meaning |
 |---|---|---|
-| `FLOW_MESSAGING_WEBHOOK_SECRET` | yes | The endpoint's signing secret (`whsec_...`), from `POST /v1/webhook_endpoints`. |
+| `FLOW_MESSAGING_WEBHOOK_SECRET` | yes | The endpoint's signing secret (`whsec_...`), from `POST /v0/webhook_endpoints`. |
 | `PORT` | no | The port to listen on, default `3000`. |
 
 The receiver needs no API key: it answers in the webhook response. `FLOW_MESSAGING_KEY`
@@ -103,5 +103,5 @@ curl -s localhost:3000/flow/webhook -H "Flow-Signature: t=$T,v1=$SIG" -d "$BODY"
   `location` and so on.
 - **10 seconds.** Anything but `2xx` within 10 seconds is retried with backoff for 3
   days, and later events of that conversation wait behind it. A slow agent answers
-  `{}` at once and replies later with `POST /v1/conversations/{id}/basic` (or the
+  `{}` at once and replies later with `POST /v0/conversations/{id}/basic` (or the
   endpoint of the kind it sends).

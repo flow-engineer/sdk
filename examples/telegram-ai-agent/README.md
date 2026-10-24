@@ -6,7 +6,7 @@ a human** button under every answer. A tap hands the conversation to your team a
 the agent stops answering there. Any LLM works: replace `think()`.
 
 Events come from the WebSocket stream, so it runs on your laptop with no public
-URL. Replies go out with `POST /v1/conversations/{id}/buttons` (or `/basic` for
+URL. Replies go out with `POST /v0/conversations/{id}/buttons` (or `/basic` for
 plain text) and an `Idempotency-Key`. Plain HTTP and WebSocket, no Flow SDK.
 
 | | File | Needs |
@@ -19,7 +19,7 @@ plain text) and an `Idempotency-Key`. Plain HTTP and WebSocket, no Flow SDK.
 1. Get a test key. No account needed:
 
    ```bash
-   curl -s -X POST https://api.flow.engineer/v1/sandbox/keys
+   curl -s -X POST https://api.flow.engineer/v0/sandbox/keys
    ```
 
    Copy `key` from the answer (it is shown once), and set it with your Anthropic key:
@@ -73,7 +73,7 @@ In Telegram each answer has a **Talk to a human** button; tapping it gets
   so `conversation.id` is the key for the LLM's history. It is kept in memory here;
   use your database in production.
 - **One endpoint per kind.** Each message kind has its own endpoint: the answer goes
-  to `POST /v1/conversations/{id}/buttons` with one reply button
+  to `POST /v0/conversations/{id}/buttons` with one reply button
   (`{"text": ..., "buttons": [{"id": "talk_to_human", "label": "Talk to a human"}]}`),
   other replies to `/basic` (`{"text": ...}`), and "typing..." to `/typing` (an empty
   body; it clears itself when the reply goes).

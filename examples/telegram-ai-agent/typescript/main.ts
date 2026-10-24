@@ -2,7 +2,7 @@
 // with Claude (any LLM works: replace think()), and offers a "Talk to a human"
 // button that hands the conversation to your team.
 // Events come from the WebSocket stream, so no public URL is needed; replies go
-// out with POST /v1/conversations/{id}/buttons (or /basic) and an Idempotency-Key.
+// out with POST /v0/conversations/{id}/buttons (or /basic) and an Idempotency-Key.
 // Run: node main.ts             (FLOW_MESSAGING_KEY and ANTHROPIC_API_KEY set)
 //      node main.ts --fake-llm  (no Anthropic key: a canned answer, for testing)
 import Anthropic from "@anthropic-ai/sdk";
@@ -11,7 +11,7 @@ const KEY = process.env.FLOW_MESSAGING_KEY;
 const BASE = (process.env.FLOW_MESSAGING_BASE_URL ?? "https://api.flow.engineer").replace(/\/+$/, "");
 const FAKE_LLM = process.argv.includes("--fake-llm");
 if (!KEY) {
-  console.error("Set FLOW_MESSAGING_KEY. No key yet? curl -X POST https://api.flow.engineer/v1/sandbox/keys");
+  console.error("Set FLOW_MESSAGING_KEY. No key yet? curl -X POST https://api.flow.engineer/v0/sandbox/keys");
   process.exit(1);
 }
 
@@ -69,7 +69,7 @@ async function handle(event: any) {
   const message = event.data.message;
   const content = message.content; // one message kind, named by content.kind
   // A basic message (plain text) into this conversation; the key comes from the inbound message.
-  const say = (text: string) => flow(`/v1/conversations/${conv}/basic`, { text }, `reply-${message.id}`);
+  const say = (text: string) => flow(`/v0/conversations/${conv}/basic`, { text }, `reply-${message.id}`);
 
   if (content.kind === "button_reply" && content.button_id === HUMAN) {
     withHuman.add(conv);
@@ -96,18 +96,18 @@ async function handle(event: any) {
 
   // Optional: show "typing..." while the LLM thinks (it clears itself when the reply goes).
   // It can fail; never let that stop the reply.
-  flow(`/v1/conversations/${conv}/typing`, {}, `typing-${message.id}`).catch(() => {});
+  flow(`/v0/conversations/${conv}/typing`, {}, `typing-${message.id}`).catch(() => {});
   const answer = await think(conv, text);
   console.log(`[${conv}] agent: ${answer}`);
   try {
     // The key comes from the inbound message: one reply per message, however often this runs.
-    await flow(`/v1/conversations/${conv}/buttons`,
+    await flow(`/v0/conversations/${conv}/buttons`,
       { text: answer.slice(0, 1024), buttons: [{ id: HUMAN, label: "Talk to a human" }] }, `reply-${message.id}`);
   } catch (err: any) {
     // A channel without buttons (iMessage, SMS) refuses them with 422 unsupported_content,
     // param "kind", and sends nothing: send the answer as plain text instead, with its own key.
     if (err.error?.type === "unsupported_content" && err.error.param === "kind") {
-      await flow(`/v1/conversations/${conv}/basic`, { text: answer }, `reply-${message.id}:text`);
+      await flow(`/v0/conversations/${conv}/basic`, { text: answer }, `reply-${message.id}:text`);
       return;
     }
     // An LLM answers differently each time: if this message was already answered (a
@@ -123,7 +123,7 @@ const seen = new Set<string>(); // delivery is at least once: dedupe on event.id
 let lastEventId: string | undefined;
 
 function connect() {
-  const url = new URL(`${BASE.replace(/^http/, "ws")}/v1/stream`);
+  const url = new URL(`${BASE.replace(/^http/, "ws")}/v0/stream`);
   url.searchParams.append("type", "message.received");
   url.searchParams.append("type", "message.failed");
   if (lastEventId) url.searchParams.set("after", lastEventId);

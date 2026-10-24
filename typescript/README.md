@@ -25,7 +25,7 @@ node --env-file=.env agent.mjs
 The same send over HTTP, from any language:
 
 ```sh
-curl https://api.flow.engineer/v1/conversations/conv_.../messages \
+curl https://api.flow.engineer/v0/conversations/conv_.../messages \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -53,7 +53,7 @@ first and reuse a key you already have.
 
 ```sh
 npx @flow-engineer/messaging init                       # or by HTTP:
-curl -X POST https://api.flow.engineer/v1/sandbox/keys
+curl -X POST https://api.flow.engineer/v0/sandbox/keys
 ```
 
 With no key in the environment or `.env`, `init` gets one itself, writes
@@ -115,7 +115,7 @@ Full guide: https://docs.flow.engineer/get-a-key.
 ## Receiving events
 
 **Live stream** (no public URL needed): `flow.events.stream({ types, after })` is an
-async iterator over the WebSocket `GET /v1/stream`. It reconnects by itself and resumes
+async iterator over the WebSocket `GET /v0/stream`. It reconnects by itself and resumes
 with `after` set to the last event it gave you, so a dropped connection or a server
 restart loses nothing; duplicates are dropped. Pass `after: "evt_..."` to replay from
 an event first; `stream.lastEventId` is where to resume after a restart. Where the
@@ -124,7 +124,7 @@ the subprotocol `flow.key.<key>` next to `flow`. A refused stream (close `4401`,
 `4403` or `4400`, after an `error` frame) ends the iterator with the typed error
 instead of reconnecting. A key in a browser is visible to whoever uses the page,
 so do that only for internal tools or with test keys. Where there is no WebSocket at
-all it polls `GET /v1/events`.
+all it polls `GET /v0/events`.
 On Node 18 and 20, install `ws` for the WebSocket (Node 22+ has one built in).
 
 **Webhooks:**
@@ -334,9 +334,9 @@ npx @flow-engineer/messaging mcp
   to run by hand. `--yes` (`-y`) installs them without asking; `--no-agent-files`,
   `--no-mcp` and `--no-codex` leave parts out.
 - `init` with no key in the environment or `.env` gets a sandbox key itself
-  (`POST /v1/sandbox/keys`) and saves `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN`.
+  (`POST /v0/sandbox/keys`) and saves `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN`.
 - `login` signs a person in with a Flow account (OAuth 2.0 device flow, RFC 8628,
-  `POST /v1/device/authorizations` and `POST /v1/device/token`) and claims the app of
+  `POST /v0/device/authorizations` and `POST /v0/device/token`) and claims the app of
   `FLOW_CLAIM_TOKEN`. `--no-wait` prints the link and code and exits, for coding agents
   that cannot wait; run `login` again after the person approves to collect the key.
   `--no-browser` does not open a browser.

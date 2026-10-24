@@ -207,7 +207,7 @@ def test_request_carries_headers_and_types_not_the_key(mode: str, servers: Calla
     assert headers["Flow-Version"] == API_VERSION
     assert headers["User-Agent"].startswith("flow-messaging-python/")
     path = server.paths[0]
-    assert urlsplit(path).path == "/v1/stream"
+    assert urlsplit(path).path == "/v0/stream"
     assert server.query(0) == {"type": ["message.received", "message.sent"]}
     assert "fk_" not in path and "key" not in path
 
@@ -547,7 +547,7 @@ def _assert_polled(route: respx.Route) -> None:
 
 
 def test_poll_pages_the_event_log_after_the_cursor(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/events")).mock(side_effect=_poll_responses())
+    route = mock.get(url("/v0/events")).mock(side_effect=_poll_responses())
     stream = flow.events.stream(
         transport="poll", after=evt(1), poll_interval=2.5, types=["message.received", "message.sent"]
     )
@@ -571,7 +571,7 @@ def test_poll_pages_the_event_log_after_the_cursor(flow: Flow, mock: respx.MockR
 
 
 async def test_poll_pages_the_event_log_after_the_cursor_async(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/events")).mock(side_effect=_poll_responses())
+    route = mock.get(url("/v0/events")).mock(side_effect=_poll_responses())
     stream = aflow.events.stream(
         transport="poll", after=evt(1), poll_interval=2.5, types=["message.received", "message.sent"]
     )
@@ -604,7 +604,7 @@ def _assert_live_start(route: respx.Route) -> None:
 
 
 def test_poll_without_after_skips_what_is_already_in_the_log(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/events")).mock(side_effect=_live_start_responses())
+    route = mock.get(url("/v0/events")).mock(side_effect=_live_start_responses())
     stream = flow.events.stream(transport="poll")
 
     def fake_sleep(seconds: float) -> None:
@@ -618,7 +618,7 @@ def test_poll_without_after_skips_what_is_already_in_the_log(flow: Flow, mock: r
 async def test_poll_without_after_skips_what_is_already_in_the_log_async(
     aflow: AsyncFlow, mock: respx.MockRouter
 ) -> None:
-    route = mock.get(url("/v1/events")).mock(side_effect=_live_start_responses())
+    route = mock.get(url("/v0/events")).mock(side_effect=_live_start_responses())
     stream = aflow.events.stream(transport="poll")
 
     async def fake_sleep(seconds: float) -> None:
@@ -632,7 +632,7 @@ async def test_poll_without_after_skips_what_is_already_in_the_log_async(
 def test_poll_waits_out_a_failed_page_and_raises_on_a_refused_key(flow: Flow, mock: respx.MockRouter) -> None:
     not_found = {"error": {"type": "not_found", "message": "No such event.", "hint": "h", "doc_url": "d"}}
     refused = {"error": {"type": "authentication", "message": "Key revoked.", "hint": "h", "doc_url": "d"}}
-    mock.get(url("/v1/events")).mock(
+    mock.get(url("/v0/events")).mock(
         side_effect=[
             httpx.Response(404, json=not_found),
             httpx.Response(200, json=page([event_received(evt(2))])),
@@ -657,7 +657,7 @@ def test_poll_waits_out_a_failed_page_and_raises_on_a_refused_key(flow: Flow, mo
 
 async def test_poll_without_a_key_raises_async(mock: respx.MockRouter) -> None:
     aflow = AsyncFlow(base_url="https://api.test")
-    route = mock.get(url("/v1/events"))
+    route = mock.get(url("/v0/events"))
     with pytest.raises(AuthenticationError):
         async for _ in aflow.events.stream(transport="poll"):
             pass

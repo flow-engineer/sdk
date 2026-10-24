@@ -8,7 +8,7 @@ import http from "node:http";
 const SECRET = process.env.FLOW_MESSAGING_WEBHOOK_SECRET;
 const PORT = Number(process.env.PORT ?? 3000);
 if (!SECRET) {
-  console.error("Set FLOW_MESSAGING_WEBHOOK_SECRET to the whsec_... secret from POST /v1/webhook_endpoints.");
+  console.error("Set FLOW_MESSAGING_WEBHOOK_SECRET to the whsec_... secret from POST /v0/webhook_endpoints.");
   process.exit(1);
 }
 

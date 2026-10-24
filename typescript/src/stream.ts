@@ -1,6 +1,6 @@
-// The live event stream: GET /v1/stream over a WebSocket, resumed with `after` on
+// The live event stream: GET /v0/stream over a WebSocket, resumed with `after` on
 // every reconnect so no event is lost, de-duplicated, and falling back to polling
-// GET /v1/events where no WebSocket is available. Where the WebSocket cannot send
+// GET /v0/events where no WebSocket is available. Where the WebSocket cannot send
 // headers (browsers), the key goes as the subprotocol `flow.key.<key>` next to `flow`.
 import type { FlowMessaging } from "./client.js";
 import { ConversationHandle } from "./conversation.js";
@@ -212,7 +212,7 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
   /** One connection; resolves when it ends, saying whether to reconnect at once. */
   private connect(WS: WSRuntime): Promise<{ opened: boolean; immediate?: boolean; reason?: string; fatal?: unknown }> {
     const http = this.flow.http;
-    const url = http.url("/v1/stream", { after: this.cursor, type: this.params.types }).replace(/^http/, "ws");
+    const url = http.url("/v0/stream", { after: this.cursor, type: this.params.types }).replace(/^http/, "ws");
     return new Promise((resolve) => {
       let opened = false;
       let immediate = false;

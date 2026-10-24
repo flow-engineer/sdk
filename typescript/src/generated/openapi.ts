@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/v1/conversations/{conversation_id}/basic": {
+    "/v0/conversations/{conversation_id}/basic": {
         parameters: {
             query?: never;
             header?: {
@@ -72,7 +72,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/voice": {
+    "/v0/conversations/{conversation_id}/voice": {
         parameters: {
             query?: never;
             header?: {
@@ -101,7 +101,7 @@ export interface paths {
          *
          *     Sends an audio file as a voice note, shown with the channel's voice note
          *     player. Give `url` (an HTTPS URL Flow fetches) or `file_id` (from `POST
-         *     /v1/files`). A send to SMS answers `422 unsupported_content` with `param`
+         *     /v0/files`). A send to SMS answers `422 unsupported_content` with `param`
          *     `kind`. Sends to one conversation go out in the order they were accepted
          *     (see "Order and duplicates").
          */
@@ -112,7 +112,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/buttons": {
+    "/v0/conversations/{conversation_id}/buttons": {
         parameters: {
             query?: never;
             header?: {
@@ -169,7 +169,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/list": {
+    "/v0/conversations/{conversation_id}/list": {
         parameters: {
             query?: never;
             header?: {
@@ -211,7 +211,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/carousel": {
+    "/v0/conversations/{conversation_id}/carousel": {
         parameters: {
             query?: never;
             header?: {
@@ -246,7 +246,7 @@ export interface paths {
          *     `id`; URL buttons open a link and send nothing back. WhatsApp shows one
          *     interactive carousel message, inside the 24-hour window like any message
          *     that is not a template (a carousel template is sent with `POST
-         *     /v1/conversations/{conversation_id}/template`). Other channels answer
+         *     /v0/conversations/{conversation_id}/template`). Other channels answer
          *     `422 unsupported_content` with `param` `kind`.
          *
          *     Rules, each refused with `400 invalid_request` when broken: every card has
@@ -267,7 +267,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/template": {
+    "/v0/conversations/{conversation_id}/template": {
         parameters: {
             query?: never;
             header?: {
@@ -298,7 +298,7 @@ export interface paths {
          *     conversation. Outside the 24-hour window (the contact's last message is
          *     24 hours old or more, or they never wrote) a template is the only message
          *     WhatsApp takes; every other kind answers `409 outside_window` there. To
-         *     start a new conversation with a template, use `POST /v1/messages`. Other
+         *     start a new conversation with a template, use `POST /v0/messages`. Other
          *     channels answer `422 unsupported_content` with `param` `kind`. Sends to
          *     one conversation go out in the order they were accepted (see "Order and
          *     duplicates").
@@ -306,7 +306,7 @@ export interface paths {
          *     A media card carousel template (marketing category) is sent the same way,
          *     with one entry per card in `params.cards`. Inside the 24-hour window a
          *     carousel needs no template: use `POST
-         *     /v1/conversations/{conversation_id}/carousel`.
+         *     /v0/conversations/{conversation_id}/carousel`.
          */
         post: operations["sendTemplate"];
         delete?: never;
@@ -315,7 +315,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/contact-card": {
+    "/v0/conversations/{conversation_id}/contact-card": {
         parameters: {
             query?: never;
             header?: {
@@ -355,7 +355,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/location": {
+    "/v0/conversations/{conversation_id}/location": {
         parameters: {
             query?: never;
             header?: {
@@ -395,7 +395,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/effect": {
+    "/v0/conversations/{conversation_id}/effect": {
         parameters: {
             query?: never;
             header?: {
@@ -425,7 +425,7 @@ export interface paths {
          *     Sends text with one of iMessage's screen or bubble effects. On a line with
          *     the SMS/RCS add-on, a message that goes by SMS or RCS shows the text
          *     without the effect (its `network` says so; see `POST
-         *     /v1/conversations/{conversation_id}/basic`). Which effects a contact's
+         *     /v0/conversations/{conversation_id}/basic`). Which effects a contact's
          *     device shows may vary. Other channels answer `422 unsupported_content`
          *     with `param` `kind`. Sends to one conversation go out in the order they
          *     were accepted (see "Order and duplicates").
@@ -437,7 +437,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/reaction": {
+    "/v0/conversations/{conversation_id}/reaction": {
         parameters: {
             query?: never;
             header?: {
@@ -489,7 +489,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/messages": {
+    "/v0/conversations/{conversation_id}/messages": {
         parameters: {
             query?: never;
             header?: {
@@ -517,7 +517,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/messages": {
+    "/v0/messages": {
         parameters: {
             query?: never;
             header?: {
@@ -546,7 +546,7 @@ export interface paths {
          *     Starting a conversation spends the sender's new-contact budget. If the
          *     contact already has an open conversation with this sender, the message
          *     goes into it and spends no budget. The rules of the message's kind apply
-         *     as on its own endpoint (`POST /v1/conversations/{conversation_id}/basic`
+         *     as on its own endpoint (`POST /v0/conversations/{conversation_id}/basic`
          *     or `/template`), and a field the channel does not take answers `422
          *     unsupported_content` naming it (`consent` on any channel but SMS
          *     included).
@@ -560,7 +560,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/messages/{message_id}": {
+    "/v0/messages/{message_id}": {
         parameters: {
             query?: never;
             header?: {
@@ -637,7 +637,7 @@ export interface paths {
          *
          *     Replaces the text of one of your outbound basic messages (on Telegram,
          *     also the caption of a media message). The text is sent exactly as written,
-         *     as on `POST /v1/conversations/{conversation_id}/basic`; style it with
+         *     as on `POST /v0/conversations/{conversation_id}/basic`; style it with
          *     `telegram.parse_mode` or `imessage.styles`. WhatsApp and SMS answer `422
          *     unsupported_content` with `param` `kind`, as does an iMessage message that
          *     went by SMS or RCS (its `network`), with `channel_code` `not_on_sms`.
@@ -668,7 +668,7 @@ export interface paths {
         patch: operations["editMessage"];
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/typing": {
+    "/v0/conversations/{conversation_id}/typing": {
         parameters: {
             query?: never;
             header?: {
@@ -720,7 +720,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/read": {
+    "/v0/conversations/{conversation_id}/read": {
         parameters: {
             query?: never;
             header?: {
@@ -769,7 +769,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations": {
+    "/v0/conversations": {
         parameters: {
             query?: never;
             header?: {
@@ -792,7 +792,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}": {
+    "/v0/conversations/{conversation_id}": {
         parameters: {
             query?: never;
             header?: {
@@ -818,7 +818,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/events": {
+    "/v0/events": {
         parameters: {
             query?: never;
             header?: {
@@ -847,7 +847,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/events/{event_id}": {
+    "/v0/events/{event_id}": {
         parameters: {
             query?: never;
             header?: {
@@ -873,7 +873,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/stream": {
+    "/v0/stream": {
         parameters: {
             query?: never;
             header?: {
@@ -900,7 +900,7 @@ export interface paths {
          *     set headers. Where it cannot (a browser's `WebSocket`, and Node's global
          *     `WebSocket` on the server), offer the key as a WebSocket subprotocol instead:
          *     offer both `flow` and `flow.key.<api key>`, for example
-         *     `new WebSocket("wss://api.flow.engineer/v1/stream", ["flow", "flow.key." + key])`.
+         *     `new WebSocket("wss://api.flow.engineer/v0/stream", ["flow", "flow.key." + key])`.
          *     This works from server-side clients as well as browsers. The server selects
          *     `flow` and never echoes the key. Offering the key protocol without `flow` is
          *     refused with a plain `400 invalid_request` answer, without an upgrade. When an `Authorization` header is present it
@@ -946,7 +946,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/files": {
+    "/v0/files": {
         parameters: {
             query?: never;
             header?: {
@@ -978,7 +978,7 @@ export interface paths {
          *     send it, with `422 unsupported_content`). Files are kept for your plan's
          *     retention period (30 days by default).
          *
-         *     An app made without an account (`POST /v1/sandbox/keys`) that is not claimed
+         *     An app made without an account (`POST /v0/sandbox/keys`) that is not claimed
          *     yet uploads at most 20 files in any 24 hours; past that an upload answers
          *     `403 permission` with `channel_code` `sign_in_required`. Reuse a `file_id`
          *     you already have, wait for the oldest upload to age out, or sign in to lift
@@ -991,7 +991,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/files/{file_id}": {
+    "/v0/files/{file_id}": {
         parameters: {
             query?: never;
             header?: {
@@ -1020,7 +1020,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/senders": {
+    "/v0/senders": {
         parameters: {
             query?: never;
             header?: {
@@ -1034,7 +1034,7 @@ export interface paths {
          * List senders
          * @description Lists the senders your app can use in this mode, newest first. Test keys see
          *     the shared sandbox senders (a sandbox sender Flow has replaced is left out;
-         *     `GET /v1/senders/{sender_id}` still shows it, retired); live keys see your
+         *     `GET /v0/senders/{sender_id}` still shows it, retired); live keys see your
          *     dedicated senders. Your app's
          *     simulated senders (test mode only) are listed only when asked for with
          *     `kind=simulated`, so code that picks a sender from this list never picks one.
@@ -1049,9 +1049,9 @@ export interface paths {
          *     Flow team, not by API: a request with `channel` `imessage` or `sms` answers
          *     `501 not_implemented` before any other check, with any key (test or live,
          *     claimed app or not): ask the Flow team, and the sender appears in
-         *     `GET /v1/senders` once it is connected. Its `hint` says what to build with
+         *     `GET /v0/senders` once it is connected. Its `hint` says what to build with
          *     meanwhile: a Telegram bot, or simulated conversations of that channel
-         *     (`POST /v1/test/conversations`, test keys). Never send API keys, tokens or
+         *     (`POST /v0/test/conversations`, test keys). Never send API keys, tokens or
          *     passwords in a chat or email, to the Flow team or anyone else.
          *
          *     - iMessage: a dedicated line attached to your app.
@@ -1062,7 +1062,7 @@ export interface paths {
          *     `https://api.flow.engineer/admin` (with a Flow account), switches to **Live**,
          *     and clicks **Create live key** on the Keys page
          *     (`https://api.flow.engineer/admin/keys?mode=live`). An app made without an
-         *     account (`POST /v1/sandbox/keys`) is claimed first, by signing in through the
+         *     account (`POST /v0/sandbox/keys`) is claimed first, by signing in through the
          *     device flow or its `claim_url`. For a Telegram bot or a WhatsApp number, an
          *     unclaimed app's key gets `403 permission` (`channel_code`
          *     `sign_in_required`) and a test key gets `403 permission`, each with a `hint`
@@ -1086,7 +1086,7 @@ export interface paths {
          *     - A bot that is one of Flow's sandbox senders is refused with
          *       `403 permission`.
          *
-         *     To disconnect a bot, call `DELETE /v1/senders/{sender_id}`.
+         *     To disconnect a bot, call `DELETE /v0/senders/{sender_id}`.
          *
          *     A WhatsApp number in your own WhatsApp Business Account, under your own
          *     Meta app, is connected at once with a live key. In Meta Business Manager,
@@ -1134,7 +1134,7 @@ export interface paths {
          *       (`channel_code` `whatsapp_number_not_in_account`). Other refusals from
          *       Meta answer `502 channel_error` with Meta's code as `channel_code`.
          *
-         *     To disconnect a number, call `DELETE /v1/senders/{sender_id}`.
+         *     To disconnect a number, call `DELETE /v0/senders/{sender_id}`.
          */
         post: operations["requestSender"];
         delete?: never;
@@ -1143,7 +1143,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/senders/{sender_id}": {
+    "/v0/senders/{sender_id}": {
         parameters: {
             query?: never;
             header?: {
@@ -1180,7 +1180,7 @@ export interface paths {
          *     numbers, and WhatsApp numbers the Flow team manages for you, are
          *     disconnected by Flow, not by API (`501 not_implemented`).
          *
-         *     To use the bot or number again, connect it with `POST /v1/senders`; it
+         *     To use the bot or number again, connect it with `POST /v0/senders`; it
          *     becomes a new sender.
          */
         delete: operations["disconnectSender"];
@@ -1189,7 +1189,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/templates": {
+    "/v0/templates": {
         parameters: {
             query?: never;
             header?: {
@@ -1223,7 +1223,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/templates/{template_id}": {
+    "/v0/templates/{template_id}": {
         parameters: {
             query?: never;
             header?: {
@@ -1255,7 +1255,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/webhook_endpoints": {
+    "/v0/webhook_endpoints": {
         parameters: {
             query?: never;
             header?: {
@@ -1281,7 +1281,7 @@ export interface paths {
          *     A URL is registered once per app and mode: a URL another endpoint already
          *     has (scheme and host compared in any case) answers `400 invalid_request`
          *     with `param` `url`, naming that endpoint. Change its event types with
-         *     `PATCH /v1/webhook_endpoints/{webhook_endpoint_id}` instead; one endpoint
+         *     `PATCH /v0/webhook_endpoints/{webhook_endpoint_id}` instead; one endpoint
          *     can receive every event type.
          */
         post: operations["createWebhookEndpoint"];
@@ -1291,7 +1291,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/webhook_endpoints/{webhook_endpoint_id}": {
+    "/v0/webhook_endpoints/{webhook_endpoint_id}": {
         parameters: {
             query?: never;
             header?: {
@@ -1325,7 +1325,7 @@ export interface paths {
         patch: operations["updateWebhookEndpoint"];
         trace?: never;
     };
-    "/v1/webhook_endpoints/{webhook_endpoint_id}/rotate_secret": {
+    "/v0/webhook_endpoints/{webhook_endpoint_id}/rotate_secret": {
         parameters: {
             query?: never;
             header?: {
@@ -1361,7 +1361,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/contacts": {
+    "/v0/contacts": {
         parameters: {
             query?: never;
             header?: {
@@ -1384,7 +1384,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/contacts/{contact_id}": {
+    "/v0/contacts/{contact_id}": {
         parameters: {
             query?: never;
             header?: {
@@ -1419,7 +1419,7 @@ export interface paths {
          *     - the files sent or received in those conversations, including uploads you
          *       sent them (a `file_id` sent to a deleted contact is not found afterwards);
          *     - the events of those conversations: they are no longer returned by
-         *       `GET /v1/events`, the stream or webhooks (an event ID you hold still works
+         *       `GET /v0/events`, the stream or webhooks (an event ID you hold still works
          *       as an `after` or `before` cursor);
          *     - webhook deliveries of those events still pending (they are not sent), and
          *       messages still queued to the contact (they are not sent; a message already
@@ -1451,7 +1451,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/app": {
+    "/v0/app": {
         parameters: {
             query?: never;
             header?: {
@@ -1475,7 +1475,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/sandbox/keys": {
+    "/v0/sandbox/keys": {
         parameters: {
             query?: never;
             header?: never;
@@ -1499,7 +1499,7 @@ export interface paths {
          *     still claim the app.
          *
          *     To keep the app, a person signs in through the device flow with the
-         *     `claim_token` (`POST /v1/device/authorizations`), or opens `claim_url` in a
+         *     `claim_token` (`POST /v0/device/authorizations`), or opens `claim_url` in a
          *     browser. The app then shares the person's signed-in allowance (3 contacts
          *     and 100 messages each, one allowance per person over all their apps). A
          *     claim through `claim_url` revokes this key unless the person chooses to
@@ -1518,7 +1518,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/device/authorizations": {
+    "/v0/device/authorizations": {
         parameters: {
             query?: never;
             header?: never;
@@ -1533,10 +1533,10 @@ export interface paths {
          *     (flow.engineer): the OAuth 2.0 device authorization grant (RFC 8628) in
          *     Flow's JSON shape.
          *     Show the person `verification_uri` and `user_code`: they open the page,
-         *     sign in and type the code you show them. Then poll `POST /v1/device/token`
+         *     sign in and type the code you show them. Then poll `POST /v0/device/token`
          *     with `device_code` every `interval` seconds until it returns a key.
          *
-         *     To claim an app made with `POST /v1/sandbox/keys`, pass its `claim_token`,
+         *     To claim an app made with `POST /v0/sandbox/keys`, pass its `claim_token`,
          *     or send that app's test key as `Authorization: Bearer fk_test_...` (a key
          *     of an app that is already claimed is ignored). When
          *     the person approves, the app joins their account: its data and keys are
@@ -1561,7 +1561,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/device/token": {
+    "/v0/device/token": {
         parameters: {
             query?: never;
             header?: never;
@@ -1572,7 +1572,7 @@ export interface paths {
         put?: never;
         /**
          * Poll a device sign-in for its key
-         * @description Answers the state of a sign-in started with `POST /v1/device/authorizations`.
+         * @description Answers the state of a sign-in started with `POST /v0/device/authorizations`.
          *     While the person has not finished, `status` is `pending`: wait `interval`
          *     seconds and poll again. Polling faster answers `429 rate_limited` with
          *     `retry_after`. Once they approve, `status` is `approved` and the answer
@@ -1592,7 +1592,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/test/conversations": {
+    "/v0/test/conversations": {
         parameters: {
             query?: never;
             header?: {
@@ -1609,9 +1609,9 @@ export interface paths {
          * @description Test keys only. Creates a conversation with a **simulated contact**, an end
          *     user that exists only inside Flow, so an agent or a test suite can play the
          *     person's side with no phone and no real channel. Write as the contact with
-         *     `POST /v1/test/conversations/{conversation_id}/inbound`; your agent receives
+         *     `POST /v0/test/conversations/{conversation_id}/inbound`; your agent receives
          *     each turn exactly like a real `message.received` and replies with its normal
-         *     send. Read both sides with `GET /v1/test/conversations/{conversation_id}/transcript`.
+         *     send. Read both sides with `GET /v0/test/conversations/{conversation_id}/transcript`.
          *
          *     The conversation is on your app's **simulated sender** for the channel
          *     (`kind` `simulated`), which Flow creates on first use. It never touches a
@@ -1634,10 +1634,10 @@ export interface paths {
          *
          *     On SMS, the rules that concern the contact hold too. Before the contact's
          *     first turn, a send to them is a start that needs their recorded consent:
-         *     without `consent` (on `POST /v1/messages` with `to.contact`), it answers
+         *     without `consent` (on `POST /v0/messages` with `to.contact`), it answers
          *     `403 permission` with `channel_code` `consent_required`, as a real SMS start
          *     does. A turn with the text STOP opts the contact out and START lifts it (see
-         *     `POST /v1/test/conversations/{conversation_id}/inbound`). A simulated SMS
+         *     `POST /v0/test/conversations/{conversation_id}/inbound`). A simulated SMS
          *     sender keeps no quiet hours, so a test's outcome never depends on the time of
          *     day, and it sends media and voice as MMS.
          *
@@ -1665,7 +1665,7 @@ export interface paths {
          *     An app has at most 500 simulated conversations: past that, a new one answers
          *     `403 permission` with `channel_code` `simulated_conversation_limit` (an
          *     address that has one still returns it with `200`), so reuse conversations
-         *     across test runs. The `/v1/test/` endpoints take at most 120 requests a
+         *     across test runs. The `/v0/test/` endpoints take at most 120 requests a
          *     minute per key (`429 rate_limited`), on top of the plan's request rate
          *     limit. A live key answers `403 permission` with `channel_code`
          *     `test_mode_only`.
@@ -1682,7 +1682,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/test/conversations/{conversation_id}/inbound": {
+    "/v0/test/conversations/{conversation_id}/inbound": {
         parameters: {
             query?: never;
             header?: {
@@ -1712,7 +1712,7 @@ export interface paths {
          *     `button_reply` (a tap on a reply button of a buttons or carousel message
          *     your agent sent, or on a row of a list, given as its `message_id` and
          *     `button_id`: Flow fills in the `label`). Media and voice take the
-         *     `file_id` of a file uploaded with `POST /v1/files` (no `url`); the contact's
+         *     `file_id` of a file uploaded with `POST /v0/files` (no `url`); the contact's
          *     message refers to that same file (its `file_id`, `url`, `mime_type` and
          *     `size_bytes`): Flow does not copy it again. The channel's rules apply:
          *     what it cannot carry from a person (a document over SMS, a location over
@@ -1746,7 +1746,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/test/conversations/{conversation_id}/transcript": {
+    "/v0/test/conversations/{conversation_id}/transcript": {
         parameters: {
             query?: never;
             header?: {
@@ -1801,7 +1801,7 @@ export interface webhooks {
          *     To reply at once to a `message.received` event, answer `200` with a
          *     `WebhookReply` body; the reply goes into the event's conversation through the
          *     send gate, piece by piece in order, as if you had called each piece's
-         *     kind's endpoint (`POST /v1/conversations/{conversation_id}/basic`, ...)
+         *     kind's endpoint (`POST /v0/conversations/{conversation_id}/basic`, ...)
          *     with the event's `id` as the idempotency key. For any other event, or to
          *     reply later, answer `200` with
          *     an empty body, `{}`, `{"reply": null}` or any body that is not a JSON object
@@ -1911,12 +1911,12 @@ export interface components {
          *     the error's `doc_url`; the error's `hint` says what to change for the case.
          *
          *     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
-         *     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
+         *     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v0/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
          *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
          *     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
-         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v1/conversations/{conversation_id}/template`, or `POST /v1/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-         *     - `unsupported_content` (422): the conversation's channel does not take this kind, field, block or value, and nothing was sent; Flow never converts a message. `param` names what was refused: `kind` (the endpoint's kind is not on this channel, such as a carousel on Telegram), a field or block (`reply_to` on SMS, `telegram` on WhatsApp, `telegram.is_big`), or the field whose value is not taken (`emoji` outside Telegram's reaction emoji, `buttons` for more than 3 WhatsApp buttons). `channel` is the conversation's channel and `hint` says what to send instead over plain HTTP; each endpoint's page lists its channels. In an iMessage group conversation, a reaction, typing or a read receipt answers it with `param` `kind` and `channel_code` `group_unsupported`: leave it out. Media to an SMS number without MMS answers it with `param` `media` and `channel_code` `no_mms`. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
+         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
+         *     - `unsupported_content` (422): the conversation's channel does not take this kind, field, block or value, and nothing was sent; Flow never converts a message. `param` names what was refused: `kind` (the endpoint's kind is not on this channel, such as a carousel on Telegram), a field or block (`reply_to` on SMS, `telegram` on WhatsApp, `telegram.is_big`), or the field whose value is not taken (`emoji` outside Telegram's reaction emoji, `buttons` for more than 3 WhatsApp buttons). `channel` is the conversation's channel and `hint` says what to send instead over plain HTTP; each endpoint's page lists its channels. In an iMessage group conversation, a reaction, typing or a read receipt answers it with `param` `kind` and `channel_code` `group_unsupported`: leave it out. Media to an SMS number without MMS answers it with `param` `media` and `channel_code` `no_mms`. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v0/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
          *     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
          *     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
          *     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file. (When the scan cannot run at all, the upload answers a retryable `500 api_error` with `Retry-After` instead.)
@@ -1935,10 +1935,10 @@ export interface components {
             /**
              * @description One sentence saying what to change to make the request succeed, specific
              *     to this case, for example "Send a template instead: POST
-             *     /v1/conversations/{conversation_id}/template." For `unsupported_content`
+             *     /v0/conversations/{conversation_id}/template." For `unsupported_content`
              *     it says what to send instead over plain HTTP. Written for developers and
              *     coding agents alike. Do not parse it; it may be reworded at any time.
-             * @example Send a template instead: POST /v1/conversations/{conversation_id}/template.
+             * @example Send a template instead: POST /v0/conversations/{conversation_id}/template.
              */
             hint: string;
             /**
@@ -1964,7 +1964,7 @@ export interface components {
              *     the allowance does not cover this sandbox channel), `sign_in_required`
              *     (`permission`: an app made without an account cannot do this) or
              *     `sandbox_key_expired` (`authentication`: a key from `POST
-             *     /v1/sandbox/keys` passed its `expires_at`; `permission`, for a send
+             *     /v0/sandbox/keys` passed its `expires_at`; `permission`, for a send
              *     that carries no key, such as a reply in a webhook answer, from such an
              *     app). For `idempotency_conflict`, always one of `body_mismatch` (the
              *     key was used for a different request), `in_progress` (the first
@@ -1976,7 +1976,7 @@ export interface components {
              *     `registration_required`, `carrier_error` and `provider_not_configured`
              *     (`channel_error`). HIPAA accounts: `hipaa_channel_not_covered`
              *     (`permission`). Connecting your own WhatsApp number (`POST
-             *     /v1/senders`): `whatsapp_token_malformed`, `whatsapp_token_rejected`,
+             *     /v0/senders`): `whatsapp_token_malformed`, `whatsapp_token_rejected`,
              *     `whatsapp_app_secret_malformed` and `whatsapp_number_not_in_account`
              *     (`invalid_request`), and `whatsapp_number_taken`,
              *     `whatsapp_account_taken` and `whatsapp_number_managed` (`permission`).
@@ -2043,7 +2043,7 @@ export interface components {
              *     and messages already queued there fail the same way. The sandbox
              *     senders answer the account's contacts with a fixed refusal and store
              *     and deliver nothing they send; turning the flag on ends the account's
-             *     sandbox joins. Only SMS can be simulated (`POST /v1/test/conversations`):
+             *     sandbox joins. Only SMS can be simulated (`POST /v0/test/conversations`):
              *     creating a simulated Telegram, WhatsApp or iMessage conversation, or posting a
              *     turn to one made before the flag was set, answers the same refusal.
              *     Set by the Flow team.
@@ -2153,7 +2153,7 @@ export interface components {
             /**
              * Format: date-time
              * @description When the key stops working. Set only on keys of an unclaimed app made with
-             *     `POST /v1/sandbox/keys` (7 days after it was made); signing in through the
+             *     `POST /v0/sandbox/keys` (7 days after it was made); signing in through the
              *     device flow claims the app and removes it. An expired key can still start
              *     that sign-in for 30 days after this time, and claiming the app within those
              *     30 days makes the key work again.
@@ -2171,7 +2171,7 @@ export interface components {
         };
         /**
          * @description What the app may still send on the shared sandbox senders for free. Present
-         *     only on apps that have one: apps made with `POST /v1/sandbox/keys`
+         *     only on apps that have one: apps made with `POST /v0/sandbox/keys`
          *     (`anonymous`, one allowance per app), and apps of people who signed in
          *     (`signed_in`, one allowance per person: every app the person owns or claimed
          *     draws on the same contacts and messages, so the counts here are the
@@ -2244,7 +2244,7 @@ export interface components {
             allowance: components["schemas"]["SandboxAllowance"];
             /**
              * @description Proves you hold this app when a person signs in to claim it: pass it to
-             *     `POST /v1/device/authorizations`. Shown once; keep it with the key. It
+             *     `POST /v0/device/authorizations`. Shown once; keep it with the key. It
              *     stops working once the app is claimed.
              * @example fct_...
              */
@@ -2260,7 +2260,7 @@ export interface components {
         };
         /** @description Optional details for a device sign-in. */
         DeviceAuthorizationRequest: {
-            /** @description The `claim_token` from `POST /v1/sandbox/keys`, to claim that app when the person approves. */
+            /** @description The `claim_token` from `POST /v0/sandbox/keys`, to claim that app when the person approves. */
             claim_token?: string;
             /** @description What is asking, shown to the person on the approval page, for example "flow CLI" or "Claude Code". */
             client_name?: string;
@@ -2268,7 +2268,7 @@ export interface components {
         /** @description A device sign-in waiting for a person to approve it in a browser. */
         DeviceAuthorization: {
             /**
-             * @description The secret you poll `POST /v1/device/token` with. Never show it to the person.
+             * @description The secret you poll `POST /v0/device/token` with. Never show it to the person.
              * @example fdc_...
              */
             device_code: string;
@@ -2296,12 +2296,12 @@ export interface components {
              * @description When the codes expire.
              */
             expires_at: string;
-            /** @description Seconds to wait between polls of `POST /v1/device/token`. */
+            /** @description Seconds to wait between polls of `POST /v0/device/token`. */
             interval: number;
         };
         /** @description The device sign-in to poll. */
         DeviceTokenRequest: {
-            /** @description The `device_code` from `POST /v1/device/authorizations`. */
+            /** @description The `device_code` from `POST /v0/device/authorizations`. */
             device_code: string;
         };
         /**
@@ -2379,7 +2379,7 @@ export interface components {
             imessage?: components["schemas"]["ImessageSender"];
             setup?: components["schemas"]["SenderSetup"];
             /**
-             * @description Shared senders only. The whole message a contact sends to this sender to join your app: `Hi `, the app's name (`there` when it has none), then the app's `sandbox_join_code` (from `GET /v1/app`) in brackets after `ref`, for example `Hi Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets.
+             * @description Shared senders only. The whole message a contact sends to this sender to join your app: `Hi `, the app's name (`there` when it has none), then the app's `sandbox_join_code` (from `GET /v0/app`) in brackets after `ref`, for example `Hi Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets.
              * @example Hi Sandbox app (ref brave-otter-40718263)
              */
             join_code?: string;
@@ -2390,7 +2390,7 @@ export interface components {
             created_at: string;
         };
         /**
-         * @description Only in the answer to `POST /v1/senders` that connected a WhatsApp number:
+         * @description Only in the answer to `POST /v0/senders` that connected a WhatsApp number:
          *     what you still set in your own Meta app, which Flow cannot set for you.
          *     Flow already points the number's webhooks at `callback_url` (Meta's
          *     phone-number-level override); entering the same URL in your app makes its
@@ -2467,7 +2467,7 @@ export interface components {
             call_forwarding?: components["schemas"]["CallForwarding"];
             /**
              * @description Whether the line may write first: start a conversation with
-             *     `POST /v1/messages` with a contact who has not messaged it. Off (the
+             *     `POST /v0/messages` with a contact who has not messaged it. Off (the
              *     default), the line only replies and a start answers `403 permission`.
              *     Writing first is available on request from the Flow team, on dedicated
              *     lines only (always `false` on shared lines); a line that starts
@@ -2514,7 +2514,7 @@ export interface components {
         /**
          * @description `shared` (the sandbox), `dedicated` (yours) or `simulated` (test mode only:
          *     your app's stand-in for a channel, used by simulated conversations from
-         *     `POST /v1/test/conversations`; it never touches a network).
+         *     `POST /v0/test/conversations`; it never touches a network).
          * @enum {string}
          */
         SenderKind: "shared" | "dedicated" | "simulated";
@@ -2527,11 +2527,11 @@ export interface components {
          *       bot is also `flagged` when Telegram rejects its token (revoked in
          *       @BotFather): it then sends nothing, new sends answer `403 permission`, and
          *       queued messages wait until you connect the bot again with its new token
-         *       (`POST /v1/senders`). They wait at most 72 hours after Flow accepted
+         *       (`POST /v0/senders`). They wait at most 72 hours after Flow accepted
          *       them; older ones fail with `outside_window` (`channel_code`
          *       `queued_too_long`) in `message.failed` instead of going out late.
          *     - `banned`: it cannot send or receive: the channel banned it, you
-         *       disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was
+         *       disconnected it (`DELETE /v0/senders/{sender_id}`), or its bot or line was
          *       connected to another app.
          * @enum {string}
          */
@@ -2644,7 +2644,7 @@ export interface components {
              */
             readonly opted_out_via?: "keyword" | "carrier";
             consent?: components["schemas"]["ContactConsent"];
-            /** @description `true` for a simulated contact, who exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise. */
+            /** @description `true` for a simulated contact, who exists only inside Flow (test mode only, from `POST /v0/test/conversations`); absent otherwise. */
             readonly simulated?: boolean;
             /**
              * Format: date-time
@@ -2750,7 +2750,7 @@ export interface components {
             window_open_until?: string;
             /** @description Whether the contact has agreed to receive messages (wrote first, joined the sandbox, or you recorded consent). Always `true` on group conversations, which begin with the group writing. */
             opted_in: boolean;
-            /** @description `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise. */
+            /** @description `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v0/test/conversations`); absent otherwise. */
             readonly simulated?: boolean;
             metadata?: components["schemas"]["Metadata"];
             /**
@@ -2774,7 +2774,7 @@ export interface components {
              * @description WhatsApp only. Until when free-form messages may be sent. Absent when closed or not applicable.
              */
             window_open_until?: string;
-            /** @description `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise. */
+            /** @description `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v0/test/conversations`); absent otherwise. */
             readonly simulated?: boolean;
         };
         /**
@@ -2944,7 +2944,7 @@ export interface components {
             kind: "template";
         };
         /**
-         * @description The new text of a sent message (`PATCH /v1/messages/{message_id}`), sent
+         * @description The new text of a sent message (`PATCH /v0/messages/{message_id}`), sent
          *     exactly as written. A field not listed here is refused with `400
          *     invalid_request` naming it in `param`; a channel block for another channel
          *     answers `422 unsupported_content` with `param` the block's name.
@@ -2972,9 +2972,9 @@ export interface components {
          * @description The kinds of message. A closed list: a new kind arrives only with a new API
          *     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
          *     and, where it can be sent over HTTP, its own endpoint of the same name
-         *     (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+         *     (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
          *     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-         *     `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+         *     `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
          *     the stream and in a message's `content`. `button_reply` and `file_blocked`
          *     are inbound only.
          *
@@ -2997,7 +2997,7 @@ export interface components {
          *     reply (`WebhookReply`) or the `message` of a stream `send` frame. `kind`
          *     is required and selects the shape; the fields and channel rules are the
          *     same as on the kind's endpoint (`edit` and `unsend` as on `PATCH` and
-         *     `DELETE /v1/messages/{message_id}`, with the target in `message_id`).
+         *     `DELETE /v0/messages/{message_id}`, with the target in `message_id`).
          * @example {
          *       "kind": "basic",
          *       "text": "Here are the sizes we have."
@@ -3127,14 +3127,14 @@ export interface components {
         ReplyTo: components["schemas"]["MessageId"];
         /**
          * @description Text, or one media file with an optional caption, in either direction: the
-         *     kind every channel takes (`POST /v1/conversations/{conversation_id}/basic`).
+         *     kind every channel takes (`POST /v0/conversations/{conversation_id}/basic`).
          *     Give `text`, `media`, or both (then `text` is the caption). A field not
          *     listed here is refused with `400 invalid_request` naming it in `param`;
          *     a field or channel block the conversation's channel does not take answers
          *     `422 unsupported_content` naming it.
          *
          *     Received from a contact: their text and/or one file. Inbound media always
-         *     has `url` (a Flow file URL, `GET /v1/files/{file_id}`) and `file_id`, on
+         *     has `url` (a Flow file URL, `GET /v0/files/{file_id}`) and `file_id`, on
          *     every channel (an SMS contact's MMS files included), and `mime_type` and
          *     `size_bytes` once Flow kept the file; send a received file again by its
          *     `file_id`. On SMS Flow always keeps its own copy (the provider's is
@@ -3143,7 +3143,7 @@ export interface components {
          */
         BasicMessage: {
             /**
-             * @description Always `basic`. Optional on `POST /v1/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
+             * @description Always `basic`. Optional on `POST /v0/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
              * @default basic
              * @constant
              */
@@ -3175,7 +3175,7 @@ export interface components {
          * @description One image, video, document or audio file. When sending, give exactly one of
          *     `url` (an HTTPS URL Flow fetches; Flow neither stores nor scans it, and on
          *     Telegram a document by URL works for PDF and ZIP files) or `file_id` (from
-         *     `POST /v1/files`). Each channel takes files up to its own size: Telegram
+         *     `POST /v0/files`). Each channel takes files up to its own size: Telegram
          *     50 MB, WhatsApp and iMessage 100 MB, SMS (MMS) 5 MB; a larger file answers
          *     `422 unsupported_content` with `param` `media`. SMS carries images, audio
          *     and video, never documents (`param` `media.type`), and only from numbers
@@ -3250,7 +3250,7 @@ export interface components {
         };
         /**
          * @description A voice note, in either direction (`POST
-         *     /v1/conversations/{conversation_id}/voice`). When sending, give `url` or
+         *     /v0/conversations/{conversation_id}/voice`). When sending, give `url` or
          *     `file_id` of an audio file. Inbound voice notes always come with the audio
          *     file (`url`, `file_id`) and, when the app has transcription on, a
          *     `transcript`.
@@ -3277,7 +3277,7 @@ export interface components {
         };
         /**
          * @description Text with buttons, sent only (`POST
-         *     /v1/conversations/{conversation_id}/buttons`), optionally under a
+         *     /v0/conversations/{conversation_id}/buttons`), optionally under a
          *     `header`. A tap on a reply button arrives as a `button_reply` message
          *     carrying the button's `id`. URL buttons open a link and send nothing back.
          */
@@ -3324,7 +3324,7 @@ export interface components {
          * @description What is shown above a buttons message's text, or a carousel card's image or
          *     video: an image, a video, a document or a short title. A media header
          *     takes exactly one of `url` (an HTTPS URL Flow fetches) or `file_id` (from
-         *     `POST /v1/files`), and is fetched and checked for the channel like a basic
+         *     `POST /v0/files`), and is fetched and checked for the channel like a basic
          *     message's `media` (so WebP and other formats work); a `text` header takes
          *     `text`. Anything else, or a value over a limit, is refused with `400
          *     invalid_request` naming the field in `param`.
@@ -3385,7 +3385,7 @@ export interface components {
         };
         /**
          * @description WhatsApp's list message, sent only (`POST
-         *     /v1/conversations/{conversation_id}/list`): the text, a button that opens
+         *     /v0/conversations/{conversation_id}/list`): the text, a button that opens
          *     the list, and up to 10 rows in sections. A tap on a row arrives as a
          *     `button_reply` message whose `button_id` is the row's `id` and whose
          *     `label` is its title. Row `id`s are unique across the list; a repeated one
@@ -3427,7 +3427,7 @@ export interface components {
         };
         /**
          * @description A row of 2 to 10 cards the contact scrolls sideways, under one text, sent
-         *     only (`POST /v1/conversations/{conversation_id}/carousel`; WhatsApp). Each
+         *     only (`POST /v0/conversations/{conversation_id}/carousel`; WhatsApp). Each
          *     card has an image or video, optional text, and its own buttons. A tap on a
          *     reply button arrives as a `button_reply` message carrying the button's
          *     `id`; URL buttons open a link and send nothing back. Every card has the
@@ -3490,7 +3490,7 @@ export interface components {
         };
         /**
          * @description A WhatsApp message template, sent only (`POST
-         *     /v1/conversations/{conversation_id}/template`, or `POST /v1/messages` to
+         *     /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` to
          *     start a conversation). Required to start a WhatsApp conversation or to
          *     write after the 24-hour window closed. The template must be `approved`.
          *
@@ -3500,7 +3500,7 @@ export interface components {
          */
         TemplateMessage: {
             /**
-             * @description Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v1/messages`).
+             * @description Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v0/messages`).
              * @default template
              * @constant
              */
@@ -3575,7 +3575,7 @@ export interface components {
         };
         /**
          * @description A contact card, in either direction (`POST
-         *     /v1/conversations/{conversation_id}/contact-card` sends one; Telegram and
+         *     /v0/conversations/{conversation_id}/contact-card` sends one; Telegram and
          *     WhatsApp). Inbound, a card the contact shared.
          */
         ContactCardMessage: {
@@ -3596,7 +3596,7 @@ export interface components {
         };
         /**
          * @description A place, in either direction (`POST
-         *     /v1/conversations/{conversation_id}/location` sends one; Telegram and
+         *     /v0/conversations/{conversation_id}/location` sends one; Telegram and
          *     WhatsApp). Inbound, a location the contact shared.
          */
         LocationMessage: {
@@ -3617,7 +3617,7 @@ export interface components {
             reply_to?: components["schemas"]["ReplyTo"];
             metadata?: components["schemas"]["Metadata"];
         };
-        /** @description Text sent with an iMessage effect, sent only (`POST /v1/conversations/{conversation_id}/effect`; iMessage). Which effects a contact's device shows may vary. */
+        /** @description Text sent with an iMessage effect, sent only (`POST /v0/conversations/{conversation_id}/effect`; iMessage). Which effects a contact's device shows may vary. */
         EffectMessage: {
             /**
              * @description Always `effect`. Optional on its endpoint; required where no URL names the kind.
@@ -3637,7 +3637,7 @@ export interface components {
         };
         /**
          * @description A reaction to a message, in either direction (`POST
-         *     /v1/conversations/{conversation_id}/reaction` sends one). Set `emoji` to
+         *     /v0/conversations/{conversation_id}/reaction` sends one). Set `emoji` to
          *     `null` to remove your reaction. Inbound reactions also arrive as
          *     `reaction.added` and `reaction.removed` events.
          */
@@ -3664,7 +3664,7 @@ export interface components {
         };
         /**
          * @description The typing indicator, sent only (`POST
-         *     /v1/conversations/{conversation_id}/typing`; a `typing` piece in a webhook
+         *     /v0/conversations/{conversation_id}/typing`; a `typing` piece in a webhook
          *     reply or on the stream does the same). It shows the indicator, which
          *     clears itself when your next message goes or after a few seconds.
          */
@@ -3687,7 +3687,7 @@ export interface components {
             duration_seconds?: number;
         };
         /**
-         * @description A read receipt, sent only (`POST /v1/conversations/{conversation_id}/read`;
+         * @description A read receipt, sent only (`POST /v0/conversations/{conversation_id}/read`;
          *     a `read` piece in a webhook reply or on the stream does the same).
          */
         ReadMessage: {
@@ -3703,7 +3703,7 @@ export interface components {
         /**
          * @description A change to the text of one of your sent messages, as a kind: a piece of a
          *     webhook reply or on the stream, and the `content` of the message that
-         *     carries an edit (`PATCH /v1/messages/{message_id}` over HTTP, whose rules
+         *     carries an edit (`PATCH /v0/messages/{message_id}` over HTTP, whose rules
          *     apply). `message_id` names the message to change.
          */
         EditMessage: components["schemas"]["EditMessageRequest"] & {
@@ -3723,7 +3723,7 @@ export interface components {
         /**
          * @description Removes one of your sent messages from the contact's chat, as a kind: a
          *     piece of a webhook reply or on the stream, and the `content` of the message
-         *     that carries an unsend (`DELETE /v1/messages/{message_id}` over HTTP,
+         *     that carries an unsend (`DELETE /v0/messages/{message_id}` over HTTP,
          *     whose rules apply).
          */
         UnsendMessage: {
@@ -3790,7 +3790,7 @@ export interface components {
          *     - `conversation.window_closing`: WhatsApp only, opt-in. The 24-hour window closes in 1 hour.
          *     - `sender.status_changed`: a sender was throttled, flagged, banned or restored, or its WhatsApp quality rating changed.
          *     - `template.status_changed`: Meta approved, rejected or paused a template.
-         *     - `contact.deleted`: a contact was deleted with `DELETE /v1/contacts/{contact_id}`. Carries only the contact's ID; delete what you keep about them too.
+         *     - `contact.deleted`: a contact was deleted with `DELETE /v0/contacts/{contact_id}`. Carries only the contact's ID; delete what you keep about them too.
          *     - `contact.left`: a person on a shared sender (the sandbox) joined another app, or the other mode of your app, by sending its join message. Nothing more reaches you from them, and sends to them fail with `sandbox_contact_left`, until they send your join message again.
          *     - `call.received`: iMessage only. A contact tried to FaceTime the line. The line cannot answer it, and the call does not count as the contact writing: a reply-only line can message them only after they write.
          * @enum {string}
@@ -3817,8 +3817,8 @@ export interface components {
              *     where you read it. In a webhook delivery's body, it is when that delivery
              *     attempt started (each attempt to each endpoint gets its own), unless an
              *     endpoint had already accepted the event, in which case it is that
-             *     acceptance time. In the event log (`GET /v1/events`,
-             *     `GET /v1/events/{event_id}`, the stream), it is when the first endpoint
+             *     acceptance time. In the event log (`GET /v0/events`,
+             *     `GET /v0/events/{event_id}`, the stream), it is when the first endpoint
              *     accepted the event, and it is absent until one has (always, for an app
              *     with no webhook endpoints).
              */
@@ -4104,7 +4104,7 @@ export interface components {
             contact: components["schemas"]["ContactId"];
         };
         /**
-         * @description A contact was deleted with `DELETE /v1/contacts/{contact_id}`: their address,
+         * @description A contact was deleted with `DELETE /v0/contacts/{contact_id}`: their address,
          *     messages, files and events are erased at Flow. Delete what you keep about
          *     them too. Sent once, for the first delete; it has no `conversation`.
          */
@@ -4201,7 +4201,7 @@ export interface components {
             has_more: boolean;
         };
         /**
-         * @description One JSON frame on the `/v1/stream` WebSocket. The server sends `event`, `ack`,
+         * @description One JSON frame on the `/v0/stream` WebSocket. The server sends `event`, `ack`,
          *     `error` and `reconnect`; the client sends `send` and `start`.
          */
         StreamFrame: components["schemas"]["StreamEventFrame"] | components["schemas"]["StreamAckFrame"] | components["schemas"]["StreamErrorFrame"] | components["schemas"]["StreamReconnectFrame"] | components["schemas"]["StreamSendFrame"] | components["schemas"]["StreamStartFrame"];
@@ -4225,7 +4225,7 @@ export interface components {
             ref: string;
             message: components["schemas"]["Message"];
         };
-        /** @description Server to client. A `send` or `start` frame was refused (with its `ref`), or the stream itself was refused or failed (without `ref`; the server then closes the socket with a 4000-range close code, `4401` for `authentication`, see `GET /v1/stream`). */
+        /** @description Server to client. A `send` or `start` frame was refused (with its `ref`), or the stream itself was refused or failed (without `ref`; the server then closes the socket with a 4000-range close code, `4401` for `authentication`, see `GET /v0/stream`). */
         StreamErrorFrame: {
             /**
              * @description Always `error`. (enum property replaced by openapi-typescript)
@@ -4247,8 +4247,8 @@ export interface components {
         };
         /**
          * @description Client to server. Sends one message into a conversation, the same as the
-         *     endpoint of its `kind` (`POST /v1/conversations/{conversation_id}/<kind>`,
-         *     or `PATCH` and `DELETE /v1/messages/{message_id}` for `edit` and
+         *     endpoint of its `kind` (`POST /v0/conversations/{conversation_id}/<kind>`,
+         *     or `PATCH` and `DELETE /v0/messages/{message_id}` for `edit` and
          *     `unsend`); `ref` is also the idempotency key. Frames into one conversation
          *     go out in the order accepted, in line with the conversation's other sends.
          *     The frame's `type` is the frame's own type; the message's kind is
@@ -4265,7 +4265,7 @@ export interface components {
             conversation: components["schemas"]["ConversationId"];
             message: components["schemas"]["OutboundKind"];
         };
-        /** @description Client to server. Same as `POST /v1/messages` (a `basic` or `template` message with `kind`, `sender` and `to`); `ref` is also the idempotency key. */
+        /** @description Client to server. Same as `POST /v0/messages` (a `basic` or `template` message with `kind`, `sender` and `to`); `ref` is also the idempotency key. */
         StreamStartFrame: {
             /**
              * @description Always `start`. (enum property replaced by openapi-typescript)
@@ -4298,7 +4298,7 @@ export interface components {
             filename?: string;
             /**
              * Format: uri
-             * @description Its Flow URL (`https://api.flow.engineer/v1/files/{file_id}`), which redirects to the bytes for an authenticated request.
+             * @description Its Flow URL (`https://api.flow.engineer/v0/files/{file_id}`), which redirects to the bytes for an authenticated request.
              */
             url: string;
             /** @description Whether the file belongs to live mode. */
@@ -4431,7 +4431,7 @@ export interface components {
          * @description `imessage` only: make a simulated group conversation (`type` `group`)
          *     instead of a one-to-one one, with these participants. Not with `contact`
          *     or `name`. Each turn names the participant who writes (`from` on
-         *     `POST /v1/test/conversations/{conversation_id}/inbound`). Another channel
+         *     `POST /v0/test/conversations/{conversation_id}/inbound`). Another channel
          *     answers `400 invalid_request` with `param` `group`.
          */
         TestGroupRequest: {
@@ -4697,7 +4697,7 @@ export interface components {
                  *       "error": {
                  *         "type": "authentication",
                  *         "message": "No valid API key was given.",
-                 *         "hint": "Send the header Authorization: Bearer fk_test_... (or fk_live_...); no key yet? Get a test key with curl -X POST https://api.flow.engineer/v1/sandbox/keys",
+                 *         "hint": "Send the header Authorization: Bearer fk_test_... (or fk_live_...); no key yet? Get a test key with curl -X POST https://api.flow.engineer/v0/sandbox/keys",
                  *         "doc_url": "https://api.flow.engineer/docs/errors/authentication"
                  *       }
                  *     }
@@ -4740,7 +4740,7 @@ export interface components {
                  *       "error": {
                  *         "type": "outside_window",
                  *         "message": "Last message from the contact was 31h ago; WhatsApp allows only templates now.",
-                 *         "hint": "Send a template instead: POST /v1/conversations/{conversation_id}/template.",
+                 *         "hint": "Send a template instead: POST /v0/conversations/{conversation_id}/template.",
                  *         "doc_url": "https://api.flow.engineer/docs/errors/outside_window",
                  *         "channel": "whatsapp",
                  *         "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1"
@@ -4780,9 +4780,9 @@ export interface components {
         };
         /**
          * @description The request body is larger than Flow takes (`invalid_request`): 32 MB, or
-         *     101 MB for `POST /v1/files` (a 100 MB file and its multipart framing). A body
+         *     101 MB for `POST /v0/files` (a 100 MB file and its multipart framing). A body
          *     that declares a larger `Content-Length` is refused before it is read. Send
-         *     media as a `file_id` from `POST /v1/files` or by `url` instead of inlining it.
+         *     media as a `file_id` from `POST /v0/files` or by `url` instead of inlining it.
          */
         PayloadTooLarge: {
             headers: {
@@ -4794,7 +4794,7 @@ export interface components {
                  *       "error": {
                  *         "type": "invalid_request",
                  *         "message": "The request body is larger than 33554432 bytes.",
-                 *         "hint": "Send a smaller body; upload media with POST /v1/files and send its file_id instead of inlining it.",
+                 *         "hint": "Send a smaller body; upload media with POST /v0/files and send its file_id instead of inlining it.",
                  *         "doc_url": "https://api.flow.engineer/docs/errors/invalid_request"
                  *       }
                  *     }
@@ -5898,7 +5898,7 @@ export interface operations {
                      * @example {
                      *       "error": {
                      *         "type": "permission",
-                     *         "message": "This app was made without an account (POST /v1/sandbox/keys) and uploaded its 20 files for the last 24 hours.",
+                     *         "message": "This app was made without an account (POST /v0/sandbox/keys) and uploaded its 20 files for the last 24 hours.",
                      *         "hint": "Reuse a file_id you already uploaded, or wait for the oldest upload of the last 24 hours to age out; signing in lifts the limit.",
                      *         "doc_url": "https://api.flow.engineer/docs/errors/permission",
                      *         "param": "file",
@@ -6083,8 +6083,8 @@ export interface operations {
                      * @example {
                      *       "error": {
                      *         "type": "not_implemented",
-                     *         "message": "US SMS numbers are registered and connected by the Flow team, not by API: carriers require each number's brand and campaign to be registered first. Once connected, it appears in GET /v1/senders.",
-                     *         "hint": "Ask the Flow team to connect a US SMS number to your app; it then appears in GET /v1/senders. Meanwhile, build with a Telegram bot (POST /v1/senders with telegram_bot_token and a live key) or with simulated SMS conversations (POST /v1/test/conversations with a test key). Never send API keys, tokens or passwords in a chat or email.",
+                     *         "message": "US SMS numbers are registered and connected by the Flow team, not by API: carriers require each number's brand and campaign to be registered first. Once connected, it appears in GET /v0/senders.",
+                     *         "hint": "Ask the Flow team to connect a US SMS number to your app; it then appears in GET /v0/senders. Meanwhile, build with a Telegram bot (POST /v0/senders with telegram_bot_token and a live key) or with simulated SMS conversations (POST /v0/test/conversations with a test key). Never send API keys, tokens or passwords in a chat or email.",
                      *         "doc_url": "https://api.flow.engineer/docs/errors/not_implemented",
                      *         "param": "channel"
                      *       }
@@ -6806,7 +6806,7 @@ export interface operations {
                      *       "error": {
                      *         "type": "permission",
                      *         "message": "This account handles health information under a business associate agreement, and Telegram is not a channel Flow holds such an agreement for, so it cannot be simulated here either.",
-                     *         "hint": "Simulate an SMS conversation instead: POST /v1/test/conversations with {\"channel\":\"sms\"}.",
+                     *         "hint": "Simulate an SMS conversation instead: POST /v0/test/conversations with {\"channel\":\"sms\"}.",
                      *         "doc_url": "https://api.flow.engineer/docs/errors/permission",
                      *         "param": "channel",
                      *         "channel_code": "hipaa_channel_not_covered"
@@ -6874,7 +6874,7 @@ export interface operations {
                      *       "error": {
                      *         "type": "permission",
                      *         "message": "This account handles health information under a business associate agreement, and Telegram is not a channel Flow holds such an agreement for, so it cannot be simulated here either.",
-                     *         "hint": "Simulate an SMS conversation instead: POST /v1/test/conversations with {\"channel\":\"sms\"}.",
+                     *         "hint": "Simulate an SMS conversation instead: POST /v0/test/conversations with {\"channel\":\"sms\"}.",
                      *         "doc_url": "https://api.flow.engineer/docs/errors/permission",
                      *         "param": "conversation_id",
                      *         "channel_code": "hipaa_channel_not_covered"

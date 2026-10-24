@@ -237,7 +237,7 @@ def file_obj(id: str = FILE) -> dict[str, Any]:
         "id": id,
         "mime_type": "image/png",
         "size_bytes": 4,
-        "url": f"{BASE}/v1/files/{id}",
+        "url": f"{BASE}/v0/files/{id}",
         "livemode": False,
         "created_at": T0,
         "expires_at": "2026-10-31T12:00:00Z",

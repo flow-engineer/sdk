@@ -20,10 +20,10 @@ The ID does not name an object this key can see.
 
 ## How to fix it
 
-Take IDs from the API's own answers with the same key: `GET /v1/conversations`, `GET /v1/events`, the event your webhook received. If the object was made in the other mode, use that mode's key.
+Take IDs from the API's own answers with the same key: `GET /v0/conversations`, `GET /v0/events`, the event your webhook received. If the object was made in the other mode, use that mode's key.
 
 ```bash
-curl "https://api.flow.engineer/v1/conversations?limit=5" -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
+curl "https://api.flow.engineer/v0/conversations?limit=5" -H "Authorization: Bearer $FLOW_MESSAGING_KEY"
 ```
 
 Every error also carries `hint`, one sentence specific to your request, and

@@ -7,20 +7,20 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 
 | SDK | HTTP |
 |---|---|
-| `flow.messages.send(convId, "text" \| message \| {..., reply_to})` (`reply_to: "msg_..."` is an inline reply; `message.reply_to` echoes it) | `POST /v1/conversations/{id}/{kind}`: `basic`, `voice`, `buttons`, `list`, `carousel`, `template`, `contact-card`, `location`, `effect`, `reaction` |
-| `flow.messages.start({ sender, to: { telegram_user_id \| phone \| handle \| contact }, content })` | `POST /v1/messages` |
-| `flow.messages.retrieve(id)` · `.edit(id, "new text")` · `.unsend(id)` | `GET` · `PATCH` · `DELETE /v1/messages/{id}` |
-| `flow.conversations.list()` · `.retrieve(id)` · `.messages(id)` | `GET /v1/conversations[/{id}[/messages]]` |
-| `flow.conversations.typing(id, "on")` · `.markRead(id)` (call the channel at once; `409 outside_window` or `502 channel_error` are safe to ignore) | `POST /v1/conversations/{id}/typing` · `/read` |
-| `flow.events.stream({ types, after })` | `GET /v1/stream` (WebSocket; in browsers the key goes as subprotocol `flow.key.<key>` next to `flow`) |
-| `flow.events.list({ after, type })` · `.retrieve(id)` | `GET /v1/events` (oldest first) |
-| `flow.files.upload({ file, filename })` (`file`: Blob, Uint8Array/Buffer or ArrayBuffer; returns a `File` whose `id` is the `file_id`) · `.download(id)` | `POST /v1/files` · `GET /v1/files/{id}` |
-| `flow.webhookEndpoints.create({ url, events })` (+ list, retrieve, update, delete) · `.rotateSecret(id, { overlap_seconds })` | `/v1/webhook_endpoints` · `POST .../{id}/rotate_secret` |
-| `flow.senders.list()` · `flow.contacts.list()` · `flow.templates.list()` · `flow.app.retrieve()` | `/v1/senders` · `/v1/contacts` · `/v1/templates` · `/v1/app` |
-| `flow.senders.request({ channel: "telegram", telegram_bot_token })` (or `channel: "whatsapp"` with your own number's `whatsapp_*` fields; the answer's `setup` is what to enter in your Meta app) · `.disconnect(id)` (live keys) | `POST /v1/senders` · `DELETE /v1/senders/{id}` |
-| `flow.sandbox.createKey({ name? })` (no key; returns `key`, `claim_token`, `app`, `allowance`, `senders`) | `POST /v1/sandbox/keys` |
-| `flow.device.signIn({ claimToken?, clientName?, prompt })` (start and poll; resolves with the approved token, `.key`; throws `DeviceSignInError`, `reason` `denied` or `expired`) · `.authorize(...)` · `.poll(deviceCode)` | `POST /v1/device/authorizations` · `POST /v1/device/token` |
-| `(await flow.app.retrieve()).allowance` (sandbox allowance: `contacts`, `messages.remaining`, `expires_at`) | `GET /v1/app` |
+| `flow.messages.send(convId, "text" \| message \| {..., reply_to})` (`reply_to: "msg_..."` is an inline reply; `message.reply_to` echoes it) | `POST /v0/conversations/{id}/{kind}`: `basic`, `voice`, `buttons`, `list`, `carousel`, `template`, `contact-card`, `location`, `effect`, `reaction` |
+| `flow.messages.start({ sender, to: { telegram_user_id \| phone \| handle \| contact }, content })` | `POST /v0/messages` |
+| `flow.messages.retrieve(id)` · `.edit(id, "new text")` · `.unsend(id)` | `GET` · `PATCH` · `DELETE /v0/messages/{id}` |
+| `flow.conversations.list()` · `.retrieve(id)` · `.messages(id)` | `GET /v0/conversations[/{id}[/messages]]` |
+| `flow.conversations.typing(id, "on")` · `.markRead(id)` (call the channel at once; `409 outside_window` or `502 channel_error` are safe to ignore) | `POST /v0/conversations/{id}/typing` · `/read` |
+| `flow.events.stream({ types, after })` | `GET /v0/stream` (WebSocket; in browsers the key goes as subprotocol `flow.key.<key>` next to `flow`) |
+| `flow.events.list({ after, type })` · `.retrieve(id)` | `GET /v0/events` (oldest first) |
+| `flow.files.upload({ file, filename })` (`file`: Blob, Uint8Array/Buffer or ArrayBuffer; returns a `File` whose `id` is the `file_id`) · `.download(id)` | `POST /v0/files` · `GET /v0/files/{id}` |
+| `flow.webhookEndpoints.create({ url, events })` (+ list, retrieve, update, delete) · `.rotateSecret(id, { overlap_seconds })` | `/v0/webhook_endpoints` · `POST .../{id}/rotate_secret` |
+| `flow.senders.list()` · `flow.contacts.list()` · `flow.templates.list()` · `flow.app.retrieve()` | `/v0/senders` · `/v0/contacts` · `/v0/templates` · `/v0/app` |
+| `flow.senders.request({ channel: "telegram", telegram_bot_token })` (or `channel: "whatsapp"` with your own number's `whatsapp_*` fields; the answer's `setup` is what to enter in your Meta app) · `.disconnect(id)` (live keys) | `POST /v0/senders` · `DELETE /v0/senders/{id}` |
+| `flow.sandbox.createKey({ name? })` (no key; returns `key`, `claim_token`, `app`, `allowance`, `senders`) | `POST /v0/sandbox/keys` |
+| `flow.device.signIn({ claimToken?, clientName?, prompt })` (start and poll; resolves with the approved token, `.key`; throws `DeviceSignInError`, `reason` `denied` or `expired`) · `.authorize(...)` · `.poll(deviceCode)` | `POST /v0/device/authorizations` · `POST /v0/device/token` |
+| `(await flow.app.retrieve()).allowance` (sandbox allowance: `contacts`, `messages.remaining`, `expires_at`) | `GET /v0/app` |
 
 Handle helpers: `flow.conversation(id)` or `event.conversation` gives `.reply(x)`,
 `.send(x)`, `.typing("on")`, `.markRead()`, `.react(msgId, "👍")`,
@@ -104,7 +104,7 @@ or get a new key.
 ## HTTP without the SDK
 
 ```sh
-curl https://api.flow.engineer/v1/conversations/conv_.../basic \
+curl https://api.flow.engineer/v0/conversations/conv_.../basic \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
   -d '{"text":"Hello!"}'

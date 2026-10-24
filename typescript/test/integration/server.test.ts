@@ -231,9 +231,9 @@ describe.skipIf(!available)("against the local Flow Messaging service", () => {
     }
   }, 60_000);
 
-  // Skipped until the service checkout serves POST /v1/sandbox/keys: before then its
+  // Skipped until the service checkout serves POST /v0/sandbox/keys: before then its
   // key middleware answers 401 (or the router 404, a stub 501) to a keyless call.
-  it("sandbox key without an account, and its allowance on GET /v1/app", async (ctx) => {
+  it("sandbox key without an account, and its allowance on GET /v0/app", async (ctx) => {
     let sandbox;
     try {
       sandbox = await new FlowMessaging({ baseURL: h.base_url }).sandbox.createKey({ name: "SDK integration" });

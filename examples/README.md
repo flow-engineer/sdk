@@ -8,7 +8,7 @@ one gate that applies each channel's rules. API: `https://api.flow.engineer`.
 **Start in 60 seconds**, no account and no public URL:
 
 ```bash
-curl -s -X POST https://api.flow.engineer/v1/sandbox/keys   # copy "key" (shown once)
+curl -s -X POST https://api.flow.engineer/v0/sandbox/keys   # copy "key" (shown once)
 export FLOW_MESSAGING_KEY=fk_test_...
 cd telegram-echo/typescript && node main.ts                  # Node 22.18+, no install
 ```
@@ -28,7 +28,7 @@ install any Flow package.
 | [telegram-echo](telegram-echo) | The smallest agent: the WebSocket stream in, `send` frames out. | yes | yes |
 | [telegram-ai-agent](telegram-ai-agent) | An LLM support agent: history per conversation, a "Talk to a human" button, careful `Idempotency-Key`s. | yes | yes |
 | [webhook-receiver](webhook-receiver) | Production webhooks: `Flow-Signature` checks, dedupe on `event.id`, replies in the answer. | yes | yes |
-| [own-telegram-bot](own-telegram-bot) | Go live with your own @BotFather bot (`POST /v1/senders`), then disconnect it. | yes | |
+| [own-telegram-bot](own-telegram-bot) | Go live with your own @BotFather bot (`POST /v0/senders`), then disconnect it. | yes | |
 
 Telegram is live today, and so is WhatsApp on your own number (connected with a live
 key). iMessage is replies-only and arranged with the Flow team (with a live key). Your code does not change between channels:

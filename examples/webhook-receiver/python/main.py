@@ -18,7 +18,7 @@ from fastapi import FastAPI, Request, Response
 SECRET = os.environ.get("FLOW_MESSAGING_WEBHOOK_SECRET")
 PORT = int(os.environ.get("PORT", "3000"))
 if not SECRET:
-    sys.exit("Set FLOW_MESSAGING_WEBHOOK_SECRET to the whsec_... secret from POST /v1/webhook_endpoints.")
+    sys.exit("Set FLOW_MESSAGING_WEBHOOK_SECRET to the whsec_... secret from POST /v0/webhook_endpoints.")
 
 
 def verify(header: str | None, raw_body: bytes, secret: str, tolerance: int = 300) -> bool:

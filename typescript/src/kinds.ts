@@ -8,7 +8,7 @@ export type MessageInput = string | Exclude<OutboundKind, TypingKind | ReadKind>
 /** What `send` resolves with: a `ConversationAction` for `typing` and `read`, else the `Message`. */
 export type SendResult<I> = I extends TypingKind | ReadKind ? ConversationAction : Message;
 
-/** Each kind sent with `POST /v1/conversations/{conversation_id}/<path>`. */
+/** Each kind sent with `POST /v0/conversations/{conversation_id}/<path>`. */
 export const KIND_PATHS: Readonly<Record<string, string>> = {
   basic: "basic",
   voice: "voice",

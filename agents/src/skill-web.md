@@ -12,7 +12,7 @@ metadata:
 
 Flow Messaging is one API for AI agents to hold conversations on Telegram, iMessage and WhatsApp. Flow hosts the senders (bots, lines), delivers every inbound message as an event, and passes every send through one gate that applies each channel's rules.
 
-Channels today: Telegram is live (the shared sandbox bot, or your own bot with a live key). iMessage is live: Flow's shared line is self-serve on sign-in at flow.engineer (or through the Flow CLI), and dedicated lines are set up by the Flow team; it replies after the person writes first (writing first is available on request for dedicated lines), in one-to-one chats and, on dedicated lines, group chats. WhatsApp: on your own number, in your business's WhatsApp Business Account and Meta app, which you connect yourself with a live key (`POST /v1/senders` with `channel` `whatsapp`, or the dashboard's Senders page; the Flow team can still help); the shared WhatsApp sandbox is not open yet. If the user asks for WhatsApp, tell them they can connect their own WhatsApp number with a live key, and build and test on simulated WhatsApp conversations or Telegram meanwhile: the code does not change per channel. SMS (US): in pilot, on US numbers the Flow team registers for a customer; not generally available. There is no voice calling. To ask the Flow team for a number or line, about pricing (billing is not live: free today) or for support, write to {{team_contacts|or}} with your app ID and the details; never send secrets or tokens.
+Channels today: Telegram is live (the shared sandbox bot, or your own bot with a live key). iMessage is live: Flow's shared line is self-serve on sign-in at flow.engineer (or through the Flow CLI), and dedicated lines are set up by the Flow team; it replies after the person writes first (writing first is available on request for dedicated lines), in one-to-one chats and, on dedicated lines, group chats. WhatsApp: on your own number, in your business's WhatsApp Business Account and Meta app, which you connect yourself with a live key (`POST /v0/senders` with `channel` `whatsapp`, or the dashboard's Senders page; the Flow team can still help); the shared WhatsApp sandbox is not open yet. If the user asks for WhatsApp, tell them they can connect their own WhatsApp number with a live key, and build and test on simulated WhatsApp conversations or Telegram meanwhile: the code does not change per channel. SMS (US): in pilot, on US numbers the Flow team registers for a customer; not generally available. There is no voice calling. To ask the Flow team for a number or line, about pricing (billing is not live: free today) or for support, write to {{team_contacts|or}} with your app ID and the details; never send secrets or tokens.
 
 ## Set up
 
@@ -20,7 +20,7 @@ Channels today: Telegram is live (the shared sandbox bot, or your own bot with a
 
 {{> shared-imessage}}
 2. Build on the REST API: {{mcp.runtime_rule}} TypeScript/JavaScript: `npm install @flow-engineer/messaging`. Other languages: HTTP to `https://api.flow.engineer` with `Authorization: Bearer $FLOW_MESSAGING_KEY`.
-3. The user joins the sandbox from their phone: `GET /v1/senders` (or, when the Flow MCP tools are available, `sandbox_join`) gives each sandbox sender's `address.link`. On Telegram, opening the link and tapping Start joins. Otherwise they send the sender's `join_code` message as is, for example `Hi Sandbox app (ref wild-otter-04508705)`, to it. The join then reaches the app as the person's first `message.received` (`Hi Sandbox app`, or `/start` from the link: the code is taken out), right after `conversation.started`.
+3. The user joins the sandbox from their phone: `GET /v0/senders` (or, when the Flow MCP tools are available, `sandbox_join`) gives each sandbox sender's `address.link`. On Telegram, opening the link and tapping Start joins. Otherwise they send the sender's `join_code` message as is, for example `Hi Sandbox app (ref wild-otter-04508705)`, to it. The join then reaches the app as the person's first `message.received` (`Hi Sandbox app`, or `/start` from the link: the code is taken out), right after `conversation.started`.
 
 ## Sandbox allowance and sign-in
 
@@ -31,7 +31,7 @@ Channels today: Telegram is live (the shared sandbox bot, or your own bot with a
 | Channels | Telegram sandbox (WhatsApp when its sandbox opens) | the same |
 | Key expiry | {{allowance.anonymous.key_ttl_days}} days | none |
 
-Only messages your agent sends count; iMessage is in neither. Apps of your own Flow account (made in the dashboard or by `{{trial.cli_setup}}`) get the free trial instead, started at your first sign-in: {{trial.people_per_channel}} people per channel on Flow's shared Telegram, WhatsApp and iMessage senders, over all the account's apps, and `GET /v1/app` shows no `allowance`. `GET /v1/app` returns `allowance` (what is left). {{> sign-in}} By HTTP: `POST /v1/device/authorizations` with `{"claim_token": "fct_..."}`, show the person `verification_uri` and `user_code` (they type the code on that page), then poll `POST /v1/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `status` is `approved` (`key`), `denied` or `expired`; `429 rate_limited` means wait `retry_after`.
+Only messages your agent sends count; iMessage is in neither. Apps of your own Flow account (made in the dashboard or by `{{trial.cli_setup}}`) get the free trial instead, started at your first sign-in: {{trial.people_per_channel}} people per channel on Flow's shared Telegram, WhatsApp and iMessage senders, over all the account's apps, and `GET /v0/app` shows no `allowance`. `GET /v0/app` returns `allowance` (what is left). {{> sign-in}} By HTTP: `POST /v0/device/authorizations` with `{"claim_token": "fct_..."}`, show the person `verification_uri` and `user_code` (they type the code on that page), then poll `POST /v0/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds until `status` is `approved` (`key`), `denied` or `expired`; `429 rate_limited` means wait `retry_after`.
 
 Allowance errors: `403 permission` with `channel_code` `sandbox_allowance_used` (allowance used up), `sandbox_contact_limit` (no room for another contact), `sandbox_channel_not_included` (channel not covered, such as iMessage) or `sign_in_required` (needs a signed-in app); `401 authentication` with `sandbox_key_expired`. Do not retry or get more keys: ask the user to sign in (for `sandbox_channel_not_included` on iMessage, the shared line comes with the free trial a sign-in at flow.engineer or `{{trial.cli_setup}}` starts; meanwhile use the Telegram sandbox sender). Signed-in users manage keys at https://api.flow.engineer/admin. Details: https://docs.flow.engineer/get-a-key.md
 
@@ -56,11 +56,11 @@ export const POST = flow.webhooks.handler({
 
 ## HTTP equivalents
 
-- Read events: `GET /v1/events?type=message.received&after=evt_...` (oldest first).
-- Reply: `POST /v1/conversations/{conversation_id}/basic` with `{"text": "..."}` and an `Idempotency-Key` header. Other kinds have their own endpoints, each opening with the channels it works on: `/voice`, `/buttons`, `/list`, `/carousel`, `/template`, `/contact-card`, `/location`, `/effect`, `/reaction`, `/typing`, `/read`.
+- Read events: `GET /v0/events?type=message.received&after=evt_...` (oldest first).
+- Reply: `POST /v0/conversations/{conversation_id}/basic` with `{"text": "..."}` and an `Idempotency-Key` header. Other kinds have their own endpoints, each opening with the channels it works on: `/voice`, `/buttons`, `/list`, `/carousel`, `/template`, `/contact-card`, `/location`, `/effect`, `/reaction`, `/typing`, `/read`.
 - Reply inside a webhook: answer `200` with `{"reply": {"kind": "basic", "text": "..."}}` (or a list of up to 11 kind objects; a string is a basic message's text). An invalid answer sends nothing and is recorded on the delivery as `invalid_request`.
-- Start a conversation: `POST /v1/messages` with `sender`, `to` (`phone`, `telegram_user_id`, `handle` or `contact`) and a `basic` or `template` message with `kind` (a `template` on WhatsApp).
-- Register a webhook: `POST /v1/webhook_endpoints` with `url` and `events`; store the returned `whsec_...` secret. Rotate it with `POST /v1/webhook_endpoints/{id}/rotate_secret` (the old one keeps signing for `overlap_seconds`, default one day).
+- Start a conversation: `POST /v0/messages` with `sender`, `to` (`phone`, `telegram_user_id`, `handle` or `contact`) and a `basic` or `template` message with `kind` (a `template` on WhatsApp).
+- Register a webhook: `POST /v0/webhook_endpoints` with `url` and `events`; store the returned `whsec_...` secret. Rotate it with `POST /v0/webhook_endpoints/{id}/rotate_secret` (the old one keeps signing for `overlap_seconds`, default one day).
 - Signature: `Flow-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.{t}.{raw body}">`, 5-minute tolerance; during a rotation there is one `v1` per active secret, accept any match.
 
 ## Rules
@@ -72,7 +72,7 @@ export const POST = flow.webhooks.handler({
 - A send is exact or it fails: a kind, field or value the channel does not take answers `422 unsupported_content` (`param` names it; `hint` says what to send instead, such as a basic message, then one buttons message per card, for a carousel on Telegram). Nothing is converted; `text` is sent as written.
 - Switch on `error.type`; each error has `hint` and `doc_url` (`https://api.flow.engineer/docs/errors/<type>`).
 - Use test keys while building; live keys only on the server.
-- Locally, with no public URL, receive events from `GET /v1/stream` (WebSocket, resumable with `after`) instead of a webhook.
+- Locally, with no public URL, receive events from `GET /v0/stream` (WebSocket, resumable with `after`) instead of a webhook.
 
 ## See every conversation (Flow Observe, early access)
 

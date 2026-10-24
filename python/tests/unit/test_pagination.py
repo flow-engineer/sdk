@@ -25,7 +25,7 @@ def paged(route: respx.Route, pages: dict[str | None, tuple[list[str], bool]]) -
 
 
 def test_list_fetches_first_page_eagerly(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/conversations"))
+    route = mock.get(url("/v0/conversations"))
     paged(route, {None: ([C[0], C[1]], True)})
     p = flow.conversations.list(limit=2)
     assert route.call_count == 1
@@ -37,7 +37,7 @@ def test_list_fetches_first_page_eagerly(flow: Flow, mock: respx.MockRouter) -> 
 
 
 def test_iterating_walks_every_page_with_after_and_filters(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/conversations"))
+    route = mock.get(url("/v0/conversations"))
     paged(route, {None: ([C[0], C[1]], True), C[1]: ([C[2], C[3]], True), C[3]: ([C[4]], False)})
     ids = [c.id for c in flow.conversations.list(channel="telegram", sender="snd_x", limit=2, before="conv_z")]
     assert ids == C
@@ -53,14 +53,14 @@ def test_iterating_walks_every_page_with_after_and_filters(flow: Flow, mock: res
 
 
 def test_list_starts_after_the_given_cursor(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/conversations"))
+    route = mock.get(url("/v0/conversations"))
     paged(route, {C[0]: ([C[1], C[2]], True), C[2]: ([C[3]], False)})
     assert [c.id for c in flow.conversations.list(after=C[0])] == [C[1], C[2], C[3]]
     assert [c.request.url.params["after"] for c in route.calls] == [C[0], C[2]]
 
 
 def test_next_page_and_iter_pages(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/conversations"))
+    route = mock.get(url("/v0/conversations"))
     paged(route, {None: ([C[0]], True), C[0]: ([C[1]], False)})
     first = flow.conversations.list()
     second = first.next_page()
@@ -73,14 +73,14 @@ def test_next_page_and_iter_pages(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_next_page_none_when_empty_even_if_has_more(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url("/v1/conversations")).respond(json=page([], True))
+    mock.get(url("/v0/conversations")).respond(json=page([], True))
     p = flow.conversations.list()
     assert p.next_page() is None
     assert list(p) == []
 
 
 def test_to_list_with_limit_stops_fetching(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/conversations"))
+    route = mock.get(url("/v0/conversations"))
     paged(route, {None: ([C[0], C[1]], True), C[1]: ([C[2], C[3]], True), C[3]: ([C[4]], False)})
     assert [c.id for c in flow.conversations.list().to_list(3)] == C[:3]
     assert route.call_count == 2
@@ -90,7 +90,7 @@ def test_to_list_with_limit_stops_fetching(flow: Flow, mock: respx.MockRouter) -
 
 
 def test_events_list_repeats_type_values(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/events")).respond(json=page([event_received(evt(1))]))
+    route = mock.get(url("/v0/events")).respond(json=page([event_received(evt(1))]))
     p = flow.events.list(type=["message.received", "message.failed"], conversation=CONV)
     assert isinstance(p.data[0], MessageReceivedEvent)
     q = route.calls.last.request.url.params
@@ -100,14 +100,14 @@ def test_events_list_repeats_type_values(flow: Flow, mock: respx.MockRouter) -> 
 
 
 def test_events_list_single_type(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/events")).respond(json=page([]))
+    route = mock.get(url("/v0/events")).respond(json=page([]))
     flow.events.list(type="message.received")
     assert route.calls.last.request.url.params.get_list("type") == ["message.received"]
 
 
 def test_conversation_messages_pages(flow: Flow, mock: respx.MockRouter) -> None:
     m1, m2 = ulid("msg", 1), ulid("msg", 2)
-    route = mock.get(url(f"/v1/conversations/{CONV}/messages"))
+    route = mock.get(url(f"/v0/conversations/{CONV}/messages"))
     route.side_effect = [
         httpx.Response(200, json=page([message(m1)], True)),
         httpx.Response(200, json=page([message(m2)], False)),
@@ -130,6 +130,6 @@ def test_encode_query() -> None:
 
 
 def test_boolean_query_lower_case(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/app")).respond(json={})
-    flow._http.request("GET", "/v1/app", query={"flag": True, "off": False, "gone": None})
-    assert str(route.calls.last.request.url).endswith("/v1/app?flag=true&off=false")
+    route = mock.get(url("/v0/app")).respond(json={})
+    flow._http.request("GET", "/v0/app", query={"flag": True, "off": False, "gone": None})
+    assert str(route.calls.last.request.url).endswith("/v0/app?flag=true&off=false")

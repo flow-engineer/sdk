@@ -1,6 +1,6 @@
 # Generated from src/flow_messaging/_async/stream.py by python/scripts/generate.py. Do not edit.
-"""The live event stream: GET /v1/stream over a WebSocket, resumed with ``after`` on
-every reconnect so no event is lost, de-duplicated, with polling of GET /v1/events as
+"""The live event stream: GET /v0/stream over a WebSocket, resumed with ``after`` on
+every reconnect so no event is lost, de-duplicated, with polling of GET /v0/events as
 the other transport. The sync client is generated from this file."""
 
 from __future__ import annotations
@@ -113,7 +113,7 @@ class EventStream:
             self._pending = None
 
     def _connect(self) -> Any:
-        url = self._options.ws_url("/v1/stream", {"after": self.last_event_id, "type": self._types})
+        url = self._options.ws_url("/v0/stream", {"after": self.last_event_id, "type": self._types})
         headers = self._options.headers()
         user_agent = headers.pop("User-Agent")
         try:

@@ -22,5 +22,5 @@ MAX_RETRY_WAIT = 60.0
 
 NO_KEY_HELP = (
     "No key yet? Get a test key in one call, no account needed: "
-    "`Flow().sandbox.create_key()`, or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`."
+    "`Flow().sandbox.create_key()`, or `curl -X POST https://api.flow.engineer/v0/sandbox/keys`."
 )

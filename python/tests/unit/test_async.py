@@ -44,7 +44,7 @@ from flow_messaging import (
 from flow_messaging.types import Conversation, Message
 
 C = [ulid("conv", n) for n in range(1, 6)]
-SEND = url(f"/v1/conversations/{CONV}/messages")
+SEND = url(f"/v0/conversations/{CONV}/messages")
 
 
 def paged(route: respx.Route) -> None:
@@ -60,7 +60,7 @@ def paged(route: respx.Route) -> None:
 async def test_env_and_headers(monkeypatch: pytest.MonkeyPatch, mock: respx.MockRouter) -> None:
     monkeypatch.setenv("FLOW_MESSAGING_KEY", "fk_test_env")
     monkeypatch.setenv("FLOW_MESSAGING_BASE_URL", "https://env.test/")
-    route = mock.post(f"https://env.test/v1/conversations/{CONV}/messages").respond(json=message())
+    route = mock.post(f"https://env.test/v0/conversations/{CONV}/messages").respond(json=message())
     async with AsyncFlow() as aflow:
         assert aflow.base_url == "https://env.test"
         assert aflow.test_mode
@@ -75,7 +75,7 @@ async def test_env_and_headers(monkeypatch: pytest.MonkeyPatch, mock: respx.Mock
 
 
 async def test_no_flow_version(mock: respx.MockRouter) -> None:
-    route = mock.get(url(f"/v1/messages/{MSG}")).respond(json=message())
+    route = mock.get(url(f"/v0/messages/{MSG}")).respond(json=message())
     async with AsyncFlow(KEY, base_url=BASE, flow_version=None) as aflow:
         await aflow.messages.retrieve(MSG)
     assert "flow-version" not in route.calls.last.request.headers
@@ -93,8 +93,8 @@ async def test_without_key_raises_before_request(mock: respx.MockRouter) -> None
 
 
 async def test_keyless_calls(mock: respx.MockRouter) -> None:
-    keys = mock.post(url("/v1/sandbox/keys")).respond(201, json=sandbox_key())
-    auth = mock.post(url("/v1/device/authorizations")).respond(json=device_authorization())
+    keys = mock.post(url("/v0/sandbox/keys")).respond(201, json=sandbox_key())
+    auth = mock.post(url("/v0/device/authorizations")).respond(json=device_authorization())
     async with AsyncFlow(base_url=BASE) as aflow:
         assert (await aflow.sandbox.create_key()).key == KEY
         await aflow.device.authorize(claim_token="fct_x")
@@ -139,12 +139,12 @@ async def test_not_retried(aflow: AsyncFlow, mock: respx.MockRouter, sleeps: lis
 
 
 async def test_connection_and_timeout_errors(aflow: AsyncFlow, mock: respx.MockRouter, sleeps: list[float]) -> None:
-    conn = mock.get(url(f"/v1/messages/{MSG}")).mock(side_effect=httpx.ConnectError("refused"))
+    conn = mock.get(url(f"/v0/messages/{MSG}")).mock(side_effect=httpx.ConnectError("refused"))
     with pytest.raises(APIConnectionError) as e:
         await aflow.messages.retrieve(MSG)
     assert not isinstance(e.value, APITimeoutError)
     assert conn.call_count == 3
-    slow = mock.get(url("/v1/app")).mock(side_effect=httpx.ReadTimeout("slow"))
+    slow = mock.get(url("/v0/app")).mock(side_effect=httpx.ReadTimeout("slow"))
     with pytest.raises(APITimeoutError):
         await aflow.app.retrieve()
     assert slow.call_count == 3
@@ -152,7 +152,7 @@ async def test_connection_and_timeout_errors(aflow: AsyncFlow, mock: respx.MockR
 
 
 async def test_await_list_gives_one_page(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/conversations"))
+    route = mock.get(url("/v0/conversations"))
     paged(route)
     pager = aflow.conversations.list(limit=2, channel="telegram")
     assert isinstance(pager, AsyncPager)
@@ -172,7 +172,7 @@ async def test_await_list_gives_one_page(aflow: AsyncFlow, mock: respx.MockRoute
 
 
 async def test_async_for_walks_every_page(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/conversations"))
+    route = mock.get(url("/v0/conversations"))
     paged(route)
     ids = [c.id async for c in aflow.conversations.list(before="conv_z")]
     assert ids == C
@@ -184,7 +184,7 @@ async def test_async_for_walks_every_page(aflow: AsyncFlow, mock: respx.MockRout
 
 
 async def test_to_list(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/conversations"))
+    route = mock.get(url("/v0/conversations"))
     paged(route)
     items = await aflow.conversations.list().to_list(3)
     assert all(isinstance(c, Conversation) for c in items)
@@ -194,17 +194,17 @@ async def test_to_list(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
 
 
 async def test_events_list_type_repeated(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/events")).respond(json=page([]))
+    route = mock.get(url("/v0/events")).respond(json=page([]))
     await aflow.events.list(type=["message.received", "message.sent"])
     assert route.calls.last.request.url.params.get_list("type") == ["message.received", "message.sent"]
 
 
 async def test_resources_round_trip(aflow: AsyncFlow, mock: respx.MockRouter, tmp_path: Path) -> None:
-    start = mock.post(url("/v1/messages")).respond(201, json=message())
-    edit = mock.patch(url(f"/v1/messages/{MSG}")).respond(json=message())
-    unsend = mock.delete(url(f"/v1/messages/{MSG}")).respond(json=message(status="unsent"))
-    upload = mock.post(url("/v1/files")).respond(201, json=file_obj())
-    contact = mock.delete(url("/v1/contacts/ct_x")).respond(204)
+    start = mock.post(url("/v0/messages")).respond(201, json=message())
+    edit = mock.patch(url(f"/v0/messages/{MSG}")).respond(json=message())
+    unsend = mock.delete(url(f"/v0/messages/{MSG}")).respond(json=message(status="unsent"))
+    upload = mock.post(url("/v0/files")).respond(201, json=file_obj())
+    contact = mock.delete(url("/v0/contacts/ct_x")).respond(204)
     await aflow.messages.start(sender="snd_x", to="+15555550100", content="hi")
     assert json.loads(start.calls.last.request.read())["to"] == {"phone": "+15555550100"}
     with pytest.raises(ValueError):
@@ -221,17 +221,17 @@ async def test_resources_round_trip(aflow: AsyncFlow, mock: respx.MockRouter, tm
 
 
 async def test_download_redirect_without_authorization(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
-    api = mock.get(url(f"/v1/files/{FILE}")).respond(302, headers={"Location": "https://files.test/s?sig=1"})
+    api = mock.get(url(f"/v0/files/{FILE}")).respond(302, headers={"Location": "https://files.test/s?sig=1"})
     signed = mock.get("https://files.test/s").respond(200, content=b"async bytes")
-    assert await aflow.files.download(f"{BASE}/v1/files/{FILE}") == b"async bytes"
+    assert await aflow.files.download(f"{BASE}/v0/files/{FILE}") == b"async bytes"
     assert api.calls.last.request.headers["authorization"] == f"Bearer {KEY}"
     assert "authorization" not in signed.calls.last.request.headers
-    mock.get(url("/v1/files/file_direct")).respond(200, content=b"direct")
+    mock.get(url("/v0/files/file_direct")).respond(200, content=b"direct")
     assert await aflow.files.download("file_direct") == b"direct"
 
 
 async def test_device_wait_for_key(aflow: AsyncFlow, mock: respx.MockRouter, sleeps: list[float]) -> None:
-    route = mock.post(url("/v1/device/token"))
+    route = mock.post(url("/v0/device/token"))
     route.side_effect = [
         httpx.Response(200, json=device_token("pending", 5)),
         httpx.Response(429, json=error("rate_limited", retry_after=20)),
@@ -247,7 +247,7 @@ async def test_device_wait_for_key(aflow: AsyncFlow, mock: respx.MockRouter, sle
 
 
 async def test_device_denied_and_failures(aflow: AsyncFlow, mock: respx.MockRouter) -> None:
-    route = mock.post(url("/v1/device/token"))
+    route = mock.post(url("/v0/device/token"))
     route.side_effect = [httpx.Response(200, json=device_token("denied"))]
     with pytest.raises(DeviceSignInError) as e:
         await aflow.device.wait_for_key("dc_x")
@@ -258,7 +258,7 @@ async def test_device_denied_and_failures(aflow: AsyncFlow, mock: respx.MockRout
 
 
 async def test_device_bearer_for_test_key_only(mock: respx.MockRouter) -> None:
-    route = mock.post(url("/v1/device/authorizations")).respond(json=device_authorization())
+    route = mock.post(url("/v0/device/authorizations")).respond(json=device_authorization())
     async with AsyncFlow(KEY, base_url=BASE) as aflow:
         await aflow.device.authorize()
         assert route.calls.last.request.headers["authorization"] == f"Bearer {KEY}"
@@ -270,8 +270,8 @@ async def test_device_bearer_for_test_key_only(mock: respx.MockRouter) -> None:
 
 
 async def test_sign_in(mock: respx.MockRouter, sleeps: list[float]) -> None:
-    mock.post(url("/v1/device/authorizations")).respond(json=device_authorization(interval=3))
-    mock.post(url("/v1/device/token")).respond(json=device_token("approved", 3, key="fk_test_new"))
+    mock.post(url("/v0/device/authorizations")).respond(json=device_authorization(interval=3))
+    mock.post(url("/v0/device/token")).respond(json=device_token("approved", 3, key="fk_test_new"))
     prompts: list[str] = []
     async with AsyncFlow(base_url=BASE) as aflow:
 
@@ -302,7 +302,7 @@ async def test_conversation_handle(aflow: AsyncFlow, mock: respx.MockRouter) -> 
 
 
 async def test_with_options_and_context_manager(mock: respx.MockRouter) -> None:
-    route = mock.get(url(f"/v1/messages/{MSG}")).respond(503, json=error("api_error"))
+    route = mock.get(url(f"/v0/messages/{MSG}")).respond(503, json=error("api_error"))
     async with AsyncFlow(KEY, base_url=BASE) as aflow:
         copy = aflow.with_options(max_retries=0, timeout=3)
         assert isinstance(copy, AsyncFlow)

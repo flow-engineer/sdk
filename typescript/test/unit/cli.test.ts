@@ -72,11 +72,11 @@ describe("agent files", () => {
 });
 
 describe("init", () => {
-  // A stand-in API for the key check: GET /v1/app and GET /v1/senders.
+  // A stand-in API for the key check: GET /v0/app and GET /v0/senders.
   async function api() {
     const server = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
-      if (req.url?.startsWith("/v1/app")) {
+      if (req.url?.startsWith("/v0/app")) {
         res.end(JSON.stringify({ app: { id: "app_1", name: "Demo", sandbox_join_code: "wild-otter-04508705" }, livemode: false }));
         return;
       }
@@ -174,7 +174,7 @@ describe("init without a key", () => {
   clearFlowEnv();
 
   it("gets a sandbox key, saves it and the claim token, and shows the sandbox, the allowance and login", async () => {
-    const { fetch, calls } = mockFetch((req) => (req.method === "POST" && req.url.pathname === "/v1/sandbox/keys" ? json(201, sandboxKey()) : undefined));
+    const { fetch, calls } = mockFetch((req) => (req.method === "POST" && req.url.pathname === "/v0/sandbox/keys" ? json(201, sandboxKey()) : undefined));
     const dir = tmp();
     const lines: string[] = [];
     await init({ dir, name: "Demo", fetch, baseURL: "https://api.test", agentFiles: false, mcp: false, codex: false, print: (l) => lines.push(l) });
@@ -205,7 +205,7 @@ describe("login", () => {
   it("claims the app with the claim token, polls, and replaces the key in .env", async () => {
     let polls = 0;
     const { fetch, calls } = mockFetch((req) => {
-      if (req.url.pathname === "/v1/device/authorizations") return json(201, deviceAuthorization(2));
+      if (req.url.pathname === "/v0/device/authorizations") return json(201, deviceAuthorization(2));
       polls++;
       return polls < 2 ? json(200, { status: "pending", interval: 2 }) : json(200, approvedToken());
     });
@@ -246,7 +246,7 @@ describe("login", () => {
   it("with --no-wait prints the link and exits, and a second run collects the key", async () => {
     let approved = false;
     const { fetch, calls } = mockFetch((req) => {
-      if (req.url.pathname === "/v1/device/authorizations") return json(201, deviceAuthorization());
+      if (req.url.pathname === "/v0/device/authorizations") return json(201, deviceAuthorization());
       return approved ? json(200, approvedToken()) : json(200, { status: "pending", interval: 5 });
     });
     const dir = project();
@@ -257,7 +257,7 @@ describe("login", () => {
     expect(lines.join("\n")).toContain("run `npx @flow-engineer/messaging login` again");
 
     expect(await login(base)).toBe("pending"); // not approved yet: same sign-in, no new one
-    expect(calls.filter((c) => c.url.pathname === "/v1/device/authorizations")).toHaveLength(1);
+    expect(calls.filter((c) => c.url.pathname === "/v0/device/authorizations")).toHaveLength(1);
 
     approved = true;
     expect(await login(base)).toBe("signed_in");
@@ -265,7 +265,7 @@ describe("login", () => {
   });
 
   it("starts again when the person refused, and says so", async () => {
-    const { fetch } = mockFetch((req) => (req.url.pathname === "/v1/device/authorizations" ? json(201, deviceAuthorization()) : json(200, { status: "denied", interval: 5 })));
+    const { fetch } = mockFetch((req) => (req.url.pathname === "/v0/device/authorizations" ? json(201, deviceAuthorization()) : json(200, { status: "denied", interval: 5 })));
     const dir = project();
     await expect(login({ dir, fetch, wait: true, browser: false, print: () => undefined, sleep: async () => undefined })).rejects.toThrow(/refused.*login/);
     expect(parseDotenv(readFileSync(path.join(dir, ".env"), "utf8")).FLOW_DEVICE_CODE).toBeUndefined();

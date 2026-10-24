@@ -155,7 +155,7 @@ describe("host notice", () => {
     announceAPIHost(BASE, (l) => lines.push(l));
     announceAPIHost(undefined, (l) => lines.push(l));
     expect(lines).toEqual([]);
-    announceAPIHost("https://staging.example.com/v1", (l) => lines.push(l));
+    announceAPIHost("https://staging.example.com/v0", (l) => lines.push(l));
     expect(lines).toEqual(["Using API at https://staging.example.com (not api.flow.engineer)."]);
   });
 });
@@ -218,7 +218,7 @@ describe(".gitignore", () => {
 
 describe("login guards", () => {
   const authorization = (overrides: Record<string, unknown>) =>
-    mockFetch((req) => (req.url.pathname === "/v1/device/authorizations" ? json(201, { ...deviceAuthorization(), ...overrides }) : json(200, approvedToken())));
+    mockFetch((req) => (req.url.pathname === "/v0/device/authorizations" ? json(201, { ...deviceAuthorization(), ...overrides }) : json(200, approvedToken())));
 
   it("refuses a sign-in link on another host: opens nothing, names the host, keeps only the code", async () => {
     for (const evil of [
@@ -269,7 +269,7 @@ describe("login guards", () => {
     mkdirSync(child);
     let polls = 0;
     const { fetch, calls } = mockFetch((req) => {
-      if (req.url.pathname === "/v1/device/authorizations") return json(201, deviceAuthorization());
+      if (req.url.pathname === "/v0/device/authorizations") return json(201, deviceAuthorization());
       return ++polls < 2 ? json(200, { status: "pending", interval: 5 }) : json(200, approvedToken(false));
     });
     const r = await login({ dir: child, fetch, baseURL: BASE, wait: true, browser: false, print: () => undefined, sleep: async () => undefined });

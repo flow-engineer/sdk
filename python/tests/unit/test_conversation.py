@@ -66,10 +66,10 @@ def test_event_without_conversation_refused(flow: Flow) -> None:
 
 
 def test_handle_actions(flow: Flow, mock: respx.MockRouter) -> None:
-    send = mock.post(url(f"/v1/conversations/{CONV}/messages")).respond(json=message())
-    typing = mock.post(url(f"/v1/conversations/{CONV}/typing")).respond(json=conversation_action())
-    read = mock.post(url(f"/v1/conversations/{CONV}/read")).respond(json=conversation_action("read"))
-    msgs = mock.get(url(f"/v1/conversations/{CONV}/messages")).respond(json=page([message()]))
+    send = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
+    typing = mock.post(url(f"/v0/conversations/{CONV}/typing")).respond(json=conversation_action())
+    read = mock.post(url(f"/v0/conversations/{CONV}/read")).respond(json=conversation_action("read"))
+    msgs = mock.get(url(f"/v0/conversations/{CONV}/messages")).respond(json=page([message()]))
     h = flow.conversation(CONV)
 
     h.send("hi", reply_to=MSG, metadata={"k": "v"}, idempotency_key="idem-1")

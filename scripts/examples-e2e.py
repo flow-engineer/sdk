@@ -183,10 +183,10 @@ class User:
 
 
 def sandbox_key():
-    """A new sandbox app, as `curl -X POST .../v1/sandbox/keys` makes it."""
-    status, body = http("POST", API + "/v1/sandbox/keys")
+    """A new sandbox app, as `curl -X POST .../v0/sandbox/keys` makes it."""
+    status, body = http("POST", API + "/v0/sandbox/keys")
     if status != 201:
-        raise Failed(f"POST /v1/sandbox/keys answered {status}: {body}")
+        raise Failed(f"POST /v0/sandbox/keys answered {status}: {body}")
     return body
 
 
@@ -230,7 +230,7 @@ def wait_sent(key, conv, text):
     until the message is there or WAIT runs out."""
     deadline = time.monotonic() + WAIT
     while True:
-        entries = api("GET", f"/v1/test/conversations/{conv}/transcript?limit=100", key)["data"]
+        entries = api("GET", f"/v0/test/conversations/{conv}/transcript?limit=100", key)["data"]
         if any(e["direction"] == "out" and e["content"].get("kind") == "basic" and e["content"].get("text") == text for e in entries):
             return
         if time.monotonic() > deadline:
@@ -320,7 +320,7 @@ class StubLLM(ThreadingHTTPServer):
                 answer = json.dumps({"id": f"msg_stub{n}", "type": "message", "role": "assistant", "model": body["model"],
                                      "content": [{"type": "text", "text": f"Stub answer {n}"}], "stop_reason": "end_turn",
                                      "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 1}}).encode()
-                self.send_response(200 if self.path.startswith("/v1/messages") else 404)
+                self.send_response(200 if self.path.startswith("/v0/messages") else 404)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(answer)))
                 self.end_headers()
@@ -393,9 +393,9 @@ def webhook_receiver(run):
     sk = sandbox_key()
     port = free_port()
     url = f"http://127.0.0.1:{port}/flow/webhook"
-    status, ep = http("POST", API + "/v1/webhook_endpoints", {"url": url, "events": ["message.received", "message.failed"]},
+    status, ep = http("POST", API + "/v0/webhook_endpoints", {"url": url, "events": ["message.received", "message.failed"]},
                       {"Authorization": "Bearer " + sk["key"], "Idempotency-Key": f"e2e-endpoint-{port}"})
-    check(status == 201, f"POST /v1/webhook_endpoints answered {status}: {ep}")
+    check(status == 201, f"POST /v0/webhook_endpoints answered {status}: {ep}")
     secret = ep["secret"]
     p = run("webhook-receiver", env={"FLOW_MESSAGING_WEBHOOK_SECRET": secret, "PORT": str(port)})
     try:
@@ -470,18 +470,18 @@ def ask_and_wait_simulated(run):
     p = run("ask-and-wait", env={"FLOW_MESSAGING_KEY": key})
     try:
         p.expect(r"^Waiting for someone to join or write\.\.\.$")
-        conv = api("POST", "/v1/test/conversations", key, {"channel": "telegram"})["id"]
-        api("POST", f"/v1/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "hi"}})
+        conv = api("POST", "/v0/test/conversations", key, {"channel": "telegram"})["id"]
+        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "hi"}})
         p.expect(rf"^\[{conv}\] joined on telegram$")
         wait_sent(key, conv, "Hi! What's your name?")
-        api("POST", f"/v1/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Asha"}})
+        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Asha"}})
         p.expect(rf"^\[{conv}\] name: Asha$")
         wait_sent(key, conv, "Nice to meet you, Asha. Which city are you in?")
-        api("POST", f"/v1/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Pune"}})
+        api("POST", f"/v0/test/conversations/{conv}/inbound", key, {"content": {"type": "text", "text": "Pune"}})
         p.expect(rf"^\[{conv}\] city: Pune$")
         msg = p.expect(rf"^\[{conv}\] sent (msg_\w+)$").group(1)
         check(p.wait_exit() == 0, "the example did not exit cleanly")
-        last = api("GET", f"/v1/messages/{msg}", key)
+        last = api("GET", f"/v0/messages/{msg}", key)
         check(last["status"] == "sent" and last["content"]["text"] == "Thanks, Asha! You're signed up in Pune.", f"last message: {last}")
     finally:
         p.stop()

@@ -9,7 +9,7 @@ the contact gets; nothing is converted.
   `carousel`, `template`, `contactCard`, `location`, `effect`, `reaction`, and `send`,
   which takes any kind object (a string is short for `{ kind: "basic", text }`) and
   sends it to its kind's endpoint (`typing` and `read` too, and `edit` and `unsend` to
-  `PATCH` and `DELETE /v1/messages/{message_id}`). An object with no kind that can be
+  `PATCH` and `DELETE /v0/messages/{message_id}`). An object with no kind that can be
   sent throws a `TypeError` before any request.
 - `messages.start` takes a flat `{ sender, to, kind: "basic" | "template", ... }`;
   `messages.edit(id, text | { text, telegram?, imessage? })`.

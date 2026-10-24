@@ -80,7 +80,7 @@ export class Messages {
   ) {}
 
   private post(conversationId: string, path: string, body: object, options?: RequestOptions): Promise<Message> {
-    return this.http.request({ method: "POST", path: `/v1/conversations/${enc(conversationId)}/${path}`, body, options });
+    return this.http.request({ method: "POST", path: `/v0/conversations/${enc(conversationId)}/${path}`, body, options });
   }
 
   /**
@@ -153,7 +153,7 @@ export class Messages {
    * Sends one kind object to its kind's endpoint, exactly as given: `basic` to
    * `/basic`, `buttons` to `/buttons`, and so on; `typing` and `read` to the
    * conversation's typing and read endpoints (resolving a `ConversationAction`); `edit`
-   * and `unsend` to `PATCH` and `DELETE /v1/messages/{message_id}`. A string is short
+   * and `unsend` to `PATCH` and `DELETE /v0/messages/{message_id}`. A string is short
    * for `{ kind: "basic", text }`. Nothing is converted: a kind the channel cannot take
    * throws `UnsupportedContentError` (`param` says what, `hint` what to send instead).
    * An object with no kind that can be sent is refused with a `TypeError` before any
@@ -173,7 +173,7 @@ export class Messages {
     if (msg.kind === "unsend") return this.unsend(msg.message_id, options) as Promise<SendResult<I>>;
     return this.http.request({
       method: "POST",
-      path: `/v1/conversations/${enc(conversationId)}/${KIND_PATHS[msg.kind]!}`,
+      path: `/v0/conversations/${enc(conversationId)}/${KIND_PATHS[msg.kind]!}`,
       body: msg,
       options,
     });
@@ -190,12 +190,12 @@ export class Messages {
    * ```
    */
   start(params: StartConversationRequest, options?: RequestOptions): Promise<Message> {
-    return this.http.request({ method: "POST", path: "/v1/messages", body: params, options });
+    return this.http.request({ method: "POST", path: "/v0/messages", body: params, options });
   }
 
   /** One message, inbound or outbound, with its current status. */
   retrieve(messageId: string, options?: RequestOptions): Promise<Message> {
-    return this.http.request({ method: "GET", path: `/v1/messages/${enc(messageId)}`, options });
+    return this.http.request({ method: "GET", path: `/v0/messages/${enc(messageId)}`, options });
   }
 
   /**
@@ -204,12 +204,12 @@ export class Messages {
    */
   edit(messageId: string, body: string | EditMessageRequest, options?: RequestOptions): Promise<Message> {
     const b: EditMessageRequest = typeof body === "string" ? { text: body } : body;
-    return this.http.request({ method: "PATCH", path: `/v1/messages/${enc(messageId)}`, body: b, options });
+    return this.http.request({ method: "PATCH", path: `/v0/messages/${enc(messageId)}`, body: b, options });
   }
 
   /** Removes one of your sent messages from the contact's chat (Telegram within 48 hours, iMessage within 2 minutes). */
   unsend(messageId: string, options?: RequestOptions): Promise<Message> {
-    return this.http.request({ method: "DELETE", path: `/v1/messages/${enc(messageId)}`, options });
+    return this.http.request({ method: "DELETE", path: `/v0/messages/${enc(messageId)}`, options });
   }
 
   /**
@@ -254,17 +254,17 @@ export class Conversations {
 
   /** Your app's conversations in this mode, newest first. */
   list(params: ListConversationsParams = {}): PagePromise<Conversation> {
-    return list(this.http, "/v1/conversations", params);
+    return list(this.http, "/v0/conversations", params);
   }
 
   /** One conversation with its window state. */
   retrieve(conversationId: string, options?: RequestOptions): Promise<Conversation> {
-    return this.http.request({ method: "GET", path: `/v1/conversations/${enc(conversationId)}`, options });
+    return this.http.request({ method: "GET", path: `/v0/conversations/${enc(conversationId)}`, options });
   }
 
   /** A conversation's messages, inbound and outbound, newest first. */
   messages(conversationId: string, params: ListMessagesParams = {}): PagePromise<Message> {
-    return list(this.http, `/v1/conversations/${enc(conversationId)}/messages`, params);
+    return list(this.http, `/v0/conversations/${enc(conversationId)}/messages`, params);
   }
 
   /**
@@ -274,7 +274,7 @@ export class Conversations {
    * iMessage.
    */
   typing(conversationId: string, body: TypingMessage = {}, options?: RequestOptions): Promise<ConversationAction> {
-    return this.http.request({ method: "POST", path: `/v1/conversations/${enc(conversationId)}/typing`, body, options });
+    return this.http.request({ method: "POST", path: `/v0/conversations/${enc(conversationId)}/typing`, body, options });
   }
 
   /**
@@ -283,7 +283,7 @@ export class Conversations {
    * marks the whole conversation and refuses `up_to`.
    */
   read(conversationId: string, body: ReadMessage = {}, options?: RequestOptions): Promise<ConversationAction> {
-    return this.http.request({ method: "POST", path: `/v1/conversations/${enc(conversationId)}/read`, body, options });
+    return this.http.request({ method: "POST", path: `/v0/conversations/${enc(conversationId)}/read`, body, options });
   }
 
   /**
@@ -342,13 +342,13 @@ export class Files {
     form.append("file", blob, name);
     if (params.filename) form.append("filename", params.filename);
     if (params.channel) form.append("channel", params.channel);
-    return this.http.request({ method: "POST", path: "/v1/files", form, options });
+    return this.http.request({ method: "POST", path: "/v0/files", form, options });
   }
 
   /** Downloads a file's bytes (inbound media URLs point here). */
   async download(fileIdOrUrl: string, options?: RequestOptions): Promise<Blob> {
     const id = fileIdOrUrl.includes("/") ? fileIdOrUrl.split("/").pop()! : fileIdOrUrl;
-    const res = await this.http.request<Response>({ method: "GET", path: `/v1/files/${enc(id)}`, options, raw: true });
+    const res = await this.http.request<Response>({ method: "GET", path: `/v0/files/${enc(id)}`, options, raw: true });
     return res.blob();
   }
 }
@@ -358,22 +358,22 @@ export class Senders {
 
   /** Senders your app can use in this mode. Test keys see the shared sandbox senders. */
   list(params: ListSendersParams = {}): PagePromise<Sender> {
-    return list(this.http, "/v1/senders", params);
+    return list(this.http, "/v0/senders", params);
   }
 
   /** One sender with its status and limits. */
   retrieve(senderId: string, options?: RequestOptions): Promise<Sender> {
-    return this.http.request({ method: "GET", path: `/v1/senders/${enc(senderId)}`, options });
+    return this.http.request({ method: "GET", path: `/v0/senders/${enc(senderId)}`, options });
   }
 
   /** Requests a dedicated sender (live keys). A Telegram bot connects at once with `telegram_bot_token`; your own WhatsApp number with `whatsapp_phone_number_id`, `whatsapp_business_account_id`, `whatsapp_access_token` and `whatsapp_app_secret` (the answer's `setup` says what to set in your Meta app). */
   request(params: SenderRequest, options?: RequestOptions): Promise<Sender> {
-    return this.http.request({ method: "POST", path: "/v1/senders", body: params, options });
+    return this.http.request({ method: "POST", path: "/v0/senders", body: params, options });
   }
 
   /** Disconnects one of your Telegram bots or WhatsApp numbers (live keys): deletes its stored credentials and retires the sender (status `banned`). */
   disconnect(senderId: string, options?: RequestOptions): Promise<Sender> {
-    return this.http.request({ method: "DELETE", path: `/v1/senders/${enc(senderId)}`, options });
+    return this.http.request({ method: "DELETE", path: `/v0/senders/${enc(senderId)}`, options });
   }
 }
 
@@ -382,20 +382,20 @@ export class Templates {
 
   /** WhatsApp templates of your senders, newest first. */
   list(params: ListTemplatesParams = {}): PagePromise<Template> {
-    return list(this.http, "/v1/templates", params);
+    return list(this.http, "/v0/templates", params);
   }
 
   /** Submits a WhatsApp template for review. */
   create(params: TemplateCreateRequest, options?: RequestOptions): Promise<Template> {
-    return this.http.request({ method: "POST", path: "/v1/templates", body: params, options });
+    return this.http.request({ method: "POST", path: "/v0/templates", body: params, options });
   }
 
   retrieve(templateId: string, options?: RequestOptions): Promise<Template> {
-    return this.http.request({ method: "GET", path: `/v1/templates/${enc(templateId)}`, options });
+    return this.http.request({ method: "GET", path: `/v0/templates/${enc(templateId)}`, options });
   }
 
   delete(templateId: string, options?: RequestOptions): Promise<Deleted> {
-    return this.http.request({ method: "DELETE", path: `/v1/templates/${enc(templateId)}`, options });
+    return this.http.request({ method: "DELETE", path: `/v0/templates/${enc(templateId)}`, options });
   }
 }
 
@@ -403,24 +403,24 @@ export class WebhookEndpoints {
   constructor(private readonly http: HttpClient) {}
 
   list(params: ListWebhookEndpointsParams = {}): PagePromise<WebhookEndpoint> {
-    return list(this.http, "/v1/webhook_endpoints", params);
+    return list(this.http, "/v0/webhook_endpoints", params);
   }
 
   /** Registers an HTTPS URL for the listed event types. The answer's `secret` (`whsec_...`) is shown only this once. */
   create(params: WebhookEndpointCreateRequest, options?: RequestOptions): Promise<WebhookEndpoint> {
-    return this.http.request({ method: "POST", path: "/v1/webhook_endpoints", body: params, options });
+    return this.http.request({ method: "POST", path: "/v0/webhook_endpoints", body: params, options });
   }
 
   retrieve(endpointId: string, options?: RequestOptions): Promise<WebhookEndpoint> {
-    return this.http.request({ method: "GET", path: `/v1/webhook_endpoints/${enc(endpointId)}`, options });
+    return this.http.request({ method: "GET", path: `/v0/webhook_endpoints/${enc(endpointId)}`, options });
   }
 
   update(endpointId: string, params: WebhookEndpointUpdateRequest, options?: RequestOptions): Promise<WebhookEndpoint> {
-    return this.http.request({ method: "PATCH", path: `/v1/webhook_endpoints/${enc(endpointId)}`, body: params, options });
+    return this.http.request({ method: "PATCH", path: `/v0/webhook_endpoints/${enc(endpointId)}`, body: params, options });
   }
 
   delete(endpointId: string, options?: RequestOptions): Promise<Deleted> {
-    return this.http.request({ method: "DELETE", path: `/v1/webhook_endpoints/${enc(endpointId)}`, options });
+    return this.http.request({ method: "DELETE", path: `/v0/webhook_endpoints/${enc(endpointId)}`, options });
   }
 
   /**
@@ -429,7 +429,7 @@ export class WebhookEndpoints {
    * once), so deliveries verify with either secret while you deploy the new one.
    */
   rotateSecret(endpointId: string, params: WebhookSecretRotateRequest = {}, options?: RequestOptions): Promise<WebhookEndpoint> {
-    return this.http.request({ method: "POST", path: `/v1/webhook_endpoints/${enc(endpointId)}/rotate_secret`, body: params, options });
+    return this.http.request({ method: "POST", path: `/v0/webhook_endpoints/${enc(endpointId)}/rotate_secret`, body: params, options });
   }
 }
 
@@ -437,11 +437,11 @@ export class Contacts {
   constructor(private readonly http: HttpClient) {}
 
   list(params: ListContactsParams = {}): PagePromise<Contact> {
-    return list(this.http, "/v1/contacts", params);
+    return list(this.http, "/v0/contacts", params);
   }
 
   retrieve(contactId: string, options?: RequestOptions): Promise<Contact> {
-    return this.http.request({ method: "GET", path: `/v1/contacts/${enc(contactId)}`, options });
+    return this.http.request({ method: "GET", path: `/v0/contacts/${enc(contactId)}`, options });
   }
 
   /**
@@ -451,7 +451,7 @@ export class Contacts {
    * had throws a `not_found` error (`param` `contact_id`). Emits `contact.deleted`.
    */
   delete(contactId: string, options?: RequestOptions): Promise<void> {
-    return this.http.request({ method: "DELETE", path: `/v1/contacts/${enc(contactId)}`, options });
+    return this.http.request({ method: "DELETE", path: `/v0/contacts/${enc(contactId)}`, options });
   }
 }
 
@@ -463,7 +463,7 @@ export class AppResource {
    * for sandbox apps, what is left of the sandbox `allowance`.
    */
   retrieve(options?: RequestOptions): Promise<AppContext> {
-    return this.http.request({ method: "GET", path: "/v1/app", options });
+    return this.http.request({ method: "GET", path: "/v0/app", options });
   }
 }
 
@@ -488,7 +488,7 @@ export class Sandbox {
    * ```
    */
   createKey(params: SandboxKeyRequest = {}, options?: RequestOptions): Promise<SandboxKey> {
-    return this.http.request({ method: "POST", path: "/v1/sandbox/keys", body: params, options, auth: false });
+    return this.http.request({ method: "POST", path: "/v0/sandbox/keys", body: params, options, auth: false });
   }
 }
 
@@ -540,12 +540,12 @@ export class Device {
     if (params.claimToken) body.claim_token = params.claimToken;
     if (params.clientName) body.client_name = params.clientName;
     const bearer = !params.claimToken && params.useKey !== false && this.http.testMode;
-    return this.http.request({ method: "POST", path: "/v1/device/authorizations", body, options, auth: bearer });
+    return this.http.request({ method: "POST", path: "/v0/device/authorizations", body, options, auth: bearer });
   }
 
   /** One poll of a sign-in: `pending`, `approved` (with `key`), `denied` or `expired`. */
   poll(deviceCode: string, options?: RequestOptions): Promise<DeviceToken> {
-    return this.http.request({ method: "POST", path: "/v1/device/token", body: { device_code: deviceCode }, options, auth: false });
+    return this.http.request({ method: "POST", path: "/v0/device/token", body: { device_code: deviceCode }, options, auth: false });
   }
 
   /**
@@ -640,7 +640,7 @@ export class Testing {
    * `contact`, the contact gets a new made-up address, so each call is a fresh conversation.
    */
   createConversation(params: TestConversationRequest, options?: RequestOptions): Promise<Conversation> {
-    return this.http.request({ method: "POST", path: "/v1/test/conversations", body: params, options });
+    return this.http.request({ method: "POST", path: "/v0/test/conversations", body: params, options });
   }
 
   /**
@@ -664,7 +664,7 @@ export class Testing {
           : input;
     return this.http.request({
       method: "POST",
-      path: `/v1/test/conversations/${enc(conversationId)}/inbound`,
+      path: `/v0/test/conversations/${enc(conversationId)}/inbound`,
       body,
       options,
     });
@@ -672,7 +672,7 @@ export class Testing {
 
   /** Both sides of a simulated conversation, oldest first, as `Message`s. */
   transcript(conversationId: string, params: TestTranscriptParams = {}): PagePromise<TranscriptEntry> {
-    return list(this.http, `/v1/test/conversations/${enc(conversationId)}/transcript`, params);
+    return list(this.http, `/v0/test/conversations/${enc(conversationId)}/transcript`, params);
   }
 }
 
@@ -682,10 +682,10 @@ export class EventLog {
 
   /** The log, oldest first. Pass the last event you processed as `after` to catch up. */
   list(params: ListEventsParams = {}): PagePromise<Event> {
-    return list(this.http, "/v1/events", params);
+    return list(this.http, "/v0/events", params);
   }
 
   retrieve(eventId: string, options?: RequestOptions): Promise<Event> {
-    return this.http.request({ method: "GET", path: `/v1/events/${enc(eventId)}`, options });
+    return this.http.request({ method: "GET", path: `/v0/events/${enc(eventId)}`, options });
   }
 }

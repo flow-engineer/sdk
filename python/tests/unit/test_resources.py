@@ -65,7 +65,7 @@ def sent(route: respx.Route) -> Any:
 
 
 def test_send_string_becomes_text(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v1/conversations/{CONV}/messages")).respond(json=message())
+    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
     msg = flow.messages.send(CONV, "Hello")
     assert isinstance(msg, Message)
     assert msg.id == MSG
@@ -73,7 +73,7 @@ def test_send_string_becomes_text(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_send_dict_with_options(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v1/conversations/{CONV}/messages")).respond(json=message(reply_to="msg_prev"))
+    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message(reply_to="msg_prev"))
     content = {"type": "buttons", "text": "Size?", "buttons": [{"id": "s", "label": "S"}]}
     msg = flow.messages.send(
         CONV,
@@ -94,7 +94,7 @@ def test_send_dict_with_options(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_send_model_omits_unset_fields(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v1/conversations/{CONV}/messages")).respond(json=message())
+    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
     flow.messages.send(CONV, TextContent(type="text", text="Hi"), fallback={"type": "text", "text": "Hi (plain)"})
     assert sent(route) == {
         "content": {"type": "text", "text": "Hi"},
@@ -103,7 +103,7 @@ def test_send_model_omits_unset_fields(flow: Flow, mock: respx.MockRouter) -> No
 
 
 def test_send_model_keeps_set_fields(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url(f"/v1/conversations/{CONV}/messages")).respond(json=message())
+    route = mock.post(url(f"/v0/conversations/{CONV}/messages")).respond(json=message())
     flow.messages.send(CONV, TextContent(type="text", text="*Hi*", format="markdown"))
     assert sent(route)["content"] == {"type": "text", "text": "*Hi*", "format": "markdown"}
 
@@ -117,7 +117,7 @@ def test_send_model_keeps_set_fields(flow: Flow, mock: respx.MockRouter) -> None
     ],
 )
 def test_start_recipients(to: Any, expected: dict[str, str], flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url("/v1/messages")).respond(201, json=message())
+    route = mock.post(url("/v0/messages")).respond(201, json=message())
     flow.messages.start(sender=SENDER, to=to, content="Hi", consent={"method": "web_form"})
     assert sent(route) == {
         "sender": SENDER,
@@ -129,16 +129,16 @@ def test_start_recipients(to: Any, expected: dict[str, str], flow: Flow, mock: r
 
 
 def test_start_bad_string_raises_value_error(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url("/v1/messages")).respond(201, json=message())
+    route = mock.post(url("/v0/messages")).respond(201, json=message())
     with pytest.raises(ValueError, match="contact ID"):
         flow.messages.start(sender=SENDER, to="someone@example.com", content="Hi")
     assert not route.called
 
 
 def test_retrieve_edit_unsend(flow: Flow, mock: respx.MockRouter) -> None:
-    get = mock.get(url(f"/v1/messages/{MSG}")).respond(json=message())
-    patch = mock.patch(url(f"/v1/messages/{MSG}")).respond(json=message(content={"type": "text", "text": "new"}))
-    delete = mock.delete(url(f"/v1/messages/{MSG}")).respond(json=message(status="unsent"))
+    get = mock.get(url(f"/v0/messages/{MSG}")).respond(json=message())
+    patch = mock.patch(url(f"/v0/messages/{MSG}")).respond(json=message(content={"type": "text", "text": "new"}))
+    delete = mock.delete(url(f"/v0/messages/{MSG}")).respond(json=message(status="unsent"))
     assert flow.messages.retrieve(MSG).id == MSG
     edited = flow.messages.edit(MSG, "new")
     assert sent(patch) == {"content": {"type": "text", "text": "new"}}
@@ -152,18 +152,18 @@ def test_retrieve_edit_unsend(flow: Flow, mock: respx.MockRouter) -> None:
 def test_path_ids_are_escaped(flow: Flow, mock: respx.MockRouter) -> None:
     route = mock.route(host="api.test").respond(json=message())
     flow.messages.retrieve("msg/../x?y#z")
-    assert route.calls.last.request.url.raw_path == b"/v1/messages/msg%2F..%2Fx%3Fy%23z"
+    assert route.calls.last.request.url.raw_path == b"/v0/messages/msg%2F..%2Fx%3Fy%23z"
     flow.messages.send("conv x/1", "hi")
-    assert route.calls.last.request.url.raw_path == b"/v1/conversations/conv%20x%2F1/messages"
+    assert route.calls.last.request.url.raw_path == b"/v0/conversations/conv%20x%2F1/messages"
 
 
 # conversations ---------------------------------------------------------------
 
 
 def test_conversations(flow: Flow, mock: respx.MockRouter) -> None:
-    lst = mock.get(url("/v1/conversations")).respond(json=page([conversation()]))
-    get = mock.get(url(f"/v1/conversations/{CONV}")).respond(json=conversation(window={"open": True}))
-    msgs = mock.get(url(f"/v1/conversations/{CONV}/messages")).respond(json=page([message()]))
+    lst = mock.get(url("/v0/conversations")).respond(json=page([conversation()]))
+    get = mock.get(url(f"/v0/conversations/{CONV}")).respond(json=conversation(window={"open": True}))
+    msgs = mock.get(url(f"/v0/conversations/{CONV}/messages")).respond(json=page([message()]))
     p = flow.conversations.list(contact=CONTACT)
     assert isinstance(p.data[0], Conversation)
     assert lst.calls.last.request.url.params["contact"] == CONTACT
@@ -175,8 +175,8 @@ def test_conversations(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_typing_and_mark_read(flow: Flow, mock: respx.MockRouter) -> None:
-    typing = mock.post(url(f"/v1/conversations/{CONV}/typing")).respond(json=conversation_action("typing_on"))
-    read = mock.post(url(f"/v1/conversations/{CONV}/read")).respond(json=conversation_action("read"))
+    typing = mock.post(url(f"/v0/conversations/{CONV}/typing")).respond(json=conversation_action("typing_on"))
+    read = mock.post(url(f"/v0/conversations/{CONV}/read")).respond(json=conversation_action("read"))
     a = flow.conversations.typing(CONV)
     assert isinstance(a, ConversationAction) and a.action == "typing_on"
     assert sent(typing) == {"state": "on"}
@@ -189,7 +189,7 @@ def test_typing_and_mark_read(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_capabilities(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.get(url("/v1/capabilities")).respond(json=capabilities())
+    route = mock.get(url("/v0/capabilities")).respond(json=capabilities())
     caps = flow.capabilities.retrieve(CONV)
     assert isinstance(caps, Capabilities)
     assert caps.window.open is True
@@ -206,7 +206,7 @@ def multipart(route: respx.Route) -> bytes:
 
 
 def test_upload_bytes(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url("/v1/files")).respond(201, json=file_obj())
+    route = mock.post(url("/v0/files")).respond(201, json=file_obj())
     f = flow.files.upload(b"\x89PNG", filename="cat.png", channel="telegram")
     assert isinstance(f, File) and f.id == FILE
     raw = multipart(route)
@@ -218,7 +218,7 @@ def test_upload_bytes(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_upload_bytes_without_options(flow: Flow, mock: respx.MockRouter) -> None:
-    route = mock.post(url("/v1/files")).respond(201, json=file_obj())
+    route = mock.post(url("/v0/files")).respond(201, json=file_obj())
     flow.files.upload(b"data")
     raw = multipart(route)
     assert b'name="file"; filename="file"' in raw
@@ -229,7 +229,7 @@ def test_upload_bytes_without_options(flow: Flow, mock: respx.MockRouter) -> Non
 def test_upload_path(flow: Flow, mock: respx.MockRouter, tmp_path: Path) -> None:
     p = tmp_path / "report.pdf"
     p.write_bytes(b"%PDF-1.7 body")
-    route = mock.post(url("/v1/files")).respond(201, json=file_obj())
+    route = mock.post(url("/v0/files")).respond(201, json=file_obj())
     flow.files.upload(p)
     raw = multipart(route)
     assert b'filename="report.pdf"' in raw
@@ -241,7 +241,7 @@ def test_upload_path(flow: Flow, mock: respx.MockRouter, tmp_path: Path) -> None
 def test_upload_file_object(flow: Flow, mock: respx.MockRouter, tmp_path: Path) -> None:
     p = tmp_path / "voice.ogg"
     p.write_bytes(b"OggS")
-    route = mock.post(url("/v1/files")).respond(201, json=file_obj())
+    route = mock.post(url("/v0/files")).respond(201, json=file_obj())
     with p.open("rb") as fh:
         flow.files.upload(fh)
     raw = multipart(route)
@@ -257,16 +257,16 @@ def test_upload_rejects_other_types(flow: Flow) -> None:
 
 
 def test_download_200_returns_bytes(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url(f"/v1/files/{FILE}")).respond(200, content=b"bytes!")
+    mock.get(url(f"/v0/files/{FILE}")).respond(200, content=b"bytes!")
     assert flow.files.download(FILE) == b"bytes!"
 
 
 def test_download_redirect_drops_authorization(flow: Flow, mock: respx.MockRouter) -> None:
-    api = mock.get(url(f"/v1/files/{FILE}")).respond(
+    api = mock.get(url(f"/v0/files/{FILE}")).respond(
         302, headers={"Location": "https://files.test/signed/cat.png?sig=x"}
     )
     signed = mock.get("https://files.test/signed/cat.png").respond(200, content=b"signed bytes")
-    assert flow.files.download(f"https://api.test/v1/files/{FILE}") == b"signed bytes"
+    assert flow.files.download(f"https://api.test/v0/files/{FILE}") == b"signed bytes"
     assert api.calls.last.request.headers["authorization"] == f"Bearer {KEY}"
     req = signed.calls.last.request
     assert "authorization" not in req.headers
@@ -274,14 +274,14 @@ def test_download_redirect_drops_authorization(flow: Flow, mock: respx.MockRoute
 
 
 def test_download_relative_redirect(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url(f"/v1/files/{FILE}")).respond(307, headers={"Location": "/f/token/cat.png"})
+    mock.get(url(f"/v0/files/{FILE}")).respond(307, headers={"Location": "/f/token/cat.png"})
     signed = mock.get(url("/f/token/cat.png")).respond(200, content=b"x")
     assert flow.files.download(FILE + "/") == b"x"
     assert "authorization" not in signed.calls.last.request.headers
 
 
 def test_download_redirect_failure(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url(f"/v1/files/{FILE}")).respond(302, headers={"Location": "https://files.test/gone"})
+    mock.get(url(f"/v0/files/{FILE}")).respond(302, headers={"Location": "https://files.test/gone"})
     mock.get("https://files.test/gone").respond(403)
     with pytest.raises(APIError) as e:
         flow.files.download(FILE)
@@ -289,7 +289,7 @@ def test_download_redirect_failure(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_download_redirect_without_location(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url(f"/v1/files/{FILE}")).respond(302)
+    mock.get(url(f"/v0/files/{FILE}")).respond(302)
     with pytest.raises(APIError, match="Location"):
         flow.files.download(FILE)
 
@@ -298,10 +298,10 @@ def test_download_redirect_without_location(flow: Flow, mock: respx.MockRouter) 
 
 
 def test_senders(flow: Flow, mock: respx.MockRouter) -> None:
-    lst = mock.get(url("/v1/senders")).respond(json=page([sender()]))
-    get = mock.get(url(f"/v1/senders/{SENDER}")).respond(json=sender())
-    post = mock.post(url("/v1/senders")).respond(201, json=sender(kind="dedicated", status="pending"))
-    delete = mock.delete(url(f"/v1/senders/{SENDER}")).respond(json=sender(status="banned"))
+    lst = mock.get(url("/v0/senders")).respond(json=page([sender()]))
+    get = mock.get(url(f"/v0/senders/{SENDER}")).respond(json=sender())
+    post = mock.post(url("/v0/senders")).respond(201, json=sender(kind="dedicated", status="pending"))
+    delete = mock.delete(url(f"/v0/senders/{SENDER}")).respond(json=sender(status="banned"))
     p = flow.senders.list(channel="telegram", kind="shared")
     assert isinstance(p.data[0], Sender)
     assert lst.calls.last.request.url.params["kind"] == "shared"
@@ -313,10 +313,10 @@ def test_senders(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_templates(flow: Flow, mock: respx.MockRouter) -> None:
-    lst = mock.get(url("/v1/templates")).respond(json=page([template()]))
-    post = mock.post(url("/v1/templates")).respond(201, json=template())
-    get = mock.get(url(f"/v1/templates/{TPL}")).respond(json=template())
-    delete = mock.delete(url(f"/v1/templates/{TPL}")).respond(json=deleted(TPL))
+    lst = mock.get(url("/v0/templates")).respond(json=page([template()]))
+    post = mock.post(url("/v0/templates")).respond(201, json=template())
+    get = mock.get(url(f"/v0/templates/{TPL}")).respond(json=template())
+    delete = mock.delete(url(f"/v0/templates/{TPL}")).respond(json=deleted(TPL))
     p = flow.templates.list(sender=SENDER, status="approved")
     assert isinstance(p.data[0], Template)
     assert lst.calls.last.request.url.params["status"] == "approved"
@@ -336,12 +336,12 @@ def test_templates(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_webhook_endpoints(flow: Flow, mock: respx.MockRouter) -> None:
-    post = mock.post(url("/v1/webhook_endpoints")).respond(201, json=webhook_endpoint(secret="whsec_x"))
-    lst = mock.get(url("/v1/webhook_endpoints")).respond(json=page([webhook_endpoint()]))
-    get = mock.get(url(f"/v1/webhook_endpoints/{WH}")).respond(json=webhook_endpoint())
-    patch = mock.patch(url(f"/v1/webhook_endpoints/{WH}")).respond(json=webhook_endpoint(enabled=False))
-    delete = mock.delete(url(f"/v1/webhook_endpoints/{WH}")).respond(json=deleted(WH))
-    rotate = mock.post(url(f"/v1/webhook_endpoints/{WH}/rotate_secret")).respond(
+    post = mock.post(url("/v0/webhook_endpoints")).respond(201, json=webhook_endpoint(secret="whsec_x"))
+    lst = mock.get(url("/v0/webhook_endpoints")).respond(json=page([webhook_endpoint()]))
+    get = mock.get(url(f"/v0/webhook_endpoints/{WH}")).respond(json=webhook_endpoint())
+    patch = mock.patch(url(f"/v0/webhook_endpoints/{WH}")).respond(json=webhook_endpoint(enabled=False))
+    delete = mock.delete(url(f"/v0/webhook_endpoints/{WH}")).respond(json=deleted(WH))
+    rotate = mock.post(url(f"/v0/webhook_endpoints/{WH}/rotate_secret")).respond(
         json=webhook_endpoint(secret="whsec_y")
     )
 
@@ -367,9 +367,9 @@ def test_webhook_endpoints(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_contacts(flow: Flow, mock: respx.MockRouter) -> None:
-    lst = mock.get(url("/v1/contacts")).respond(json=page([contact()]))
-    get = mock.get(url(f"/v1/contacts/{CONTACT}")).respond(json=contact())
-    delete = mock.delete(url(f"/v1/contacts/{CONTACT}")).respond(204)
+    lst = mock.get(url("/v0/contacts")).respond(json=page([contact()]))
+    get = mock.get(url(f"/v0/contacts/{CONTACT}")).respond(json=contact())
+    delete = mock.delete(url(f"/v0/contacts/{CONTACT}")).respond(204)
     p = flow.contacts.list(channel="whatsapp")
     assert isinstance(p.data[0], Contact)
     assert lst.calls.last.request.url.params["channel"] == "whatsapp"
@@ -379,14 +379,14 @@ def test_contacts(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_app_retrieve(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url("/v1/app")).respond(json=app_context())
+    mock.get(url("/v0/app")).respond(json=app_context())
     ctx = flow.app.retrieve()
     assert isinstance(ctx, AppContext)
     assert ctx.api_key.mode == "test"
 
 
 def test_events_retrieve(flow: Flow, mock: respx.MockRouter) -> None:
-    mock.get(url(f"/v1/events/{evt(1)}")).respond(json=event_received(evt(1), "yo"))
+    mock.get(url(f"/v0/events/{evt(1)}")).respond(json=event_received(evt(1), "yo"))
     e = flow.events.retrieve(evt(1))
     assert isinstance(e, MessageReceivedEvent)
     assert e.data.message.content.text == "yo"  # type: ignore[union-attr]
@@ -396,9 +396,9 @@ def test_events_retrieve(flow: Flow, mock: respx.MockRouter) -> None:
 
 
 def test_simulated_conversation(flow: Flow, mock: respx.MockRouter) -> None:
-    create = mock.post(url("/v1/test/conversations")).respond(201, json=conversation(simulated=True))
-    inbound = mock.post(url(f"/v1/test/conversations/{CONV}/inbound")).respond(201, json=simulated_inbound())
-    transcript = mock.get(url(f"/v1/test/conversations/{CONV}/transcript"))
+    create = mock.post(url("/v0/test/conversations")).respond(201, json=conversation(simulated=True))
+    inbound = mock.post(url(f"/v0/test/conversations/{CONV}/inbound")).respond(201, json=simulated_inbound())
+    transcript = mock.get(url(f"/v0/test/conversations/{CONV}/transcript"))
     m2 = message("msg_01JB8ZD4M6P8R0T2V4X6Z80002", shown={"type": "text", "text": "Hi"})
     transcript.side_effect = [
         httpx.Response(200, json=page([message(direction="in", status="received")], True)),

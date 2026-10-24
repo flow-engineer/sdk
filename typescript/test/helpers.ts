@@ -96,7 +96,7 @@ const app = {
   created_at: "2026-11-01T00:00:00Z",
 };
 
-/** A POST /v1/sandbox/keys answer, with placeholder secrets. */
+/** A POST /v0/sandbox/keys answer, with placeholder secrets. */
 export function sandboxKey() {
   return {
     key: "fk_test_unitsandbox",
@@ -118,7 +118,7 @@ export function sandboxKey() {
   };
 }
 
-/** A POST /v1/device/authorizations answer. */
+/** A POST /v0/device/authorizations answer. */
 export function deviceAuthorization(interval = 5) {
   return {
     device_code: "fdc_unitdevice",
@@ -131,7 +131,7 @@ export function deviceAuthorization(interval = 5) {
   };
 }
 
-/** A POST /v1/device/token answer that carries a new key. */
+/** A POST /v0/device/token answer that carries a new key. */
 export function approvedToken(claimed = true, provider = "flow") {
   return {
     status: "approved",

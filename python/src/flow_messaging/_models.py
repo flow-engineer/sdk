@@ -58,7 +58,7 @@ class Account(BaseModel):
     and messages already queued there fail the same way. The sandbox
     senders answer the account's contacts with a fixed refusal and store
     and deliver nothing they send; turning the flag on ends the account's
-    sandbox joins. Only SMS can be simulated (`POST /v1/test/conversations`):
+    sandbox joins. Only SMS can be simulated (`POST /v0/test/conversations`):
     creating a simulated Telegram, WhatsApp or iMessage conversation, or posting a
     turn to one made before the flag was set, answers the same refusal.
     Set by the Flow team.
@@ -137,7 +137,7 @@ class ApiKey(BaseModel):
     expires_at: datetime | None = None
     """
     When the key stops working. Set only on keys of an unclaimed app made with
-    `POST /v1/sandbox/keys` (7 days after it was made); signing in through the
+    `POST /v0/sandbox/keys` (7 days after it was made); signing in through the
     device flow claims the app and removes it. An expired key can still start
     that sign-in for 30 days after this time, and claiming the app within those
     30 days makes the key work again.
@@ -244,14 +244,14 @@ class BasicImessageOptions(BaseModel):
 class BasicMessage(BaseModel):
     """
     Text, or one media file with an optional caption, in either direction: the
-    kind every channel takes (`POST /v1/conversations/{conversation_id}/basic`).
+    kind every channel takes (`POST /v0/conversations/{conversation_id}/basic`).
     Give `text`, `media`, or both (then `text` is the caption). A field not
     listed here is refused with `400 invalid_request` naming it in `param`;
     a field or channel block the conversation's channel does not take answers
     `422 unsupported_content` naming it.
 
     Received from a contact: their text and/or one file. Inbound media always
-    has `url` (a Flow file URL, `GET /v1/files/{file_id}`) and `file_id`, on
+    has `url` (a Flow file URL, `GET /v0/files/{file_id}`) and `file_id`, on
     every channel (an SMS contact's MMS files included), and `mime_type` and
     `size_bytes` once Flow kept the file; send a received file again by its
     `file_id`. On SMS Flow always keeps its own copy (the provider's is
@@ -265,7 +265,7 @@ class BasicMessage(BaseModel):
     )
     kind: Literal["basic"] = "basic"
     """
-    Always `basic`. Optional on `POST /v1/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
+    Always `basic`. Optional on `POST /v0/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
     """
     text: str | None = None
     """
@@ -316,7 +316,7 @@ class BasicKind(BasicMessage):
     )
     kind: Literal["basic"]
     """
-    Always `basic`. Optional on `POST /v1/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
+    Always `basic`. Optional on `POST /v0/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
     """
 
 
@@ -388,7 +388,7 @@ class ButtonReplyMessage(BaseModel):
 class ButtonsMessage(BaseModel):
     """
     Text with buttons, sent only (`POST
-    /v1/conversations/{conversation_id}/buttons`), optionally under a
+    /v0/conversations/{conversation_id}/buttons`), optionally under a
     `header`. A tap on a reply button arrives as a `button_reply` message
     carrying the button's `id`. URL buttons open a link and send nothing back.
 
@@ -552,7 +552,7 @@ class CarouselCard(BaseModel):
 class CarouselMessage(BaseModel):
     """
     A row of 2 to 10 cards the contact scrolls sideways, under one text, sent
-    only (`POST /v1/conversations/{conversation_id}/carousel`; WhatsApp). Each
+    only (`POST /v0/conversations/{conversation_id}/carousel`; WhatsApp). Each
     card has an image or video, optional text, and its own buttons. A tap on a
     reply button arrives as a `button_reply` message carrying the button's
     `id`; URL buttons open a link and send nothing back. Every card has the
@@ -697,7 +697,7 @@ class Contact(BaseModel):
     consent: ContactConsent | None = None
     simulated: bool | None = None
     """
-    `true` for a simulated contact, who exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise.
+    `true` for a simulated contact, who exists only inside Flow (test mode only, from `POST /v0/test/conversations`); absent otherwise.
     """
     created_at: datetime
     """
@@ -734,7 +734,7 @@ class ContactAddress(BaseModel):
 class ContactCardMessage(BaseModel):
     """
     A contact card, in either direction (`POST
-    /v1/conversations/{conversation_id}/contact-card` sends one; Telegram and
+    /v0/conversations/{conversation_id}/contact-card` sends one; Telegram and
     WhatsApp). Inbound, a card the contact shared.
 
     """
@@ -861,7 +861,7 @@ class ContentHeader(BaseModel):
     What is shown above a buttons message's text, or a carousel card's image or
     video: an image, a video, a document or a short title. A media header
     takes exactly one of `url` (an HTTPS URL Flow fetches) or `file_id` (from
-    `POST /v1/files`), and is fetched and checked for the channel like a basic
+    `POST /v0/files`), and is fetched and checked for the channel like a basic
     message's `media` (so WebP and other formats work); a `text` header takes
     `text`. Anything else, or a value over a limit, is refused with `400
     invalid_request` naming the field in `param`.
@@ -961,7 +961,7 @@ class Conversation(BaseModel):
     """
     simulated: bool | None = None
     """
-    `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise.
+    `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v0/test/conversations`); absent otherwise.
     """
     metadata: dict[str, str] | None = None
     created_at: datetime
@@ -1049,7 +1049,7 @@ class ConversationRef(BaseModel):
     """
     simulated: bool | None = None
     """
-    `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v1/test/conversations`); absent otherwise.
+    `true` for a simulated conversation, whose contact exists only inside Flow (test mode only, from `POST /v0/test/conversations`); absent otherwise.
     """
 
 
@@ -1096,7 +1096,7 @@ class DeviceAuthorization(BaseModel):
     )
     device_code: Annotated[str, Field(examples=["fdc_..."])]
     """
-    The secret you poll `POST /v1/device/token` with. Never show it to the person.
+    The secret you poll `POST /v0/device/token` with. Never show it to the person.
     """
     user_code: Annotated[str, Field(examples=["WDJB-MJHT"])]
     """
@@ -1124,7 +1124,7 @@ class DeviceAuthorization(BaseModel):
     """
     interval: int
     """
-    Seconds to wait between polls of `POST /v1/device/token`.
+    Seconds to wait between polls of `POST /v0/device/token`.
     """
 
 
@@ -1138,7 +1138,7 @@ class DeviceAuthorizationRequest(BaseModel):
     )
     claim_token: str | None = None
     """
-    The `claim_token` from `POST /v1/sandbox/keys`, to claim that app when the person approves.
+    The `claim_token` from `POST /v0/sandbox/keys`, to claim that app when the person approves.
     """
     client_name: str | None = None
     """
@@ -1193,7 +1193,7 @@ class DeviceTokenRequest(BaseModel):
     )
     device_code: str
     """
-    The `device_code` from `POST /v1/device/authorizations`.
+    The `device_code` from `POST /v0/device/authorizations`.
     """
 
 
@@ -1213,7 +1213,7 @@ class EditImessageOptions(BaseModel):
 
 class EditMessageRequest(BaseModel):
     """
-    The new text of a sent message (`PATCH /v1/messages/{message_id}`), sent
+    The new text of a sent message (`PATCH /v0/messages/{message_id}`), sent
     exactly as written. A field not listed here is refused with `400
     invalid_request` naming it in `param`; a channel block for another channel
     answers `422 unsupported_content` with `param` the block's name.
@@ -1238,7 +1238,7 @@ class EditMessage(EditMessageRequest):
     """
     A change to the text of one of your sent messages, as a kind: a piece of a
     webhook reply or on the stream, and the `content` of the message that
-    carries an edit (`PATCH /v1/messages/{message_id}` over HTTP, whose rules
+    carries an edit (`PATCH /v0/messages/{message_id}` over HTTP, whose rules
     apply). `message_id` names the message to change.
 
     """
@@ -1276,7 +1276,7 @@ class EditTelegramOptions(BaseModel):
 
 class EffectMessage(BaseModel):
     """
-    Text sent with an iMessage effect, sent only (`POST /v1/conversations/{conversation_id}/effect`; iMessage). Which effects a contact's device shows may vary.
+    Text sent with an iMessage effect, sent only (`POST /v0/conversations/{conversation_id}/effect`; iMessage). Which effects a contact's device shows may vary.
     """
 
     model_config = ConfigDict(
@@ -1351,12 +1351,12 @@ class ErrorBody(BaseModel):
     the error's `doc_url`; the error's `hint` says what to change for the case.
 
     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
-    - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v1/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
+    - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v0/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
-    - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v1/conversations/{conversation_id}/template`, or `POST /v1/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-    - `unsupported_content` (422): the conversation's channel does not take this kind, field, block or value, and nothing was sent; Flow never converts a message. `param` names what was refused: `kind` (the endpoint's kind is not on this channel, such as a carousel on Telegram), a field or block (`reply_to` on SMS, `telegram` on WhatsApp, `telegram.is_big`), or the field whose value is not taken (`emoji` outside Telegram's reaction emoji, `buttons` for more than 3 WhatsApp buttons). `channel` is the conversation's channel and `hint` says what to send instead over plain HTTP; each endpoint's page lists its channels. In an iMessage group conversation, a reaction, typing or a read receipt answers it with `param` `kind` and `channel_code` `group_unsupported`: leave it out. Media to an SMS number without MMS answers it with `param` `media` and `channel_code` `no_mms`. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v1/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
+    - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
+    - `unsupported_content` (422): the conversation's channel does not take this kind, field, block or value, and nothing was sent; Flow never converts a message. `param` names what was refused: `kind` (the endpoint's kind is not on this channel, such as a carousel on Telegram), a field or block (`reply_to` on SMS, `telegram` on WhatsApp, `telegram.is_big`), or the field whose value is not taken (`emoji` outside Telegram's reaction emoji, `buttons` for more than 3 WhatsApp buttons). `channel` is the conversation's channel and `hint` says what to send instead over plain HTTP; each endpoint's page lists its channels. In an iMessage group conversation, a reaction, typing or a read receipt answers it with `param` `kind` and `channel_code` `group_unsupported`: leave it out. Media to an SMS number without MMS answers it with `param` `media` and `channel_code` `no_mms`. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v0/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file. (When the scan cannot run at all, the upload answers a retryable `500 api_error` with `Retry-After` instead.)
@@ -1373,13 +1373,13 @@ class ErrorBody(BaseModel):
     hint: Annotated[
         str,
         Field(
-            examples=["Send a template instead: POST /v1/conversations/{conversation_id}/template."]
+            examples=["Send a template instead: POST /v0/conversations/{conversation_id}/template."]
         ),
     ]
     """
     One sentence saying what to change to make the request succeed, specific
     to this case, for example "Send a template instead: POST
-    /v1/conversations/{conversation_id}/template." For `unsupported_content`
+    /v0/conversations/{conversation_id}/template." For `unsupported_content`
     it says what to send instead over plain HTTP. Written for developers and
     coding agents alike. Do not parse it; it may be reworded at any time.
 
@@ -1424,7 +1424,7 @@ class ErrorBody(BaseModel):
     the allowance does not cover this sandbox channel), `sign_in_required`
     (`permission`: an app made without an account cannot do this) or
     `sandbox_key_expired` (`authentication`: a key from `POST
-    /v1/sandbox/keys` passed its `expires_at`; `permission`, for a send
+    /v0/sandbox/keys` passed its `expires_at`; `permission`, for a send
     that carries no key, such as a reply in a webhook answer, from such an
     app). For `idempotency_conflict`, always one of `body_mismatch` (the
     key was used for a different request), `in_progress` (the first
@@ -1436,7 +1436,7 @@ class ErrorBody(BaseModel):
     `registration_required`, `carrier_error` and `provider_not_configured`
     (`channel_error`). HIPAA accounts: `hipaa_channel_not_covered`
     (`permission`). Connecting your own WhatsApp number (`POST
-    /v1/senders`): `whatsapp_token_malformed`, `whatsapp_token_rejected`,
+    /v0/senders`): `whatsapp_token_malformed`, `whatsapp_token_rejected`,
     `whatsapp_app_secret_malformed` and `whatsapp_number_not_in_account`
     (`invalid_request`), and `whatsapp_number_taken`,
     `whatsapp_account_taken` and `whatsapp_number_managed` (`permission`).
@@ -1521,7 +1521,7 @@ class CallReceivedEvent(EventBase):
 
 class ContactDeletedEvent(EventBase):
     """
-    A contact was deleted with `DELETE /v1/contacts/{contact_id}`: their address,
+    A contact was deleted with `DELETE /v0/contacts/{contact_id}`: their address,
     messages, files and events are erased at Flow. Delete what you keep about
     them too. Sent once, for the first delete; it has no `conversation`.
 
@@ -1646,7 +1646,7 @@ class File(BaseModel):
     """
     url: str
     """
-    Its Flow URL (`https://api.flow.engineer/v1/files/{file_id}`), which redirects to the bytes for an authenticated request.
+    Its Flow URL (`https://api.flow.engineer/v0/files/{file_id}`), which redirects to the bytes for an authenticated request.
     """
     livemode: bool
     """
@@ -1797,7 +1797,7 @@ class ImessageSender(BaseModel):
     can_initiate: bool
     """
     Whether the line may write first: start a conversation with
-    `POST /v1/messages` with a contact who has not messaged it. Off (the
+    `POST /v0/messages` with a contact who has not messaged it. Off (the
     default), the line only replies and a start answers `403 permission`.
     Writing first is available on request from the Flow team, on dedicated
     lines only (always `false` on shared lines); a line that starts
@@ -1832,7 +1832,7 @@ class ImessageStyle(BaseModel):
 class ListMessage(BaseModel):
     """
     WhatsApp's list message, sent only (`POST
-    /v1/conversations/{conversation_id}/list`): the text, a button that opens
+    /v0/conversations/{conversation_id}/list`): the text, a button that opens
     the list, and up to 10 rows in sections. A tap on a row arrives as a
     `button_reply` message whose `button_id` is the row's `id` and whose
     `label` is its title. Row `id`s are unique across the list; a repeated one
@@ -1937,7 +1937,7 @@ class ListSection(BaseModel):
 class LocationMessage(BaseModel):
     """
     A place, in either direction (`POST
-    /v1/conversations/{conversation_id}/location` sends one; Telegram and
+    /v0/conversations/{conversation_id}/location` sends one; Telegram and
     WhatsApp). Inbound, a location the contact shared.
 
     """
@@ -2001,7 +2001,7 @@ class Media(BaseModel):
     One image, video, document or audio file. When sending, give exactly one of
     `url` (an HTTPS URL Flow fetches; Flow neither stores nor scans it, and on
     Telegram a document by URL works for PDF and ZIP files) or `file_id` (from
-    `POST /v1/files`). Each channel takes files up to its own size: Telegram
+    `POST /v0/files`). Each channel takes files up to its own size: Telegram
     50 MB, WhatsApp and iMessage 100 MB, SMS (MMS) 5 MB; a larger file answers
     `422 unsupported_content` with `param` `media`. SMS carries images, audio
     and video, never documents (`param` `media.type`), and only from numbers
@@ -2152,9 +2152,9 @@ class MessageContent1(BasicKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2181,9 +2181,9 @@ class MessageContent13(EditMessage):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2210,9 +2210,9 @@ class MessageContent15(ButtonReplyMessage):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2239,9 +2239,9 @@ class MessageContent16(FileBlockedMessage):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2268,9 +2268,9 @@ class MessageContent3(ButtonsKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2297,9 +2297,9 @@ class MessageContent4(ListKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2326,9 +2326,9 @@ class MessageContent5(CarouselKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2355,9 +2355,9 @@ class MessageContent7(ContactCardKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2384,9 +2384,9 @@ class MessageContent8(LocationKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2413,9 +2413,9 @@ class MessageContent9(EffectKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2647,7 +2647,7 @@ class ReactionEventData(BaseModel):
 class ReactionMessage(BaseModel):
     """
     A reaction to a message, in either direction (`POST
-    /v1/conversations/{conversation_id}/reaction` sends one). Set `emoji` to
+    /v0/conversations/{conversation_id}/reaction` sends one). Set `emoji` to
     `null` to remove your reaction. Inbound reactions also arrive as
     `reaction.added` and `reaction.removed` events.
 
@@ -2701,9 +2701,9 @@ class MessageContent10(ReactionKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2748,7 +2748,7 @@ class ReactionTelegramOptions(BaseModel):
 
 class ReadMessage(BaseModel):
     """
-    A read receipt, sent only (`POST /v1/conversations/{conversation_id}/read`;
+    A read receipt, sent only (`POST /v0/conversations/{conversation_id}/read`;
     a `read` piece in a webhook reply or on the stream does the same).
 
     """
@@ -2798,9 +2798,9 @@ class MessageContent12(ReadKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -2867,7 +2867,7 @@ class ReplyButton(BaseModel):
 class SandboxAllowance(BaseModel):
     """
     What the app may still send on the shared sandbox senders for free. Present
-    only on apps that have one: apps made with `POST /v1/sandbox/keys`
+    only on apps that have one: apps made with `POST /v0/sandbox/keys`
     (`anonymous`, one allowance per app), and apps of people who signed in
     (`signed_in`, one allowance per person: every app the person owns or claimed
     draws on the same contacts and messages, so the counts here are the
@@ -2934,7 +2934,7 @@ class SandboxKey(BaseModel):
     claim_token: Annotated[str, Field(examples=["fct_..."])]
     """
     Proves you hold this app when a person signs in to claim it: pass it to
-    `POST /v1/device/authorizations`. Shown once; keep it with the key. It
+    `POST /v0/device/authorizations`. Shown once; keep it with the key. It
     stops working once the app is claimed.
 
     """
@@ -2989,7 +2989,7 @@ class Sender(BaseModel):
     """
     `shared` (the sandbox), `dedicated` (yours) or `simulated` (test mode only:
     your app's stand-in for a channel, used by simulated conversations from
-    `POST /v1/test/conversations`; it never touches a network).
+    `POST /v0/test/conversations`; it never touches a network).
 
     """
     livemode: bool
@@ -3010,11 +3010,11 @@ class Sender(BaseModel):
       bot is also `flagged` when Telegram rejects its token (revoked in
       @BotFather): it then sends nothing, new sends answer `403 permission`, and
       queued messages wait until you connect the bot again with its new token
-      (`POST /v1/senders`). They wait at most 72 hours after Flow accepted
+      (`POST /v0/senders`). They wait at most 72 hours after Flow accepted
       them; older ones fail with `outside_window` (`channel_code`
       `queued_too_long`) in `message.failed` instead of going out late.
     - `banned`: it cannot send or receive: the channel banned it, you
-      disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was
+      disconnected it (`DELETE /v0/senders/{sender_id}`), or its bot or line was
       connected to another app.
 
     """
@@ -3035,7 +3035,7 @@ class Sender(BaseModel):
         str | None, Field(examples=["Hi Sandbox app (ref brave-otter-40718263)"])
     ] = None
     """
-    Shared senders only. The whole message a contact sends to this sender to join your app: `Hi `, the app's name (`there` when it has none), then the app's `sandbox_join_code` (from `GET /v1/app`) in brackets after `ref`, for example `Hi Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets.
+    Shared senders only. The whole message a contact sends to this sender to join your app: `Hi `, the app's name (`there` when it has none), then the app's `sandbox_join_code` (from `GET /v0/app`) in brackets after `ref`, for example `Hi Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets.
 
     """
     created_at: datetime
@@ -3183,7 +3183,7 @@ class SenderRequest(BaseModel):
 
 class SenderSetup(BaseModel):
     """
-    Only in the answer to `POST /v1/senders` that connected a WhatsApp number:
+    Only in the answer to `POST /v0/senders` that connected a WhatsApp number:
     what you still set in your own Meta app, which Flow cannot set for you.
     Flow already points the number's webhooks at `callback_url` (Meta's
     phone-number-level override); entering the same URL in your app makes its
@@ -3242,11 +3242,11 @@ class SenderStatusChangedData(BaseModel):
       bot is also `flagged` when Telegram rejects its token (revoked in
       @BotFather): it then sends nothing, new sends answer `403 permission`, and
       queued messages wait until you connect the bot again with its new token
-      (`POST /v1/senders`). They wait at most 72 hours after Flow accepted
+      (`POST /v0/senders`). They wait at most 72 hours after Flow accepted
       them; older ones fail with `outside_window` (`channel_code`
       `queued_too_long`) in `message.failed` instead of going out late.
     - `banned`: it cannot send or receive: the channel banned it, you
-      disconnected it (`DELETE /v1/senders/{sender_id}`), or its bot or line was
+      disconnected it (`DELETE /v0/senders/{sender_id}`), or its bot or line was
       connected to another app.
 
     """
@@ -3476,7 +3476,7 @@ class StartBasicMessage(StartConversationTarget, BasicMessage):
     )
     kind: Literal["basic"]
     """
-    Always `basic`. Optional on `POST /v1/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
+    Always `basic`. Optional on `POST /v0/conversations/{conversation_id}/basic`; required where no URL names the kind (webhook replies, the stream, starts, a message's `content`).
     """
 
 
@@ -3501,7 +3501,7 @@ class StreamAckFrame(BaseModel):
 
 class StreamErrorFrame(BaseModel):
     """
-    Server to client. A `send` or `start` frame was refused (with its `ref`), or the stream itself was refused or failed (without `ref`; the server then closes the socket with a 4000-range close code, `4401` for `authentication`, see `GET /v1/stream`).
+    Server to client. A `send` or `start` frame was refused (with its `ref`), or the stream itself was refused or failed (without `ref`; the server then closes the socket with a 4000-range close code, `4401` for `authentication`, see `GET /v0/stream`).
     """
 
     model_config = ConfigDict(
@@ -3566,8 +3566,8 @@ class StreamReconnectFrame(BaseModel):
 class StreamSendFrame(BaseModel):
     """
     Client to server. Sends one message into a conversation, the same as the
-    endpoint of its `kind` (`POST /v1/conversations/{conversation_id}/<kind>`,
-    or `PATCH` and `DELETE /v1/messages/{message_id}` for `edit` and
+    endpoint of its `kind` (`POST /v0/conversations/{conversation_id}/<kind>`,
+    or `PATCH` and `DELETE /v0/messages/{message_id}` for `edit` and
     `unsend`); `ref` is also the idempotency key. Frames into one conversation
     go out in the order accepted, in line with the conversation's other sends.
     The frame's `type` is the frame's own type; the message's kind is
@@ -3602,14 +3602,14 @@ class StreamSendFrame(BaseModel):
     reply (`WebhookReply`) or the `message` of a stream `send` frame. `kind`
     is required and selects the shape; the fields and channel rules are the
     same as on the kind's endpoint (`edit` and `unsend` as on `PATCH` and
-    `DELETE /v1/messages/{message_id}`, with the target in `message_id`).
+    `DELETE /v0/messages/{message_id}`, with the target in `message_id`).
 
     """
 
 
 class StreamStartFrame(BaseModel):
     """
-    Client to server. Same as `POST /v1/messages` (a `basic` or `template` message with `kind`, `sender` and `to`); `ref` is also the idempotency key.
+    Client to server. Same as `POST /v0/messages` (a `basic` or `template` message with `kind`, `sender` and `to`); `ref` is also the idempotency key.
     """
 
     model_config = ConfigDict(
@@ -3656,7 +3656,7 @@ class StreamFrame(
         Field(discriminator="type"),
     ]
     """
-    One JSON frame on the `/v1/stream` WebSocket. The server sends `event`, `ack`,
+    One JSON frame on the `/v0/stream` WebSocket. The server sends `event`, `ack`,
     `error` and `reconnect`; the client sends `send` and `start`.
 
     """
@@ -3903,7 +3903,7 @@ class TemplateList(BaseModel):
 class TemplateMessage(BaseModel):
     """
     A WhatsApp message template, sent only (`POST
-    /v1/conversations/{conversation_id}/template`, or `POST /v1/messages` to
+    /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` to
     start a conversation). Required to start a WhatsApp conversation or to
     write after the 24-hour window closed. The template must be `approved`.
 
@@ -3918,7 +3918,7 @@ class TemplateMessage(BaseModel):
     )
     kind: Literal["template"] = "template"
     """
-    Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v1/messages`).
+    Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v0/messages`).
     """
     template_id: Annotated[str, Field(examples=["tpl_01JB8Z9X2D4F6H8K0M2P4R6T8V"])]
     """
@@ -3942,7 +3942,7 @@ class StartTemplateMessage(StartConversationTarget, TemplateMessage):
     )
     kind: Literal["template"]
     """
-    Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v1/messages`).
+    Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v0/messages`).
     """
 
 
@@ -3956,7 +3956,7 @@ class TemplateKind(TemplateMessage):
     )
     kind: Literal["template"]
     """
-    Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v1/messages`).
+    Always `template`. Optional on its endpoint; required where no URL names the kind (and on `POST /v0/messages`).
     """
 
 
@@ -3976,9 +3976,9 @@ class MessageContent6(TemplateKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -4111,7 +4111,7 @@ class TestGroupRequest(BaseModel):
     `imessage` only: make a simulated group conversation (`type` `group`)
     instead of a one-to-one one, with these participants. Not with `contact`
     or `name`. Each turn names the participant who writes (`from` on
-    `POST /v1/test/conversations/{conversation_id}/inbound`). Another channel
+    `POST /v0/test/conversations/{conversation_id}/inbound`). Another channel
     answers `400 invalid_request` with `param` `group`.
 
     """
@@ -4172,8 +4172,8 @@ class Timing(BaseModel):
     where you read it. In a webhook delivery's body, it is when that delivery
     attempt started (each attempt to each endpoint gets its own), unless an
     endpoint had already accepted the event, in which case it is that
-    acceptance time. In the event log (`GET /v1/events`,
-    `GET /v1/events/{event_id}`, the stream), it is when the first endpoint
+    acceptance time. In the event log (`GET /v0/events`,
+    `GET /v0/events/{event_id}`, the stream), it is when the first endpoint
     accepted the event, and it is absent until one has (always, for an app
     with no webhook endpoints).
 
@@ -4227,7 +4227,7 @@ class TypingImessageOptions(BaseModel):
 class TypingMessage(BaseModel):
     """
     The typing indicator, sent only (`POST
-    /v1/conversations/{conversation_id}/typing`; a `typing` piece in a webhook
+    /v0/conversations/{conversation_id}/typing`; a `typing` piece in a webhook
     reply or on the stream does the same). It shows the indicator, which
     clears itself when your next message goes or after a few seconds.
 
@@ -4273,9 +4273,9 @@ class MessageContent11(TypingKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -4320,7 +4320,7 @@ class UnsendMessage(BaseModel):
     """
     Removes one of your sent messages from the contact's chat, as a kind: a
     piece of a webhook reply or on the stream, and the `content` of the message
-    that carries an unsend (`DELETE /v1/messages/{message_id}` over HTTP,
+    that carries an unsend (`DELETE /v0/messages/{message_id}` over HTTP,
     whose rules apply).
 
     """
@@ -4354,9 +4354,9 @@ class MessageContent14(UnsendMessage):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 
@@ -4388,7 +4388,7 @@ class UrlButton(BaseModel):
 class VoiceMessage(BaseModel):
     """
     A voice note, in either direction (`POST
-    /v1/conversations/{conversation_id}/voice`). When sending, give `url` or
+    /v0/conversations/{conversation_id}/voice`). When sending, give `url` or
     `file_id` of an audio file. Inbound voice notes always come with the audio
     file (`url`, `file_id`) and, when the app has transcription on, a
     `transcript`.
@@ -4467,9 +4467,9 @@ class MessageContent2(VoiceKind):
     The kinds of message. A closed list: a new kind arrives only with a new API
     version. Each kind has its own schema (`BasicMessage`, `VoiceMessage`, ...)
     and, where it can be sent over HTTP, its own endpoint of the same name
-    (`POST /v1/conversations/{conversation_id}/<kind>`, with `contact-card` for
+    (`POST /v0/conversations/{conversation_id}/<kind>`, with `contact-card` for
     `contact_card`). `edit` and `unsend` are sent over HTTP with `PATCH` and
-    `DELETE /v1/messages/{message_id}`, and are kinds in webhook replies, on
+    `DELETE /v0/messages/{message_id}`, and are kinds in webhook replies, on
     the stream and in a message's `content`. `button_reply` and `file_blocked`
     are inbound only.
 

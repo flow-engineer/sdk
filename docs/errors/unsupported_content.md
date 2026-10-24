@@ -40,7 +40,7 @@ A send is exact or it fails: Flow never converts a message into another kind, ne
 
 For the time limits, Flow checks its own record of when the message was sent, and `message` states the limit and the message's age, for example "iMessage allows unsends within 2 minutes of sending; this message was sent 6 minutes ago."
 
-`POST /v1/files` answers it too, for a file whose real type Flow does not take (programs, web pages, unknown types) or that is larger than the `channel` given takes. A document or archive a contact sent before Flow malware-scanned documents, sent again by `file_id`, answers it as well: Flow sends only documents it scanned.
+`POST /v0/files` answers it too, for a file whose real type Flow does not take (programs, web pages, unknown types) or that is larger than the `channel` given takes. A document or archive a contact sent before Flow malware-scanned documents, sent again by `file_id`, answers it as well: Flow sends only documents it scanned.
 
 A window that is closed is not this error: WhatsApp after 24 hours, iMessage typing more than 5 minutes after the contact's last message, and SMS quiet hours answer `409 outside_window`.
 
@@ -68,11 +68,11 @@ Send what the channel takes instead. The `hint` names it for your case; the usua
 ```bash
 # A carousel answered 422 on Telegram: send the text, then one buttons message per card,
 # each with its own Idempotency-Key, in order.
-curl https://api.flow.engineer/v1/conversations/$CONV/basic \
+curl https://api.flow.engineer/v0/conversations/$CONV/basic \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: evt_123:text" \
   -d '{"text": "Three picks for you"}'
-curl https://api.flow.engineer/v1/conversations/$CONV/buttons \
+curl https://api.flow.engineer/v0/conversations/$CONV/buttons \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: evt_123:card:1" \
   -d '{"header": {"type": "image", "url": "https://example.com/a.jpg"}, "text": "Linen shirt, 1,499", "buttons": [{"id": "buy_a", "label": "Buy"}]}'

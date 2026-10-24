@@ -91,7 +91,7 @@ for event in flow.events.stream(types=["message.received"]):
     print(event.conversation.id, content_text(event.data.message.content))
 ```
 
-The stream is a WebSocket (`GET /v1/stream`) that reconnects by itself and resumes with
+The stream is a WebSocket (`GET /v0/stream`) that reconnects by itself and resumes with
 `after`, so no event is lost and none is handed out twice. `stream.last_event_id` is the
 last event you got: pass it as `after=` to resume across restarts. Use it as a context
 manager (`with flow.events.stream(...) as events:`) to connect before you say you are

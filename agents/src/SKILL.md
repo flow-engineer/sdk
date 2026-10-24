@@ -34,7 +34,7 @@ person opens the sandbox link and taps Start first.
 {{> sign-in}} {{> allowance-errors}} In the SDK these are `PermissionError` (with
 `channelCode`) and `AuthenticationError`. Dashboard: {{dashboard_url}}. Going live:
 signed-in users make `fk_live_` keys in the dashboard and connect their own Telegram
-bot or their own WhatsApp number (`POST /v1/senders` with `channel` `whatsapp`, or the
+bot or their own WhatsApp number (`POST /v0/senders` with `channel` `whatsapp`, or the
 dashboard's Senders page; the Flow team can still help); dedicated iMessage lines and SMS numbers are arranged with the Flow team
 ({{team_contacts|or}}; send them your app ID and the number's details, never secrets or tokens).
 If the user asks for WhatsApp, tell them they can connect their own WhatsApp number with a live key, and build and test on simulated WhatsApp conversations or Telegram meanwhile: the code does not change per channel. Details:

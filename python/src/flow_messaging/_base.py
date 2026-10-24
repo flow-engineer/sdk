@@ -196,7 +196,7 @@ def parser(model: type[M]) -> Callable[[Any], M]:
 
 
 def file_id(file_id_or_url: str) -> str:
-    """A file ID from an ID or from a file URL (``.../v1/files/file_...``)."""
+    """A file ID from an ID or from a file URL (``.../v0/files/file_...``)."""
     return file_id_or_url.rstrip("/").rsplit("/", 1)[-1] if "/" in file_id_or_url else file_id_or_url
 
 

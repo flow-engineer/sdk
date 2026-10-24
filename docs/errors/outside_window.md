@@ -29,10 +29,10 @@ Typing and read receipts go to the channel at once, so they answer HTTP 409 `out
 
 ## How to fix it
 
-On WhatsApp, send an approved template (`POST /v1/conversations/{conversation_id}/template`, or `POST /v1/messages` with `kind` `template` to start), or wait for the contact to write again; their message reopens the window. The conversation's `window_open_until` (`GET /v1/conversations/{conversation_id}`) says until when free-form messages go.
+On WhatsApp, send an approved template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write again; their message reopens the window. The conversation's `window_open_until` (`GET /v0/conversations/{conversation_id}`) says until when free-form messages go.
 
 ```bash
-curl https://api.flow.engineer/v1/conversations/conv_.../template \
+curl https://api.flow.engineer/v0/conversations/conv_.../template \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -d '{"template_id":"tpl_...","language":"en","params":{"body":["Asha"]}}'
 ```

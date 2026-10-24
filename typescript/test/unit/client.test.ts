@@ -33,7 +33,7 @@ describe("client", () => {
     const m = await flow.messages.send(ids.conv, "hi");
     expect(m.id).toBe(ids.msg(1));
     const c = calls[0]!;
-    expect(c.url.toString()).toBe(`https://example.test/v1/conversations/${ids.conv}/messages`);
+    expect(c.url.toString()).toBe(`https://example.test/v0/conversations/${ids.conv}/messages`);
     expect(c.headers.authorization).toBe(`Bearer ${key}`);
     expect(c.headers["flow-version"]).toBe(API_VERSION);
     expect(c.headers["idempotency-key"]).toMatch(/.{16,}/);
@@ -176,7 +176,7 @@ describe("client", () => {
     expect(got.secret).toBe("whsec_new");
     await flow.webhookEndpoints.rotateSecret(endpoint.id);
     expect(calls[0]!.method).toBe("POST");
-    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/webhook_endpoints/${endpoint.id}/rotate_secret`);
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v0/webhook_endpoints/${endpoint.id}/rotate_secret`);
     expect(calls[0]!.body).toEqual({ overlap_seconds: 3600 });
     expect(calls[0]!.headers["idempotency-key"]).toMatch(/.{16,}/);
     expect(calls[1]!.body).toEqual({});
@@ -198,7 +198,7 @@ describe("client", () => {
     const got = await flow.senders.disconnect(sender.id);
     expect(got.status).toBe("banned");
     expect(calls[0]!.method).toBe("DELETE");
-    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/senders/${sender.id}`);
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v0/senders/${sender.id}`);
   });
 
   it("deletes a contact with DELETE and resolves on 204", async () => {
@@ -209,7 +209,7 @@ describe("client", () => {
     await expect(flow.contacts.delete(contact)).resolves.toBeUndefined();
     expect(calls).toHaveLength(2);
     expect(calls[0]!.method).toBe("DELETE");
-    expect(calls[0]!.url.toString()).toBe(`https://example.test/v1/contacts/${contact}`);
+    expect(calls[0]!.url.toString()).toBe(`https://example.test/v0/contacts/${contact}`);
   });
 
   it("sends reply_to and reads it back on the message", async () => {
@@ -219,13 +219,13 @@ describe("client", () => {
     const m: Message = await flow.messages.send(ids.conv, { content: { type: "text", text: "Yes, that one." }, reply_to: target });
     const replyTo: string | undefined = m.reply_to;
     expect(replyTo).toBe(target);
-    expect(calls[0]!.url.pathname).toBe(`/v1/conversations/${ids.conv}/messages`);
+    expect(calls[0]!.url.pathname).toBe(`/v0/conversations/${ids.conv}/messages`);
     expect(calls[0]!.body).toEqual({ content: { type: "text", text: "Yes, that one." }, reply_to: target });
   });
 
   it("drives a simulated conversation: create, inbound, transcript oldest first", async () => {
     const { fetch, calls } = mockFetch((req) => {
-      if (req.url.pathname === "/v1/test/conversations")
+      if (req.url.pathname === "/v0/test/conversations")
         return json(201, { id: ids.conv, app: "app_x", channel: "sms", sender: "snd_x", contact: "ct_x", livemode: false, opted_in: true, simulated: true, created_at: "2026-11-01T00:00:00Z" });
       if (req.url.pathname.endsWith("/inbound"))
         return json(202, { message: ids.msg(1), conversation: ids.conv, channel_message_id: "sim_1", status: "queued" });
@@ -246,7 +246,7 @@ describe("client", () => {
     expect(calls[0]!.headers["idempotency-key"]).toMatch(/.{16,}/);
     const turn = await flow.test.inbound(conv.id, "hi");
     expect(turn.message).toBe(ids.msg(1));
-    expect(calls[1]!.url.pathname).toBe(`/v1/test/conversations/${ids.conv}/inbound`);
+    expect(calls[1]!.url.pathname).toBe(`/v0/test/conversations/${ids.conv}/inbound`);
     expect(calls[1]!.body).toEqual({ content: { type: "text", text: "hi" } });
     await flow.test.inbound(conv.id, { type: "media", kind: "image", file_id: "file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5" });
     expect(calls[2]!.body).toEqual({ content: { type: "media", kind: "image", file_id: "file_01JB8ZG7Q9S1V3X5Z7B9D1F3G5" } });
@@ -264,6 +264,6 @@ describe("client", () => {
     const onMessage = (event: FlowEventOf<"message.received">) => event.conversation.reply("Got it", { split: false, typing: false });
     const event = toFlowEvent(flow, receivedEvent(1, "hi") as never) as FlowEventOf<"message.received">;
     await onMessage(event);
-    expect(calls[0]!.url.pathname).toBe(`/v1/conversations/${ids.conv}/messages`);
+    expect(calls[0]!.url.pathname).toBe(`/v0/conversations/${ids.conv}/messages`);
   });
 });

@@ -56,7 +56,7 @@ def _path(base: str, object_id: str, *rest: str) -> str:
     return "/".join([base, quote(object_id, safe=""), *rest])
 
 
-#: The endpoint of each kind sent with ``POST /v1/conversations/{id}/<path>``.
+#: The endpoint of each kind sent with ``POST /v0/conversations/{id}/<path>``.
 KIND_PATHS: dict[str, str] = {
     "basic": "basic",
     "voice": "voice",
@@ -123,7 +123,7 @@ class AsyncMessages:
     ) -> Message:
         res = await self._http.request(
             "POST",
-            _path("/v1/conversations", conversation_id, path),
+            _path("/v0/conversations", conversation_id, path),
             json=_base.fields(message, fields),
             idempotency=idempotency_key,
         )
@@ -133,7 +133,7 @@ class AsyncMessages:
         self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
     ) -> Message:
         """Sends text, or one media file with an optional caption, on every channel
-        (``POST /v1/conversations/{id}/basic``). The body is ``message`` (a dict or a
+        (``POST /v0/conversations/{id}/basic``). The body is ``message`` (a dict or a
         model, such as ``content.image(...)``) with the keyword fields laid over it:
         ``basic(id, text="Hi")``, ``basic(id, text="See https://example.com", link_preview=False)``.
         The text is sent exactly as written: no markdown."""
@@ -219,7 +219,7 @@ class AsyncMessages:
         is short for ``{"kind": "basic", "text": ...}``. ``typing`` and ``read`` go to the
         conversation's typing and read endpoints and answer a ``ConversationAction``;
         ``edit`` and ``unsend`` change the message named by their ``message_id`` (``PATCH``
-        and ``DELETE /v1/messages/{message_id}``). A missing or unknown ``kind`` raises
+        and ``DELETE /v0/messages/{message_id}``). A missing or unknown ``kind`` raises
         ``ValueError`` before any request."""
         obj = _base.kind_object(message)
         kind = _sendable_kind(obj)
@@ -252,7 +252,7 @@ class AsyncMessages:
             raise ValueError('A start needs the message\'s `kind`: "basic" or "template".')
         res = await self._http.request(
             "POST",
-            "/v1/messages",
+            "/v0/messages",
             json={**body(sender=sender, to=_base.recipient(to), consent=consent), **obj},
             idempotency=idempotency_key,
         )
@@ -260,7 +260,7 @@ class AsyncMessages:
 
     async def retrieve(self, message_id: str) -> Message:
         """One message, inbound or outbound, with its current status."""
-        return parse(Message, await self._http.request("GET", _path("/v1/messages", message_id)))
+        return parse(Message, await self._http.request("GET", _path("/v0/messages", message_id)))
 
     async def edit(self, message_id: str, message: Any = None, **fields: Any) -> Message:
         """Replaces the text of one of your sent messages (Telegram; iMessage within 15
@@ -268,20 +268,20 @@ class AsyncMessages:
         block. ``message`` may be a string (the new text), a dict or an
         ``EditMessageRequest``."""
         payload = {"text": message} if isinstance(message, str) else message
-        res = await self._http.request("PATCH", _path("/v1/messages", message_id), json=_base.fields(payload, fields))
+        res = await self._http.request("PATCH", _path("/v0/messages", message_id), json=_base.fields(payload, fields))
         return parse(Message, res)
 
     async def unsend(self, message_id: str) -> Message:
         """Removes one of your sent messages from the contact's chat (Telegram within 48
         hours, iMessage within 2 minutes)."""
-        return parse(Message, await self._http.request("DELETE", _path("/v1/messages", message_id)))
+        return parse(Message, await self._http.request("DELETE", _path("/v0/messages", message_id)))
 
 
 async def _action(
     http: AsyncHTTPClient, conversation_id: str, name: str, payload: Mapping[str, Any], idempotency_key: str | None
 ) -> ConversationAction:
     res = await http.request(
-        "POST", _path("/v1/conversations", conversation_id, name), json=dict(payload), idempotency=idempotency_key
+        "POST", _path("/v0/conversations", conversation_id, name), json=dict(payload), idempotency=idempotency_key
     )
     return parse(ConversationAction, res)
 
@@ -302,11 +302,11 @@ class AsyncConversations:
     ) -> AsyncPager[Conversation]:
         """Your app's conversations in this mode, newest first."""
         q = {"sender": sender, "contact": contact, "channel": channel, "limit": limit, "after": after, "before": before}
-        return self._http.list("/v1/conversations", q, parser(Conversation))
+        return self._http.list("/v0/conversations", q, parser(Conversation))
 
     async def retrieve(self, conversation_id: str) -> Conversation:
         """One conversation with its window state."""
-        return parse(Conversation, await self._http.request("GET", _path("/v1/conversations", conversation_id)))
+        return parse(Conversation, await self._http.request("GET", _path("/v0/conversations", conversation_id)))
 
     def messages(
         self,
@@ -318,7 +318,7 @@ class AsyncConversations:
     ) -> AsyncPager[Message]:
         """A conversation's messages, inbound and outbound, newest first."""
         q = {"limit": limit, "after": after, "before": before}
-        return self._http.list(_path("/v1/conversations", conversation_id, "messages"), q, parser(Message))
+        return self._http.list(_path("/v0/conversations", conversation_id, "messages"), q, parser(Message))
 
     async def typing(
         self, conversation_id: str, message: Any = None, *, idempotency_key: str | None = None, **fields: Any
@@ -356,7 +356,7 @@ class AsyncFiles:
         form = {k: v for k, v in {"filename": filename, "channel": channel}.items() if v is not None}
         res = await self._http.request(
             "POST",
-            "/v1/files",
+            "/v0/files",
             files={"file": (name, data)},
             data=form,
             idempotency=idempotency_key,
@@ -366,7 +366,7 @@ class AsyncFiles:
     async def download(self, file_id_or_url: str) -> bytes:
         """A file's bytes, by ID or by the URL inbound media carries. Follows the redirect
         to the signed file URL without sending your key there."""
-        res = await self._http.send("GET", _path("/v1/files", _base.file_id(file_id_or_url)))
+        res = await self._http.send("GET", _path("/v0/files", _base.file_id(file_id_or_url)))
         if res.is_redirect:
             location = res.headers.get("location")
             if not location:
@@ -396,11 +396,11 @@ class AsyncSenders:
         """Senders your app can use in this mode. Test keys see the shared sandbox senders,
         each with the link and ``join_code`` a person uses to join your app."""
         q = {"channel": channel, "kind": kind, "limit": limit, "after": after, "before": before}
-        return self._http.list("/v1/senders", q, parser(Sender))
+        return self._http.list("/v0/senders", q, parser(Sender))
 
     async def retrieve(self, sender_id: str) -> Sender:
         """One sender with its status and limits."""
-        return parse(Sender, await self._http.request("GET", _path("/v1/senders", sender_id)))
+        return parse(Sender, await self._http.request("GET", _path("/v0/senders", sender_id)))
 
     async def request(
         self,
@@ -425,7 +425,7 @@ class AsyncSenders:
         """
         res = await self._http.request(
             "POST",
-            "/v1/senders",
+            "/v0/senders",
             json=body(
                 channel=channel,
                 display_name=display_name,
@@ -444,7 +444,7 @@ class AsyncSenders:
     async def disconnect(self, sender_id: str) -> Sender:
         """Disconnects one of your Telegram bots or WhatsApp numbers (live keys): deletes its
         stored credentials and retires the sender (status ``banned``)."""
-        return parse(Sender, await self._http.request("DELETE", _path("/v1/senders", sender_id)))
+        return parse(Sender, await self._http.request("DELETE", _path("/v0/senders", sender_id)))
 
 
 class AsyncTemplates:
@@ -462,20 +462,20 @@ class AsyncTemplates:
     ) -> AsyncPager[Template]:
         """WhatsApp templates of your senders, newest first."""
         q = {"sender": sender, "status": status, "limit": limit, "after": after, "before": before}
-        return self._http.list("/v1/templates", q, parser(Template))
+        return self._http.list("/v0/templates", q, parser(Template))
 
     async def create(self, params: Mapping[str, Any] | Any, *, idempotency_key: str | None = None) -> Template:
         """Submits a WhatsApp template for review (a ``TemplateCreateRequest`` or a dict)."""
         res = await self._http.request(
-            "POST", "/v1/templates", json=_base.jsonable(params), idempotency=idempotency_key
+            "POST", "/v0/templates", json=_base.jsonable(params), idempotency=idempotency_key
         )
         return parse(Template, res)
 
     async def retrieve(self, template_id: str) -> Template:
-        return parse(Template, await self._http.request("GET", _path("/v1/templates", template_id)))
+        return parse(Template, await self._http.request("GET", _path("/v0/templates", template_id)))
 
     async def delete(self, template_id: str) -> Deleted:
-        return parse(Deleted, await self._http.request("DELETE", _path("/v1/templates", template_id)))
+        return parse(Deleted, await self._http.request("DELETE", _path("/v0/templates", template_id)))
 
 
 class AsyncWebhookEndpoints:
@@ -486,7 +486,7 @@ class AsyncWebhookEndpoints:
         self, *, limit: int | None = None, after: str | None = None, before: str | None = None
     ) -> AsyncPager[WebhookEndpoint]:
         q = {"limit": limit, "after": after, "before": before}
-        return self._http.list("/v1/webhook_endpoints", q, parser(WebhookEndpoint))
+        return self._http.list("/v0/webhook_endpoints", q, parser(WebhookEndpoint))
 
     async def create(
         self,
@@ -500,14 +500,14 @@ class AsyncWebhookEndpoints:
         (``whsec_...``) is shown only this once."""
         res = await self._http.request(
             "POST",
-            "/v1/webhook_endpoints",
+            "/v0/webhook_endpoints",
             json=body(url=url, events=list(events), description=description),
             idempotency=idempotency_key,
         )
         return parse(WebhookEndpoint, res)
 
     async def retrieve(self, endpoint_id: str) -> WebhookEndpoint:
-        return parse(WebhookEndpoint, await self._http.request("GET", _path("/v1/webhook_endpoints", endpoint_id)))
+        return parse(WebhookEndpoint, await self._http.request("GET", _path("/v0/webhook_endpoints", endpoint_id)))
 
     async def update(
         self,
@@ -520,7 +520,7 @@ class AsyncWebhookEndpoints:
     ) -> WebhookEndpoint:
         res = await self._http.request(
             "PATCH",
-            _path("/v1/webhook_endpoints", endpoint_id),
+            _path("/v0/webhook_endpoints", endpoint_id),
             json=body(
                 url=url, events=list(events) if events is not None else None, description=description, enabled=enabled
             ),
@@ -528,7 +528,7 @@ class AsyncWebhookEndpoints:
         return parse(WebhookEndpoint, res)
 
     async def delete(self, endpoint_id: str) -> Deleted:
-        return parse(Deleted, await self._http.request("DELETE", _path("/v1/webhook_endpoints", endpoint_id)))
+        return parse(Deleted, await self._http.request("DELETE", _path("/v0/webhook_endpoints", endpoint_id)))
 
     async def rotate_secret(
         self, endpoint_id: str, *, overlap_seconds: int | None = None, idempotency_key: str | None = None
@@ -537,7 +537,7 @@ class AsyncWebhookEndpoints:
         ``overlap_seconds`` (default one day; 0 retires it at once)."""
         res = await self._http.request(
             "POST",
-            _path("/v1/webhook_endpoints", endpoint_id, "rotate_secret"),
+            _path("/v0/webhook_endpoints", endpoint_id, "rotate_secret"),
             json=body(overlap_seconds=overlap_seconds),
             idempotency=idempotency_key,
         )
@@ -557,16 +557,16 @@ class AsyncContacts:
         before: str | None = None,
     ) -> AsyncPager[Contact]:
         q = {"channel": channel, "limit": limit, "after": after, "before": before}
-        return self._http.list("/v1/contacts", q, parser(Contact))
+        return self._http.list("/v0/contacts", q, parser(Contact))
 
     async def retrieve(self, contact_id: str) -> Contact:
-        return parse(Contact, await self._http.request("GET", _path("/v1/contacts", contact_id)))
+        return parse(Contact, await self._http.request("GET", _path("/v0/contacts", contact_id)))
 
     async def delete(self, contact_id: str) -> None:
         """Erases the contact and their data in this app and mode (address, message content,
         files, events, queued sends); it cannot be undone. Safe to retry: a contact already
         deleted answers the same. Emits ``contact.deleted``."""
-        await self._http.request("DELETE", _path("/v1/contacts", contact_id))
+        await self._http.request("DELETE", _path("/v0/contacts", contact_id))
 
 
 class AsyncAppResource:
@@ -576,7 +576,7 @@ class AsyncAppResource:
     async def retrieve(self) -> AppContext:
         """The app, account and key making the request, its mode, the sandbox join code and,
         for sandbox apps, what is left of the sandbox ``allowance``."""
-        return parse(AppContext, await self._http.request("GET", "/v1/app"))
+        return parse(AppContext, await self._http.request("GET", "/v0/app"))
 
 
 class AsyncSandbox:
@@ -591,7 +591,7 @@ class AsyncSandbox:
         are shown only this once: save them (as ``FLOW_MESSAGING_KEY`` and
         ``FLOW_CLAIM_TOKEN``). Its ``senders`` carry the links and join code a person uses
         to join the sandbox. Do not call this when you already have a key."""
-        res = await self._http.request("POST", "/v1/sandbox/keys", json=body(name=name), auth=False)
+        res = await self._http.request("POST", "/v0/sandbox/keys", json=body(name=name), auth=False)
         return parse(SandboxKey, res)
 
 
@@ -615,7 +615,7 @@ class AsyncDevice:
         bearer = not claim_token and use_key and self._http.options.test_mode
         res = await self._http.request(
             "POST",
-            "/v1/device/authorizations",
+            "/v0/device/authorizations",
             json=body(claim_token=claim_token, client_name=client_name),
             auth=bearer,
         )
@@ -624,7 +624,7 @@ class AsyncDevice:
     async def poll(self, device_code: str) -> DeviceToken:
         """One poll of a sign-in: ``pending``, ``approved`` (with ``key``), ``denied`` or ``expired``."""
         res = await self._http.request(
-            "POST", "/v1/device/token", json={"device_code": device_code}, auth=False, max_retries=0
+            "POST", "/v0/device/token", json={"device_code": device_code}, auth=False, max_retries=0
         )
         return parse(DeviceToken, res)
 
@@ -699,7 +699,7 @@ class AsyncTesting:
         ``{"phone": "+15555550100"}``) each call is a fresh conversation."""
         res = await self._http.request(
             "POST",
-            "/v1/test/conversations",
+            "/v0/test/conversations",
             json=body(channel=channel, contact=contact, name=name),
             idempotency=idempotency_key,
         )
@@ -722,7 +722,7 @@ class AsyncTesting:
         answer's ``message`` is the ID the ``message.received`` event will carry."""
         res = await self._http.request(
             "POST",
-            _path("/v1/test/conversations", conversation_id, "inbound"),
+            _path("/v0/test/conversations", conversation_id, "inbound"),
             json=body(content=_base.kind_object(content), reply_to=reply_to, **{"from": from_}),
             idempotency=idempotency_key,
         )
@@ -734,7 +734,7 @@ class AsyncTesting:
         """Both sides of a simulated conversation, oldest first, each as the ``Message`` it is."""
         q = {"limit": limit, "after": after}
         return self._http.list(
-            _path("/v1/test/conversations", conversation_id, "transcript"), q, parser(TranscriptEntry)
+            _path("/v0/test/conversations", conversation_id, "transcript"), q, parser(TranscriptEntry)
         )
 
 
@@ -755,7 +755,7 @@ class AsyncEventLog:
     ) -> AsyncPager[Event]:
         """The log, oldest first. Pass the last event you processed as ``after`` to catch up."""
         q = {"type": type, "conversation": conversation, "limit": limit, "after": after, "before": before}
-        return self._http.list("/v1/events", q, parse_event)
+        return self._http.list("/v0/events", q, parse_event)
 
     async def retrieve(self, event_id: str) -> Event:
-        return parse_event(await self._http.request("GET", _path("/v1/events", event_id)))
+        return parse_event(await self._http.request("GET", _path("/v0/events", event_id)))

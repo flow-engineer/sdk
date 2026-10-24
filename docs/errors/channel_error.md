@@ -24,7 +24,7 @@ Telegram, WhatsApp, iMessage or the SMS network did not take the message. `error
   - `carrier_error`: any other refusal; `error.message` says more.
   - `provider_not_configured`: the SMS sender is not fully set up on Flow's side, so nothing was sent. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer with the message ID.
 - The channel did not answer after the message was sent, and the resends its policy allows did not settle it (`channel_timeout_unknown_outcome`, in `message.failed`). The message may have arrived, possibly twice, or not at all, so Flow does not send it again.
-- The channel failed or timed out on a typing indicator or a read receipt. These call the channel at once (`POST /v1/conversations/{id}/typing` and `/read`), so they answer `502` directly; `unknown_outcome` means the call timed out after it was sent.
+- The channel failed or timed out on a typing indicator or a read receipt. These call the channel at once (`POST /v0/conversations/{id}/typing` and `/read`), so they answer `502` directly; `unknown_outcome` means the call timed out after it was sent.
 
 ## How to fix it
 

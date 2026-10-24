@@ -1,5 +1,5 @@
 // Go live on Telegram with your own bot: connect the token BotFather gave you to Flow
-// (POST /v1/senders), and disconnect it again (DELETE /v1/senders/{id}).
+// (POST /v0/senders), and disconnect it again (DELETE /v0/senders/{id}).
 // Run: node main.ts connect                 (FLOW_MESSAGING_KEY=fk_live_..., TELEGRAM_BOT_TOKEN)
 //      node main.ts disconnect snd_...      (FLOW_MESSAGING_KEY=fk_live_...)
 // Node 22.18 or later, no dependencies.
@@ -35,7 +35,7 @@ if (command === "connect") {
   }
   // Flow checks the token, stores it encrypted, points the bot's webhook at Flow and
   // answers with the sender, active. The token is never returned.
-  const sender = await flow("POST", "/v1/senders", { channel: "telegram", telegram_bot_token: token });
+  const sender = await flow("POST", "/v0/senders", { channel: "telegram", telegram_bot_token: token });
   console.log(`Connected @${sender.address.username} as ${sender.id} (status ${sender.status}).`);
   console.log(`Chat with it: ${sender.address.link}`);
   console.log(`Its messages now reach this live key, like the sandbox's reach a test key.`);
@@ -43,7 +43,7 @@ if (command === "connect") {
 } else if (command === "disconnect" && senderId) {
   // Removes the bot's webhook, deletes the stored token and retires the sender. Its
   // conversations and messages stay readable. Repeating the call is safe.
-  const sender = await flow("DELETE", `/v1/senders/${encodeURIComponent(senderId)}`);
+  const sender = await flow("DELETE", `/v0/senders/${encodeURIComponent(senderId)}`);
   console.log(`Disconnected ${sender.id} (status ${sender.status}).`);
 } else {
   console.error("Usage: node main.ts connect | node main.ts disconnect snd_...");

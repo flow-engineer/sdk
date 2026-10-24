@@ -22,7 +22,7 @@ The same agent with the Python SDK ([`python/`](../../python)), Python 3.10+:
 
 1. `pip install flow-messaging` (or `pip install ../../python` for the copy in this
    repo).
-2. Get a test key without an account: `curl -s -X POST https://api.flow.engineer/v1/sandbox/keys`
+2. Get a test key without an account: `curl -s -X POST https://api.flow.engineer/v0/sandbox/keys`
    and copy `key` (shown once), or call `Flow().sandbox.create_key()`.
 3. `FLOW_MESSAGING_KEY=fk_test_... python agent.py`, then open the sandbox link on your
    phone and write to the bot.

@@ -13,8 +13,8 @@ from conftest import BASE, KEY, LIVE_KEY, device_authorization, device_token, er
 from flow_messaging import APIConnectionError, APIError, DeviceSignInError, Flow
 from flow_messaging.types import DeviceAuthorization
 
-AUTH = url("/v1/device/authorizations")
-TOKEN = url("/v1/device/token")
+AUTH = url("/v0/device/authorizations")
+TOKEN = url("/v0/device/token")
 
 
 def client(key: str | None, sleeps: list[float]) -> Flow:

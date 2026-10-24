@@ -13,12 +13,12 @@ describe("without a key", () => {
     const old = process.env.FLOW_MESSAGING_KEY;
     delete process.env.FLOW_MESSAGING_KEY;
     try {
-      const { fetch, calls } = mockFetch((req) => (req.url.pathname === "/v1/sandbox/keys" ? json(201, sandboxKey()) : undefined));
+      const { fetch, calls } = mockFetch((req) => (req.url.pathname === "/v0/sandbox/keys" ? json(201, sandboxKey()) : undefined));
       const flow = new FlowMessaging({ fetch, baseURL: "https://example.test" });
       expect(flow.http.apiKey).toBeUndefined();
       const err = await flow.messages.send("conv_1", "hi").catch((e: unknown) => e);
       expect(err).toBeInstanceOf(AuthenticationError);
-      expect((err as Error).message).toMatch(/v1\/sandbox\/keys/);
+      expect((err as Error).message).toMatch(/v0\/sandbox\/keys/);
       expect(calls).toHaveLength(0);
 
       const sandbox = await flow.sandbox.createKey({ name: "Demo" });
@@ -44,13 +44,13 @@ describe("device sign-in", () => {
     await new FlowMessaging({ apiKey: "fk_live_unit", fetch }).device.authorize();
     expect(calls.map((c) => c.headers.authorization)).toEqual([undefined, "Bearer fk_test_unit", undefined, undefined]);
     expect(calls[0]!.body).toEqual({ claim_token: "fct_unitclaim", client_name: "tests" });
-    expect(calls[0]!.url.pathname).toBe("/v1/device/authorizations");
+    expect(calls[0]!.url.pathname).toBe("/v0/device/authorizations");
   });
 
   it("polls every interval, slows down on 429 for at least retry_after, retries 5xx, and returns the key", async () => {
     let n = 0;
     const { fetch, calls } = mockFetch((req) => {
-      if (req.url.pathname === "/v1/device/authorizations") return json(201, deviceAuthorization(5));
+      if (req.url.pathname === "/v0/device/authorizations") return json(201, deviceAuthorization(5));
       n++;
       if (n === 1) return pending();
       if (n === 2) return json(429, { error: { type: "rate_limited", message: "slow down", retry_after: 7 } });
@@ -70,7 +70,7 @@ describe("device sign-in", () => {
     expect(token.claimed).toBe(true);
     expect(shown.map((a) => a.user_code)).toEqual(["WDJB-MJHT"]);
     expect(waits).toEqual([5000, 5000, 10000, 10000, 10000]);
-    const polls = calls.filter((c) => c.url.pathname === "/v1/device/token");
+    const polls = calls.filter((c) => c.url.pathname === "/v0/device/token");
     expect(polls).toHaveLength(5);
     expect(polls.every((c) => c.headers.authorization === undefined && (c.body as { device_code: string }).device_code === "fdc_unitdevice")).toBe(true);
   });

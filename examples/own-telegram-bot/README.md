@@ -1,8 +1,8 @@
 # Your own Telegram bot
 
 Go live on Telegram with your own bot instead of the shared sandbox bot: connect the
-token @BotFather gave you with `POST /v1/senders`, and disconnect it with
-`DELETE /v1/senders/{id}`. Flow checks the token, stores it encrypted, points the
+token @BotFather gave you with `POST /v0/senders`, and disconnect it with
+`DELETE /v0/senders/{id}`. Flow checks the token, stores it encrypted, points the
 bot's webhook at Flow, and never returns the token. No Flow SDK.
 
 | | File | Needs |
@@ -13,11 +13,11 @@ This needs a **live key** (`fk_live_...`); a test key gets `403 permission`. Liv
 keys for your own Telegram bot are self-serve: sign in to the dashboard at
 <https://api.flow.engineer/admin/keys?mode=live> (with a Flow account; the link opens
 the Keys page in Live mode) and click **Create live key**. If your app was made
-without an account (`POST /v1/sandbox/keys`), sign in with
+without an account (`POST /v0/sandbox/keys`), sign in with
 `npx @flow-engineer/messaging login` first: that claims it. Keep the live key in its
 own variable, apart from your test key. Until you go live, build on the sandbox bot
 with a test key ([telegram-echo](../telegram-echo)); your code does not change.
-(Your own WhatsApp number connects with `POST /v1/senders` and a live key too;
+(Your own WhatsApp number connects with `POST /v0/senders` and a live key too;
 iMessage lines are arranged with the Flow team.)
 
 ## Run it
@@ -71,7 +71,7 @@ With a test key, `connect` prints the API's `error.type`, `message` and `hint`, 
 the hint says how to get a live key:
 
 ```text
-permission: This app was made without an account (POST /v1/sandbox/keys), so it cannot connect its own senders.
+permission: This app was made without an account (POST /v0/sandbox/keys), so it cannot connect its own senders.
 hint: Have a person sign in to claim the app first: run npx @flow-engineer/messaging login, ... To get a live key (fk_live_...), the person signs in to the dashboard at https://api.flow.engineer/admin/keys?mode=live ... and clicks Create live key; ...
 ```
 

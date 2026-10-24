@@ -1,6 +1,6 @@
 """Telegram echo agent: answers every message with what it said.
 
-It reads events from the WebSocket stream (GET /v1/stream), so no public URL is
+It reads events from the WebSocket stream (GET /v0/stream), so no public URL is
 needed, and replies with `send` frames on the same socket.
 Run: FLOW_MESSAGING_KEY=fk_test_... python main.py   (Python 3.10+, pip install -r requirements.txt)
 """
@@ -17,13 +17,13 @@ import websockets
 KEY = os.environ.get("FLOW_MESSAGING_KEY")
 BASE = os.environ.get("FLOW_MESSAGING_BASE_URL", "https://api.flow.engineer").rstrip("/")
 if not KEY:
-    sys.exit("Set FLOW_MESSAGING_KEY. No key yet? curl -X POST https://api.flow.engineer/v1/sandbox/keys")
+    sys.exit("Set FLOW_MESSAGING_KEY. No key yet? curl -X POST https://api.flow.engineer/v0/sandbox/keys")
 HEADERS = {"Authorization": f"Bearer {KEY}"}
 
 
 def show_senders() -> None:
     """Prints where to write: the sandbox bot's link (it joins your app when tapped)."""
-    req = urllib.request.Request(f"{BASE}/v1/senders?channel=telegram", headers=HEADERS)
+    req = urllib.request.Request(f"{BASE}/v0/senders?channel=telegram", headers=HEADERS)
     try:
         with urllib.request.urlopen(req) as res:
             senders = json.load(res)["data"]
@@ -42,7 +42,7 @@ async def main() -> None:
     seen = set()  # delivery is at least once: dedupe on event.id
     while True:
         query = [("type", "message.received")] + ([("after", last_event_id)] if last_event_id else [])
-        url = BASE.replace("http", "ws", 1) + "/v1/stream?" + urllib.parse.urlencode(query)
+        url = BASE.replace("http", "ws", 1) + "/v0/stream?" + urllib.parse.urlencode(query)
         try:
             async with websockets.connect(url, additional_headers=HEADERS) as ws:
                 print("Echo agent ready.", flush=True)

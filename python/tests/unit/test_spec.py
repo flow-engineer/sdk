@@ -111,7 +111,7 @@ def test_env_names_match_facts(constant: str, fact: str) -> None:
 
 
 def test_no_key_help_names_the_sandbox_endpoint() -> None:
-    assert facts()["base_url"] + "/v1/sandbox/keys" in _constants.NO_KEY_HELP
+    assert facts()["base_url"] + "/v0/sandbox/keys" in _constants.NO_KEY_HELP
 
 
 def test_sdk_version_matches_package() -> None:

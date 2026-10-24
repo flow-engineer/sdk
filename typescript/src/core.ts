@@ -64,7 +64,7 @@ interface RequestArgs {
 
 /** What to do without a key, said by every error about a missing one. */
 export const NO_KEY_HELP =
-  "No key yet? Get a test key in one call, no account needed: `npx @flow-engineer/messaging init` (saves it to .env), `await new FlowMessaging().sandbox.createKey()`, or `curl -X POST https://api.flow.engineer/v1/sandbox/keys`.";
+  "No key yet? Get a test key in one call, no account needed: `npx @flow-engineer/messaging init` (saves it to .env), `await new FlowMessaging().sandbox.createKey()`, or `curl -X POST https://api.flow.engineer/v0/sandbox/keys`.";
 
 /** Reads an environment variable where `process` exists (Node, Bun, Deno's node compat). */
 export function readEnv(name: string): string | undefined {

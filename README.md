@@ -7,7 +7,7 @@ No key yet? Get a test key in one call, with no account (or run
 `npx @flow-engineer/messaging init`, which saves it to `.env`):
 
 ```sh
-curl -X POST https://api.flow.engineer/v1/sandbox/keys
+curl -X POST https://api.flow.engineer/v0/sandbox/keys
 # save "key" as FLOW_MESSAGING_KEY and "claim_token" as FLOW_CLAIM_TOKEN (both shown once);
 # open senders[].address.link on your phone to join the sandbox
 ```
@@ -33,7 +33,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 Without the SDK, from any language:
 
 ```sh
-curl https://api.flow.engineer/v1/conversations/conv_.../basic \
+curl https://api.flow.engineer/v0/conversations/conv_.../basic \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -d '{"text": "Hello!"}'
 ```
