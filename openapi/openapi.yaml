@@ -393,8 +393,9 @@ info:
     `send_test_message`, `simulate_inbound`, `get_test_transcript`,
     `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`
     and `explain_error`. A `fk_live_` key gets
-    production tools: `send_message`, `reply`, `react`, `typing`,
-    `list_conversations` and `get_conversation_messages`, plus `whoami` and
+    production tools: `send_message`, `reply`, `react`, `edit_message`,
+    `unsend_message`, `typing`, `list_conversations` and
+    `get_conversation_messages`, plus `whoami` and
     `explain_error`. The tools that send take a `message` that is a kind object,
     as in a webhook reply (a string is a basic message's text). Every send
     passes the same send gate as the REST API, and a refusal comes back as the

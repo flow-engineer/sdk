@@ -53,7 +53,9 @@ webhook_signature_header: "Flow-Signature: t=<unix>,v1=<hex hmac-sha256>"
 webhook_signed_payload: "t.{t}.{raw body}"   # HMAC key = the endpoint secret, whsec_ prefix included
 webhook_timeout_seconds: 10
 webhook_tolerance_seconds: 300
-max_text_length: {telegram: 4096, imessage: 9999, whatsapp: 4096}   # characters (Telegram: UTF-16 code units); captions 1024; GET /v1/capabilities
+max_text_length: {telegram: 4096, imessage: 9999, whatsapp: 4096}   # characters (Telegram: UTF-16 code units); captions 1024; each endpoint's page lists its limits
+send: POST /v1/conversations/{conversation_id}/{basic|voice|buttons|list|carousel|template|contact-card|location|effect|reaction|typing|read}   # one endpoint per kind; the body is that kind's fields; section 6
+exact_or_422: a kind, field, channel block or value the channel does not take answers 422 unsupported_content (param names it, hint says what to send instead); nothing is converted
 error_shape: '{"error": {"type": "...", "message": "...", "hint": "...", "doc_url": "https://api.flow.engineer/docs/errors/<type>", "param": "...", "retry_after": 0, "channel_code": "...", "request_id": "..."}}'
 error_handling: read error.hint first (what to change for this case), then switch on error.type
 error_types: [invalid_request, authentication, permission, not_found, idempotency_conflict,
@@ -84,7 +86,7 @@ channels_live: [telegram, whatsapp, imessage]   # connect your own WhatsApp numb
    `200 {}` at once and reply later through the API.
 5. Send every `POST` with an `Idempotency-Key`. Retry `429` and `5xx` with the
    **same** key, after `Retry-After` seconds when given.
-6. Branch on `error.type` and `content.type`, never on message text. When an error
+6. Branch on `error.type` and `content.kind`, never on message text. When an error
    comes back, read `error.hint` first: it says what to change for this case;
    `error.doc_url` is the type's page.
 7. Reply into conversations (`conv_...`). You never choose a channel per message.
@@ -353,10 +355,10 @@ curl -s https://api.flow.engineer/v1/test/conversations \
 # {"id": "conv_...", "channel": "sms", "sender": "snd_...", "contact": "ct_...", "simulated": true, ...}
 
 # 2. Write as the contact (202). Media: upload with POST /v1/files first, then
-#    {"type": "media", "kind": "image", "file_id": "file_...", "caption": "..."}
+#    {"kind": "basic", "text": "...", "media": {"type": "image", "file_id": "file_..."}}
 curl -s https://api.flow.engineer/v1/test/conversations/conv_.../inbound \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
-  -H "Idempotency-Key: $(uuidgen)" -d '{"content": {"type": "text", "text": "Do you deliver on Sundays?"}}'
+  -H "Idempotency-Key: $(uuidgen)" -d '{"content": {"kind": "basic", "text": "Do you deliver on Sundays?"}}'
 # {"message": "msg_...", "conversation": "conv_...", "channel_message_id": "sim_...", "status": "queued"}
 
 # 3. Read both sides, oldest first; page on with ?after=<last message id>
@@ -371,23 +373,24 @@ curl -s https://api.flow.engineer/v1/test/conversations/conv_.../transcript \
   as a WhatsApp template or an SMS send with consent (`via` `outbound`). The
   conversation and contact carry `simulated: true`.
 - Your agent replies as usual (HTTP, stream frame or webhook answer). The send passes
-  the real gate (content support, `fallback`, text limits, edit targets) and ends
+  the real gate (the channel's kinds and fields, text limits, edit targets) and ends
   `message.sent` on your app's simulated sender (`kind: simulated`), which never
-  touches a network. Transcript entries are messages; a sent one has `shown`, what
-  the contact saw (for example numbered text for buttons on SMS; answering `2`
-  comes back as `button_reply`). On Telegram, as with a real bot, the contact writes
+  touches a network. Transcript entries are messages; a sent one's `content` is
+  exactly what the contact sees. A tap on a button or list row is a turn
+  `{"kind": "button_reply", "message_id": "msg_...", "button_id": "..."}`. On Telegram, as with a real bot, the contact writes
   first: a send before their first turn is accepted and then ends `message.failed`
   (`channel_error`, `channel_code` `403`), as on real Telegram.
 - The channel's rules apply to what the contact sends: no documents or locations
   over SMS (`422 unsupported_content`), text up to the channel's `max_text_length`,
   no inline `reply_to` on SMS; an SMS contact's `phone` is a US number (`+1` and ten
-  digits). On SMS and iMessage the contact answers buttons with their number (`"2"`).
+  digits). SMS and iMessage have no buttons: a buttons message answers `422
+  unsupported_content`, as on a real line.
   A simulated iMessage line, like Flow's real lines, only replies: post a turn
   before your agent sends.
 - Simulated WhatsApp keeps WhatsApp's rules. The contact's turns go through the
   real WhatsApp inbound path, so each turn opens the 24-hour window; outside it
   (also before the contact's first turn) only a `template` can be sent (`409
-  outside_window`). Buttons go as up to 3 reply buttons, or a list for 4 to 10;
+  outside_window`). Buttons take up to 3 reply buttons (a `list` up to 10 rows);
   reactions and `reply_to` work; edits and unsends answer `422
   unsupported_content`. The contact's address is a `phone`.
 - Simulated SMS keeps the rules that concern the contact. Before the contact's
@@ -447,11 +450,11 @@ function connect() {
     if (f.type === "event") {
       const ev = f.event; lastEventId = ev.id;   // dedupe on ev.id in production
       const msg = ev.data.message;
-      if (ev.type === "message.received" && msg.content.type === "text") {
+      if (ev.type === "message.received" && msg.content.kind === "basic" && msg.content.text) {
         ws.send(JSON.stringify({
           type: "send", ref: `reply-to-${msg.id}`,   // ref is the idempotency key
           conversation: ev.conversation.id,
-          message: { content: { type: "text", text: `You said: ${msg.content.text}` } },
+          message: { kind: "basic", text: `You said: ${msg.content.text}` },
         }));
       } else if (ev.type === "message.failed") console.error("send failed", msg.id, msg.error);
     } else if (f.type === "error") console.error(f.ref, f.error);  // f.type "ack": the send was queued
@@ -483,10 +486,10 @@ async def main():
                     if f["type"] == "event":
                         ev = f["event"]; last = ev["id"]  # dedupe on ev["id"] in production
                         msg = ev["data"]["message"]
-                        if msg["content"]["type"] == "text":
+                        if msg["content"]["kind"] == "basic" and msg["content"].get("text"):
                             await ws.send(json.dumps({"type": "send", "ref": f"reply-to-{msg['id']}",
                                 "conversation": ev["conversation"]["id"],
-                                "message": {"content": {"type": "text", "text": "You said: " + msg["content"]["text"]}}}))
+                                "message": {"kind": "basic", "text": "You said: " + msg["content"]["text"]}}))
                     elif f["type"] == "error":
                         print(f.get("ref"), f["error"])
                     elif f["type"] == "reconnect":
@@ -500,9 +503,10 @@ async def main():
 asyncio.run(main())
 ```
 
-Frames you send: `{"type": "send", "ref", "conversation", "message": {"content", "reply_to"?, "fallback"?}}`
-replies into a conversation; `{"type": "start", "ref", "message": {"sender", "to",
-"content"}}` works like `POST /v1/messages`. Each gets `{"type": "ack", "ref",
+Frames you send: `{"type": "send", "ref", "conversation", "message": {"kind", ...}}`
+replies into a conversation (the message is one kind object, as on the kind's
+endpoint, with `kind` required); `{"type": "start", "ref", "message": {"sender",
+"to", "kind": "basic" | "template", ...}}` works like `POST /v1/messages`. Each gets `{"type": "ack", "ref",
 "message"}` or `{"type": "error", "ref", "error"}`. On `{"type": "reconnect"}` (server
 restart, or the connection's 24-hour lifetime) connect again with `after` set to the
 last event you saw: nothing is lost.
@@ -665,15 +669,16 @@ The event (abridged; IDs are examples), the same over a webhook or the stream:
                    "sender": "snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T", "contact": "ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"},
   "data": {"message": {"id": "msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2", "conversation": "conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1",
                        "direction": "in", "status": "received", "livemode": false,
-                       "content": {"type": "text", "text": "Do you deliver to 94103?"},
+                       "content": {"kind": "basic", "text": "Do you deliver to 94103?"},
                        "created_at": "2026-10-10T09:12:03Z"}},
   "timing": {"received_at": "2026-10-10T09:12:03Z", "stored_at": "2026-10-10T09:12:03Z"}
 }
 ```
 
-Inbound `content.type` is one of `text`, `media`, `voice`, `button_reply`,
-`reaction`, `location`, `contact_card`, `file_blocked`. `media` and `voice` carry
-`url` and `file_id`: `GET /v1/files/{file_id}` with your key redirects to the bytes
+Inbound `content.kind` is one of `basic` (`text` and/or one `media` file), `voice`,
+`button_reply` (a tap on a button or list row: `button_id`, `label`), `reaction`,
+`location`, `contact_card`, `file_blocked`. A basic message's `media` (`type`
+`image|video|document|audio`) and a `voice` note carry `url` and `file_id`: `GET /v1/files/{file_id}` with your key redirects to the bytes
 (the redirect URL lives 5 minutes). `voice` may carry a `transcript`. `file_blocked`
 means the contact sent a file Flow did not keep (`reason`: `malware`,
 `type_not_allowed`, `scan_failed`, `too_large`). Documents and archives contacts send
@@ -705,9 +710,10 @@ http.createServer((req, res) => {
     seen.add(event.id);
 
     let answer: unknown = {};
-    if (event.type === "message.received" && event.data.message.content.type === "text") {
+    const content = event.data?.message?.content;
+    if (event.type === "message.received" && content.kind === "basic" && content.text) {
       // Fast agent: reply in the webhook answer (section 6a). Must finish well within 10 s.
-      answer = { reply: { type: "text", text: await agentAnswer(event.data.message.content.text) } };
+      answer = { reply: { kind: "basic", text: await agentAnswer(content.text) } };
     } else if (event.type === "message.failed") {
       console.error("send failed", event.data.message.id, event.data.message.error); // see section 9
     }
@@ -738,8 +744,9 @@ def flow_webhook():
     if event["id"] in seen:
         return {}
     seen.add(event["id"])
-    if event["type"] == "message.received" and event["data"]["message"]["content"]["type"] == "text":
-        return {"reply": {"type": "text", "text": agent_answer(event["data"]["message"]["content"]["text"])}}
+    content = event.get("data", {}).get("message", {}).get("content", {})
+    if event["type"] == "message.received" and content.get("kind") == "basic" and content.get("text"):
+        return {"reply": {"kind": "basic", "text": agent_answer(content["text"])}}
     if event["type"] == "message.failed":
         app.logger.error("send failed %s %s", event["data"]["message"]["id"], event["data"]["message"].get("error"))
     return {}
@@ -758,20 +765,24 @@ To see who wrote: `GET /v1/contacts/{contact_id}` returns `address` (`username` 
 
 ### a) In the webhook answer (fastest, for `message.received` only)
 
-Answer `200` with `{"reply": <content>}` or `{"reply": [<content>, ...]}` (up to 10,
-sent in order). It goes into the event's conversation through the same gate as an
-API send, with the event `id` as its idempotency key, so a retried delivery never
-sends twice. Answer `{}` (or an empty body) to send nothing.
+Answer `200` with `{"reply": <message>}` or `{"reply": [<message>, ...]}` (up to 11,
+sent in order). Each message is one kind object with `kind` (the same fields as the
+kind's endpoint, section 6c); a string is a basic message's text. It goes into the
+event's conversation through the same gate as an API send, with the event `id` as
+its idempotency key, so a retried delivery never sends twice. Answer `{}` (or an
+empty body) to send nothing.
 
 ```json
-{"reply": {"type": "text", "text": "Yes, we deliver to 94103."}}
+{"reply": [
+  "Yes, we deliver to 94103.",
+  {"kind": "buttons", "text": "When?", "buttons": [{"id": "today", "label": "Today"}, {"id": "tomorrow", "label": "Tomorrow"}]}
+]}
 ```
 
-A webhook answer takes the same `fallback` as an API send, applied to every item:
-`{"reply": [...], "fallback": "auto"}`. An answer that is not a JSON object (plain
-`OK` included) or has no `reply` sends nothing and is not an error. A JSON object with
-an invalid `reply` (malformed, more than 10 items, an unknown `fallback`), or a body
-that starts with `{` but is not valid JSON, sends nothing at all; the delivery is
+An answer that is not a JSON object (plain `OK` included) or has no `reply` sends
+nothing and is not an error. A JSON object with an invalid `reply` (malformed, a
+piece without a known `kind`, more than 11 items), or a body that starts with `{` but
+is not valid JSON, sends nothing at all; the delivery is
 recorded with an `invalid_request` error saying why (MCP `get_webhook_deliveries`
 shows it). An item the gate refuses becomes a `message.failed` event.
 
@@ -784,63 +795,80 @@ A `send` frame (section 3a) with `ref` as its idempotency key.
 Answer the webhook `200 {}` at once, then:
 
 ```bash
-curl -s "https://api.flow.engineer/v1/conversations/$CONV/messages" \
+curl -s "https://api.flow.engineer/v1/conversations/$CONV/basic" \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: reply-to-$MSG" \
-  -d '{"content": {"type": "text", "text": "Yes, we deliver to 94103."}}'
+  -d '{"text": "Yes, we deliver to 94103."}'
 ```
 
 ```ts
 async function reply(convId: string, inboundMsgId: string, text: string) {
   // Optional. Typing calls the channel at once and can fail (502 channel_error, or 409
   // outside_window on iMessage); never let that stop the reply.
-  await flow("POST", `/v1/conversations/${convId}/typing`, { state: "on" }).catch(() => {});
-  return flow("POST", `/v1/conversations/${convId}/messages`,
-    { content: { type: "text", text } }, `reply-to-${inboundMsgId}`);         // 202, status "queued"
+  await flow("POST", `/v1/conversations/${convId}/typing`, {}).catch(() => {});
+  return flow("POST", `/v1/conversations/${convId}/basic`,
+    { text }, `reply-to-${inboundMsgId}`);                                    // 202, status "queued"
 }
 ```
 
 ```python
 def reply(conv_id, inbound_msg_id, text):
     try:  # optional; typing calls the channel at once and can fail: never let it stop the reply
-        flow("POST", f"/v1/conversations/{conv_id}/typing", {"state": "on"})
+        flow("POST", f"/v1/conversations/{conv_id}/typing", {})
     except FlowError:
         pass
-    return flow("POST", f"/v1/conversations/{conv_id}/messages",
-                {"content": {"type": "text", "text": text}},
+    return flow("POST", f"/v1/conversations/{conv_id}/basic",
+                {"text": text},
                 idempotency_key=f"reply-to-{inbound_msg_id}")  # 202, status "queued"
 ```
 
 The answer is `202` with the message (`status: "queued"`). Every send then ends in
 `message.sent` or `message.failed` (with `data.message.error`); `message.delivered`
 and `message.read` follow only where the channel reports them (never on Telegram).
-Messages in one conversation go out one at a time, in the order accepted. Add
-`"reply_to": "msg_..."` to show the message as an inline reply (Telegram, iMessage).
+Sends to one conversation go out one at a time, in the order accepted, across every
+endpoint, webhook replies and the stream; give each call its own `Idempotency-Key`
+(for example `evt_123:card:2`). Add `"reply_to": "msg_..."` to show the message as an
+inline reply (Telegram, WhatsApp, iMessage; SMS answers `422`).
 
-Other content: `media` (`kind` `image|video|document|audio`, plus `url` or `file_id`
-from `POST /v1/files`, optional `caption`; documents and archives are malware-scanned
-when uploaded, and one that fails answers `422 file_blocked`), `voice`, `buttons`
-(optional `header`: `{"type": "image|video|document", "url" or "file_id"}` or
-`{"type": "text", "text": "<=60 chars"}`; with a media header `text` is at most 1024),
-`carousel` (WhatsApp: `text` plus 2 to 10 `cards`, each an image or video `header`,
-optional `text` up to 160 and the same 1 to 2 reply buttons or one URL button; other
-channels need `"fallback": "auto"`, which sends the text and then one message per card),
-`reaction` (`message_id`, `emoji`, `null` removes), `location`, `contact_card`, `effect`.
+**One endpoint per kind.** `POST /v1/conversations/{conversation_id}/<kind>` with that
+kind's fields as the body. A send is exact or it fails: a kind, field, channel block or
+value the conversation's channel does not take answers `422 unsupported_content`, with
+`param` naming it and `hint` saying what to send instead; nothing is converted.
 
-Text is 1 to the channel's `max_text_length` characters:
+| Endpoint | Body | Telegram | WhatsApp | iMessage | SMS |
+|---|---|---|---|---|---|
+| `basic` | `text`, and/or `media` (`{"type": "image\|video\|document\|audio", "url" or "file_id"}`; `text` is then the caption, at most 1024) | Yes | Yes | Yes | Yes (media only on MMS numbers, no documents) |
+| `voice` | `url` or `file_id` of an audio file | Yes | Yes | Yes | No |
+| `buttons` | `text`, `buttons` (`{"id", "label"}` or `{"url", "label"}`), optional `header` | Yes (up to 10) | Yes (up to 3 reply buttons, or one URL button) | No | No |
+| `list` | `text`, `button`, `sections` (`{"title", "rows": [{"id", "title", "description"}]}`, 10 rows in all) | No | Yes | No | No |
+| `carousel` | `text`, 2 to 10 `cards` (an image or video `header`, `text` up to 160, 1 to 2 buttons) | No | Yes | No | No |
+| `template` | `template_id`, `language`, `params` | No | Yes | No | No |
+| `contact-card` | `name`, `phones`, `emails` | Yes (a phone needed) | Yes | No | No |
+| `location` | `lat`, `lng`, `name`, `address` | Yes | Yes | No | No |
+| `effect` | `text`, `effect` | No | No | Yes | No |
+| `reaction` | `message_id`, `emoji` (`null` removes) | Yes (Telegram's emoji set) | Yes | Yes (not in groups) | No |
+| `typing` | optional | Yes | Yes | Yes (5 minutes after the contact wrote) | No |
+| `read` | optional `up_to` (WhatsApp) | No | Yes | Yes | No |
+
+Where a kind is No, send what the channel takes: a carousel on Telegram is a basic
+message, then one `buttons` message with an image `header` per card; on iMessage and
+SMS, basic messages with an image and a caption per card; buttons or a list there is a
+basic message that lists the choices; a location is a basic message with a maps link.
+Documents and archives are malware-scanned when uploaded (`POST /v1/files`), and one
+that fails answers `422 file_blocked`.
+
+Text is 1 to the channel's limit:
 **4096 on Telegram, 9999 on iMessage** (4096 on WhatsApp). Telegram counts
-UTF-16 code units of the text as shown (after markdown), so an emoji such as 😀 counts 2. A media
-`caption` takes at most 1024, also when an edit replaces it. Longer text is refused with
-`400 invalid_request`: split it. `"format": "markdown"` is CommonMark (`**bold**`,
-`*italic*`) and renders in the channel's formatting (iMessage has none: add
-`"fallback": "auto"` and it goes as plain text). `plain`, the default, is sent as
-written, so a channel's own marks (WhatsApp's `*bold*`) work with `plain`.
+UTF-16 code units, so an emoji such as 😀 counts 2. A media
+caption takes at most 1024, also when an edit replaces it. Longer text is refused with
+`400 invalid_request`: split it. Text is sent exactly as written: Flow does not read
+markdown or strip marks. Style it in the channel's own terms: on Telegram
+`"telegram": {"parse_mode": "HTML"}` (or `MarkdownV2`), on iMessage
+`"imessage": {"styles": [{"start": 0, "length": 5, "style": "bold"}]}` (and
+`"subject"`); WhatsApp's app shows its own `*bold*` and `_italic_`. A block for
+another channel than the conversation's answers `422` with `param` the block's name.
 
-Set `"fallback": "auto"` to let the channel's documented fallback replace what it cannot
-show; without it such a send fails with `422 unsupported_content`. Ask `GET
-/v1/capabilities?conversation=conv_...` before sending anything unusual. Other
-actions: `POST /v1/conversations/{id}/read` (body optional, `{"up_to": "msg_..."}`),
-`PATCH /v1/messages/{id}` (`{"content": {"type": "text", "text": "..."}}`, edit),
+Edit and unsend: `PATCH /v1/messages/{id}` (`{"text": "..."}`, edit),
 `DELETE /v1/messages/{id}` (unsend).
 
 Edits and unsends are checked against the channel's limits when you call
@@ -941,7 +969,7 @@ why it happens, how to fix it. For example:
            "message": "text must be 1 to 4096 characters on Telegram.",
            "hint": "The text is 5120 characters and Telegram takes at most 4096 characters (counted in UTF-16 code units, so an emoji such as 😀 is 2); split it into several messages.",
            "doc_url": "https://api.flow.engineer/docs/errors/invalid_request",
-           "param": "content.text",
+           "param": "text",
            "request_id": "req_01JB8ZF6P8R0T2V4X6Z8B0C2D4"}}
 ```
 
@@ -951,13 +979,13 @@ the same error shape in `data.message.error`).
 
 | `error.type` | HTTP | What to do |
 |---|---|---|
-| `invalid_request` | 400 | Fix the request; `param` names the field. Do not retry. Send, start and edit bodies refuse any top-level field they do not list (for example `send_at`: there are no scheduled sends). |
+| `invalid_request` | 400 | Fix the request; `param` names the field. Do not retry. Send, start and edit bodies refuse any field they do not list, also inside a channel block (for example `send_at`: there are no scheduled sends). |
 | `authentication` | 401 | Check `FLOW_MESSAGING_KEY`. `channel_code` `sandbox_key_expired`: the sandbox key passed its 7 days (see below). Do not retry. |
 | `permission` | 403 | Not allowed: a test key messaging someone who has not joined your app on the sandbox, a test key connecting a bot, connecting a Flow sandbox bot's token, sending from a sender `flagged` because Telegram rejected its token (connect the bot again), starting an iMessage conversation with someone who never wrote, the sandbox allowance (see below). Do not retry. |
 | `not_found` | 404 | Wrong ID, or it belongs to the other mode (test vs live). |
 | `idempotency_conflict` | 409 | See section 8. |
 | `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. |
-| `unsupported_content` | 422 | The channel cannot show it: resend with `"fallback": "auto"` or other content. An upload of a type Flow does not take (programs, web pages) gets it too. |
+| `unsupported_content` | 422 | The channel does not take this kind, field or value (`param` names it, `channel` is the channel); nothing was sent. Send what `hint` says instead (for example a basic message, then one buttons message per card, for a carousel on Telegram). An upload of a type Flow does not take (programs, web pages) gets it too. |
 | `file_blocked` | 422 | The upload failed the malware scan and was not stored. Send a different file. |
 | `new_contact_limit` | 429 | The sender's budget for new conversations is used up. `retry_after` can be an hour: queue the start, do not block on it. |
 | `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` (24 hours by default). Replies still go. |
@@ -974,8 +1002,9 @@ cannot do this). An expired sandbox key is `401 authentication` with
 `sandbox_key_expired`. The fix for all of them: have a person sign in (`npx
 @flow-engineer/messaging login`, section 0), or get a new key.
 
-Sends (`POST /v1/messages`, `.../messages`, webhook replies, stream frames) are only
-queued, so channel refusals never come back on the HTTP answer: they arrive as
+Sends (`POST /v1/messages`, the kinds' endpoints, webhook replies, stream frames) are
+checked against the channel's kinds and fields at once (`422`), then queued, so the
+channel's own refusals never come back on the HTTP answer: they arrive as
 `message.failed`. A body over 32 MB gets `413` `invalid_request`.
 
 ```ts
@@ -1056,14 +1085,16 @@ iMessage lines have stricter limits of their own.
 - **Statuses**: `message.sent` or `message.failed` only. Telegram has no delivery or
   read receipts for bots, so never wait for `message.delivered` or `message.read`.
 - **Text** up to 4096 characters, counted in UTF-16 code units (an emoji such as 😀 is 2);
-  `"format": "markdown"` shows Telegram formatting. Media captions up to 1024.
-- **Buttons**: an inline keyboard, up to 10, one per row; a tap arrives as
-  `button_reply` content (`button_id`, `label`).
+  `"telegram": {"parse_mode": "HTML"}` (or `MarkdownV2`) for Telegram's formatting. Media captions up to 1024.
+- **Buttons**: an inline keyboard, up to 10, one per row; a tap arrives as a
+  `button_reply` message (`button_id`, `label`). No lists or carousels: send buttons.
 - **Media** by `https` URL (Telegram fetches it: photos up to 5 MB, other files up to
   20 MB) or a `file_id` (images up to 10 MB, other files up to 50 MB); voice notes as OGG/Opus.
-- **Reactions**: Telegram allows a fixed set of reaction emoji.
-- **Typing** (`state: "on"`) shows for about 5 seconds or until a message arrives.
-  Bots cannot send read receipts (`read` is skipped).
+- **Reactions**: only Telegram's fixed set of reaction emoji (listed on `POST
+  /v1/conversations/{conversation_id}/reaction`; another answers `422`, `param`
+  `emoji`); `"telegram": {"is_big": true}` for the large animation.
+- **Typing** shows for about 5 seconds or until a message arrives.
+  Bots cannot send read receipts (`read` answers `422 unsupported_content`).
 - **Edit** text (up to 4096) or a media caption (up to 1024), with no time limit; **unsend** within 48 hours of sending (later: `422 unsupported_content`, `unsend_window_closed`).
 - **Contacts**: `address.username` (when set) and `address.telegram_user_id`; no
   phone number.
@@ -1083,13 +1114,13 @@ iMessage lines have stricter limits of their own.
 - **Group chats** (dedicated lines; the shared line ignores them): a group the line
   was added to is one conversation with `type` `group`, no `contact`, and
   `group.participants`; each inbound message's `from` names who wrote. Reply with the
-  normal send. Reactions in groups answer `422 unsupported_content`
-  (`channel_code` `group_unsupported`); typing and read receipts are skipped. The
+  normal sends. Reactions, typing and read receipts in groups answer `422
+  unsupported_content` (`channel_code` `group_unsupported`): leave them out. The
   API cannot create a group or change who is in it.
-- **SMS and RCS fallback**: when `sender.imessage.fallback` is on, a contact who
-  cannot get iMessage gets SMS or RCS instead; `message.network` says which. Styles
-  and effects are dropped there, and edits and unsends answer `422
-  unsupported_content` (`channel_code` `not_on_sms`).
+- **SMS/RCS add-on**: when `sender.imessage.fallback` is on, a contact who
+  cannot get iMessage gets the message by SMS or RCS; `message.network` says which.
+  Such a message shows no `imessage.styles`, subject or effect, and edits and
+  unsends of it answer `422 unsupported_content` (`channel_code` `not_on_sms`).
 - **FaceTime calls** to the line arrive as `call.received` (`data.call.contact`); the
   line cannot answer them, and a call does not count as the person writing.
 - **Get people to write first** with the line's opt-in link (or its QR code): the
@@ -1103,14 +1134,14 @@ iMessage lines have stricter limits of their own.
   `address.phone` only for a number). iMessage reaches Apple devices only.
 - **Statuses**: `message.sent`, `message.delivered` and `message.failed` (a message can
   fail after `sent`). No `message.read` and no typing events.
-- **Text** up to 9999 characters. `format: "markdown"` renders bold,
-  italic, `~~strike~~`, and Flow's tags `<u>`, `<big>`, `<small>` and the animations
-  `<shake>`, `<nod>`, `<explode>`, `<ripple>`, `<bloom>`, `<jitter>`; `subject` adds a
-  bold title, and `link_preview: false` turns off link previews.
-  No buttons: with `"fallback": "auto"` they go as numbered text and a numeric answer
-  comes back as `button_reply`. Locations and contact cards need `"fallback": "auto"`.
-  Screen and bubble effects (`effect` content). Media up to 100 MB, by `url` (HTTPS, at
-  most 256 characters) or, better, a `file_id` from `POST /v1/files`.
+- **Text** up to 9999 characters, shown exactly as written.
+  `"imessage": {"styles": [...]}` styles ranges of it (bold, italic, underline,
+  strikethrough, big, small, and the animations shake, nod, explode, ripple, bloom,
+  jitter; `start` and `length` in UTF-16 code units); `"imessage": {"subject": "..."}`
+  adds a bold subject line, and `link_preview: false` turns off link previews.
+  No buttons, lists, carousels, locations or contact cards (`422`): send basic
+  messages instead. Screen and bubble effects: `POST .../effect`. Media up to 100 MB,
+  by `url` (HTTPS, at most 256 characters) or, better, a `file_id` from `POST /v1/files`.
 - **Reactions**: tapbacks ❤️ 👍 👎 😂 ‼️ ❓ arrive as `reaction.added` /
   `reaction.removed`; other emoji go as emoji reactions.
 - **Typing** shows only within 5 minutes of the contact's last message; **read** marks
@@ -1141,8 +1172,10 @@ iMessage lines have stricter limits of their own.
   `retry_after`.
 - **Text** up to 1530 characters and 10 segments (an
   emoji makes the text UCS-2: 670 characters); `message.sms` shows `segments` and
-  `encoding`. Images, audio and video go as MMS; buttons, locations and contact
-  cards need `"fallback": "auto"`; no reactions, edits, unsends, typing or read.
+  `encoding`. Images, audio and video go as MMS (numbers with `mms`; else `422`,
+  `no_mms`); only basic messages: buttons, lists, carousels, voice notes, locations,
+  contact cards, reactions, edits, unsends, typing and read receipts answer `422
+  unsupported_content`, and so do `reply_to` and `link_preview: true`.
 
 ### WhatsApp
 
@@ -1189,9 +1222,11 @@ curl -s https://api.flow.engineer/v1/senders \
   outside_window`).
 - **Typing** only within 24 hours of the contact's last message, and only after they
   wrote at least once.
-- **Text** up to 4096 characters; `channel_options.preview_url` turns
-  the link preview on or off. Edits and unsends are refused (`422
-  unsupported_content`).
+- **Text** up to 4096 characters; `link_preview` turns the link
+  preview on or off. The app shows its own `*bold*` and `_italic_` marks.
+- **Buttons**: up to 3 reply buttons, or one URL button; more answer `422`
+  (`param` `buttons`): send a `list` (up to 10 rows) instead. Carousels: 2 to 10
+  cards. Edits and unsends are refused (`422 unsupported_content`).
 
 ## 12. MCP server (optional, for development)
 
@@ -1223,7 +1258,7 @@ Cursor (`~/.cursor/mcp.json`):
 
 Two traps: set `FLOW_MESSAGING_KEY` in the shell before running the Claude Code command (the shell fills the key in once, when you run it; unset, the header is saved as `Bearer ` with no key and every call answers `401`), and for Codex or Cursor have it in the environment they start with. A server added while the client runs loads only after a restart (in Claude Code, a new session). Added with an empty key already? `export FLOW_MESSAGING_KEY=fk_test_...`, then `claude mcp remove flow`, run the add command again, and restart.
 
-Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `edit_message`, `unsend_message`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `capabilities`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
+Test keys get `sandbox_join`, `send_test_message`, `simulate_inbound`, `get_test_transcript`, `wait_for_event`, `list_events`, `get_webhook_deliveries`, `replay_event`; live keys get `send_message`, `reply`, `react`, `edit_message`, `unsend_message`, `typing`, `list_conversations`, `get_conversation_messages`; both get `whoami`, `explain_error`. After a test send, wait for `message.sent` or `message.failed`, never `message.delivered` (Telegram never sends it).
 
 Without a key, `/mcp` answers `401` and its `hint` gives the one call that gets a test
 key (section 0). After `send_test_message`, pass the `cursor` it returned as `after` to
@@ -1319,9 +1354,9 @@ if (!conv) {
 // 3 and 4. Ask, confirm the send, wait for the answer.
 async function ask(text: string, timeoutMs = 5 * 60_000): Promise<string | null> {
   inbox.splice(0); // what the person wrote before the question is not its answer
-  const msg = await api(`/v1/conversations/${conv}/messages`, {
+  const msg = await api(`/v1/conversations/${conv}/basic`, {
     method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() },
-    body: JSON.stringify({ content: { type: "text", text } }),
+    body: JSON.stringify({ text }),
   });
   const outcome = await next((e) => e.data?.message?.id === msg.id &&
     (e.type === "message.sent" || e.type === "message.failed"), 60_000);
@@ -1332,7 +1367,7 @@ async function ask(text: string, timeoutMs = 5 * 60_000): Promise<string | null>
   try {
     const ev = await next((e) => e.type === "message.received" && e.conversation.id === conv, timeoutMs);
     const c = ev.data.message.content;
-    return c.type === "text" ? c.text : c.type === "button_reply" ? c.label : `[${c.type}]`;
+    return c.kind === "basic" && c.text ? c.text : c.kind === "button_reply" ? c.label : `[${c.kind}]`;
   } catch {
     return null; // timed out: say so, or ask again later
   }
@@ -1356,7 +1391,7 @@ ws.close();
 ### Serverless (Vercel, Workers, Lambda): webhooks only
 
 - Register `https://<your-app>/api/flow` once with `POST /v1/webhook_endpoints` and store the `whsec_...` secret as `FLOW_MESSAGING_WEBHOOK_SECRET`. Verify `Flow-Signature` on the raw body (in TypeScript `flow.webhooks.handler(...)` does it), dedupe on `event.id`, answer within 10 seconds.
-- Fast answer: return `{"reply": ...}` in the webhook answer. Slow agent: answer `200 {}` at once, then reply with `POST /v1/conversations/{conversation_id}/messages` (on Vercel inside `waitUntil`). Keep conversation state in your database, keyed by `conversation.id`.
+- Fast answer: return `{"reply": ...}` in the webhook answer. Slow agent: answer `200 {}` at once, then reply with `POST /v1/conversations/{conversation_id}/basic` (or another kind's endpoint; on Vercel inside `waitUntil`). Keep conversation state in your database, keyed by `conversation.id`.
 - Missed deliveries are retried for 3 days; to catch up, read `GET /v1/events?after=evt_...` from a cron job.
 - Previews and local runs: Flow calls only public HTTPS URLs. Locally, no tunnel needed: `npx @flow-engineer/messaging listen --forward-to http://localhost:3000/api/flow` reads the stream and `POST`s each event to your handler, signed like a real delivery with `FLOW_MESSAGING_WEBHOOK_SECRET`.
 
@@ -1440,7 +1475,7 @@ Some things are set up by the Flow team, not through the API: SMS numbers, dedic
 
 **Never send secrets in chat or email, and never paste them to a coding agent or commit them**: API keys, bot tokens, provider auth tokens, access tokens, app secrets. The Flow team tells you how to hand credentials over, and Flow stores them encrypted. A coding agent that finds credentials in `.env` or a secret manager leaves them where they are and tells the person this.
 
-**Build meanwhile on Telegram or simulated conversations.** Your code does not change per channel: you reply into conversations, switch on `content.type` and `error.type`, and set `"fallback": "auto"`. Simulated conversations (`POST /v1/test/conversations` with `"channel": "sms"`, `"whatsapp"` or `"imessage"`) keep each channel's rules (SMS consent and STOP, WhatsApp's 24-hour window and templates, iMessage replies only), are free and need no number. When the number or line is connected, switch to a live key; nothing else changes.
+**Build meanwhile on Telegram or simulated conversations.** Your code does not change per channel: you reply into conversations and switch on `content.kind` and `error.type`; where a kind is not on a channel, the `422` `hint` says what to send instead. Simulated conversations (`POST /v1/test/conversations` with `"channel": "sms"`, `"whatsapp"` or `"imessage"`) keep each channel's rules (SMS consent and STOP, WhatsApp's 24-hour window and templates, iMessage replies only), are free and need no number. When the number or line is connected, switch to a live key; nothing else changes.
 
 | You want | Today | Send the Flow team |
 |---|---|---|
@@ -1460,20 +1495,28 @@ Every operation in the spec (https://api.flow.engineer/openapi.yaml):
 | `POST /v1/device/authorizations` | Start a sign-in from an agent or CLI (device flow) |
 | `POST /v1/device/token` | Poll a device sign-in for its key |
 | `GET /v1/app` | Get the calling app |
-| `POST /v1/conversations/{conversation_id}/messages` | Send a message into a conversation |
+| `POST /v1/conversations/{conversation_id}/basic` | Send a basic message (text, or media with a caption) |
+| `POST /v1/conversations/{conversation_id}/voice` | Send a voice note |
+| `POST /v1/conversations/{conversation_id}/buttons` | Send text with buttons |
+| `POST /v1/conversations/{conversation_id}/list` | Send a list to pick one option from |
+| `POST /v1/conversations/{conversation_id}/carousel` | Send a carousel of cards |
+| `POST /v1/conversations/{conversation_id}/template` | Send a WhatsApp template |
+| `POST /v1/conversations/{conversation_id}/contact-card` | Send a contact card |
+| `POST /v1/conversations/{conversation_id}/location` | Send a place |
+| `POST /v1/conversations/{conversation_id}/effect` | Send text with an iMessage effect |
+| `POST /v1/conversations/{conversation_id}/reaction` | React to a message |
 | `POST /v1/messages` | Start a conversation |
 | `GET /v1/messages/{message_id}` | Get a message |
 | `PATCH /v1/messages/{message_id}` | Edit a sent message |
 | `DELETE /v1/messages/{message_id}` | Unsend a message |
 | `GET /v1/conversations/{conversation_id}/messages` | List a conversation's messages |
-| `POST /v1/conversations/{conversation_id}/typing` | Show or stop the typing indicator |
+| `POST /v1/conversations/{conversation_id}/typing` | Show the typing indicator |
 | `POST /v1/conversations/{conversation_id}/read` | Mark messages as read |
 | `GET /v1/conversations` | List conversations |
 | `GET /v1/conversations/{conversation_id}` | Get a conversation |
 | `GET /v1/events` | List events |
 | `GET /v1/events/{event_id}` | Get an event |
 | `GET /v1/stream` | Open the live event stream (WebSocket) |
-| `GET /v1/capabilities` | Get a conversation's capabilities |
 | `POST /v1/files` | Upload a file |
 | `GET /v1/files/{file_id}` | Download a file |
 | `GET /v1/senders` | List senders |

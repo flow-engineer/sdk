@@ -103,7 +103,6 @@
     "tools": {
       "common": [
         "whoami",
-        "capabilities",
         "explain_error"
       ],
       "test": [

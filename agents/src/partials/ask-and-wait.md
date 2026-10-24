@@ -55,9 +55,9 @@ if (!conv) {
 // 3 and 4. Ask, confirm the send, wait for the answer.
 async function ask(text: string, timeoutMs = 5 * 60_000): Promise<string | null> {
   inbox.splice(0); // what the person wrote before the question is not its answer
-  const msg = await api(`/v1/conversations/${conv}/messages`, {
+  const msg = await api(`/v1/conversations/${conv}/basic`, {
     method: "POST", headers: { "Idempotency-Key": crypto.randomUUID() },
-    body: JSON.stringify({ content: { type: "text", text } }),
+    body: JSON.stringify({ text }),
   });
   const outcome = await next((e) => e.data?.message?.id === msg.id &&
     (e.type === "message.sent" || e.type === "message.failed"), 60_000);
@@ -68,7 +68,7 @@ async function ask(text: string, timeoutMs = 5 * 60_000): Promise<string | null>
   try {
     const ev = await next((e) => e.type === "message.received" && e.conversation.id === conv, timeoutMs);
     const c = ev.data.message.content;
-    return c.type === "text" ? c.text : c.type === "button_reply" ? c.label : `[${c.type}]`;
+    return c.kind === "basic" && c.text ? c.text : c.kind === "button_reply" ? c.label : `[${c.kind}]`;
   } catch {
     return null; // timed out: say so, or ask again later
   }

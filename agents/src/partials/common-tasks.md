@@ -7,7 +7,7 @@
 ### Serverless (Vercel, Workers, Lambda): webhooks only
 
 - Register `https://<your-app>/api/flow` once with `POST /v1/webhook_endpoints` and store the `whsec_...` secret as `{{env.webhook_secret}}`. Verify `Flow-Signature` on the raw body (in TypeScript `flow.webhooks.handler(...)` does it), dedupe on `event.id`, answer within {{webhook_timeout_seconds}} seconds.
-- Fast answer: return `{"reply": ...}` in the webhook answer. Slow agent: answer `200 {}` at once, then reply with `POST /v1/conversations/{conversation_id}/messages` (on Vercel inside `waitUntil`). Keep conversation state in your database, keyed by `conversation.id`.
+- Fast answer: return `{"reply": ...}` in the webhook answer. Slow agent: answer `200 {}` at once, then reply with `POST /v1/conversations/{conversation_id}/basic` (or another kind's endpoint; on Vercel inside `waitUntil`). Keep conversation state in your database, keyed by `conversation.id`.
 - Missed deliveries are retried for 3 days; to catch up, read `GET /v1/events?after=evt_...` from a cron job.
 - Previews and local runs: Flow calls only public HTTPS URLs. Locally, no tunnel needed: `npx {{package}} listen --forward-to http://localhost:3000/api/flow` reads the stream and `POST`s each event to your handler, signed like a real delivery with `{{env.webhook_secret}}`.
 

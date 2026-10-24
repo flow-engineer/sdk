@@ -52,14 +52,14 @@ export const POST = flow.webhooks.handler({
 });
 ```
 
-`reply()` takes a string, content, a list of content, or an LLM stream (OpenAI, Anthropic, Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, LangChain, Mastra) and sends it as chat bubbles with typing on.
+`reply()` takes a string, a message of any kind (`{ kind: "buttons", ... }`), a list of them, or an LLM stream (OpenAI, Anthropic, Vercel AI SDK, OpenAI Agents SDK, Claude Agent SDK, LangChain, Mastra) and sends it as chat bubbles with typing on.
 
 ## HTTP equivalents
 
 - Read events: `GET /v1/events?type=message.received&after=evt_...` (oldest first).
-- Reply: `POST /v1/conversations/{conversation_id}/messages` with `{"content": {"type": "text", "text": "..."}}` and an `Idempotency-Key` header.
-- Reply inside a webhook: answer `200` with `{"reply": {"type": "text", "text": "..."}}` (or a list of up to 10, optionally with `"fallback": "auto"`). An invalid answer sends nothing and is recorded on the delivery as `invalid_request`.
-- Start a conversation: `POST /v1/messages` with `sender`, `to` (`phone`, `telegram_user_id`, `handle` or `contact`) and `content` (a `template` on WhatsApp).
+- Reply: `POST /v1/conversations/{conversation_id}/basic` with `{"text": "..."}` and an `Idempotency-Key` header. Other kinds have their own endpoints, each opening with the channels it works on: `/voice`, `/buttons`, `/list`, `/carousel`, `/template`, `/contact-card`, `/location`, `/effect`, `/reaction`, `/typing`, `/read`.
+- Reply inside a webhook: answer `200` with `{"reply": {"kind": "basic", "text": "..."}}` (or a list of up to 11 kind objects; a string is a basic message's text). An invalid answer sends nothing and is recorded on the delivery as `invalid_request`.
+- Start a conversation: `POST /v1/messages` with `sender`, `to` (`phone`, `telegram_user_id`, `handle` or `contact`) and a `basic` or `template` message with `kind` (a `template` on WhatsApp).
 - Register a webhook: `POST /v1/webhook_endpoints` with `url` and `events`; store the returned `whsec_...` secret. Rotate it with `POST /v1/webhook_endpoints/{id}/rotate_secret` (the old one keeps signing for `overlap_seconds`, default one day).
 - Signature: `Flow-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.{t}.{raw body}">`, 5-minute tolerance; during a rotation there is one `v1` per active secret, accept any match.
 
@@ -69,7 +69,7 @@ export const POST = flow.webhooks.handler({
 - Verify webhook signatures on the raw body; deduplicate on event `id`; answer within 10 seconds.
 - iMessage: reply only unless the sender's `imessage.can_initiate` is on; never message a contact first otherwise.
 - WhatsApp: free-form only within 24 hours of the person's last message, else a `template` (`409 outside_window`).
-- Content a channel cannot show fails with `422 unsupported_content` unless `fallback` is set (`"auto"` is usually right).
+- A send is exact or it fails: a kind, field or value the channel does not take answers `422 unsupported_content` (`param` names it; `hint` says what to send instead, such as a basic message, then one buttons message per card, for a carousel on Telegram). Nothing is converted; `text` is sent as written.
 - Switch on `error.type`; each error has `hint` and `doc_url` (`https://api.flow.engineer/docs/errors/<type>`).
 - Use test keys while building; live keys only on the server.
 - Locally, with no public URL, receive events from `GET /v1/stream` (WebSocket, resumable with `after`) instead of a webhook.

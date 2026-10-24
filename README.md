@@ -33,9 +33,9 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 Without the SDK, from any language:
 
 ```sh
-curl https://api.flow.engineer/v1/conversations/conv_.../messages \
+curl https://api.flow.engineer/v1/conversations/conv_.../basic \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
-  -d '{"content": {"type": "text", "text": "Hello!"}}'
+  -d '{"text": "Hello!"}'
 ```
 
 ## Why it exists

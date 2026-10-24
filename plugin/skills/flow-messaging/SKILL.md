@@ -57,7 +57,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 }
 ```
 
-`reply` takes a string, content, a list of content, or a stream from OpenAI,
+`reply` takes a string, a message of any kind, a list of them, or a stream from OpenAI,
 Anthropic, the Vercel AI SDK, the OpenAI Agents SDK, the Claude Agent SDK,
 LangChain, Mastra or any `AsyncIterable<string>`. It keeps typing on, splits the text
 into chat bubbles at paragraph and sentence ends, and sends each bubble as it is ready.
@@ -87,9 +87,9 @@ it is async and needs the **raw** body. Local development: `npx @flow-engineer/m
 
 ```ts
 const conv = await flow.test.createConversation({ channel: "sms" }); // a simulated contact; also telegram, whatsapp, imessage
-await flow.test.inbound(conv.id, { type: "text", text: "Do you deliver on Sundays?" });
+await flow.test.inbound(conv.id, { kind: "basic", text: "Do you deliver on Sundays?" });
 // your agent gets a real message.received and replies as usual; then:
-for await (const m of flow.test.transcript(conv.id)) console.log(m.direction, m.shown ?? m.content);
+for await (const m of flow.test.transcript(conv.id)) console.log(m.direction, m.content); // exactly what the contact sees
 ```
 
 Free (not in the sandbox allowance); sends pass the real gate and end `message.sent`
@@ -130,10 +130,12 @@ contacts included) is graded.
 ## Rules that save debugging
 
 - Reply into a conversation (`event.conversation`, or `flow.conversation("conv_...")`);
-  you never choose a channel per message. Start new ones with `flow.messages.start({ sender, to, content })`.
+  you never choose a channel per message. Start new ones with `flow.messages.start({ sender, to, kind: "basic", text })`.
 - Contacts may have no phone number (Telegram users, iMessage email handles).
-- Content a channel cannot show fails with `UnsupportedContentError` unless the send
-  sets `fallback: "auto"` (`reply` sets it). Check `flow.capabilities.retrieve(convId)`.
+- One endpoint per message kind (basic, buttons, list, carousel, ...), each listing the
+  channels it works on. A kind, field or value the channel does not take fails with
+  `UnsupportedContentError` (`param` names it; `hint` says what to send instead):
+  nothing is converted, and `text` is sent as written.
 - WhatsApp: free-form only within 24 h of the contact's last message, else
   `OutsideWindowError`: send a `template(...)`.
 - Errors are classes per `error.type` (`OutsideWindowError`, `RateLimitError`,
@@ -141,5 +143,5 @@ contacts included) is graded.
 - Deliveries are at least once: deduplicate on `event.id`.
 - MCP server (optional, for development): `https://api.flow.engineer/mcp`, with the same key as a Bearer token. MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript or Python SDK, which wrap it) for everything it does at runtime. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. For Claude Code the command is `claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"` (Codex and Cursor: section 12 of https://api.flow.engineer/docs/quickstart.md); `FLOW_MESSAGING_KEY` must be set when it runs (unset, the header is saved as `Bearer ` with no key), and the client loads a new server only after a restart. If its tools are already available to you, use them for sandbox testing; after a test send, wait for `message.sent` or `message.failed`.
 
-More: [API and content types](reference/api.md) · [frameworks](reference/frameworks.md) ·
+More: [API and message kinds](reference/api.md) · [frameworks](reference/frameworks.md) ·
 [CLI and MCP](reference/cli-mcp.md) · docs https://docs.flow.engineer

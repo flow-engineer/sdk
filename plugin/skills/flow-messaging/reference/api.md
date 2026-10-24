@@ -7,14 +7,13 @@ Every method mirrors one endpoint; lists return a `PagePromise` (await it for a 
 
 | SDK | HTTP |
 |---|---|
-| `flow.messages.send(convId, "text" \| content \| {content, fallback, reply_to})` (`reply_to: "msg_..."` is an inline reply; `message.reply_to` echoes it) | `POST /v1/conversations/{id}/messages` |
+| `flow.messages.send(convId, "text" \| message \| {..., reply_to})` (`reply_to: "msg_..."` is an inline reply; `message.reply_to` echoes it) | `POST /v1/conversations/{id}/{kind}`: `basic`, `voice`, `buttons`, `list`, `carousel`, `template`, `contact-card`, `location`, `effect`, `reaction` |
 | `flow.messages.start({ sender, to: { telegram_user_id \| phone \| handle \| contact }, content })` | `POST /v1/messages` |
 | `flow.messages.retrieve(id)` · `.edit(id, "new text")` · `.unsend(id)` | `GET` · `PATCH` · `DELETE /v1/messages/{id}` |
 | `flow.conversations.list()` · `.retrieve(id)` · `.messages(id)` | `GET /v1/conversations[/{id}[/messages]]` |
 | `flow.conversations.typing(id, "on")` · `.markRead(id)` (call the channel at once; `409 outside_window` or `502 channel_error` are safe to ignore) | `POST /v1/conversations/{id}/typing` · `/read` |
 | `flow.events.stream({ types, after })` | `GET /v1/stream` (WebSocket; in browsers the key goes as subprotocol `flow.key.<key>` next to `flow`) |
 | `flow.events.list({ after, type })` · `.retrieve(id)` | `GET /v1/events` (oldest first) |
-| `flow.capabilities.retrieve(convId)` | `GET /v1/capabilities?conversation=` |
 | `flow.files.upload({ file, filename })` (`file`: Blob, Uint8Array/Buffer or ArrayBuffer; returns a `File` whose `id` is the `file_id`) · `.download(id)` | `POST /v1/files` · `GET /v1/files/{id}` |
 | `flow.webhookEndpoints.create({ url, events })` (+ list, retrieve, update, delete) · `.rotateSecret(id, { overlap_seconds })` | `/v1/webhook_endpoints` · `POST .../{id}/rotate_secret` |
 | `flow.senders.list()` · `flow.contacts.list()` · `flow.templates.list()` · `flow.app.retrieve()` | `/v1/senders` · `/v1/contacts` · `/v1/templates` · `/v1/app` |
@@ -37,31 +36,37 @@ error on `message.failed`), `flow.messages.waitFor(msgId, { until })`,
 (default 5 min) and `signal`, and throw `WaitTimeoutError`. List parameters are named
 types (`ListEventsParams`, `ListConversationsParams`, ...).
 
-## Content (one union, both directions; `type` picks the shape)
+## Message kinds (both directions; `kind` picks the shape)
 
 Builders: `text("hi")`, `markdown("**hi**")`, `image(url | "file_...", { caption })`,
 `video`, `document`, `audio`, `voice(url)`, `buttons("Size?", ["S", "M", { id: "l", label: "Large" }])`,
 `reaction(msgId, "👍" | null)`, `template(tplId, "en", { body: ["Asha"] })`,
 `location(lat, lng, { name })`, `contactCard(name, { phones })`, `effect(text, "confetti")`.
 
-Inbound only: `button_reply` (`button_id`, `label`) and `file_blocked`. Inbound media
-and voice carry `url` and `file_id`; voice may carry `transcript`. `contentText(content)`
-returns the readable text of any content.
+Inbound only: `button_reply` (`button_id`, `label`; also a tap on a list row) and
+`file_blocked`. Inbound `basic` messages carry `text` and/or one `media` file (`url`,
+`file_id`); `voice` carries `url`, `file_id` and maybe `transcript`.
+`contentText(content)` returns the readable text of any message.
 
-Per channel: buttons are native on Telegram and WhatsApp (3 buttons, else a list) and
-need `fallback: "auto"` on iMessage (numbered text; replies still come back as
-`button_reply`). A buttons message may carry a `header` (image, video, document, or a
-60-character title); with a media header its text is at most 1024. `carousel` content
-(2 to 10 cards, each an image or video, up to 160 characters of text, the same 1 to 2
-reply buttons or one URL button) is native on WhatsApp only; elsewhere `fallback: "auto"`
-sends the text and then one message per card. Templates are WhatsApp only (carousel
-templates take `params.cards`). Edit and unsend: Telegram (unsend within 48 hours)
+Each kind has its own endpoint, whose page in the spec opens with the channels it works
+on. A send is exact or it fails: a kind, field, channel block or value the channel does
+not take answers `422 unsupported_content` (`param` names it, `hint` says what to send
+instead); nothing is converted. Per channel: `basic` everywhere (SMS media only on MMS
+numbers, no documents); `buttons` on Telegram (up to 10) and WhatsApp (1 to 3 reply
+buttons or one URL button; more: send a `list`), not iMessage or SMS (send a basic
+message listing the choices). A buttons message may carry a `header` (image, video,
+document, or a 60-character title); with a media header its text is at most 1024.
+`list` and `carousel` (2 to 10 cards, each an image or video, up to 160 characters of
+text, the same 1 to 2 reply buttons or one URL button) are WhatsApp only; on Telegram
+send a basic message, then one buttons message with an image header per card.
+Templates are WhatsApp only (carousel templates take `params.cards`). `text` is sent as
+written: style it with `telegram: { parse_mode }` or `imessage: { styles, subject }`. Edit and unsend: Telegram (unsend within 48 hours)
 and iMessage (edit within 15 minutes, not the conversation's first message; unsend
 within 2); past a limit `422 unsupported_content` with `channel_code`
 `edit_window_closed`, `unsend_window_closed` or `first_message_not_editable`, so send
 a new message instead. Text is at most the channel's
-`max_text_length` (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 and 10 segments on SMS, which is in pilot in the US; Telegram counts UTF-16 code units, so an emoji is often 2; media captions 1024). `channel_options`
-keys outside each channel's allowlist are dropped.
+limit (4096 on Telegram and WhatsApp, 9999 on iMessage, 1530 and 10 segments on SMS, which is in pilot in the US; Telegram counts UTF-16 code units, so an emoji is often 2; media captions 1024). A key a channel block does not
+list is refused (`400 invalid_request`), never dropped.
 
 ## Events (discriminated union on `type`)
 
@@ -99,16 +104,16 @@ or get a new key.
 ## HTTP without the SDK
 
 ```sh
-curl https://api.flow.engineer/v1/conversations/conv_.../messages \
+curl https://api.flow.engineer/v1/conversations/conv_.../basic \
   -H "Authorization: Bearer $FLOW_MESSAGING_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
-  -d '{"content":{"type":"text","text":"Hello!"}}'
+  -d '{"text":"Hello!"}'
 ```
 
 Webhook signature: `Flow-Signature: t=<unix>,v1=<hex>` where `v1` is HMAC-SHA256 of
 `t.<t>.<raw body>` with the endpoint secret; reject timestamps more than 5 minutes off.
-Answer a `message.received` with `200 {"reply": {"type":"text","text":"..."}}` to reply at once
-(`reply` may be a list of up to 10, with `"fallback": "auto"` for every piece). An invalid
+Answer a `message.received` with `200 {"reply": {"kind":"basic","text":"..."}}` to reply at once
+(`reply` may be a list of up to 11 kind objects; a string is a basic message's text). An invalid
 answer sends nothing and is recorded on the delivery as `invalid_request`, not retried.
 While a secret rotates, `Flow-Signature` carries one `v1` per active secret: accept any match.
 Bubbles without the SDK: send one message per paragraph; past ~700 characters, split at a sentence end.
