@@ -701,7 +701,9 @@ export interface paths {
          *     `template.status_changed` when WhatsApp approves, rejects or pauses it. Templates
          *     are WhatsApp only: a Telegram or iMessage sender gets
          *     `422 unsupported_content`, and a name and language the sender already has
-         *     gets `400 invalid_request`.
+         *     gets `400 invalid_request`. Give a realistic sample for every placeholder
+         *     (`examples` on the body and a text header, `example` on a `url` button
+         *     whose link ends in `{{1}}`): WhatsApp reviews the template with them.
          */
         post: operations["createTemplate"];
         delete?: never;
@@ -3726,6 +3728,22 @@ export interface components {
             format?: "text" | "image" | "video" | "document";
             /** @description The part's text, with placeholders. */
             text?: string;
+            /**
+             * @description For a body or a text header with placeholders, a realistic sample value
+             *     for each placeholder, in order (`{{1}}` first). WhatsApp's reviewers read
+             *     the template with these values, and a template whose samples do not look
+             *     real is often rejected or moved to another category, so give them for
+             *     every new template. Exactly one per placeholder; each 1 to 60 characters
+             *     in a header and 1 to 1024 in a body, with no line breaks, tabs or more
+             *     than four spaces in a row. Left out, Flow sends WhatsApp placeholder
+             *     samples (`x1`, `x2`, ...) instead. Not taken on footers, buttons parts,
+             *     media headers or text without placeholders.
+             * @example [
+             *       "Maria",
+             *       "A-1042"
+             *     ]
+             */
+            examples?: string[];
             /** @description For `buttons`, the buttons in order. */
             buttons?: components["schemas"]["TemplateButton"][];
         };
@@ -3740,6 +3758,16 @@ export interface components {
             text: string;
             /** @description For `url` buttons, the link, optionally ending in a `{{1}}` placeholder. */
             url?: string;
+            /**
+             * @description For a `url` button whose link ends in `{{1}}`, a realistic sample value
+             *     for the end of the link (what you will pass in `params.buttons` when
+             *     sending), for WhatsApp's review: Flow shows the reviewers the link with
+             *     the sample in place. That link is at most 2000 characters, and the sample
+             *     has no spaces or line breaks. Left out, Flow sends a placeholder sample
+             *     instead. Not taken on other buttons.
+             * @example A-1042
+             */
+            example?: string;
             /** @description For `phone_number` buttons, the E.164 number. */
             phone?: string;
         };

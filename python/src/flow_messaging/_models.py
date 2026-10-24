@@ -3204,6 +3204,16 @@ class TemplateButton(BaseModel):
     """
     For `url` buttons, the link, optionally ending in a `{{1}}` placeholder.
     """
+    example: Annotated[str | None, Field(examples=["A-1042"])] = None
+    """
+    For a `url` button whose link ends in `{{1}}`, a realistic sample value
+    for the end of the link (what you will pass in `params.buttons` when
+    sending), for WhatsApp's review: Flow shows the reviewers the link with
+    the sample in place. That link is at most 2000 characters, and the sample
+    has no spaces or line breaks. Left out, Flow sends a placeholder sample
+    instead. Not taken on other buttons.
+
+    """
     phone: str | None = None
     """
     For `phone_number` buttons, the E.164 number.
@@ -3273,6 +3283,19 @@ class TemplateComponent(BaseModel):
     text: str | None = None
     """
     The part's text, with placeholders.
+    """
+    examples: Annotated[list[str] | None, Field(examples=[["Maria", "A-1042"]])] = None
+    """
+    For a body or a text header with placeholders, a realistic sample value
+    for each placeholder, in order (`{{1}}` first). WhatsApp's reviewers read
+    the template with these values, and a template whose samples do not look
+    real is often rejected or moved to another category, so give them for
+    every new template. Exactly one per placeholder; each 1 to 60 characters
+    in a header and 1 to 1024 in a body, with no line breaks, tabs or more
+    than four spaces in a row. Left out, Flow sends WhatsApp placeholder
+    samples (`x1`, `x2`, ...) instead. Not taken on footers, buttons parts,
+    media headers or text without placeholders.
+
     """
     buttons: list[TemplateButton] | None = None
     """
