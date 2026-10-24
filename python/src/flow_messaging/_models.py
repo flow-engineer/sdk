@@ -211,7 +211,7 @@ class AppSettings(BaseModel):
     )
     transcription: bool
     """
-    When on, inbound voice notes carry a `transcript` (adds about 1 to 2 seconds to voice notes only).
+    Not used yet. Flow makes no transcripts of its own on any channel; on iMessage, a received voice note carries the transcript iMessage made of it, whatever this setting says.
     """
     auto_read: bool
     """
@@ -296,8 +296,9 @@ class BasicMessage(BaseModel):
     """
     Whether links in the text show a rich preview. Left out, the channel's
     default applies (Telegram, WhatsApp and iMessage show previews).
-    `false` sends links as plain text. SMS never shows previews: `false`
-    is accepted there and `true` answers `422 unsupported_content` with
+    `false` sends links as plain text. SMS never shows previews, and no
+    channel shows one on a media message: `false` is accepted there, and
+    `true` on SMS or with `media` answers `422 unsupported_content` with
     `param` `link_preview`.
 
     """
@@ -2028,7 +2029,7 @@ class Media(BaseModel):
     """
     filename: str | None = None
     """
-    The file's name, shown for documents.
+    The file's name, shown for documents and taken only with `type` `document` (on another type it answers `422 unsupported_content` with `param` `media.filename`). On Telegram it works only with `file_id`: Telegram names a document sent by `url` itself, so `filename` with `url` answers `422 unsupported_content` with `param` `media.filename`.
     """
     mime_type: str | None = None
     """
@@ -2087,7 +2088,8 @@ class Message(BaseModel):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
     network: Literal["imessage", "sms", "rcs"] | None = None
@@ -2140,7 +2142,8 @@ class MessageContent1(BasicKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2169,7 +2172,8 @@ class MessageContent13(EditMessage):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2198,7 +2202,8 @@ class MessageContent15(ButtonReplyMessage):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2227,7 +2232,8 @@ class MessageContent16(FileBlockedMessage):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2256,7 +2262,8 @@ class MessageContent3(ButtonsKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2285,7 +2292,8 @@ class MessageContent4(ListKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2314,7 +2322,8 @@ class MessageContent5(CarouselKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2343,7 +2352,8 @@ class MessageContent7(ContactCardKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2372,7 +2382,8 @@ class MessageContent8(LocationKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2401,7 +2412,8 @@ class MessageContent9(EffectKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2689,7 +2701,8 @@ class MessageContent10(ReactionKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -2786,7 +2799,8 @@ class MessageContent12(ReadKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -3929,6 +3943,20 @@ class TemplateMessage(BaseModel):
     The template language to use, as Meta names it (`en`, `en_US`, `hi`).
     """
     params: TemplateParams | None = None
+    reply_to: Annotated[str | None, Field(examples=["msg_01JB8ZD4M6P8R0T2V4X6Z8B0C2"])] = (
+        None
+    )
+    """
+    Send this as an inline reply to an earlier message in the same
+    conversation (Telegram, WhatsApp and iMessage show it quoted). SMS has no
+    inline replies: there it answers `422 unsupported_content` with `param`
+    `reply_to`. Refused with `404 not_found` (`param` `reply_to`) when the
+    target is not a message in this conversation, and with `400
+    invalid_request` (`param` `reply_to`) when the target never reached the
+    channel (for example, it failed). If the target fails after the send was
+    accepted, the reply goes out as a normal message.
+
+    """
     metadata: dict[str, str] | None = None
 
 
@@ -3964,7 +3992,8 @@ class MessageContent6(TemplateKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -4261,7 +4290,8 @@ class MessageContent11(TypingKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -4342,7 +4372,8 @@ class MessageContent14(UnsendMessage):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
@@ -4390,8 +4421,8 @@ class VoiceMessage(BaseModel):
     A voice note, in either direction (`POST
     /v0/conversations/{conversation_id}/voice`). When sending, give `url` or
     `file_id` of an audio file. Inbound voice notes always come with the audio
-    file (`url`, `file_id`) and, when the app has transcription on, a
-    `transcript`.
+    file (`url`, `file_id`). On iMessage, a received voice note also carries
+    a `transcript` when iMessage made one of it; no other channel has one.
 
     """
 
@@ -4433,7 +4464,7 @@ class VoiceMessage(BaseModel):
     """
     transcript: str | None = None
     """
-    Inbound only, when transcription is on. What was said.
+    Inbound only, on iMessage, when iMessage made a transcript of the voice note. What was said.
     """
 
 
@@ -4455,7 +4486,8 @@ class MessageContent2(VoiceKind):
     """
     A message's content: one kind object, in either direction, with `kind`
     (always present here) saying which. It is exactly what was sent or
-    received.
+    received, except `metadata`, which is kept once, at the message's own
+    `metadata`, and not repeated here.
 
     """
 
