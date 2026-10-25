@@ -155,6 +155,7 @@ export type StreamStartFrame = S["StreamStartFrame"];
 export type File = S["File"];
 export type Template = S["Template"];
 export type TemplateStatus = S["TemplateStatus"];
+export type TemplateRejection = S["TemplateRejection"];
 export type TemplateCreateRequest = S["TemplateCreateRequest"];
 export type WebhookEndpoint = S["WebhookEndpoint"];
 export type WebhookEndpointCreateRequest = S["WebhookEndpointCreateRequest"];
