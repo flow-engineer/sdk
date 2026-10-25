@@ -18,7 +18,7 @@ import { DEFAULT_BASE_URL } from "../core.js";
 import { AuthenticationError, DeviceSignInError, NotFoundError } from "../errors.js";
 import type { DeviceAuthorization, DeviceToken, SandboxAllowance } from "../types.js";
 import { projectEnvValue, setDotenv, unsetDotenv } from "./env.js";
-import { SIGN_IN } from "./facts.js";
+import { DASHBOARD_URL, SIGN_IN } from "./facts.js";
 
 export const CLIENT_NAME = "flow CLI";
 
@@ -122,11 +122,6 @@ export function describeAllowance(a: SandboxAllowance): string {
   return `${contacts}, ${messages}, ${channels}${expiry}`;
 }
 
-/** The customer dashboard for an API base URL. */
-export function dashboardURL(baseURL?: string): string {
-  return `${(baseURL ?? DEFAULT_BASE_URL).replace(/\/+$/, "")}/admin`;
-}
-
 export async function login(o: LoginOptions): Promise<"signed_in" | "pending"> {
   const print = o.print ?? ((l: string) => void process.stdout.write(l + "\n"));
   const dir = path.resolve(o.dir);
@@ -156,7 +151,7 @@ export async function login(o: LoginOptions): Promise<"signed_in" | "pending"> {
     if (process.env.FLOW_MESSAGING_KEY && process.env.FLOW_MESSAGING_KEY !== t.key) {
       print("! FLOW_MESSAGING_KEY is also set in your environment, which wins over .env: set it to the new key from .env there too.");
     }
-    print(`  Dashboard: ${dashboardURL(o.baseURL)} (sign in with the same account).`);
+    print(`  Dashboard: ${DASHBOARD_URL} (sign in with the same account).`);
     return "signed_in";
   };
 

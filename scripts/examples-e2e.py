@@ -191,7 +191,7 @@ def sandbox_key():
 
 
 def revoke(sk):
-    """Revokes the sandbox app's keys, as a person does on the dashboard's Keys page."""
+    """Revokes the sandbox app's keys, as a person does on the dashboard's API keys page."""
     subprocess.run(["psql", "-q", "-X", "-v", "ON_ERROR_STOP=1", DATABASE_URL, "-c",
                     f"UPDATE api_keys SET revoked_at = now() WHERE app_id = '{sk['app']['id']}'"],
                    check=True, stdout=subprocess.DEVNULL)
@@ -438,7 +438,7 @@ def own_telegram_bot(run):
     p = run("own-telegram-bot", "connect", env={"FLOW_MESSAGING_KEY": sandbox_key()["key"], "TELEGRAM_BOT_TOKEN": bot["token"]})
     check(p.wait_exit() == 1, "connect with a test key did not fail")
     check(any(l.startswith("permission: ") for l in p.lines) and any(l.startswith("hint: ") for l in p.lines), f"output: {p.lines}")
-    check(any("/admin/keys?mode=live" in l and "Create live key" in l for l in p.lines), f"the hint does not say how to get a live key: {p.lines}")
+    check(any("flow.engineer/dashboard" in l and "New key" in l for l in p.lines), f"the hint does not say how to get a live key: {p.lines}")
 
     p = run("own-telegram-bot", "connect", env={"FLOW_MESSAGING_KEY": live_key, "TELEGRAM_BOT_TOKEN": bot["token"]})
     sender = p.expect(r"^Connected @e2e_own_bot as (snd_\w+) \(status active\)\.$").group(1)

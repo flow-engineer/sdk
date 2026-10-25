@@ -111,7 +111,8 @@ const token = await flow.device.signIn({
 sends throw `PermissionError` with `channelCode` `sandbox_allowance_used` (also
 `sandbox_contact_limit`, `sandbox_channel_not_included`, `sign_in_required`); an
 expired sandbox key throws `AuthenticationError` with `sandbox_key_expired`. Sign in,
-or get a new key. Signed-in people manage keys at https://api.flow.engineer/admin.
+or get a new key. Signed-in people manage keys in the Flow dashboard, https://flow.engineer/dashboard
+(the agent's Developers > API keys).
 Full guide: https://docs.flow.engineer/get-a-key.
 
 ## Receiving events

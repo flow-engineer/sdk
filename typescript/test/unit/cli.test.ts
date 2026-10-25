@@ -233,7 +233,7 @@ describe("login", () => {
     expect(out).toContain("WDJB-MJHT");
     expect(out).toContain("Signed in as Lin Chen (Flow account).");
     expect(out).toContain('Claimed "My agent"');
-    expect(out).toContain("https://api.flow.engineer/admin");
+    expect(out).toContain("Dashboard: https://flow.engineer/dashboard");
     expect(out).not.toContain("fdc_unitdevice");
   });
 

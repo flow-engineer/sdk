@@ -44,8 +44,8 @@ Erasure removes Flow's copy only: messages already delivered stay on the person'
 
 ### A leaked API key
 
-1. Make a new key: dashboard ({{dashboard_url}}/keys, `?mode=live` for live keys) > **Create live key** (or test). Put it where the old one was and deploy.
-2. Revoke the old one: Keys > **Revoke** on the key ending in its last four characters. It stops working at once; open streams close within a minute (`4401`).
+1. Make a new key: in the Flow dashboard ({{dashboard_url}}), the agent's **Developers > API keys**: pick **Live** (or **Test**), then **New key**. Put it where the old one was and deploy.
+2. Revoke the old one: on the same page, **Revoke** the key ending in its last four characters. It stops working at once; open streams close within a minute (`4401`).
 3. Read `GET /v0/events` for sends you did not make. A leaked webhook secret: `POST /v0/webhook_endpoints/{webhook_endpoint_id}/rotate_secret`. A leaked bot token: revoke it in @BotFather and connect the new one (`POST /v0/senders`, same sender).
 
 An app made without an account has no dashboard: get a new sandbox key, or sign in first.
@@ -53,7 +53,7 @@ An app made without an account has no dashboard: get a new sandbox key, or sign 
 ### Prototype to production
 
 1. Sign in to keep the app (`npx {{package}} login`): the app, its data and webhooks stay.
-2. Dashboard > Live > **Create live key**; keep it apart from the test key (`{{env.live_key}}`).
+2. In the dashboard, the agent's **Developers > API keys**: **Live**, **New key** (live keys come with a plan); keep it apart from the test key (`{{env.live_key}}`).
 3. Connect your own Telegram bot (`POST /v0/senders`, quickstart section 7) or your own WhatsApp number (`POST /v0/senders`, quickstart section 11); dedicated iMessage lines and SMS numbers are connected by the Flow team. Flow's shared iMessage line needs no live key: it comes with the free trial a sign-in starts ({{trial.people_per_channel}} people per channel).
 4. Register the webhook again with the live key (endpoints belong to one mode). Nothing else in the code changes.
 
@@ -83,4 +83,4 @@ Use a test key and simulated conversations: `POST /v0/test/conversations`, post 
 
 ### Give a cofounder access
 
-Not built yet: an account has one member (whoever signed in), and there are no invitations. Today a cofounder can sign in to get their own account, or you can hand them an API key from your Keys page (it acts as the app, not as them; revoke it when no longer needed).
+Not built yet: an account has one member (whoever signed in), and there are no invitations. Today a cofounder can sign in to get their own account, or you can hand them an API key from your Developers > API keys page (it acts as the app, not as them; revoke it when no longer needed).

@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { MCP_COMMAND, MCP_SERVER_NAME, MCP_URL } from "../../src/cli/agentfiles.js";
-import { CLI_TAGLINE, SIGN_IN } from "../../src/cli/facts.js";
+import { CLI_TAGLINE, DASHBOARD_URL, SIGN_IN } from "../../src/cli/facts.js";
 import { API_VERSION, DEFAULT_BASE_URL, SDK_VERSION } from "../../src/core.js";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -21,6 +21,7 @@ const facts = JSON.parse(readFileSync(path.join(repo, "agents/facts.json"), "utf
   sdk_version: string;
   cli_tagline: string;
   sign_in: string;
+  dashboard_url: string;
 };
 
 function sources(dir: string): string[] {
@@ -62,6 +63,7 @@ describe("agents/facts.json", () => {
   it("matches what the CLI says it is for and how a person signs in", () => {
     expect(CLI_TAGLINE).toBe(facts.cli_tagline);
     expect(SIGN_IN).toBe(facts.sign_in);
+    expect(DASHBOARD_URL).toBe(facts.dashboard_url);
     const cli = readFileSync(path.join(repo, "typescript/src/cli.ts"), "utf8");
     expect(cli).toContain("const HELP = `Flow Messaging CLI ${SDK_VERSION}: ${CLI_TAGLINE}\n");
     expect(cli).toContain("Sign in with ${SIGN_IN}");
