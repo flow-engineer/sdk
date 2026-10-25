@@ -2136,7 +2136,17 @@ export interface components {
         };
         /** @description Per-app behaviour. The Flow team sets it for now; ask them to change it. */
         AppSettings: {
-            /** @description Not used yet. Flow makes no transcripts of its own on any channel; on iMessage, a received voice note carries the transcript iMessage made of it, whatever this setting says. */
+            /**
+             * @description On by default. When on, Flow transcribes the voice notes your app receives on
+             *     WhatsApp, Telegram and simulated senders, and on iMessage when iMessage made no
+             *     transcript of its own, and puts the text in the voice content's `transcript`
+             *     (`transcript_source` `flow`) before it delivers `message.received`. Both modes
+             *     are covered, within Flow's limits: a voice note longer than 10 minutes, or one
+             *     past the app's 4 hours of transcribed audio a day (UTC), arrives without a
+             *     transcript. Off, voice notes arrive with the audio only; on iMessage a voice
+             *     note still carries the transcript iMessage made of it, whatever this setting
+             *     says. Audio files sent as `basic` media and videos are never transcribed.
+             */
             transcription: boolean;
             /** @description When on, Flow marks inbound messages as read as soon as your endpoint accepts them. */
             auto_read: boolean;
@@ -3256,8 +3266,11 @@ export interface components {
          * @description A voice note, in either direction (`POST
          *     /v0/conversations/{conversation_id}/voice`). When sending, give `url` or
          *     `file_id` of an audio file. Inbound voice notes always come with the audio
-         *     file (`url`, `file_id`). On iMessage, a received voice note also carries
-         *     a `transcript` when iMessage made one of it; no other channel has one.
+         *     file (`url`, `file_id`), and usually with a `transcript` of what was said:
+         *     iMessage's own on iMessage, else Flow's when the app's `transcription`
+         *     setting is on (the default). `transcript_source` says which. A voice note
+         *     Flow could not transcribe in time (it waits at most 20 seconds), or one
+         *     over Flow's limits, arrives without a transcript; the audio is always there.
          */
         VoiceMessage: {
             /**
@@ -3276,8 +3289,13 @@ export interface components {
             metadata?: components["schemas"]["Metadata"];
             /** @description Inbound only. The voice note's length. */
             readonly duration_seconds?: number;
-            /** @description Inbound only, on iMessage, when iMessage made a transcript of the voice note. What was said. */
+            /** @description Inbound only. What was said, when the voice note has a transcript (see `transcript_source`). Absent when there is none. */
             readonly transcript?: string;
+            /**
+             * @description Inbound only, with `transcript`. Who made the transcript. `channel`, the channel's own (iMessage's); `flow`, Flow's speech-to-text (the app's `transcription` setting).
+             * @enum {string}
+             */
+            readonly transcript_source?: "channel" | "flow";
         };
         /**
          * @description Text with buttons, sent only (`POST
