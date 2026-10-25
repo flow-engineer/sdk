@@ -3723,8 +3723,13 @@ class Template(BaseModel):
     """
     rejection_reason: str | None = None
     """
-    Meta's reason, when the template was rejected.
+    Meta's reason, when the template was rejected: its code, then `: ` and
+    Meta's words when it sent some, such as
+    `INVALID_FORMAT: The template has placeholders next to each other.`
+    `rejection` holds the same in parts, with Meta's recommendation.
+
     """
+    rejection: TemplateRejection | None = None
     created_at: datetime
     """
     When the template was submitted.
@@ -4047,6 +4052,40 @@ class TemplateParams(BaseModel):
     cards: list[TemplateCardParams] | None = None
     """
     Carousel templates only. Values for each card's header, body placeholders and buttons.
+    """
+
+
+class TemplateRejection(BaseModel):
+    """
+    Why Meta rejected the template, as Meta's template status update said it.
+    Present only while the template is `rejected`; each field only when Meta sent
+    it.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    code: Annotated[str | None, Field(examples=["INVALID_FORMAT"])] = None
+    """
+    Meta's reason code, such as `INVALID_FORMAT`, `INCORRECT_CATEGORY` or `ABUSIVE_CONTENT`.
+    """
+    title: Annotated[str | None, Field(examples=["FORMATTING"])] = None
+    """
+    Meta's heading for the problem.
+    """
+    description: Annotated[
+        str | None,
+        Field(examples=["The template has placeholders next to each other."]),
+    ] = None
+    """
+    Meta's words on what is wrong with the template.
+    """
+    recommendation: Annotated[
+        str | None, Field(examples=["Add words between the placeholders."])
+    ] = None
+    """
+    Meta's suggestion for fixing the template before submitting it again.
     """
 
 

@@ -1060,10 +1060,10 @@ export interface paths {
          *     - US SMS (in pilot): carriers require each number's brand and campaign to be
          *       registered first, so the Flow team registers and connects the number.
          *
-         *     To get a live key (`fk_live_...`), a person signs in to the dashboard at
-         *     `https://api.flow.engineer/admin` (with a Flow account), switches to **Live**,
-         *     and clicks **Create live key** on the Keys page
-         *     (`https://api.flow.engineer/admin/keys?mode=live`). An app made without an
+         *     To get a live key (`fk_live_...`), a person signs in to the Flow dashboard at
+         *     `https://flow.engineer/dashboard` (with a Flow account), opens the agent's
+         *     **Developers > API keys**, picks **Live** and clicks **New key** (live keys
+         *     come with a plan). An app made without an
          *     account (`POST /v0/sandbox/keys`) is claimed first, by signing in through the
          *     device flow or its `claim_url`. For a Telegram bot or a WhatsApp number, an
          *     unclaimed app's key gets `403 permission` (`channel_code`
@@ -1216,7 +1216,10 @@ export interface paths {
          *     `422 unsupported_content`, and a name and language the sender already has
          *     gets `400 invalid_request`. Give a realistic sample for every placeholder
          *     (`examples` on the body and a text header, `example` on a `url` button
-         *     whose link ends in `{{1}}`): WhatsApp reviews the template with them.
+         *     whose link ends in `{{1}}`): WhatsApp reviews the template with them. A body
+         *     that starts or ends with a placeholder, or has two placeholders side by
+         *     side, gets `400 invalid_request` (`param` the body's `text`), since Meta
+         *     rejects such templates in review.
          */
         post: operations["createTemplate"];
         delete?: never;
@@ -4359,13 +4362,46 @@ export interface components {
             status: components["schemas"]["TemplateStatus"];
             /** @description The template's parts, as submitted. */
             components: components["schemas"]["TemplateComponent"][];
-            /** @description Meta's reason, when the template was rejected. */
+            /**
+             * @description Meta's reason, when the template was rejected: its code, then `: ` and
+             *     Meta's words when it sent some, such as
+             *     `INVALID_FORMAT: The template has placeholders next to each other.`
+             *     `rejection` holds the same in parts, with Meta's recommendation.
+             */
             rejection_reason?: string;
+            rejection?: components["schemas"]["TemplateRejection"];
             /**
              * Format: date-time
              * @description When the template was submitted.
              */
             created_at: string;
+        };
+        /**
+         * @description Why Meta rejected the template, as Meta's template status update said it.
+         *     Present only while the template is `rejected`; each field only when Meta sent
+         *     it.
+         */
+        TemplateRejection: {
+            /**
+             * @description Meta's reason code, such as `INVALID_FORMAT`, `INCORRECT_CATEGORY` or `ABUSIVE_CONTENT`.
+             * @example INVALID_FORMAT
+             */
+            code?: string;
+            /**
+             * @description Meta's heading for the problem.
+             * @example FORMATTING
+             */
+            title?: string;
+            /**
+             * @description Meta's words on what is wrong with the template.
+             * @example The template has placeholders next to each other.
+             */
+            description?: string;
+            /**
+             * @description Meta's suggestion for fixing the template before submitting it again.
+             * @example Add words between the placeholders.
+             */
+            recommendation?: string;
         };
         /** @description One part of a template. Placeholders are written `{{1}}`, `{{2}}`, ... */
         TemplateComponent: {

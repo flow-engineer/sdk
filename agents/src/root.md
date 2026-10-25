@@ -14,5 +14,5 @@ Build the app on the REST API (paths under /v0/). {{mcp.runtime_rule}}
 - Event log: GET /v0/events?after=evt_...&type=...&conversation=conv_...&limit=100 (oldest first)
 - OpenAPI spec: /openapi.yaml
 - MCP server: /mcp, optional, for testing during development. {{mcp.owner_rule}}
-- Dashboard: /admin
+- Dashboard: {{dashboard_url}}
 - Flow team ({{team_contacts|or}}): SMS numbers and dedicated iMessage lines (Flow's shared line comes with the free trial a sign-in starts; connect your own WhatsApp number with POST /v0/senders and a live key; the team can still help), pricing, support. Never send secrets; see /docs/quickstart.md#what-the-flow-team-arranges-and-how-to-ask

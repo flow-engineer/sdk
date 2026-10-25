@@ -14,5 +14,5 @@ Build the app on the REST API (paths under /v0/). MCP is not a runtime dependenc
 - Event log: GET /v0/events?after=evt_...&type=...&conversation=conv_...&limit=100 (oldest first)
 - OpenAPI spec: /openapi.yaml
 - MCP server: /mcp, optional, for testing during development. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself.
-- Dashboard: /admin
+- Dashboard: https://flow.engineer/dashboard
 - Flow team (samyak@flow.engineer or prabal@flow.engineer): SMS numbers and dedicated iMessage lines (Flow's shared line comes with the free trial a sign-in starts; connect your own WhatsApp number with POST /v0/senders and a live key; the team can still help), pricing, support. Never send secrets; see /docs/quickstart.md#what-the-flow-team-arranges-and-how-to-ask

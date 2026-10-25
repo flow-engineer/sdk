@@ -10,9 +10,10 @@ bot's webhook at Flow, and never returns the token. No Flow SDK.
 | TypeScript | [typescript/main.ts](typescript/main.ts) | Node 22.18+, no dependencies |
 
 This needs a **live key** (`fk_live_...`); a test key gets `403 permission`. Live
-keys for your own Telegram bot are self-serve: sign in to the dashboard at
-<https://api.flow.engineer/admin/keys?mode=live> (with a Flow account; the link opens
-the Keys page in Live mode) and click **Create live key**. If your app was made
+keys for your own Telegram bot are self-serve: sign in to the Flow dashboard at
+<https://flow.engineer/dashboard> (with a Flow account), open the agent's
+**Developers > API keys**, pick **Live** and click **New key** (live keys come with a
+plan). If your app was made
 without an account (`POST /v0/sandbox/keys`), sign in with
 `npx @flow-engineer/messaging login` first: that claims it. Keep the live key in its
 own variable, apart from your test key. Until you go live, build on the sandbox bot
@@ -50,7 +51,7 @@ iMessage lines are arranged with the Flow team.)
 
 | Variable | Required | Meaning |
 |---|---|---|
-| `FLOW_MESSAGING_KEY` | yes | Your live API key (`fk_live_...`), from the dashboard's Keys page in Live mode. |
+| `FLOW_MESSAGING_KEY` | yes | Your live API key (`fk_live_...`), from the dashboard's Developers > API keys, Live. |
 | `TELEGRAM_BOT_TOKEN` | for `connect` | The bot token from @BotFather. Keep it secret; Flow never returns it. |
 | `FLOW_MESSAGING_BASE_URL` | no | The API, default `https://api.flow.engineer`. |
 
@@ -72,7 +73,7 @@ the hint says how to get a live key:
 
 ```text
 permission: This app was made without an account (POST /v0/sandbox/keys), so it cannot connect its own senders.
-hint: Have a person sign in to claim the app first: run npx @flow-engineer/messaging login, ... To get a live key (fk_live_...), the person signs in to the dashboard at https://api.flow.engineer/admin/keys?mode=live ... and clicks Create live key; ...
+hint: Have a person sign in to claim the app first: run npx @flow-engineer/messaging login, ... To get a live key (fk_live_...), the person signs in to the Flow dashboard at https://flow.engineer/dashboard, opens the agent's Developers > API keys, picks Live and clicks New key; ...
 ```
 
 ## Good to know

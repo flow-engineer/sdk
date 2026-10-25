@@ -32,7 +32,7 @@ sandbox_allowance:                           # outbound messages only (inbound i
   signed_in: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages each, no expiry, one allowance per person over the apps they claimed   # iMessage is in neither
   own_account: the free trial instead, from your first sign-in: {{trial.people_per_channel}} people per channel on the shared Telegram, WhatsApp and iMessage senders   # no allowance in GET /v0/app
 sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v0/device/authorizations, then poll POST /v0/device/token
-dashboard: https://api.flow.engineer/admin    # sign in with a Flow account
+dashboard: {{dashboard_url}}    # sign in with a Flow account; keys: the agent's Developers > API keys
 flow_team: [{{team_contacts|comma}}]   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
@@ -213,14 +213,14 @@ claim **revokes the sandbox key** unless they tick
 "Keep my agent's current key working" (so nobody who tricks a person into claiming their app keeps a key on the
 person's allowance). Kept, the key works with its expiry removed, and one that
 already expired works again if its app is claimed within {{allowance.expired_key_grace_days}} days of the expiry.
-Revoked, ask the person for a key from the dashboard's Keys page, or sign in with
+Revoked, ask the person for a key from the dashboard (the agent's Developers > API keys), or sign in with
 the device flow above.
 
-Signed-in people see their apps and keys in the dashboard,
-https://api.flow.engineer/admin (sign in with {{sign_in}}). There they can make
-**live keys** (`fk_live_...`) themselves (switch to **Live**, then Keys > **Create
-live key**: https://api.flow.engineer/admin/keys?mode=live) and go live on Telegram
-with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API or the dashboard's Senders page; the Flow team can still help. Dedicated iMessage lines and SMS numbers are arranged with the Flow team; Flow's shared iMessage line comes with the free trial a sign-in starts (section 11, iMessage).
+Signed-in people see their apps and keys in the Flow dashboard,
+{{dashboard_url}} (sign in with {{sign_in}}). There they can make
+**live keys** (`fk_live_...`) themselves (the agent's **Developers > API keys**: pick
+**Live**, then **New key**; live keys come with a plan) and go live on Telegram
+with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API; the Flow team can still help. Dedicated iMessage lines and SMS numbers are arranged with the Flow team; Flow's shared iMessage line comes with the free trial a sign-in starts (section 11, iMessage).
 
 ## 1. Authenticate
 
@@ -889,8 +889,8 @@ earlier messages, and ends `message.sent` (an unsent message then shows `status`
 2. Put the token in an environment variable or your secret store. **Never paste it
    into a chat (including with your coding agent) and never commit it.** Anyone with
    the token controls the bot.
-3. With your **live** key (signed in at https://api.flow.engineer/admin/keys?mode=live,
-   **Create live key**), connect it once:
+3. With your **live** key (in the Flow dashboard, {{dashboard_url}}: the agent's
+   **Developers > API keys**, **Live**, **New key**), connect it once:
 
 ```bash
 export FLOW_MESSAGING_LIVE_KEY=fk_live_...       # made in the dashboard; kept apart from your test key
@@ -1180,8 +1180,8 @@ iMessage lines have stricter limits of their own.
 ### WhatsApp
 
 - **Connect your own WhatsApp number** (in your WhatsApp Business Account, under your
-  own Meta app) with your **live** key, through the API below or on the dashboard's
-  Senders page; the Flow team can still help ({{team_contacts|or}}), and a number the
+  own Meta app) with your **live** key, through the API below; the Flow team can
+  still help ({{team_contacts|or}}), and a number the
   team connected for you is updated by the team (`403 permission`, `channel_code`
   `whatsapp_number_managed`). Add a payment method in WhatsApp Manager: Meta bills its
   fees to the business directly. The shared WhatsApp sandbox is not open yet.

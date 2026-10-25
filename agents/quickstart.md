@@ -32,7 +32,7 @@ sandbox_allowance:                           # outbound messages only (inbound i
   signed_in: 3 contacts x 100 messages each, no expiry, one allowance per person over the apps they claimed   # iMessage is in neither
   own_account: the free trial instead, from your first sign-in: 25 people per channel on the shared Telegram, WhatsApp and iMessage senders   # no allowance in GET /v0/app
 sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v0/device/authorizations, then poll POST /v0/device/token
-dashboard: https://api.flow.engineer/admin    # sign in with a Flow account
+dashboard: https://flow.engineer/dashboard    # sign in with a Flow account; keys: the agent's Developers > API keys
 flow_team: [samyak@flow.engineer, prabal@flow.engineer]   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
@@ -213,14 +213,14 @@ claim **revokes the sandbox key** unless they tick
 "Keep my agent's current key working" (so nobody who tricks a person into claiming their app keeps a key on the
 person's allowance). Kept, the key works with its expiry removed, and one that
 already expired works again if its app is claimed within 30 days of the expiry.
-Revoked, ask the person for a key from the dashboard's Keys page, or sign in with
+Revoked, ask the person for a key from the dashboard (the agent's Developers > API keys), or sign in with
 the device flow above.
 
-Signed-in people see their apps and keys in the dashboard,
-https://api.flow.engineer/admin (sign in with a Flow account (flow.engineer: Google, GitHub or an email link)). There they can make
-**live keys** (`fk_live_...`) themselves (switch to **Live**, then Keys > **Create
-live key**: https://api.flow.engineer/admin/keys?mode=live) and go live on Telegram
-with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API or the dashboard's Senders page; the Flow team can still help. Dedicated iMessage lines and SMS numbers are arranged with the Flow team; Flow's shared iMessage line comes with the free trial a sign-in starts (section 11, iMessage).
+Signed-in people see their apps and keys in the Flow dashboard,
+https://flow.engineer/dashboard (sign in with a Flow account (flow.engineer: Google, GitHub or an email link)). There they can make
+**live keys** (`fk_live_...`) themselves (the agent's **Developers > API keys**: pick
+**Live**, then **New key**; live keys come with a plan) and go live on Telegram
+with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API; the Flow team can still help. Dedicated iMessage lines and SMS numbers are arranged with the Flow team; Flow's shared iMessage line comes with the free trial a sign-in starts (section 11, iMessage).
 
 ## 1. Authenticate
 
@@ -889,8 +889,8 @@ earlier messages, and ends `message.sent` (an unsent message then shows `status`
 2. Put the token in an environment variable or your secret store. **Never paste it
    into a chat (including with your coding agent) and never commit it.** Anyone with
    the token controls the bot.
-3. With your **live** key (signed in at https://api.flow.engineer/admin/keys?mode=live,
-   **Create live key**), connect it once:
+3. With your **live** key (in the Flow dashboard, https://flow.engineer/dashboard: the agent's
+   **Developers > API keys**, **Live**, **New key**), connect it once:
 
 ```bash
 export FLOW_MESSAGING_LIVE_KEY=fk_live_...       # made in the dashboard; kept apart from your test key
@@ -1180,8 +1180,8 @@ iMessage lines have stricter limits of their own.
 ### WhatsApp
 
 - **Connect your own WhatsApp number** (in your WhatsApp Business Account, under your
-  own Meta app) with your **live** key, through the API below or on the dashboard's
-  Senders page; the Flow team can still help (samyak@flow.engineer or prabal@flow.engineer), and a number the
+  own Meta app) with your **live** key, through the API below; the Flow team can
+  still help (samyak@flow.engineer or prabal@flow.engineer), and a number the
   team connected for you is updated by the team (`403 permission`, `channel_code`
   `whatsapp_number_managed`). Add a payment method in WhatsApp Manager: Meta bills its
   fees to the business directly. The shared WhatsApp sandbox is not open yet.
@@ -1432,8 +1432,8 @@ Erasure removes Flow's copy only: messages already delivered stay on the person'
 
 ### A leaked API key
 
-1. Make a new key: dashboard (https://api.flow.engineer/admin/keys, `?mode=live` for live keys) > **Create live key** (or test). Put it where the old one was and deploy.
-2. Revoke the old one: Keys > **Revoke** on the key ending in its last four characters. It stops working at once; open streams close within a minute (`4401`).
+1. Make a new key: in the Flow dashboard (https://flow.engineer/dashboard), the agent's **Developers > API keys**: pick **Live** (or **Test**), then **New key**. Put it where the old one was and deploy.
+2. Revoke the old one: on the same page, **Revoke** the key ending in its last four characters. It stops working at once; open streams close within a minute (`4401`).
 3. Read `GET /v0/events` for sends you did not make. A leaked webhook secret: `POST /v0/webhook_endpoints/{webhook_endpoint_id}/rotate_secret`. A leaked bot token: revoke it in @BotFather and connect the new one (`POST /v0/senders`, same sender).
 
 An app made without an account has no dashboard: get a new sandbox key, or sign in first.
@@ -1441,7 +1441,7 @@ An app made without an account has no dashboard: get a new sandbox key, or sign 
 ### Prototype to production
 
 1. Sign in to keep the app (`npx @flow-engineer/messaging login`): the app, its data and webhooks stay.
-2. Dashboard > Live > **Create live key**; keep it apart from the test key (`FLOW_MESSAGING_LIVE_KEY`).
+2. In the dashboard, the agent's **Developers > API keys**: **Live**, **New key** (live keys come with a plan); keep it apart from the test key (`FLOW_MESSAGING_LIVE_KEY`).
 3. Connect your own Telegram bot (`POST /v0/senders`, quickstart section 7) or your own WhatsApp number (`POST /v0/senders`, quickstart section 11); dedicated iMessage lines and SMS numbers are connected by the Flow team. Flow's shared iMessage line needs no live key: it comes with the free trial a sign-in starts (25 people per channel).
 4. Register the webhook again with the live key (endpoints belong to one mode). Nothing else in the code changes.
 
@@ -1471,7 +1471,7 @@ Use a test key and simulated conversations: `POST /v0/test/conversations`, post 
 
 ### Give a cofounder access
 
-Not built yet: an account has one member (whoever signed in), and there are no invitations. Today a cofounder can sign in to get their own account, or you can hand them an API key from your Keys page (it acts as the app, not as them; revoke it when no longer needed).
+Not built yet: an account has one member (whoever signed in), and there are no invitations. Today a cofounder can sign in to get their own account, or you can hand them an API key from your Developers > API keys page (it acts as the app, not as them; revoke it when no longer needed).
 
 ### What the Flow team arranges, and how to ask
 
