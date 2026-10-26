@@ -125,7 +125,11 @@ an event first; `stream.lastEventId` is where to resume after a restart. Where t
 WebSocket cannot send headers (browsers, Node's global WebSocket) it offers the key as
 the subprotocol `flow.key.<key>` next to `flow`. A refused stream (close `4401`,
 `4403` or `4400`, after an `error` frame) ends the iterator with the typed error
-instead of reconnecting. A key in a browser is visible to whoever uses the page,
+instead of reconnecting. Other closes reconnect after a random wait (full jitter) whose
+ceiling doubles per close, up to 10 s; `4404` and `4429` wait 30 s to 5 minutes, and a
+`retry_after` in Flow's `error` frame is always waited. The backoff starts again only once a
+connection delivers an event or stays open 30 s, and `onStatus("reconnecting", detail)` gives
+each close code and wait. A key in a browser is visible to whoever uses the page,
 so do that only for internal tools or with test keys. Where there is no WebSocket at
 all it polls `GET /v0/events`.
 On Node 18 and 20, install `ws` for the WebSocket (Node 22+ has one built in).

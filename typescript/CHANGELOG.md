@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- `events.stream` no longer reconnects in a tight loop when Flow refuses the stream. A
+  refused stream opens, sends one `error` frame and closes; the backoff used to start
+  again on every open, so it reconnected every 250 to 500 ms for as long as Flow refused
+  it. The backoff now starts again only once a connection delivers an event or stays open
+  30 s. Every wait has full jitter (from 0, its ceiling doubling per close to 10 s);
+  `4404` and `4429` wait 30 s to 5 minutes; a `retry_after` in the `error` frame (or on
+  the HTTP check of a socket that never opened) is always waited. `onStatus("reconnecting",
+  detail)` now names the close code and the wait. `4400`, `4401` and
+  `4403` still end the stream with the typed error.
+
 ## 0.4.0
 
 Breaking: one endpoint per message kind (API version `2026-11-01`). What you send is what

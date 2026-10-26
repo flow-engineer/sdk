@@ -163,8 +163,12 @@ The stream is a WebSocket (`GET /v0/stream`) that reconnects by itself and resum
 last event you got: pass it as `after=` to resume across restarts. Use it as a context
 manager (`with flow.events.stream(...) as events:`) to connect before you say you are
 ready. A refused key ends it with `AuthenticationError` or `PermissionDeniedError`
-instead of reconnecting forever. `transport="poll"` reads the event log instead, for
-networks that block WebSockets.
+instead of reconnecting forever. Other closes reconnect after a random wait (full jitter)
+whose ceiling doubles per close, up to 10 s; `4404` and `4429` wait 30 s to 5 minutes, and
+a `retry_after` in Flow's `error` frame is always waited. The backoff starts again only once
+a connection delivers an event or stays open 30 s; `on_status("reconnecting", detail)` gives
+each close code and wait. `transport="poll"` reads the event log instead, for networks that
+block WebSockets.
 
 The log itself: `flow.events.list(after="evt_...", type=[...])` (oldest first) and
 `flow.events.retrieve("evt_...")`. Events are Pydantic models, a discriminated union on

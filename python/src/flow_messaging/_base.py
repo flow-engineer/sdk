@@ -222,8 +222,26 @@ def backoff(attempt: int) -> float:
     return base / 2 + random.random() * (base / 2)
 
 
-def stream_backoff(attempt: int) -> float:
-    return float(min(0.5 * 2**attempt, 10.0) * (0.5 + random.random() / 2))
+#: A stream connection is healthy once it delivers an event or stays open this long (s);
+#: only then does the reconnect backoff start again.
+STREAM_HEALTHY_AFTER = 30.0
+#: Close codes after which reconnecting soon fails again: the route is gone (4404), too
+#: many streams opened (4429). Without a retry_after they wait 30 s to 5 minutes.
+STREAM_HARD_CODES = frozenset({4404, 4429})
+
+
+def stream_backoff(attempt: int, code: int | None = None, retry_after: float | None = None) -> float:
+    """Seconds before reconnecting the stream after its ``attempt``-th close in a row (from
+    0). Full jitter: a random wait up to a ceiling that doubles per close, to 10 s. A
+    ``retry_after`` from Flow is waited first, with that on top; 4404 and 4429 without one
+    wait 30 s plus a jittered part whose ceiling doubles, to 5 minutes."""
+    normal: float = random.random() * min(0.5 * 2**attempt, 10.0)
+    if retry_after is not None and retry_after >= 0:
+        return float(retry_after) + normal
+    if code is None or code not in STREAM_HARD_CODES:
+        return normal
+    ceiling: float = min(300.0, 30.0 * 2 ** (attempt + 1))
+    return 30.0 + random.random() * (ceiling - 30.0)
 
 
 def parse(model: type[M], data: Any) -> M:

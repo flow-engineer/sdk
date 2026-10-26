@@ -198,36 +198,48 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
       this.params.onStatus?.("polling", "no WebSocket in this runtime");
       return this.poll();
     }
+    // Closes in a row since the last healthy connection. A socket that opens is not yet healthy:
+    // a refused stream opens, sends an error frame and closes.
     let attempt = 0;
     while (!this.closed) {
       const outcome = await this.connect(WS);
       if (this.closed) return;
       if (outcome.fatal) throw outcome.fatal;
-      attempt = outcome.opened ? 0 : attempt + 1;
-      this.params.onStatus?.("reconnecting", outcome.reason);
-      if (!outcome.immediate) await sleep(Math.min(500 * 2 ** attempt, 10_000) * (0.5 + Math.random() / 2), this.ctrl.signal);
+      if (outcome.healthy) attempt = 0;
+      if (outcome.immediate) {
+        this.params.onStatus?.("reconnecting", `${outcome.reason}; reconnecting now`);
+        continue;
+      }
+      const ms = reconnectWait(outcome.code, outcome.retryAfter, attempt++);
+      this.params.onStatus?.("reconnecting", `${outcome.reason}; reconnecting in ${(ms / 1000).toFixed(1)} s`);
+      await sleep(ms, this.ctrl.signal);
     }
   }
 
-  /** One connection; resolves when it ends, saying whether to reconnect at once. */
-  private connect(WS: WSRuntime): Promise<{ opened: boolean; immediate?: boolean; reason?: string; fatal?: unknown }> {
+  /** One connection; resolves when it ends, saying how it ended and whether to reconnect at once. */
+  private connect(WS: WSRuntime): Promise<Connection> {
     const http = this.flow.http;
     const url = http.url("/v0/stream", { after: this.cursor, type: this.params.types }).replace(/^http/, "ws");
-    return new Promise((resolve) => {
+    return new Promise<Connection>((resolve) => {
       let opened = false;
+      let healthy = false;
+      let healthyTimer: ReturnType<typeof setTimeout> | undefined;
       let immediate = false;
+      let retryAfter: number | undefined;
       let fatal: unknown;
       let ws: WSLike;
       try {
         // Never in the URL: the server takes the key only as a header or a subprotocol.
         ws = WS.headers ? new WS.ctor(url, { headers: http.headers() }) : new WS.ctor(url, ["flow", `flow.key.${http.apiKey}`]);
       } catch (e) {
-        resolve({ opened: false, reason: String(e) });
+        resolve({ opened: false, healthy: false, reason: String(e) });
         return;
       }
       this.socket = ws;
       ws.addEventListener("open", () => {
         opened = true;
+        // Healthy once it delivers an event or stays open this long; only then does the backoff start again.
+        healthyTimer = setTimeout(() => (healthy = true), HEALTHY_AFTER_MS);
         this.params.onStatus?.("open");
         this.params.onLive?.();
       });
@@ -238,34 +250,38 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
         } catch {
           return;
         }
-        if (frame.type === "event" && frame.event) this.push(frame.event);
-        else if (frame.type === "reconnect") {
+        if (frame.type === "event" && frame.event) {
+          healthy = true;
+          this.push(frame.event);
+        } else if (frame.type === "reconnect") {
           immediate = true;
           if (frame.after && !this.cursor) this.cursor = frame.after;
         } else if (frame.type === "error" && frame.error) {
           const err = errorFromBody(0, frame.error);
           if (err instanceof AuthenticationError || err instanceof PermissionError || err instanceof InvalidRequestError) fatal = err;
+          retryAfter = err.retryAfter;
         }
       });
       ws.addEventListener("error", () => {
         /* the close event follows */
       });
       ws.addEventListener("close", (ev) => {
+        clearTimeout(healthyTimer);
         this.socket = undefined;
         // A refused stream opens, sends an error frame, then closes with 4000 + the
         // HTTP status. 4400, 4401 and 4403 do not clear by reconnecting.
         const refused = REFUSED[ev.code ?? 0];
         if (!fatal && refused) fatal = errorFromBody(ev.code! - 4000, { type: refused, message: ev.reason || `The stream was refused (close ${ev.code}).` } as ErrorBody);
-        resolve({ opened, immediate, fatal, reason: `closed ${ev.code ?? ""} ${ev.reason ?? ""}`.trim() });
+        resolve({ opened, healthy, immediate, retryAfter, code: ev.code, fatal, reason: `closed ${ev.code ?? ""} ${ev.reason ?? ""}`.trim() });
       });
-    }).then(async (r) => {
+    }).then(async (out) => {
       // A socket refused before opening may be a bad key: ask over HTTP to get the typed error.
-      const out = r as { opened: boolean; immediate?: boolean; reason?: string; fatal?: unknown };
       if (!out.opened && !out.fatal && !this.closed) {
         try {
           await this.flow.events.list({ limit: 1, after: this.cursor, type: this.params.types });
         } catch (e) {
           if (e instanceof AuthenticationError || e instanceof PermissionError || e instanceof InvalidRequestError) out.fatal = e;
+          else if (e instanceof FlowError && e.retryAfter !== undefined) out.retryAfter ??= e.retryAfter;
         }
       }
       return out;
@@ -297,6 +313,42 @@ export class EventStream<E extends Event = Event> implements AsyncIterable<FlowE
       if (!page.has_more) await sleep(interval, this.ctrl.signal);
     }
   }
+}
+
+/** How one connection ended. */
+interface Connection {
+  opened: boolean;
+  /** It delivered an event or stayed open HEALTHY_AFTER_MS. */
+  healthy: boolean;
+  /** Flow sent a reconnect frame: reconnect at once. */
+  immediate?: boolean;
+  /** Seconds Flow asked to wait (`retry_after` in its error frame). */
+  retryAfter?: number;
+  code?: number;
+  reason?: string;
+  fatal?: unknown;
+}
+
+/** A connection is healthy once it delivers an event or stays open this long (ms). */
+const HEALTHY_AFTER_MS = 30_000;
+/** The reconnect backoff's first ceiling and its cap (ms): full jitter, doubling per close. */
+const BACKOFF_FIRST_MS = 500;
+const BACKOFF_MAX_MS = 10_000;
+/** After 4404 (the route is gone) or 4429 (too many streams opened) with no retry_after: 30 s at least, up to 5 min. */
+const HARD_CODES = new Set([4404, 4429]);
+const HARD_MIN_MS = 30_000;
+const HARD_MAX_MS = 300_000;
+
+/**
+ * How long to wait before reconnecting after the `attempt`-th close in a row (from 0), in ms. Full
+ * jitter: a random wait up to a ceiling that doubles per close. A `retry_after` from Flow is waited
+ * first, with the jittered backoff on top; 4404 and 4429 without one wait at least 30 s.
+ */
+function reconnectWait(code: number | undefined, retryAfter: number | undefined, attempt: number): number {
+  const normal = Math.random() * Math.min(BACKOFF_MAX_MS, BACKOFF_FIRST_MS * 2 ** attempt);
+  if (retryAfter !== undefined && retryAfter >= 0) return retryAfter * 1000 + normal;
+  if (code === undefined || !HARD_CODES.has(code)) return normal;
+  return HARD_MIN_MS + Math.random() * (Math.min(HARD_MAX_MS, HARD_MIN_MS * 2 ** (attempt + 1)) - HARD_MIN_MS);
 }
 
 /** Close codes of a refused stream that reconnecting does not fix, and their error types. */

@@ -8,12 +8,13 @@ from __future__ import annotations
 import json
 from collections import OrderedDict
 from collections.abc import Iterator, Callable, Sequence
+from time import monotonic
 from typing import Any, Literal
 
 from websockets.sync.client import connect as ws_connect
 from websockets.exceptions import ConnectionClosed, InvalidStatus, WebSocketException
 
-from .._base import Options, stream_backoff
+from .._base import STREAM_HEALTHY_AFTER, Options, stream_backoff
 from ..errors import (
     AuthenticationError,
     FlowError,
@@ -65,6 +66,8 @@ class EventStream:
         self._closed = False
         self._ws: Any = None
         self._pending: Any = None
+        #: When the last socket opened (time.monotonic), to tell a healthy connection.
+        self._opened_at = 0.0
 
     @property
     def _options(self) -> Options:
@@ -128,6 +131,7 @@ class EventStream:
             ws = connecting.__enter__()
         except InvalidStatus as e:
             raise _handshake_error(e.response.status_code, bytes(e.response.body or b"")) from e
+        self._opened_at = monotonic()
         self._status("open", None)
         return ws
 
@@ -141,10 +145,15 @@ class EventStream:
             for event in self._poll():
                 yield event
             return
+        # Closes in a row since the last healthy connection. A socket that opens is not yet
+        # healthy: a refused stream opens, sends an error frame and closes.
         attempt = 0
         while not self._closed:
             opened = False
+            healthy = False
             immediate = False
+            code: int | None = None
+            retry_after: float | None = None
             reason: str | None = None
             ws: Any = None
             try:
@@ -160,6 +169,7 @@ class EventStream:
                         continue
                     kind = frame.get("type")
                     if kind == "event" and isinstance(frame.get("event"), dict):
+                        healthy = True
                         event = parse_event(frame["event"])
                         if self._fresh(event):
                             yield event
@@ -173,6 +183,10 @@ class EventStream:
                         err = error_from_body(0, frame["error"])
                         if isinstance(err, _FATAL):
                             raise err
+                        retry_after = err.retry_after
+                if not immediate:  # the server closed it normally (1000 or 1001)
+                    code = ws.close_code
+                    reason = f"closed {code}" if code else "closed"
             except ConnectionClosed as e:
                 code = e.rcvd.code if e.rcvd is not None else None
                 if code is not None and code in REFUSED:
@@ -186,12 +200,15 @@ class EventStream:
                 raise
             except FlowError as e:  # a handshake answered with a status that may clear (429, 5xx)
                 reason = f"handshake answered {e.status}"
+                retry_after = e.retry_after
             except (OSError, TimeoutError, WebSocketException) as e:
                 reason = str(e) or type(e).__name__
             finally:
                 self._ws = None
                 if ws is not None:
                     ws.close()
+            if opened and monotonic() - self._opened_at >= STREAM_HEALTHY_AFTER:
+                healthy = True
             if self._closed:
                 return
             if not opened:
@@ -200,12 +217,18 @@ class EventStream:
                     self._log.list(limit=1, after=self.last_event_id, type=self._types)
                 except _FATAL:
                     raise
-                except FlowError:
-                    pass
-            attempt = 0 if opened else attempt + 1
-            self._status("reconnecting", reason)
-            if not immediate:
-                self._http._sleep(stream_backoff(attempt))
+                except FlowError as e:
+                    if retry_after is None:
+                        retry_after = e.retry_after
+            if healthy:
+                attempt = 0
+            if immediate:
+                self._status("reconnecting", f"{reason or 'reconnect frame'}; reconnecting now")
+                continue
+            wait = stream_backoff(attempt, code, retry_after)
+            attempt += 1
+            self._status("reconnecting", f"{reason}; reconnecting in {wait:.1f} s")
+            self._http._sleep(wait)
 
     def _poll(self) -> Iterator[Event]:
         after = self.last_event_id

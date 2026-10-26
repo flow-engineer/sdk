@@ -268,7 +268,7 @@ def test_normal_close_reconnects_with_after_the_last_event(mode: str, servers: C
     assert len(server.paths) == 2
     assert server.query(1) == {"after": [evt(2)], "type": ["message.received"]}
     # One backoff wait, through the client's _sleep.
-    assert len(r.sleeps) == 1 and 0 < r.sleeps[0] <= 10
+    assert len(r.sleeps) == 1 and 0 <= r.sleeps[0] <= 0.5
     assert [s for s, _ in r.statuses] == ["open", "reconnecting", "open"]
     assert r.stream.last_event_id == evt(3)
 
@@ -388,6 +388,77 @@ def test_without_a_key_iteration_raises_before_connecting(mode: str, servers: Ca
     r = run(mode, server, key=None)
     assert isinstance(r.error, AuthenticationError)
     assert server.paths == []
+
+
+# Reconnect backoff ------------------------------------------------------------------
+# The waits go through the fake sleep, so nothing is waited; random.random is fixed at
+# 0.5, so a full-jitter wait is half its ceiling. Each server keeps refusing until the
+# connection after the last script, which WSServer closes with 4400 (final), ending the run.
+
+
+def refuse(code: int, **error: Any) -> Script:
+    """Opens, sends one error frame, closes with ``code``: how Flow refuses a stream."""
+    return send({"type": "error", "error": {"type": "not_found", "message": "No.", **error}}, then=close(code))
+
+
+@pytest.fixture
+def half_jitter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("random.random", lambda: 0.5)
+
+
+@MODES
+def test_a_stream_refused_right_after_it_opens_backs_off_and_the_wait_grows(
+    mode: str, servers: Callable[..., WSServer], half_jitter: None
+) -> None:
+    server = servers(
+        refuse(4404),
+        refuse(4404),
+        refuse(4404),
+        refuse(4429, type="rate_limited"),
+        refuse(4429, type="rate_limited"),
+        refuse(4500, type="api_error"),
+    )
+    r = run(mode, server)
+    assert isinstance(r.error, InvalidRequestError)
+    # 4404 and 4429: 30 s plus half a ceiling of 30, 90, 210, 270 s (the 5 minute cap).
+    # Then 4500, the 6th close in a row: half of min(10 s, 0.5 s * 2**5).
+    assert r.sleeps == [45.0, 75.0, 135.0, 165.0, 165.0, 5.0]
+    assert ("reconnecting", "closed 4429; reconnecting in 165.0 s") in r.statuses
+
+
+@MODES
+def test_retry_after_in_the_error_frame_is_waited_with_the_backoff_on_top(
+    mode: str, servers: Callable[..., WSServer], half_jitter: None
+) -> None:
+    server = servers(
+        refuse(4429, type="rate_limited", retry_after=1),
+        refuse(4503, type="api_error", retry_after=20),
+        refuse(4404, retry_after=3),
+    )
+    r = run(mode, server)
+    assert r.sleeps == [1.25, 20.5, 4.0]
+
+
+@MODES
+def test_the_backoff_starts_again_only_after_an_event_or_30_s_open(
+    mode: str, servers: Callable[..., WSServer], half_jitter: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # time.monotonic as the stream reads it: at each open, then at each close.
+    ticks = [0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 0, 29]
+    module = "flow_messaging._sync.stream" if mode == "sync" else "flow_messaging._async.stream"
+    monkeypatch.setattr(f"{module}.monotonic", lambda: ticks.pop(0) if ticks else 0)
+    server = servers(
+        refuse(4500),
+        refuse(4500),
+        refuse(4500),
+        close(4500),  # open 30 s: healthy
+        refuse(4500),
+        close(4500),  # open 29 s: not yet
+        send(frame(event_received(evt(1))), then=close(4500)),  # an event: healthy
+    )
+    r = run(mode, server)
+    assert [e.id for e in r.events] == [evt(1)]
+    assert r.sleeps == [0.25, 0.5, 1.0, 0.25, 0.5, 1.0, 0.25]
 
 
 # Connecting eagerly: open() and the context managers --------------------------------

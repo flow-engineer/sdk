@@ -440,6 +440,7 @@ A complete echo agent (Node 22+, no dependencies):
 ```ts
 const KEY = process.env.FLOW_MESSAGING_KEY!;
 let lastEventId = "";
+let tries = 0;  // closes since the last event: the backoff
 
 function connect() {
   const after = lastEventId ? `&after=${lastEventId}` : "";
@@ -448,7 +449,7 @@ function connect() {
   ws.onmessage = (m) => {
     const f = JSON.parse(String(m.data));
     if (f.type === "event") {
-      const ev = f.event; lastEventId = ev.id;   // dedupe on ev.id in production
+      const ev = f.event; lastEventId = ev.id; tries = 0;   // dedupe on ev.id in production
       const msg = ev.data.message;
       if (ev.type === "message.received" && msg.content.kind === "basic" && msg.content.text) {
         ws.send(JSON.stringify({
@@ -462,7 +463,7 @@ function connect() {
   };
   ws.onclose = (e) => {
     if (e.code === 4401 || e.code === 4403 || e.code === 4400) return console.error("stream refused:", e.reason);
-    setTimeout(connect, 1000);  // resumes from lastEventId
+    setTimeout(connect, Math.random() * Math.min(30_000, 1000 * 2 ** tries++));  // resumes from lastEventId
   };
 }
 connect();
@@ -471,12 +472,12 @@ connect();
 The same in Python (`pip install websockets`):
 
 ```python
-import asyncio, json, os, websockets
+import asyncio, json, os, random, websockets
 
 KEY = os.environ["FLOW_MESSAGING_KEY"]
 
 async def main():
-    last = ""
+    last, tries = "", 0
     while True:
         url = "wss://api.flow.engineer/v0/stream?type=message.received" + (f"&after={last}" if last else "")
         try:
@@ -484,7 +485,7 @@ async def main():
                 async for raw in ws:
                     f = json.loads(raw)
                     if f["type"] == "event":
-                        ev = f["event"]; last = ev["id"]  # dedupe on ev["id"] in production
+                        ev = f["event"]; last = ev["id"]; tries = 0  # dedupe on ev["id"] in production
                         msg = ev["data"]["message"]
                         if msg["content"]["kind"] == "basic" and msg["content"].get("text"):
                             await ws.send(json.dumps({"type": "send", "ref": f"reply-to-{msg['id']}",
@@ -498,7 +499,8 @@ async def main():
         except websockets.ConnectionClosed as e:
             if e.rcvd and e.rcvd.code in (4400, 4401, 4403):
                 raise SystemExit(f"stream refused: {e.rcvd.reason}")
-            await asyncio.sleep(1)  # reconnect, resuming after the last event
+        await asyncio.sleep(random.random() * min(30, 2 ** tries))  # then resume after the last event
+        tries += 1
 
 asyncio.run(main())
 ```
@@ -510,6 +512,14 @@ endpoint, with `kind` required); `{"type": "start", "ref", "message": {"sender",
 "message"}` or `{"type": "error", "ref", "error"}`. On `{"type": "reconnect"}` (server
 restart, or the connection's 24-hour lifetime) connect again with `after` set to the
 last event you saw: nothing is lost.
+
+**Reconnect with a backoff, and reset it only after a healthy connection.** A refused
+stream still opens before it closes, so resetting your backoff when the socket opens
+makes it reconnect in a tight loop. Reset it only once the connection delivers an
+event or has stayed open 30 s. Wait at least `retry_after` seconds when the `error`
+frame has one; after `4404` or `4429` without one, wait 30 s or more, growing to a few
+minutes. Use full jitter (a random wait between 0 and the backoff), so many agents do
+not reconnect at the same moment. The SDKs' `events.stream` does all of this.
 
 ### b) Webhook: a public HTTPS URL
 
