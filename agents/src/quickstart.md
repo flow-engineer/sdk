@@ -1109,7 +1109,7 @@ iMessage lines have stricter limits of their own.
   are listed only with a live key. Without the trial or a grant,
   `GET /v0/senders?channel=imessage` with a test key is an empty list, not an error.
 - **Replies only** unless the line can write first (`sender.imessage.can_initiate`,
-  available on request for dedicated lines): the person texts the line first and
+  available on dedicated lines with the Outbound add-on, bought in the Flow dashboard): the person texts the line first and
   your agent replies. `POST /v0/messages` to someone who never wrote fails with
   `403 permission`. No cold outreach or bulk sends.
 - **Group chats** (dedicated lines; the shared line ignores them): a group the line
