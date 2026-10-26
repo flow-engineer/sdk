@@ -30,8 +30,9 @@ A send is exact or it fails: Flow never converts a message into another kind, ne
 |---|---|---|
 | The endpoint's kind is not on this channel (a carousel to Telegram, buttons to iMessage, a template outside WhatsApp, typing on SMS, a read receipt on Telegram) | `kind` | |
 | A field or block the channel does not take (`reply_to` on SMS, `link_preview: true` on SMS or with `media`, `text` with an audio `media` on WhatsApp, a `telegram` block to WhatsApp, `consent` on a start that is not SMS, `up_to` on iMessage) | the field or block, such as `reply_to`, `link_preview`, `text`, `telegram`, `telegram.is_big` | |
-| A value the channel does not take (a Telegram reaction emoji outside Telegram's list, more than 3 WhatsApp buttons or a mix of reply and URL buttons, a contact card with no phone number on Telegram, a place's `name` without its `address` (or the reverse) on Telegram, a `media.filename` with a `url` on Telegram, a document on SMS, a file larger than the channel takes) | the field, such as `emoji`, `buttons`, `phones`, `name`, `address`, `media.filename`, `media.type`, `media` | |
+| A value the channel does not take (a Telegram reaction emoji outside Telegram's list (one on it with U+FE0F or a skin tone, such as ❤️ or 👍🏽, is sent as the listed emoji), more than 3 WhatsApp buttons or a mix of reply and URL buttons, a contact card with no phone number on Telegram, a place's `name` without its `address` (or the reverse) on Telegram, a `media.filename` with a `url` on Telegram, a document on SMS, a file larger than the channel takes) | the field, such as `emoji`, `buttons`, `phones`, `name`, `address`, `media.filename`, `media.type`, `media` | |
 | A reaction, typing or a read receipt in an iMessage group conversation: groups take none of these from your line | `kind` | `group_unsupported` |
+| Removing a reaction on iMessage (`emoji` `null`) when you have none on the message (never sent, failed, or removed already): iMessage removes a reaction by naming it | `emoji` | `no_reaction_to_remove` |
 | An edit or unsend of an iMessage message that went by SMS or RCS (its `network` is `sms` or `rcs`) | `kind` | `not_on_sms` |
 | Media to an SMS number without MMS (`Sender.sms.mms` is `false`) | `media` | `no_mms` |
 | An edit past the channel's time limit (iMessage: 15 minutes after sending) | | `edit_window_closed` |
@@ -42,7 +43,7 @@ For the time limits, Flow checks its own record of when the message was sent, an
 
 `POST /v0/files` answers it too, for a file whose real type Flow does not take (programs, web pages, unknown types) or that is larger than the `channel` given takes. A document or archive a contact sent before Flow malware-scanned documents, sent again by `file_id`, answers it as well: Flow sends only documents it scanned.
 
-A window that is closed is not this error: WhatsApp after 24 hours, iMessage typing more than 5 minutes after the contact's last message, and SMS quiet hours answer `409 outside_window`.
+A window that is closed is not this error: WhatsApp after 24 hours, iMessage typing or a read receipt more than 5 minutes after your line's last message, and SMS quiet hours answer `409 outside_window`.
 
 ## How to fix it
 
