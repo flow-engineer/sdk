@@ -1795,8 +1795,8 @@ class ImessageSender(BaseModel):
     Whether messages to a contact who cannot get iMessage go by SMS or RCS
     instead. The network is chosen for each message when it is sent, never
     by your app; the message's `network` says which one carried it.
-    Included on Flow's shared lines; on a dedicated line, an add-on
-    arranged with the Flow team. Off, a message to a contact who is not on
+    Included on Flow's shared lines; on a dedicated line, the SMS/RCS
+    fallback and call forwarding add-on, bought in the Flow dashboard. Off, a message to a contact who is not on
     iMessage fails (`message.failed`). A message that goes by SMS or RCS
     shows no `imessage.styles`, `imessage.subject` or effect, and edits
     and unsends of it answer `422 unsupported_content` with
@@ -1809,8 +1809,8 @@ class ImessageSender(BaseModel):
     Whether the line may write first: start a conversation with
     `POST /v0/messages` with a contact who has not messaged it. Off (the
     default), the line only replies and a start answers `403 permission`.
-    Writing first is available on request from the Flow team, on dedicated
-    lines only (always `false` on shared lines); a line that starts
+    Writing first is available on dedicated lines only, with the Outbound
+    add-on bought in the Flow dashboard (always `false` on shared lines); a line that starts
     conversations spends its new-contact budget (`limits`), which grows
     during warm-up.
 
@@ -3656,7 +3656,8 @@ class StreamStartFrame(BaseModel):
     refused with `400 invalid_request` naming it in `param`, never ignored; a
     `kind` other than `basic` or `template` answers `422 unsupported_content`
     with `param` `kind`. On iMessage the sender must be able to write first
-    (`Sender.imessage.can_initiate`, available on request); otherwise the
+    (`Sender.imessage.can_initiate`, available on dedicated lines with the
+    Outbound add-on); otherwise the
     start answers `403 permission`. A start always makes a `direct`
     conversation: there is no way to start a group. There are no scheduled
     sends: to start a conversation later, wait in your own code and send then.

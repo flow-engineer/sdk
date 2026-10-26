@@ -14,7 +14,9 @@ info:
     Channels today: Telegram is live. iMessage is live on lines the Flow team
     connects to your app: it replies to people who write first, in one-to-one
     conversations and in group chats people add the line to; writing first is
-    available on request on dedicated lines (`Sender.imessage.can_initiate`). WhatsApp numbers are connected by the Flow team
+    available on dedicated lines with the Outbound add-on
+    (`Sender.imessage.can_initiate`), bought in the Flow dashboard
+    (`https://flow.engineer/dashboard`, Usage → Choose a plan). WhatsApp numbers are connected by the Flow team
     too, either a number Flow provides or one in your business's own WhatsApp
     Business Account, and the WhatsApp-only parts (templates, the 24-hour window)
     apply on them; the shared WhatsApp sandbox is not open yet.
@@ -179,7 +181,8 @@ info:
       than 24 hours old (the window); otherwise only a `template`
       (`409 outside_window`).
     - **iMessage**: a line may only reply unless it can start conversations
-      (`Sender.imessage.can_initiate`, available on request on dedicated lines); a
+      (`Sender.imessage.can_initiate`, available on dedicated lines with the
+      Outbound add-on, bought in the Flow dashboard); a
       new conversation from a reply-only line is refused (`403 permission`). A line
       that can start conversations spends the sender's new-contact budget, with a
       warm-up curve, and a contact who has never messaged the line (or opted in)
@@ -4438,8 +4441,8 @@ components:
             Whether messages to a contact who cannot get iMessage go by SMS or RCS
             instead. The network is chosen for each message when it is sent, never
             by your app; the message's `network` says which one carried it.
-            Included on Flow's shared lines; on a dedicated line, an add-on
-            arranged with the Flow team. Off, a message to a contact who is not on
+            Included on Flow's shared lines; on a dedicated line, the SMS/RCS
+            fallback and call forwarding add-on, bought in the Flow dashboard. Off, a message to a contact who is not on
             iMessage fails (`message.failed`). A message that goes by SMS or RCS
             shows no `imessage.styles`, `imessage.subject` or effect, and edits
             and unsends of it answer `422 unsupported_content` with
@@ -4452,8 +4455,8 @@ components:
             Whether the line may write first: start a conversation with
             `POST /v0/messages` with a contact who has not messaged it. Off (the
             default), the line only replies and a start answers `403 permission`.
-            Writing first is available on request from the Flow team, on dedicated
-            lines only (always `false` on shared lines); a line that starts
+            Writing first is available on dedicated lines only, with the Outbound
+            add-on bought in the Flow dashboard (always `false` on shared lines); a line that starts
             conversations spends its new-contact budget (`limits`), which grows
             during warm-up.
     CallForwarding:
@@ -5035,7 +5038,8 @@ components:
         refused with `400 invalid_request` naming it in `param`, never ignored; a
         `kind` other than `basic` or `template` answers `422 unsupported_content`
         with `param` `kind`. On iMessage the sender must be able to write first
-        (`Sender.imessage.can_initiate`, available on request); otherwise the
+        (`Sender.imessage.can_initiate`, available on dedicated lines with the
+        Outbound add-on); otherwise the
         start answers `403 permission`. A start always makes a `direct`
         conversation: there is no way to start a group. There are no scheduled
         sends: to start a conversation later, wait in your own code and send then.

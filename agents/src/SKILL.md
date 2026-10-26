@@ -8,7 +8,7 @@ description: Use when code must let an AI agent, bot or LLM app send or receive 
 One API for an AI agent to talk with people on **Telegram and iMessage** (iMessage:
 Flow's shared line is self-serve on sign-in at flow.engineer or through the Flow CLI,
 dedicated lines are set up by the Flow team; it replies after the person writes unless
-writing first is arranged on a dedicated line; WhatsApp on your own number, which you
+a dedicated line has the Outbound add-on, bought in the dashboard; WhatsApp on your own number, which you
 connect yourself with a live key).
 Flow hosts the senders (bots, lines); you get typed events in and send typed
 content out. TypeScript SDK: `@flow-engineer/messaging` (Node 18+, Bun, Deno, edge).
