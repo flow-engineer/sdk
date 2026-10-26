@@ -847,8 +847,8 @@ value the conversation's channel does not take answers `422 unsupported_content`
 | `location` | `lat`, `lng`, `name`, `address` | Yes | Yes | No | No |
 | `effect` | `text`, `effect` | No | No | Yes | No |
 | `reaction` | `message_id`, `emoji` (`null` removes) | Yes (Telegram's emoji set) | Yes | Yes (not in groups) | No |
-| `typing` | optional | Yes | Yes | Yes (5 minutes after the contact wrote) | No |
-| `read` | optional `up_to` (WhatsApp) | No | Yes | Yes | No |
+| `typing` | optional | Yes | Yes | Yes (5 minutes after your line's last message; reply first) | No |
+| `read` | optional `up_to` (WhatsApp) | No | Yes | Yes (5 minutes after your line's last message) | No |
 
 Where a kind is No, send what the channel takes: a carousel on Telegram is a basic
 message, then one `buttons` message with an image `header` per card; on iMessage and
@@ -984,7 +984,7 @@ the same error shape in `data.message.error`).
 | `permission` | 403 | Not allowed: a test key messaging someone who has not joined your app on the sandbox, a test key connecting a bot, connecting a Flow sandbox bot's token, sending from a sender `flagged` because Telegram rejected its token (connect the bot again), starting an iMessage conversation with someone who never wrote, the sandbox allowance (see below). Do not retry. |
 | `not_found` | 404 | Wrong ID, or it belongs to the other mode (test vs live). |
 | `idempotency_conflict` | 409 | See section 8. |
-| `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. |
+| `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. From iMessage typing/read: send your reply first; they work for 5 minutes after your line's last message. |
 | `unsupported_content` | 422 | The channel does not take this kind, field or value (`param` names it, `channel` is the channel); nothing was sent. Send what `hint` says instead (for example a basic message, then one buttons message per card, for a carousel on Telegram). An upload of a type Flow does not take (programs, web pages) gets it too. |
 | `file_blocked` | 422 | The upload failed the malware scan and was not stored. Send a different file. |
 | `new_contact_limit` | 429 | The sender's budget for new conversations is used up. `retry_after` can be an hour: queue the start, do not block on it. |
@@ -1092,7 +1092,8 @@ iMessage lines have stricter limits of their own.
   20 MB) or a `file_id` (images up to 10 MB, other files up to 50 MB); voice notes as OGG/Opus.
 - **Reactions**: only Telegram's fixed set of reaction emoji (listed on `POST
   /v0/conversations/{conversation_id}/reaction`; another answers `422`, `param`
-  `emoji`); `"telegram": {"is_big": true}` for the large animation.
+  `emoji`; ❤️ and skin tones such as 👍🏽 go as the listed ❤ and 👍);
+  `"telegram": {"is_big": true}` for the large animation.
 - **Typing** shows for about 5 seconds or until a message arrives.
   Bots cannot send read receipts (`read` answers `422 unsupported_content`).
 - **Edit** text (up to 4096) or a media caption (up to 1024), with no time limit; **unsend** within 48 hours of sending (later: `422 unsupported_content`, `unsend_window_closed`).
@@ -1143,9 +1144,13 @@ iMessage lines have stricter limits of their own.
   messages instead. Screen and bubble effects: `POST .../effect`. Media up to 100 MB,
   by `url` (HTTPS, at most 256 characters) or, better, a `file_id` from `POST /v0/files`.
 - **Reactions**: tapbacks ❤️ 👍 👎 😂 ‼️ ❓ arrive as `reaction.added` /
-  `reaction.removed`; other emoji go as emoji reactions.
-- **Typing** shows only within 5 minutes of the contact's last message; **read** marks
-  the whole conversation read. **Edit** within 15 minutes (not the message that
+  `reaction.removed`; other emoji go as emoji reactions. `"emoji": null` removes
+  the reaction you sent; with none of yours on the message it answers `422`
+  (`no_reaction_to_remove`).
+- **Typing** and **read** work only in a two-way conversation: within 5 minutes of
+  your line's last message to the contact (their message alone does not open it),
+  else `409 outside_window`; send your reply first. **Read** marks the whole
+  conversation read. **Edit** within 15 minutes (not the message that
   started the conversation); **unsend** within 2 minutes. Past those, the call
   answers `422 unsupported_content` (`edit_window_closed`,
   `first_message_not_editable`, `unsend_window_closed`); if iMessage still refuses

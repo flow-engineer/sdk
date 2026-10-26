@@ -470,13 +470,19 @@ export interface paths {
          *     `emoji` `null`. On iMessage, ❤️ 👍 👎 😂 ‼️ ❓ show as tapbacks and other
          *     emoji as emoji reactions. An iMessage group conversation answers `422
          *     unsupported_content` with `param` `kind` and `channel_code`
-         *     `group_unsupported`; SMS answers it with `param` `kind`.
+         *     `group_unsupported`; SMS answers it with `param` `kind`. iMessage removes a
+         *     reaction by naming it, so `emoji` `null` there removes the reaction you
+         *     sent; with none of yours on the message (never sent, failed, or removed
+         *     already) it answers `422 unsupported_content` with `param` `emoji` and
+         *     `channel_code` `no_reaction_to_remove`, and nothing is sent.
          *
          *     Telegram takes only these reaction emoji; any other answers `422
          *     unsupported_content` with `param` `emoji`: ❤ 👍 👎 🔥 🥰 👏 😁 🤔 🤯 😱 🤬
          *     😢 🎉 🤩 🤮 💩 🙏 👌 🕊 🤡 🥱 🥴 😍 🐳 ❤‍🔥 🌚 🌭 💯 🤣 ⚡ 🍌 🏆 💔 🤨 😐 🍓 🍾 💋
          *     🖕 😈 😴 😭 🤓 👻 👨‍💻 👀 🎃 🙈 😇 😨 🤝 ✍ 🤗 🫡 🎅 🎄 ☃ 💅 🤪 🗿 🆒 💘 🙉 🦄 😘 💊
-         *     🙊 😎 👾 🤷‍♂ 🤷 🤷‍♀ 😡 (Telegram's list, which it may extend). `telegram.is_big`
+         *     🙊 😎 👾 🤷‍♂ 🤷 🤷‍♀ 😡 (Telegram's list, which it may extend). An emoji
+         *     that is one of these with the variation selector U+FE0F (❤️) or a skin tone
+         *     (👍🏽) is sent as the listed emoji. `telegram.is_big`
          *     to another channel answers `422 unsupported_content` with `param`
          *     `telegram`.
          *
@@ -691,7 +697,7 @@ export interface paths {
          *     |---|---|---|
          *     | Telegram | Yes | |
          *     | WhatsApp | Yes | within 24 hours of the contact's last message, after they wrote at least once |
-         *     | iMessage | Yes | within 5 minutes of the contact's last message; not in group conversations; `imessage.duration_seconds` 1 to 60 |
+         *     | iMessage | Yes | once the contact wrote, within 5 minutes of your line's last message to them (send your reply first); not in group conversations; `imessage.duration_seconds` 1 to 60 |
          *     | SMS (US, pilot) | No | |
          *
          *     On SMS, send instead: nothing (SMS has no typing indicator); send your
@@ -710,8 +716,11 @@ export interface paths {
          *     The call goes to the channel at once, not behind the conversation's queued
          *     messages, so the channel's answer is the call's answer. It fails with
          *     `409 outside_window` when the channel allows typing only inside a window
-         *     (iMessage: within 5 minutes of the contact's last message; WhatsApp: within
-         *     24 hours of it, and only after the contact wrote at least once), and with
+         *     (iMessage: only in a two-way conversation, once the contact wrote and within
+         *     5 minutes of your line's last message to them, so the contact's message
+         *     alone does not open it: send your reply first, and typing works for 5
+         *     minutes after it; WhatsApp: within 24 hours of the contact's last message,
+         *     and only after the contact wrote at least once), and with
          *     `502 channel_error` when the channel failed or timed out. Both are safe to
          *     ignore: typing is a courtesy, so never hold back a reply because of it.
          */
@@ -743,7 +752,7 @@ export interface paths {
          *     |---|---|---|
          *     | Telegram | No | |
          *     | WhatsApp | Yes | up to any inbound message (`up_to`) |
-         *     | iMessage | Yes | the whole conversation (no `up_to`); not in group conversations |
+         *     | iMessage | Yes | the whole conversation (no `up_to`); once the contact wrote, within 5 minutes of your line's last message to them; not in group conversations |
          *     | SMS (US, pilot) | No | |
          *
          *     On Telegram and SMS, send instead: nothing (bots on Telegram and SMS have
@@ -759,7 +768,9 @@ export interface paths {
          *
          *     The call goes to the channel at once, so the channel's answer is the call's
          *     answer. On iMessage it fails with `409 outside_window` before the contact
-         *     has written in the conversation (there is nothing to mark read yet); on
+         *     has written in the conversation (there is nothing to mark read yet), and
+         *     when your line has not sent them a message in the last 5 minutes (iMessage
+         *     marks read only in a two-way conversation: send your reply first); on
          *     WhatsApp read receipts go at any time, also outside the 24-hour window. It
          *     fails with `502 channel_error` when the channel failed or timed out. Both
          *     are safe to ignore; never hold back a reply because of them.
@@ -1203,7 +1214,9 @@ export interface paths {
         };
         /**
          * List templates
-         * @description Lists WhatsApp message templates for your senders, newest first.
+         * @description Lists WhatsApp message templates for your senders, newest first. With a
+         *     test key it also lists Flow's one template on the shared WhatsApp sandbox
+         *     sender, if that sender has one (see `TemplateMessage`).
          */
         get: operations["listTemplates"];
         put?: never;
@@ -1920,12 +1933,12 @@ export interface components {
          *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
          *     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
-         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing works only within 5 minutes of the contact's last message; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
-         *     - `unsupported_content` (422): the conversation's channel does not take this kind, field, block or value, and nothing was sent; Flow never converts a message. `param` names what was refused: `kind` (the endpoint's kind is not on this channel, such as a carousel on Telegram), a field or block (`reply_to` on SMS, `telegram` on WhatsApp, `telegram.is_big`), or the field whose value is not taken (`emoji` outside Telegram's reaction emoji, `buttons` for more than 3 WhatsApp buttons). `channel` is the conversation's channel and `hint` says what to send instead over plain HTTP; each endpoint's page lists its channels. In an iMessage group conversation, a reaction, typing or a read receipt answers it with `param` `kind` and `channel_code` `group_unsupported`: leave it out. Media to an SMS number without MMS answers it with `param` `media` and `channel_code` `no_mms`. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v0/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned.
+         *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing and read receipts work only in a two-way conversation: within 5 minutes of your line's last message to the contact, so send your reply first; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
+         *     - `unsupported_content` (422): the conversation's channel does not take this kind, field, block or value, and nothing was sent; Flow never converts a message. `param` names what was refused: `kind` (the endpoint's kind is not on this channel, such as a carousel on Telegram), a field or block (`reply_to` on SMS, `telegram` on WhatsApp, `telegram.is_big`), or the field whose value is not taken (`emoji` outside Telegram's reaction emoji, `buttons` for more than 3 WhatsApp buttons). `channel` is the conversation's channel and `hint` says what to send instead over plain HTTP; each endpoint's page lists its channels. In an iMessage group conversation, a reaction, typing or a read receipt answers it with `param` `kind` and `channel_code` `group_unsupported`: leave it out. Removing a reaction on iMessage (`emoji` `null`) when you have none on the message answers it with `param` `emoji` and `channel_code` `no_reaction_to_remove`: iMessage removes a reaction by naming it. Media to an SMS number without MMS answers it with `param` `media` and `channel_code` `no_mms`. An edit or unsend of an iMessage message that went by SMS or RCS (its `network`) answers it with `channel_code` `not_on_sms`: send a new message instead. An edit or unsend past the channel's time limit answers it with `channel_code` `edit_window_closed` or `unsend_window_closed` (iMessage: edits within 15 minutes of sending, unsends within 2 minutes; Telegram: unsends within 48 hours), and an iMessage edit of the message that started the conversation with `first_message_not_editable`; `message` states the limit and how long ago the message was sent. Send a new message instead. `POST /v0/files` answers it for a type Flow does not take (programs, web pages, unknown types). A send by `file_id` of a document a contact sent before Flow malware-scanned documents answers it too: Flow sends only documents it scanned. Flow's template on the shared WhatsApp sandbox sender answers it with `param` `params.body[0]` and `channel_code` `template_value_not_taken` when your message has a line break or tab, more than four spaces in a row, or makes the template longer than WhatsApp's 1024 characters: write it as one shorter line.
          *     - `new_contact_limit` (429): the sender has used its budget for starting conversations. Wait `retry_after` seconds; replies into existing conversations still go.
          *     - `sender_throttled` (429): abuse signals tripped (the same text to many new contacts, many starts with no reply, blocks), so the sender may not start conversations until `retry_after`; replies into existing conversations still go. Personalise first messages and start only conversations people expect.
          *     - `file_blocked` (422): the file failed the malware scan and was not stored. Send a different file. (When the scan cannot run at all, the upload answers a retryable `500 api_error` with `Retry-After` instead.)
-         *     - `rate_limited` (429): either too many requests for this key (the per-key request limit, reported in the `RateLimit-*` headers) or sends faster than the sender's sending rate (pacing). Wait `Retry-After` (`retry_after`) seconds and retry with the same `Idempotency-Key`.
+         *     - `rate_limited` (429): either too many requests for this key (the per-key request limit, reported in the `RateLimit-*` headers) or sends faster than the sender's sending rate (pacing). Wait `Retry-After` (`retry_after`) seconds and retry with the same `Idempotency-Key`. On Flow's shared WhatsApp sandbox sender, `channel_code` `flow_template_limit`: your app already sent Flow's template to this contact in the last 24 hours; wait for them to reply, or send it after `retry_after` seconds.
          *     - `channel_error` (502, or in `message.failed`): the channel refused or failed the message, or timed out; `channel_code` carries its own code. Read `message`, change what the channel objected to, and send again. From typing and read receipts, which call the channel at once, it is safe to ignore. SMS codes are Flow's, the same whichever carrier network carries the message: `carrier_filtered` (a carrier's spam filter blocked it: make it read like a person's message, no shortened links), `unreachable`, `invalid_number`, `landline`, `registration_required` (the number's 10DLC or toll-free registration is not approved yet), `carrier_error`, and `provider_not_configured` (the SMS sender is not fully set up on Flow's side, so nothing was sent; contact the Flow team). Flow's own codes on every channel: `channel_timeout_unknown_outcome` (in `message.failed`: the channel did not answer after the message was sent, and the resends its policy allows did not settle it, so the message may have arrived or not; check with the contact before sending it again) and `unknown_outcome` (from typing and read receipts: the call timed out after it was sent).
          *     - `not_implemented` (501): this endpoint or channel is not live yet during the beta. Use a channel that is live (Telegram, iMessage), or check the changelog.
          *     - `api_error` (500, 503): something went wrong on Flow's side. Retry with the same idempotency key after `retry_after` seconds, and quote `request_id` if it persists.
@@ -3522,6 +3535,18 @@ export interface components {
          *     A media card carousel template (marketing category) is sent the same way,
          *     with one entry per card in `params.cards`. Inside the 24-hour window a
          *     carousel needs no template: send a `carousel` message.
+         *
+         *     Flow's shared WhatsApp sandbox sender takes no templates of your own; it
+         *     sends one template of Flow's, listed by `GET
+         *     /v0/templates?sender=<that sender>` with a test key. It reads "Time-sensitive
+         *     update from {{1}}: {{2}} Reply to this message to continue." with a "Tell me
+         *     more" button. Flow fills `{{1}}` with your app's name; give only your message,
+         *     as the one value in `params.body`. The message must be one line, with no
+         *     tabs and at most four spaces in a row, or the send answers `422
+         *     unsupported_content` (`channel_code` `template_value_not_taken`). Each
+         *     contact who joined your app can get it at most once in any 24 hours; a
+         *     second answers `429 rate_limited` (`channel_code` `flow_template_limit`,
+         *     with `retry_after`).
          */
         TemplateMessage: {
             /**
@@ -3675,7 +3700,7 @@ export interface components {
              */
             kind?: "reaction";
             message_id: components["schemas"]["MessageId"];
-            /** @description One emoji, or `null` to remove the reaction. On Telegram only its reaction emoji (listed on the endpoint); any other answers `422 unsupported_content` with `param` `emoji`. */
+            /** @description One emoji, or `null` to remove your reaction (on iMessage, only one you sent). On Telegram only its reaction emoji (listed on the endpoint; with U+FE0F or a skin tone, sent as the listed emoji); any other answers `422 unsupported_content` with `param` `emoji`. */
             emoji: string | null;
             telegram?: components["schemas"]["ReactionTelegramOptions"];
         };
@@ -4785,7 +4810,7 @@ export interface components {
         /**
          * @description The request conflicts with the current state: the channel's window is closed
          *     (`outside_window`: WhatsApp's 24 hours for free-form messages, iMessage's
-         *     5 minutes after the contact's last message for typing), or the idempotency
+         *     5 minutes after your line's last message for typing and read receipts), or the idempotency
          *     key was used for a different request or is still in use
          *     (`idempotency_conflict`).
          */
