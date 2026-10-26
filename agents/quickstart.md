@@ -1185,6 +1185,17 @@ iMessage lines have stricter limits of their own.
   team connected for you is updated by the team (`403 permission`, `channel_code`
   `whatsapp_number_managed`). Add a payment method in WhatsApp Manager: Meta bills its
   fees to the business directly. The shared WhatsApp sandbox is not open yet.
+- **On Flow's shared WhatsApp sandbox number** you make no templates. Inside 24 hours
+  of the person's last message, reply as usual. After that, send Flow's one template:
+  find it with `GET /v0/templates?sender=<the sandbox sender>` (test key), then
+  `POST /v0/conversations/{conversation_id}/template` with `{"template_id": "tpl_...",
+  "language": "en", "params": {"body": ["<your message>"]}}`. It reads "Time-sensitive
+  update from <your app's name>: <your message> Reply to this message to continue."
+  with a "Tell me more" button; Flow fills in your app's name. Write the message as one
+  line (no tabs, at most four spaces in a row), else `422 unsupported_content`
+  (`template_value_not_taken`). Each joined person gets it at most once in 24 hours
+  (`429 rate_limited`, `flow_template_limit`, with `retry_after`); their reply opens
+  24 hours of normal messages again.
 - **Before you connect**, in Meta Business Manager: a Meta app of type Business with
   the WhatsApp product, switched to Live; the number in your WhatsApp Business Account
   with an approved display name; a system user (Admin) with the business account (full
