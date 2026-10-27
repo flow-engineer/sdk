@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.3
+
+Types and docs (no change to requests, no new API version; `Flow-Version` stays
+`2026-11-01`):
+
+- iMessage's `outside_window` cases now carry their own `channel_code`, so they can be
+  told apart from a closed messaging window. HTTP status and `type` are unchanged.
+  iMessage messages themselves have no window; typing and read receipts show only
+  within 5 minutes of your line's last message to the person:
+  - `imessage_typing_window_closed`: typing refused (`409`); safe to ignore, send your
+    reply first.
+  - `imessage_read_window_closed`: a read receipt refused (`409`); safe to ignore.
+  - `imessage_contact_must_write_first`: in `message.failed`, a message to a person who
+    has no open conversation with the line (they have not messaged it yet or, on a
+    line that may only reply, not recently). This code used to be the channel's own
+    numeric code.
+- `OutsideWindowError` and the `outside_window` error page say so.
+
 ## 0.4.2
 
 0.4.1 was never published, so this is the release after 0.4.0. Upgrading from 0.4.0

@@ -112,7 +112,14 @@ export class NotFoundError extends FlowError {
 export class IdempotencyConflictError extends FlowError {
   override name = "IdempotencyConflictError";
 }
-/** 409 `outside_window`: WhatsApp's 24-hour window is closed; send a `template`. */
+/**
+ * 409 `outside_window`: WhatsApp's 24-hour window is closed; send a `template`. On
+ * iMessage, messages have no window: `channelCode` `imessage_typing_window_closed` or
+ * `imessage_read_window_closed` is typing or a read receipt more than 5 minutes after your
+ * line's last message to the person (safe to ignore; send your reply first), and
+ * `imessage_contact_must_write_first` (in `message.failed`) a person who has not messaged
+ * the line yet.
+ */
 export class OutsideWindowError extends FlowError {
   override name = "OutsideWindowError";
 }

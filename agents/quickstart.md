@@ -994,7 +994,7 @@ the same error shape in `data.message.error`).
 | `permission` | 403 | Not allowed: a test key messaging someone who has not joined your app on the sandbox, a test key connecting a bot, connecting a Flow sandbox bot's token, sending from a sender `flagged` because Telegram rejected its token (connect the bot again), starting an iMessage conversation with someone who never wrote, the sandbox allowance (see below). Do not retry. |
 | `not_found` | 404 | Wrong ID, or it belongs to the other mode (test vs live). |
 | `idempotency_conflict` | 409 | See section 8. |
-| `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. From iMessage typing/read: send your reply first; they work for 5 minutes after your line's last message. |
+| `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage (`channel_code` `imessage_contact_must_write_first`): they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. From iMessage typing/read (`imessage_typing_window_closed`, `imessage_read_window_closed`): not a messaging window; send your reply first, they work for 5 minutes after your line's last message. |
 | `unsupported_content` | 422 | The channel does not take this kind, field or value (`param` names it, `channel` is the channel); nothing was sent. Send what `hint` says instead (for example a basic message, then one buttons message per card, for a carousel on Telegram). An upload of a type Flow does not take (programs, web pages) gets it too. |
 | `file_blocked` | 422 | The upload failed the malware scan and was not stored. Send a different file. |
 | `new_contact_limit` | 429 | The sender's budget for new conversations is used up. `retry_after` can be an hour: queue the start, do not block on it. |
@@ -1143,8 +1143,9 @@ iMessage lines have stricter limits of their own.
   Their first message gives `conversation.started` (`data.via` = `inbound`), then
   `message.received`.
 - **Follow-ups** go into their existing conversation. If too much time has passed,
-  the send fails later with `message.failed`, `error.type` `outside_window`: do not
-  retry; wait for them to write.
+  the send fails later with `message.failed`, `error.type` `outside_window`,
+  `channel_code` `imessage_contact_must_write_first`: do not retry; wait for them
+  to write.
 - **Contacts are handles**: an E.164 number or an Apple ID email (`address.handle`;
   `address.phone` only for a number). iMessage reaches Apple devices only.
 - **Statuses**: `message.sent`, `message.delivered` and `message.failed` (a message can
@@ -1161,9 +1162,11 @@ iMessage lines have stricter limits of their own.
   `reaction.removed`; other emoji go as emoji reactions. `"emoji": null` removes
   the reaction you sent; with none of yours on the message it answers `422`
   (`no_reaction_to_remove`).
-- **Typing** and **read** work only in a two-way conversation: within 5 minutes of
-  your line's last message to the contact (their message alone does not open it),
-  else `409 outside_window`; send your reply first. **Read** marks the whole
+- **Typing** and **read** work only in a two-way conversation: iMessage shows them
+  only within 5 minutes of your line's last message to this person (their message
+  alone does not open it), else `409 outside_window` with `channel_code`
+  `imessage_typing_window_closed` or `imessage_read_window_closed`; messages
+  themselves have no window, so send your reply first. **Read** marks the whole
   conversation read. **Edit** within 15 minutes (not the message that
   started the conversation); **unsend** within 2 minutes. Past those, the call
   answers `422 unsupported_content` (`edit_window_closed`,
@@ -1489,7 +1492,7 @@ One app holds many senders: connect each customer's bot with your live key (`POS
 ### Sent but not received: a checklist
 
 1. **Did the send end?** `GET /v0/messages/{message_id}`, or `GET /v0/events?conversation=conv_...&type=message.sent&type=message.failed`. `queued`: still waiting (an earlier message in the conversation, the sender's pace, or a bot whose token Telegram rejected: reconnect it). `sent`: the channel took it (Telegram reports nothing after that). `failed`: read `error.type`, `error.channel_code` and `error.hint`.
-2. **Common `message.failed` codes**: `permission` with `sandbox_contact_left` (the person joined another app on the shared sandbox bot while the message waited: they send your app's `join_code` message again); `channel_error` with `channel_code` `403` on Telegram (the person blocked the bot, or never started it); `outside_window` (iMessage: they have not written recently; WhatsApp: `window_closed`, send a template; `queued_too_long`); `channel_timeout_unknown_outcome` (may have arrived).
+2. **Common `message.failed` codes**: `permission` with `sandbox_contact_left` (the person joined another app on the shared sandbox bot while the message waited: they send your app's `join_code` message again); `channel_error` with `channel_code` `403` on Telegram (the person blocked the bot, or never started it); `outside_window` (iMessage, `imessage_contact_must_write_first`: they have not written recently; WhatsApp: `window_closed`, send a template; `queued_too_long`); `channel_timeout_unknown_outcome` (may have arrived).
 3. **Sandbox (test key)**: the person joined *your* app: opened the sandbox bot's `address.link` and tapped Start, or sent the sender's `join_code` message. The join is also the conversation's first `message.received` (`/start`, or the join message without its code), right after `conversation.started`. One person belongs to one app per sandbox bot, so joining another app moves them (sends answer `403 permission`). A key made without an account expires after 7 days and its contact is removed. Allowance refusals are `403 permission` (`sandbox_allowance_used`, `sandbox_contact_limit`).
 4. **Your own bot (live key)**: the person pressed Start on that bot (a Telegram bot cannot write first), and you send with the live key: sandbox conversations belong to the test key and answer `404 not_found` with a live one.
 5. **On the phone**: the chat with the right bot (the sandbox bot and your own bot are different chats) on the Telegram account that joined.

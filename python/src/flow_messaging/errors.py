@@ -146,7 +146,11 @@ class IdempotencyConflictError(FlowError):
 
 class OutsideWindowError(FlowError):
     """409 ``outside_window``: WhatsApp's 24-hour window is closed (send a template), or an
-    SMS contact is inside the sender's quiet hours."""
+    SMS contact is inside the sender's quiet hours. On iMessage, messages have no window:
+    ``channel_code`` ``imessage_typing_window_closed`` or ``imessage_read_window_closed``
+    is typing or a read receipt more than 5 minutes after your line's last message to the
+    person (safe to ignore; send your reply first), and ``imessage_contact_must_write_first``
+    (in ``message.failed``) a person who has not messaged the line yet."""
 
 
 class UnsupportedContentError(FlowError):
