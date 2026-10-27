@@ -28,16 +28,20 @@ class Account(BaseModel):
     """
     plan: Literal["free", "shared", "dedicated", "pro", "business", "enterprise"]
     """
-    The account's plan, set by the Flow team (there is no self-serve
-    checkout). Each plan caps how many people your apps may talk with per
-    channel; `people` shows the caps and what is used.
+    The account's plan, bought in the Flow dashboard
+    (`https://flow.engineer/dashboard`, Settings → Usage and billing → Choose a plan). Each plan
+    caps how many people your apps may talk with per channel; `people`
+    shows the caps and what is used. Replies count: a person your app
+    replies to is one of the people counted.
 
     - `free`: a small number of people per channel in total (25 today).
     - `shared`: Flow's shared senders, with caps per channel a day and a
       month (200 a day and 300 a month today).
     - `dedicated`: your own iMessage line, with a daily cap on it and no
-      monthly cap (1,000 a day today); on Flow's shared senders it has
-      `shared`'s caps, counted apart (`people` shows each `pool`).
+      monthly cap (1,000 people a day today; a new line starts at 250 a
+      day and ramps to 1,000 over its first 14 days); on Flow's shared
+      senders it has `shared`'s caps, counted apart (`people` shows each
+      `pool`).
 
     The numbers are settings and may change; read the caps that apply
     now from `people`, not from this list.
@@ -50,9 +54,9 @@ class Account(BaseModel):
     people: PeopleLimits | None = None
     hipaa: bool | None = None
     """
-    `true` when the account handles protected health information under a
-    business associate agreement with Flow. Its messages then go only
-    through channels Flow holds such an agreement for (SMS): sends, typing,
+    `true` when the account is marked as handling protected health
+    information. Its messages then go only through the channels this
+    setting allows (SMS): sends, typing,
     read receipts and sender connections on Telegram, WhatsApp and iMessage
     answer `403 permission` with `channel_code` `hipaa_channel_not_covered`,
     and messages already queued there fail the same way. The sandbox
@@ -521,8 +525,9 @@ class CallData(BaseModel):
 
 class CallForwarding(BaseModel):
     """
-    Dedicated lines only: where phone calls to the line's number are
-    forwarded, set up with the Flow team. Forwarded calls send no event.
+    Dedicated lines with the SMS/RCS fallback and call forwarding add-on
+    only: where phone calls to the line's number are forwarded. Forwarded
+    calls send no event.
     FaceTime calls are not forwarded; they arrive as `call.received`. Absent
     when calls are not forwarded (always on shared lines).
 
@@ -1362,7 +1367,7 @@ class ErrorBody(BaseModel):
 
     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v0/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
-    - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). On Flow's shared iMessage line: `imessage_only` (the contact reaches the line by SMS or RCS, and shared lines are iMessage only; the SMS/RCS fallback is a dedicated line's add-on). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
+    - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the account's HIPAA setting does not allow the channel; use SMS). On Flow's shared iMessage line: `imessage_only` (the contact reaches the line by SMS or RCS, and shared lines are iMessage only; the SMS/RCS fallback is a dedicated line's add-on). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing and read receipts work only in a two-way conversation: within 5 minutes of your line's last message to the contact, so send your reply first; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
@@ -1458,7 +1463,12 @@ class ErrorBody(BaseModel):
     `channel_timeout_unknown_outcome` (`channel_error`: the channel never
     confirmed the send, so it may or may not have arrived). iMessage
     (`permission`): `imessage_only` (a send on Flow's shared line to a
-    contact who reaches it by SMS or RCS: shared lines are iMessage only).
+    contact who reaches it by SMS or RCS: shared lines are iMessage only)
+    and `imessage_not_granted` (the account has no access to Flow's shared
+    line: sign in at flow.engineer to start the free trial). Paid plans
+    (`permission`): `plan_people_limit` (a send to a person the account's
+    plan holds: the plan had no room for new people on that channel when
+    they wrote; see `Account.people`).
     iMessage (`unsupported_content`): `group_unsupported` (a reaction, typing or a
     read receipt in a group conversation; `param` `kind`) and
     `not_on_sms` (an edit or unsend of a message that went by SMS or RCS;
@@ -1785,7 +1795,8 @@ class GroupParticipant(BaseModel):
 class ImessageSender(BaseModel):
     """
     iMessage senders only: what the line can do beyond replying in iMessage.
-    Set by the Flow team (ask them to change it); absent on other channels.
+    Set by the account's plan and add-ons, bought in the Flow dashboard
+    (Settings → Usage and billing → Choose a plan); absent on other channels.
 
     """
 
@@ -2557,8 +2568,11 @@ class PeopleLimits(BaseModel):
     """
     The account's plan caps on people, and what is used now. A person counts
     once in a window, with their first inbound message in it on that channel's
-    sender, whether one-to-one or in a group chat; group members who never
-    write, calls, and your own sends do not count. A person past a cap is
+    sender, whether one-to-one or in a group chat. Replies count: a person
+    your app replies to is one of the people counted. Group members who never
+    write, and calls, do not count. On a dedicated iMessage line, the line's
+    own daily limit of different people counts everyone it messages, replies
+    and starts alike (`Account.plan`). A person past a cap is
     **held**: their messages are kept but not delivered to your app, and are
     delivered once a place frees or the window rolls over. Absent when the
     account's plan has no people caps. These numbers are the source of truth

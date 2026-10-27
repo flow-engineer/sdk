@@ -33,12 +33,12 @@ sandbox_allowance:                           # outbound messages only (inbound i
   own_account: the free trial instead, from your first sign-in: {{trial.people_per_channel}} people per channel on the shared Telegram, WhatsApp and iMessage senders   # no allowance in GET /v0/app
 sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v0/device/authorizations, then poll POST /v0/device/token
 dashboard: {{dashboard_url}}    # sign in with a Flow account; keys: the agent's Developers > API keys
-flow_team: [{{team_contacts|comma}}]   # SMS, WhatsApp and iMessage numbers, pricing, support; never send secrets (section 14)
+flow_team: [{{team_contacts|comma}}]   # US SMS numbers, help with WhatsApp, support; never send secrets (section 14)
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
 key_prefixes:
   fk_test_: test mode; the shared sandbox senders (Telegram bot; Flow's shared iMessage line once a sign-in has started the account's free trial), only contacts who joined your app
-  fk_live_: live mode; your dedicated senders: your own Telegram bot or WhatsApp number (self-serve, live key from the dashboard), a dedicated iMessage line (arranged with the Flow team)
+  fk_live_: live mode; your dedicated senders: your own Telegram bot or WhatsApp number (self-serve, live key from the dashboard), a dedicated iMessage line (the Dedicated plan, bought in the dashboard)
 sandbox_join: open the sandbox sender's address.link (https://t.me/<bot>?start=<code>) and tap Start,
               or send its join_code text as is ("Hi Sandbox app (ref wild-otter-04508705)");
               then conversation.started (via sandbox_join), then the join as the first message.received
@@ -70,7 +70,7 @@ send_outcome: every send ends message.sent or message.failed (Telegram never sen
 rate_limit_headers: [RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After]
 id_prefixes: {app: app_, sender: snd_, contact: ct_, conversation: conv_, message: msg_,
               event: evt_, file: file_, webhook_endpoint: we_}
-channels_live: [telegram, whatsapp, imessage]   # connect your own WhatsApp number with POST /v0/senders (live key); US SMS (pilot) numbers are connected by the Flow team, like dedicated iMessage lines (POST /v0/senders answers 501 not_implemented)
+channels_live: [telegram, whatsapp, imessage]   # connect your own WhatsApp number with POST /v0/senders (live key); dedicated iMessage lines come with the Dedicated plan and Flow connects US SMS (pilot) numbers (POST /v0/senders answers 501 not_implemented for both)
 ```
 
 ## Rules for the agent writing the integration
@@ -220,7 +220,7 @@ Signed-in people see their apps and keys in the Flow dashboard,
 {{dashboard_url}} (sign in with {{sign_in}}). There they can make
 **live keys** (`fk_live_...`) themselves (the agent's **Developers > API keys**: pick
 **Live**, then **New key**; live keys come with a plan) and go live on Telegram
-with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API; the Flow team can still help. Dedicated iMessage lines and SMS numbers are arranged with the Flow team; Flow's shared iMessage line comes with the free trial a sign-in starts (section 11, iMessage).
+with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API; the Flow team can still help. Plans and add-ons are bought there too ({{plans.path}}): Flow's shared iMessage line comes with the free trial a sign-in starts, and a dedicated line with the Dedicated plan (section 11, iMessage). Flow registers and connects US SMS numbers (pilot).
 
 ## 1. Authenticate
 
@@ -1001,7 +1001,7 @@ the same error shape in `data.message.error`).
 | `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` ({{sending.abuse.throttle_hours}} hours by default). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |
 | `channel_error` | in `message.failed` (502 from typing/read/file download) | The channel refused or failed it; `channel_code` is its code. A 502 may be retried; a failed message needs a new send. |
-| `not_implemented` | 501 | Not available through the API. `POST /v0/senders` for an iMessage or SMS sender answers it first, with any key: the Flow team connects those (write to {{team_contacts|or}}). Build meanwhile on simulated conversations of that channel (`POST /v0/test/conversations`). |
+| `not_implemented` | 501 | Not available through the API. `POST /v0/senders` for an iMessage or SMS sender answers it first, with any key: a dedicated iMessage line comes with the Dedicated plan, bought in the dashboard, and Flow connects SMS numbers (write to {{team_contacts|or}}). Build meanwhile on simulated conversations of that channel (`POST /v0/test/conversations`). |
 | `api_error` | 500, 503 | Our side. Retry with backoff and the same key. |
 
 Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code`:
@@ -1069,7 +1069,7 @@ Defaults for dedicated senders (your own bot, line or number). A sender's `limit
 | Telegram bot | {{sending.messages_per_second}} a second, burst {{sending.burst}} | no practical cap (a bot reaches only people who started it) |
 | WhatsApp number | Meta's throughput | {{sending.new_contacts_per_day.whatsapp}} a day, {{sending.new_contacts_per_hour.whatsapp}} an hour, and Meta's tier (`limits.whatsapp_tier`) |
 | SMS number | set by the number's registration (10DLC, toll-free) | {{sending.new_contacts_per_day.sms}} a day, {{sending.new_contacts_per_hour.sms}} an hour |
-| iMessage line | spaced out by the line's own rules | {{sending.new_contacts_per_hour.imessage}} an hour, and a daily cap that grows over the line's first weeks |
+| iMessage line | spaced out by the line's own rules | {{sending.new_contacts_per_hour.imessage}} an hour; a dedicated line messages up to 1,000 different people in any 24 hours, replies included (a new line starts at 250 a day and ramps to 1,000 over its first 14 days) |
 
 Faster than the pace: `429 rate_limited` with `Retry-After`. Past the budget: `429
 new_contact_limit` with `retry_after`; queue the start, do not loop.
@@ -1115,13 +1115,14 @@ iMessage lines have stricter limits of their own.
 ### iMessage
 
 - {{> shared-imessage}}
-- **Dedicated iMessage lines are connected by the Flow team**, not through the API, and
-  are listed only with a live key. Without the trial or a grant,
+- **Dedicated iMessage lines** are not connected through the API: {{> dedicated-imessage}}
+  Without the trial or a grant,
   `GET /v0/senders?channel=imessage` with a test key is an empty list, not an error.
 - **Replies only** unless the line can write first (`sender.imessage.can_initiate`,
   available on dedicated lines with the Outbound add-on, bought in the Flow dashboard): the person texts the line first and
   your agent replies. `POST /v0/messages` to someone who never wrote fails with
   `403 permission`. No cold outreach or bulk sends.
+- **Daily people**: {{> imessage-daily}}
 - **Group chats** (dedicated lines; the shared line ignores them): a group the line
   was added to is one conversation with `type` `group`, no `contact`, and
   `group.participants`; each inbound message's `from` names who wrote. Reply with the
@@ -1171,7 +1172,7 @@ iMessage lines have stricter limits of their own.
 
 ### SMS (US): in pilot
 
-- **US numbers (10DLC or toll-free) are registered and connected by the Flow team**
+- **Flow registers and connects US numbers (10DLC or toll-free)**
   for each customer; `POST /v0/senders` with `"channel": "sms"` answers `501`. Not in
   the sandbox allowance. The sender's `sms` shows `number_type`,
   `registration_status`, `mms` and `quiet_hours`.

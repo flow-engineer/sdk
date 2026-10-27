@@ -54,7 +54,7 @@ An app made without an account has no dashboard: get a new sandbox key, or sign 
 
 1. Sign in to keep the app (`npx {{package}} login`): the app, its data and webhooks stay.
 2. In the dashboard, the agent's **Developers > API keys**: **Live**, **New key** (live keys come with a plan); keep it apart from the test key (`{{env.live_key}}`).
-3. Connect your own Telegram bot (`POST /v0/senders`, quickstart section 7) or your own WhatsApp number (`POST /v0/senders`, quickstart section 11); dedicated iMessage lines and SMS numbers are connected by the Flow team. Flow's shared iMessage line needs no live key: it comes with the free trial a sign-in starts ({{trial.people_per_channel}} people per channel).
+3. Connect your own Telegram bot (`POST /v0/senders`, quickstart section 7) or your own WhatsApp number (`POST /v0/senders`, quickstart section 11); a dedicated iMessage line comes with the Dedicated plan, bought in the dashboard ({{plans.path}}), and Flow connects US SMS numbers. Flow's shared iMessage line needs no live key: it comes with the free trial a sign-in starts ({{trial.people_per_channel}} people per channel).
 4. Register the webhook again with the live key (endpoints belong to one mode). Nothing else in the code changes.
 
 ### Multi-tenant SaaS: one bot per customer

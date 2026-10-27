@@ -15,4 +15,5 @@ Build the app on the REST API (paths under /v0/). {{mcp.runtime_rule}}
 - OpenAPI spec: /openapi.yaml
 - MCP server: /mcp, optional, for testing during development. {{mcp.owner_rule}}
 - Dashboard: {{dashboard_url}}
-- Flow team ({{team_contacts|or}}): SMS numbers and dedicated iMessage lines (Flow's shared line comes with the free trial a sign-in starts; connect your own WhatsApp number with POST /v0/senders and a live key; the team can still help), pricing, support. Never send secrets; see /docs/quickstart.md#what-the-flow-team-arranges-and-how-to-ask
+- Plans and add-ons: bought in the dashboard ({{plans.path}}). Flow's shared iMessage line comes with the free trial a sign-in starts; a dedicated line comes with the Dedicated plan (Flow reviews the line, then sets it up, usually within a day); connect your own WhatsApp number with POST /v0/senders and a live key.
+- Flow team ({{team_contacts|or}}): US SMS numbers (pilot), help with WhatsApp, support. Never send secrets; see /docs/quickstart.md#what-the-flow-team-arranges-and-how-to-ask

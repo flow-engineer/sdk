@@ -31,7 +31,7 @@ install any Flow package.
 | [own-telegram-bot](own-telegram-bot) | Go live with your own @BotFather bot (`POST /v0/senders`), then disconnect it. | yes | |
 
 Telegram is live today, and so is WhatsApp on your own number (connected with a live
-key). iMessage is replies-only and arranged with the Flow team (with a live key). Your code does not change between channels:
+key). iMessage is live too: Flow's shared line comes with the free trial a sign-in starts, and a dedicated line with the Dedicated plan, bought in the Flow dashboard; it replies after the person writes first unless a dedicated line has the Outbound add-on. Your code does not change between channels:
 you reply into a conversation (`conv_...`) and never pick a channel per message.
 
 These examples are tested: `scripts/check-examples.sh --e2e` runs each one against

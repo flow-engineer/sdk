@@ -30,7 +30,7 @@ Webhooks, the stream and `Message.content` use the same kind objects: `{"kind": 
   buttons on iMessage, markdown into each channel's style). If the project also calls
   Flow Messaging directly (HTTP or the SDKs) beside the framework, move those calls with
   the rest of this skill.
-- **TypeScript SDK:** upgrade to `@flow-engineer/messaging@0.4.0` and follow "SDK names" and the
+- **TypeScript SDK:** upgrade to `@flow-engineer/messaging@0.4.1` and follow "SDK names" and the
   per-channel rules below.
 - **Python SDK:** upgrade to `flow-messaging>=0.2.0` and do the same.
 - **Plain HTTP (any language):** follow every section below.

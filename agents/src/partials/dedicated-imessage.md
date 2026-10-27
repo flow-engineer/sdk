@@ -1,0 +1,1 @@
+Dedicated iMessage lines come with the Dedicated plan: buy it, and its add-ons (SMS/RCS fallback and call forwarding; Outbound, to write first), in the dashboard ({{dashboard_url}}, {{plans.path}}); Flow reviews the line, then sets it up, usually within a day, and it appears in `GET /v0/senders` with a live key.

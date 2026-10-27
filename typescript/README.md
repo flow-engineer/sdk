@@ -64,8 +64,9 @@ join code, the allowance and the expiry. `init --key fk_test_...` uses a key you
 It then asks before installing the agent files (below); `--yes` installs them without
 asking. Test keys (`fk_test_`) reach only people who joined the sandbox: on your phone,
 open the sandbox link and tap Start. Live keys (`fk_live_`) are made in the dashboard once
-you sign in, for your own Telegram bot or WhatsApp number; iMessage senders are arranged
-with the Flow team.
+you sign in, for your own Telegram bot or WhatsApp number. Flow's shared iMessage line comes
+with the free trial your first sign-in starts; a dedicated iMessage line comes with the
+Dedicated plan, bought in the dashboard (Settings → Usage and billing → Choose a plan).
 
 The same from code; these calls need no key:
 
