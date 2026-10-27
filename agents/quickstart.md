@@ -435,7 +435,7 @@ websocat -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   "wss://api.flow.engineer/v0/stream?type=message.received&type=message.failed"
 ```
 
-A complete echo agent (Node 22+, no dependencies):
+A complete echo agent (TypeScript: Node 22.18+ runs it as is, or use `npx tsx`; no dependencies):
 
 ```ts
 const KEY = process.env.FLOW_MESSAGING_KEY!;
@@ -1339,7 +1339,7 @@ A program that asks a person one thing on Telegram, waits for the answer and goe
 4. **Wait for the reply with a timeout.** The next `message.received` in that conversation is the answer; give up after a time you choose and tell the person.
 
 ```ts
-// ask.mts: Node 22+ (ESM, top-level await), no dependencies. FLOW_MESSAGING_KEY is a test key (or live, with your own bot).
+// ask.mts: Node 22.18+ runs it as is (or `npx tsx ask.mts`); ESM, top-level await, no dependencies. FLOW_MESSAGING_KEY is a test key (or live, with your own bot).
 const BASE = "https://api.flow.engineer";
 const KEY = process.env.FLOW_MESSAGING_KEY!;
 const H = { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };

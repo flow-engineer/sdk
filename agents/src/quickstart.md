@@ -435,7 +435,7 @@ websocat -H "Authorization: Bearer $FLOW_MESSAGING_KEY" \
   "wss://api.flow.engineer/v0/stream?type=message.received&type=message.failed"
 ```
 
-A complete echo agent (Node 22+, no dependencies):
+A complete echo agent (TypeScript: Node 22.18+ runs it as is, or use `npx tsx`; no dependencies):
 
 ```ts
 const KEY = process.env.FLOW_MESSAGING_KEY!;
