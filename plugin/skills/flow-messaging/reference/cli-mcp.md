@@ -42,7 +42,7 @@ code) and `interval`. Poll
 `POST /v0/device/token` with `{"device_code": "fdc_..."}` every `interval` seconds
 (`429 rate_limited`: wait `retry_after`) until `status` is `approved` (with `key`, shown
 once), `denied` or `expired`. Signed-in people manage keys in the Flow dashboard,
-https://flow.engineer/dashboard (the agent's Developers > API keys).
+https://flow.engineer/dashboard (the agent's Developers › API keys).
 
 ## The MCP server (optional, for development)
 

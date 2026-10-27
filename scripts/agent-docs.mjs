@@ -14,7 +14,7 @@
 //   <!-- agents:name --> ... <!-- /agents:name -->        (.md outside docs/)
 //   {/* agents:name */} ... {/* /agents:name */}          (.mdx)
 // --export-docs prints rendered website guidance as JSON for the private docs repo;
-// it does not write files or require a local copy of the Mintlify site.
+// it does not write files or require a local copy of the docs site (https://flow.engineer/docs).
 // Every output must state the MCP owner and runtime rules (facts mcp.owner_rule and
 // mcp.runtime_rule) and name only env vars listed in facts.env. Hand-written pages that
 // give the Flow team's contact (CONTACT_PAGES) must give every address in
@@ -119,7 +119,7 @@ function partial(name, where, depth = 0) {
 }
 
 function fillRegions(file, text) {
-  // Mintlify parses .md under docs/ as MDX too, and MDX rejects HTML comments.
+  // Pages under docs/ and .mdx pages are read as MDX, which rejects HTML comments.
   const mdx = file.endsWith(".mdx") || file.startsWith("docs/");
   const open = mdx ? (n) => `{/* agents:${n} */}` : (n) => `<!-- agents:${n} -->`;
   const close = mdx ? (n) => `{/* /agents:${n} */}` : (n) => `<!-- /agents:${n} -->`;
@@ -171,7 +171,7 @@ function lint(file, text, mustState) {
   }
 }
 
-// The shared Mintlify site lives in flow-engineer/docs, not in this repository.
+// The docs site (https://flow.engineer/docs) is built from a separate docs source, not from this repository.
 if (process.argv.includes("--export-docs")) {
   const src = "agents/src/skill-web.md";
   const skill = render(read(src), src);

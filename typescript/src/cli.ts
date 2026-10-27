@@ -59,7 +59,7 @@ Global options
   -h, --help         this help
   -v, --version      the version
 
-Docs: https://docs.flow.engineer`;
+Docs: https://flow.engineer/docs`;
 
 function key(): string {
   const k = envValue("FLOW_MESSAGING_KEY");

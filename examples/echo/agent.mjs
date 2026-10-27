@@ -1,5 +1,5 @@
 // The smallest Flow Messaging agent: answers every message with what it said.
-// Run: node --env-file=.env agent.mjs   (FLOW_MESSAGING_KEY in .env)
+// Run: node --env-file=.env agent.mjs   (Node 20.6+; FLOW_MESSAGING_KEY in .env)
 import { FlowMessaging, contentText } from "@flow-engineer/messaging";
 
 const flow = new FlowMessaging(); // reads FLOW_MESSAGING_KEY

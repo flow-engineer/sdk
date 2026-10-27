@@ -1,16 +1,16 @@
 {
   "$comment": "The facts the agent-facing docs state, in one place. scripts/agent-docs.mjs fills them into agents/src/ templates; the service's own facts test fails when one differs from its code. The API version is read from openapi/openapi.yaml, never written here. sdk_version, cli_tagline and sign_in are checked against the TypeScript SDK and CLI, and python_package against python/pyproject.toml, by typescript/test/unit/agent-facts.test.ts.",
   "base_url": "https://api.flow.engineer",
-  "docs_url": "https://docs.flow.engineer",
+  "docs_url": "https://flow.engineer/docs/unified-messaging-api",
   "dashboard_url": "https://flow.engineer/dashboard",
   "plans": {
     "$comment": "Where in the dashboard the Messaging plans (Shared, Dedicated) and Dedicated's add-ons (SMS/RCS fallback and call forwarding; Outbound) are bought.",
     "path": "Settings → Usage and billing → Choose a plan"
   },
   "observe": {
-    "url": "https://flow.engineer/observe",
+    "url": "https://flow.engineer/dashboard",
     "traces_url": "https://flow.engineer/observe/v1/traces",
-    "docs": "https://docs.flow.engineer/observe/traces.md"
+    "docs": "https://flow.engineer/docs/unified-messaging-api/observe/traces.md"
   },
   "team_contacts": [
     "samyak@flow.engineer",

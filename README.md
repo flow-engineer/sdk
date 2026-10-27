@@ -15,8 +15,9 @@ curl -X POST https://api.flow.engineer/v0/sandbox/keys
 It allows 1 contact and 50 messages on the Telegram sandbox for 7 days. Sign in with
 a Flow account (`npx @flow-engineer/messaging login`) to keep the app and send 100
 messages to each of 3 contacts. Your own account's apps get the free trial instead,
-from your first sign-in: 25 people per channel on Flow's shared Telegram, WhatsApp
-and iMessage senders. Details: [Keys & sign-in](https://docs.flow.engineer/unified-messaging-api/get-a-key).
+from your first sign-in: 25 people per channel, across all the account's apps, on
+Flow's shared Telegram bot and iMessage line (and on WhatsApp's shared sender when it
+opens). Details: [Keys & sign-in](https://flow.engineer/docs/unified-messaging-api/get-a-key).
 
 ```ts
 // npm install @flow-engineer/messaging
@@ -72,7 +73,7 @@ MCP is not a runtime dependency: the app you build talks to Flow through the RES
 - [`agents/`](agents): the one source of the agent-facing docs: `facts.json`, the
   templates in `src/`, and the generated pages the API serves.
 - [`python/`](python): the Python SDK. `go/`: reserved for the Go SDK.
-- [Documentation](https://docs.flow.engineer/unified-messaging-api): guides and API reference.
+- [Documentation](https://flow.engineer/docs/unified-messaging-api): guides and API reference.
   Website source is maintained in the private `flow-engineer/docs` repository. The error pages
   retained here are embedded by the service, not a second documentation site.
 

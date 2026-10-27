@@ -33,7 +33,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://docs.flow.engineer"
+Homepage = "https://flow.engineer/docs"
 Repository = "https://github.com/flow-engineer/sdk"
 Issues = "https://github.com/flow-engineer/sdk/issues"
 

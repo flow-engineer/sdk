@@ -1,6 +1,6 @@
 ---
 name: flow-messaging
-description: Use when code must let an AI agent, bot or LLM app send or receive messages on WhatsApp, Telegram or iMessage (answer customers in chat, reply to inbound messages, stream an LLM answer into a chat, notify someone on their phone), or when the task mentions Flow Messaging, api.flow.engineer, @flow-engineer/messaging or {{env.api_key}}. Covers the TypeScript SDK, the Python SDK ({{python_package}}), webhooks, the live event stream, the CLI and the HTTP API. Also covers Flow Observe (grading every conversation, OpenTelemetry traces to flow.engineer/observe, {{env.observe_trace_key}}).
+description: Use when code must let an AI agent, bot or LLM app send or receive messages on WhatsApp, Telegram or iMessage (answer customers in chat, reply to inbound messages, stream an LLM answer into a chat, notify someone on their phone), or when the task mentions Flow Messaging, api.flow.engineer, @flow-engineer/messaging or {{env.api_key}}. Covers the TypeScript SDK, the Python SDK ({{python_package}}), webhooks, the live event stream, the CLI and the HTTP API. Also covers Flow Observe (grading every conversation, OpenTelemetry traces to Flow Observe, {{env.observe_trace_key}}).
 ---
 
 # Flow Messaging
@@ -33,8 +33,8 @@ person opens the sandbox link and taps Start first.
 {{> allowance}} `(await flow.app.retrieve()).allowance` shows what is left.
 {{> sign-in}} {{> allowance-errors}} In the SDK these are `PermissionError` (with
 `channelCode`) and `AuthenticationError`. Dashboard: {{dashboard_url}}. Going live:
-signed-in users make `fk_live_` keys in the dashboard (the agent's Developers > API
-keys: Live, New key) and connect their own Telegram bot or their own WhatsApp number
+signed-in users make `fk_live_` keys in the dashboard (the agent's Developers › API
+keys: switch to Live, then New key) and connect their own Telegram bot or their own WhatsApp number
 (`POST /v0/senders` with `channel` `whatsapp`; the Flow team can still help). {{> dedicated-imessage}}
 US SMS numbers (pilot) are registered and connected by Flow
 ({{team_contacts|or}}; send your app ID and the number's details, never secrets or tokens).
@@ -63,7 +63,7 @@ Anthropic, the Vercel AI SDK, the OpenAI Agents SDK, the Claude Agent SDK,
 LangChain, Mastra or any `AsyncIterable<string>`. It shows typing, splits the text
 into chat bubbles at paragraph and sentence ends, and sends each bubble as a `basic`
 message as it is ready, exactly as written (no markdown is rendered).
-Run with `node --env-file=.env agent.mjs`. Type handlers with `FlowEvent` (or
+Run with `node --env-file=.env agent.mjs` (Node 20.6+; or `npx tsx --env-file=.env agent.mjs`). Type handlers with `FlowEvent` (or
 `FlowEventOf<"message.received">`), not `Event`: only `FlowEvent`'s `conversation` can `reply`.
 
 ## Webhooks instead of the stream (servers, serverless)
@@ -107,9 +107,9 @@ simulate only SMS (`hipaa_channel_not_covered`).
 ## See every conversation (Flow Observe, early access)
 
 Flow Observe ({{observe.url}}) grades every reply and groups failures into issues. On
-Flow Messaging it needs no code: the user adds the agent on Observe's Setup page with a
+Flow Messaging it needs no code: the user adds the agent in the Flow dashboard with a
 test key of the app. Keys (trace key `otk_test_...`, CI key `oci_...`) are made by the user
-on Observe's Setup page at https://flow.engineer/observe after signing in with their Flow
+in the Flow dashboard at {{dashboard_url}} after signing in with their Flow
 login; Observe is in early access, and if it is not on for them, they ask the Flow team
 ({{team_contacts|or}}). Never invent a key, and never ask the user to paste one into the
 chat. To also see each turn's model and tool calls, export OpenTelemetry traces
@@ -146,4 +146,4 @@ contacts included) is graded.
 - {{> mcp-short}}
 
 More: [API and message kinds](reference/api.md) · [frameworks](reference/frameworks.md) ·
-[CLI and MCP](reference/cli-mcp.md) · docs https://docs.flow.engineer
+[CLI and MCP](reference/cli-mcp.md) · docs https://flow.engineer/docs

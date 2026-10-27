@@ -132,7 +132,7 @@ The private docs repository owns the website. Edit sources, regenerate and updat
   installs), and refills the marked regions (`<!-- agents:name -->`) of `README.md`,
   `typescript/README.md` and `plugin/skills/flow-messaging/reference/cli-mcp.md`.
   `node scripts/agent-docs.mjs --export-docs` exports rendered website guidance as JSON for
-  the docs repository to verify; it does not recreate a local Mintlify site.
+  the docs repository to verify; the docs site (https://flow.engineer/docs) is built there, not here.
   Text outside the regions in those pages is hand-written.
 - **Copied into the service:** its `make generate` copies every top-level file of
   `agents/` (with `facts.json`), as it copies `docs/errors/`; the service embeds and
@@ -168,7 +168,7 @@ The private docs repository owns the website. Edit sources, regenerate and updat
 - `docs/errors/`: service-embedded error explanations, one per `ErrorType`. The service
   copies them during generation for `explain_error` and each error's `doc_url`. Preserve
   this runtime input and coordinate changes with the published error guide in the private docs
-  repository. This is not a Mintlify site.
+  repository. This folder is not a docs site.
 - `server.json`: the entry for the official MCP registry (not submitted yet).
 - `typescript/`: `@flow-engineer/messaging`, the SDK and the CLI.
 - `examples/`: runnable agents, each with a README, using the sandbox. The

@@ -1077,7 +1077,7 @@ export interface paths {
          *
          *     To get a live key (`fk_live_...`), a person signs in to the Flow dashboard at
          *     `https://flow.engineer/dashboard` (with a Flow account), opens the agent's
-         *     **Developers > API keys**, picks **Live** and clicks **New key** (live keys
+         *     **Developers › API keys**, switches to **Live** and clicks **New key** (live keys
          *     come with a plan). An app made without an
          *     account (`POST /v0/sandbox/keys`) is claimed first, by signing in through the
          *     device flow or its `claim_url`. For a Telegram bot or a WhatsApp number, an
@@ -2048,7 +2048,8 @@ export interface components {
              *     shows the caps and what is used. Replies count: a person your app
              *     replies to is one of the people counted.
              *
-             *     - `free`: a small number of people per channel in total (25 today).
+             *     - `free`: the free trial, 25 people per channel across all the account's
+             *       apps (not per day or month).
              *     - `shared`: Flow's shared senders, with caps per channel a day and a
              *       month (200 a day and 300 a month today).
              *     - `dedicated`: your own iMessage line, with a daily cap on it and no
