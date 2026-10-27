@@ -994,7 +994,7 @@ the same error shape in `data.message.error`).
 | `permission` | 403 | Not allowed: a test key messaging someone who has not joined your app on the sandbox, a test key connecting a bot, connecting a Flow sandbox bot's token, sending from a sender `flagged` because Telegram rejected its token (connect the bot again), starting an iMessage conversation with someone who never wrote, the sandbox allowance (see below). Do not retry. |
 | `not_found` | 404 | Wrong ID, or it belongs to the other mode (test vs live). |
 | `idempotency_conflict` | 409 | See section 8. |
-| `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line (recently); wait for them to write. WhatsApp: send a `template`. Do not retry. From iMessage typing/read: send your reply first; they work for 5 minutes after your line's last message. |
+| `outside_window` | in `message.failed` (409 from typing/read) | The contact cannot be messaged now. iMessage: they have not messaged the line yet; wait for them to write (iMessage has no 24-hour window). WhatsApp: send a `template`. Do not retry. From iMessage typing/read: send your reply first; they work for 5 minutes after your line's last message. |
 | `unsupported_content` | 422 | The channel does not take this kind, field or value (`param` names it, `channel` is the channel); nothing was sent. Send what `hint` says instead (for example a basic message, then one buttons message per card, for a carousel on Telegram). An upload of a type Flow does not take (programs, web pages) gets it too. |
 | `file_blocked` | 422 | The upload failed the malware scan and was not stored. Send a different file. |
 | `new_contact_limit` | 429 | The sender's budget for new conversations is used up. `retry_after` can be an hour: queue the start, do not block on it. |
@@ -1122,6 +1122,8 @@ iMessage lines have stricter limits of their own.
   available on dedicated lines with the Outbound add-on, bought in the Flow dashboard): the person texts the line first and
   your agent replies. `POST /v0/messages` to someone who never wrote fails with
   `403 permission`. No cold outreach or bulk sends.
+- **No 24-hour window**: iMessage has no 24-hour window: once someone has texted your line, your agent can message them any time. Only typing and read receipts are timed: they
+  work for 5 minutes after your line's last message to the person.
 - **Daily people**: {{> imessage-daily}}
 - **Group chats** (dedicated lines; the shared line ignores them): a group the line
   was added to is one conversation with `type` `group`, no `contact`, and

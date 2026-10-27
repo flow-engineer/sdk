@@ -140,6 +140,7 @@ contacts included) is graded.
   nothing is converted, and `text` is sent as written.
 - WhatsApp: free-form only within 24 h of the contact's last message, else
   `OutsideWindowError`: send a `template(...)`.
+- iMessage has no 24-hour window: once someone has texted your line, your agent can message them any time.
 - Errors are classes per `error.type` (`OutsideWindowError`, `RateLimitError`,
   `NewContactLimitError`, ...). Retries with idempotency keys are automatic.
 - Deliveries are at least once: deduplicate on `event.id`.
