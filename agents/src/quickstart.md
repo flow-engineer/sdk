@@ -1128,8 +1128,11 @@ iMessage lines have stricter limits of their own.
   normal sends. Reactions, typing and read receipts in groups answer `422
   unsupported_content` (`channel_code` `group_unsupported`): leave them out. The
   API cannot create a group or change who is in it.
-- **SMS/RCS add-on**: when `sender.imessage.fallback` is on, a contact who
-  cannot get iMessage gets the message by SMS or RCS; `message.network` says which.
+- **SMS/RCS add-on** (dedicated lines only): when `sender.imessage.fallback` is on,
+  a contact who cannot get iMessage gets the message by SMS or RCS;
+  `message.network` says which. Flow's shared lines are iMessage only: a send there
+  to a contact who reaches the line by SMS or RCS answers `403 permission`
+  (`channel_code` `imessage_only`).
   Such a message shows no `imessage.styles`, subject or effect, and edits and
   unsends of it answer `422 unsupported_content` (`channel_code` `not_on_sms`).
 - **FaceTime calls** to the line arrive as `call.received` (`data.call.contact`); the
