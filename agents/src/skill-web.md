@@ -67,7 +67,7 @@ export const POST = flow.webhooks.handler({
 
 - Reply into the conversation; never choose a channel per message; never assume a contact has a phone number.
 - Verify webhook signatures on the raw body; deduplicate on event `id`; answer within 10 seconds.
-- iMessage: reply only unless the sender's `imessage.can_initiate` is on; never message a contact first otherwise.
+- iMessage: reply only unless the sender's `imessage.can_initiate` is on; never message a contact first otherwise. iMessage has no 24-hour window: once someone has texted your line, your agent can message them any time.
 - WhatsApp: free-form only within 24 hours of the person's last message, else a `template` (`409 outside_window`).
 - A send is exact or it fails: a kind, field or value the channel does not take answers `422 unsupported_content` (`param` names it; `hint` says what to send instead, such as a basic message, then one buttons message per card, for a carousel on Telegram). Nothing is converted; `text` is sent as written.
 - Switch on `error.type`; each error has `hint` and `doc_url` (`https://api.flow.engineer/docs/errors/<type>`).

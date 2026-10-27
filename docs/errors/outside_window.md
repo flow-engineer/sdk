@@ -11,11 +11,11 @@ HTTP 409, or `error.type` in a `message.failed` event. The channel will not deli
 
 On WhatsApp you may send free-form messages only within 24 hours of the contact's last message. After that, WhatsApp accepts only approved templates; the send is refused with HTTP 409.
 
-On iMessage a line can reach only contacts who have messaged it (or opted in). The send is accepted, and the refusal arrives later as a `message.failed` event with `outside_window`.
+On iMessage a line can reach only contacts who have messaged it (or opted in). The send is accepted, and the refusal arrives later as a `message.failed` event with `outside_window`. iMessage has no 24-hour window: once someone has texted your line, your agent can message them any time.
 
 On SMS (US, in pilot), a sender does not message contacts who have not texted it in the last hour during its quiet hours (`sender.sms.quiet_hours`, by default 21:00 to 08:00), in the contact's local time worked out from their area code. The send is refused with HTTP 409, `channel_code` `quiet_hours`, and `retry_after` in seconds until the quiet hours end.
 
-Typing and read receipts go to the channel at once, so they answer HTTP 409 `outside_window` directly when the channel's window for them is closed: on iMessage, typing and read receipts work only in a two-way conversation: once the contact has written, and within 5 minutes of your line's last message to them (the contact's message alone does not open it); on WhatsApp, typing works only inside the 24-hour window, while read receipts go at any time.
+Typing and read receipts go to the channel at once, so they answer HTTP 409 `outside_window` directly when the channel's window for them is closed. On iMessage, typing and read receipts work only once the contact has written, and for 5 minutes after your line's last message to them (the contact's message alone does not open it), so send your reply first. On WhatsApp, typing works only inside the 24-hour window, while read receipts go at any time.
 
 ## Why it happens
 
