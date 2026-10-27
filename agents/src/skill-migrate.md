@@ -47,7 +47,7 @@ Search the project (code, tests, fixtures, prompts, docs) for each of these and 
 | `/v1/` | every Flow Messaging URL (change all of them to `/v0/`) |
 | `/messages` after a conversation id, with POST | the old send (the GET that lists a conversation's messages stays, at `/v0/conversations/{id}/messages`) |
 | `"content"` / `content:` holding `type` | the old content union, in sends, starts, edits, webhook replies, stream frames and test inbound turns |
-| `fallback` | old fallbacks (not `Sender.imessage.fallback`, the SMS/RCS add-on flag, which is unchanged) |
+| `fallback` | old fallbacks (not `Sender.imessage.fallback`, the SMS/RCS fallback flag, which is unchanged) |
 | `channel_options` | the old escape hatch |
 | `delivered_as`, `.shown` | what Flow converted; gone |
 | `format: "markdown"`, `"format": "markdown"`, `markdown(` | markdown rendering by Flow; gone |

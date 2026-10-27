@@ -53,10 +53,10 @@ export interface paths {
          *     `channel_code` `no_mms`; a `document` on SMS with `param` `media.type`;
          *     a file larger than the channel takes with `param` `media`.
          *
-         *     **iMessage lines with the SMS/RCS add-on** (`Sender.imessage.fallback`,
-         *     dedicated lines only): a message to a contact who cannot get iMessage goes
-         *     by SMS or RCS. The
-         *     network is chosen for each message when it is sent, never by your app, and
+         *     **iMessage lines with SMS/RCS fallback** (`Sender.imessage.fallback`,
+         *     included on every iMessage line: Flow's shared line and dedicated lines
+         *     alike): a message to a contact who cannot get iMessage goes by SMS or RCS.
+         *     The network is chosen for each message when it is sent, never by your app, and
          *     the message's `network` (also `data.message.network` in its events) says
          *     which one carried it. A message that went by SMS or RCS shows no
          *     `imessage.styles`, no `imessage.subject` and no effect, and cannot be
@@ -426,7 +426,7 @@ export interface paths {
          *     text.
          *
          *     Sends text with one of iMessage's screen or bubble effects. On a line with
-         *     the SMS/RCS add-on, a message that goes by SMS or RCS shows the text
+         *     SMS/RCS fallback (every iMessage line has it), a message that goes by SMS or RCS shows the text
          *     without the effect (its `network` says so; see `POST
          *     /v0/conversations/{conversation_id}/basic`). Which effects a contact's
          *     device shows may vary. Other channels answer `422 unsupported_content`
@@ -1934,7 +1934,7 @@ export interface components {
          *
          *     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
          *     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v0/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
-         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the account's HIPAA setting does not allow the channel; use SMS). On Flow's shared iMessage line: `imessage_only` (the contact reaches the line by SMS or RCS, and shared lines are iMessage only; the SMS/RCS fallback is a dedicated line's add-on). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
+         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the account's HIPAA setting does not allow the channel; use SMS). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
          *     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
          *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing and read receipts work only in a two-way conversation: within 5 minutes of your line's last message to the contact, so send your reply first; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
@@ -2009,13 +2009,13 @@ export interface components {
              *     `queued_too_long` (`outside_window`), and
              *     `channel_timeout_unknown_outcome` (`channel_error`: the channel never
              *     confirmed the send, so it may or may not have arrived). iMessage
-             *     (`permission`): `imessage_only` (a send on Flow's shared line to a
-             *     contact who reaches it by SMS or RCS: shared lines are iMessage only)
-             *     and `imessage_not_granted` (the account has no access to Flow's shared
+             *     (`permission`): `imessage_not_granted` (the account has no access to Flow's shared
              *     line: sign in at flow.engineer to start the free trial). Paid plans
              *     (`permission`): `plan_people_limit` (a send to a person the account's
              *     plan holds: the plan had no room for new people on that channel when
              *     they wrote; see `Account.people`).
+             *     `imessage_only` (retired 27 Oct 2026; no longer sent: shared lines
+             *     fall back to SMS/RCS).
              *     iMessage (`unsupported_content`): `group_unsupported` (a reaction, typing or a
              *     read receipt in a group conversation; `param` `kind`) and
              *     `not_on_sms` (an edit or unsend of a message that went by SMS or RCS;
@@ -2496,20 +2496,19 @@ export interface components {
         };
         /**
          * @description iMessage senders only: what the line can do beyond replying in iMessage.
-         *     Set by the account's plan and add-ons, bought in the Flow dashboard
-         *     (Settings → Usage and billing → Choose a plan); absent on other channels.
+         *     Set by the line and the account's plan (the Outbound add-on is bought in
+         *     the Flow dashboard, Settings → Usage and billing → Choose a plan); absent
+         *     on other channels.
          */
         ImessageSender: {
             /**
              * @description Whether messages to a contact who cannot get iMessage go by SMS or RCS
              *     instead. The network is chosen for each message when it is sent, never
              *     by your app; the message's `network` says which one carried it.
-             *     Dedicated lines only: the SMS/RCS fallback and call forwarding add-on,
-             *     bought in the Flow dashboard. Always `false` on Flow's shared lines,
-             *     which are iMessage only: a send there to a contact who reaches the line
-             *     by SMS or RCS answers `403 permission` with `channel_code`
-             *     `imessage_only`. Off, a message to a contact who is not on
-             *     iMessage fails (`message.failed`). A message that goes by SMS or RCS
+             *     Included on every iMessage line, Flow's shared line (the free trial and
+             *     the Shared plan) and dedicated lines alike. Off only on a line that
+             *     lacks it: then a message to a contact who is not on iMessage fails
+             *     (`message.failed`). A message that goes by SMS or RCS
              *     shows no `imessage.styles`, `imessage.subject` or effect, and edits
              *     and unsends of it answer `422 unsupported_content` with
              *     `channel_code` `not_on_sms` (see `Message.network`).
@@ -2528,9 +2527,9 @@ export interface components {
             can_initiate: boolean;
         };
         /**
-         * @description Dedicated lines with the SMS/RCS fallback and call forwarding add-on
-         *     only: where phone calls to the line's number are forwarded. Forwarded
-         *     calls send no event.
+         * @description Dedicated lines only, where it is included: where phone calls to the
+         *     line's number are forwarded, set up with the Flow team. Forwarded calls
+         *     send no event.
          *     FaceTime calls are not forwarded; they arrive as `call.received`. Absent
          *     when calls are not forwarded (always on shared lines).
          */
@@ -2925,8 +2924,9 @@ export interface components {
         };
         /**
          * @description iMessage channel only: the network that carried the message. `imessage`,
-         *     or `sms` or `rcs` when the line has the SMS/RCS add-on
-         *     (`Sender.imessage.fallback`) and the contact could not get iMessage. The
+         *     or `sms` or `rcs` when the contact could not get iMessage and the line
+         *     fell back to SMS or RCS (`Sender.imessage.fallback`, included on every
+         *     iMessage line). The
          *     network is chosen for each message when it is sent, never by your app.
          *     Set on inbound messages, and on your messages once the channel reports it
          *     (in `message.sent`, `message.delivered` or `message.failed`, as
