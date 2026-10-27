@@ -3,7 +3,7 @@
   "name": "engineer.flow/messaging",
   "title": "Flow Messaging",
   "description": "Two-way messaging for AI agents on Telegram, WhatsApp and iMessage: test, send and debug.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "websiteUrl": "https://flow.engineer/docs/unified-messaging-api/mcp",
   "repository": {
     "url": "https://github.com/flow-engineer/sdk",
