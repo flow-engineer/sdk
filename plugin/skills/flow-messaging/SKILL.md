@@ -1,6 +1,6 @@
 ---
 name: flow-messaging
-description: Use when code must let an AI agent, bot or LLM app send or receive messages on WhatsApp, Telegram or iMessage (answer customers in chat, reply to inbound messages, stream an LLM answer into a chat, notify someone on their phone), or when the task mentions Flow Messaging, api.flow.engineer, @flow-engineer/messaging or FLOW_MESSAGING_KEY. Covers the TypeScript SDK, the Python SDK (flow-messaging), webhooks, the live event stream, the CLI and the HTTP API. Also covers Flow Observe (grading every conversation, OpenTelemetry traces to flow.engineer/observe, FLOW_OBSERVE_TRACE_KEY).
+description: Use when code must let an AI agent, bot or LLM app send or receive messages on WhatsApp, Telegram or iMessage (answer customers in chat, reply to inbound messages, stream an LLM answer into a chat, notify someone on their phone), or when the task mentions Flow Messaging, api.flow.engineer, @flow-engineer/messaging or FLOW_MESSAGING_KEY. Covers the TypeScript SDK, the Python SDK (flow-messaging), webhooks, the live event stream, the CLI and the HTTP API. Also covers Flow Observe (grading every conversation, OpenTelemetry traces to Flow Observe, FLOW_OBSERVE_TRACE_KEY).
 ---
 
 # Flow Messaging
@@ -30,11 +30,11 @@ From code: `await new FlowMessaging().sandbox.createKey()`. A key you already ha
 `init --key fk_test_...`. Test keys reach only the shared sandbox: on their phone the
 person opens the sandbox link and taps Start first.
 
-Sandbox allowance: without an account, 1 contact and 50 messages in total on the Telegram sandbox (WhatsApp's when it opens), and the key expires after 7 days. Claimed by a person who signs in (Flow account): 3 contacts x 100 messages each, no expiry, one allowance per person shared by every app they claim (up to 10). iMessage is in neither. Apps of your own Flow account (made in the dashboard or by `npx @flow-engineer/flow setup`) get the free trial instead, started at your first sign-in: 25 people per channel on Flow's shared Telegram, WhatsApp and iMessage senders, over all the account's apps, and `GET /v0/app` shows no `allowance`. Only messages your agent sends count. Simulated conversations (`POST /v0/test/conversations`, test keys) are free: they take no contact slot and no messages, so test as much as you like on the app you have; tell them apart by `simulated: true` on the conversation, the contact and the event's `conversation`. `(await flow.app.retrieve()).allowance` shows what is left.
+Sandbox allowance: without an account, 1 contact and 50 messages in total on the Telegram sandbox (WhatsApp's when it opens), and the key expires after 7 days. Claimed by a person who signs in (Flow account): 3 contacts x 100 messages each, no expiry, one allowance per person shared by every app they claim (up to 10). iMessage is in neither. Apps of your own Flow account (made in the dashboard or by `npx @flow-engineer/flow setup`) get the free trial instead, started at your first sign-in: 25 people per channel, across all the account's apps, on Flow's shared Telegram bot and iMessage line (and on WhatsApp's shared sender when it opens), and `GET /v0/app` shows no `allowance`. Only messages your agent sends count. Simulated conversations (`POST /v0/test/conversations`, test keys) are free: they take no contact slot and no messages, so test as much as you like on the app you have; tell them apart by `simulated: true` on the conversation, the contact and the event's `conversation`. `(await flow.app.retrieve()).allowance` shows what is left.
 To keep the app, a person signs in with a Flow account (flow.engineer: Google, GitHub or an email link): run `npx @flow-engineer/messaging login --no-wait`, show them the link and code it prints (they open the page, sign in and type the code), and after they approve run `npx @flow-engineer/messaging login` (it replaces `FLOW_MESSAGING_KEY` in `.env` and drops `FLOW_CLAIM_TOKEN`). Past the allowance, sends fail with `403 permission` and `channel_code` `sandbox_allowance_used`, `sandbox_contact_limit`, `sandbox_channel_not_included` or `sign_in_required`; an expired key is `401 authentication` with `sandbox_key_expired`. Do not retry or get more keys: ask the person to sign in. In the SDK these are `PermissionError` (with
 `channelCode`) and `AuthenticationError`. Dashboard: https://flow.engineer/dashboard. Going live:
-signed-in users make `fk_live_` keys in the dashboard (the agent's Developers > API
-keys: Live, New key) and connect their own Telegram bot or their own WhatsApp number
+signed-in users make `fk_live_` keys in the dashboard (the agent's Developers › API
+keys: switch to Live, then New key) and connect their own Telegram bot or their own WhatsApp number
 (`POST /v0/senders` with `channel` `whatsapp`; the Flow team can still help). Dedicated iMessage lines come with the Dedicated plan: buy it, and its add-ons (SMS/RCS fallback and call forwarding; Outbound, to write first), in the dashboard (https://flow.engineer/dashboard, Settings → Usage and billing → Choose a plan); Flow reviews the line, then sets it up, usually within a day, and it appears in `GET /v0/senders` with a live key.
 US SMS numbers (pilot) are registered and connected by Flow
 (samyak@flow.engineer or prabal@flow.engineer; send your app ID and the number's details, never secrets or tokens).
@@ -63,7 +63,7 @@ Anthropic, the Vercel AI SDK, the OpenAI Agents SDK, the Claude Agent SDK,
 LangChain, Mastra or any `AsyncIterable<string>`. It shows typing, splits the text
 into chat bubbles at paragraph and sentence ends, and sends each bubble as a `basic`
 message as it is ready, exactly as written (no markdown is rendered).
-Run with `node --env-file=.env agent.mjs`. Type handlers with `FlowEvent` (or
+Run with `node --env-file=.env agent.mjs` (Node 20.6+; or `npx tsx --env-file=.env agent.mjs`). Type handlers with `FlowEvent` (or
 `FlowEventOf<"message.received">`), not `Event`: only `FlowEvent`'s `conversation` can `reply`.
 
 ## Webhooks instead of the stream (servers, serverless)
@@ -106,10 +106,10 @@ simulate only SMS (`hipaa_channel_not_covered`).
 
 ## See every conversation (Flow Observe, early access)
 
-Flow Observe (https://flow.engineer/observe) grades every reply and groups failures into issues. On
-Flow Messaging it needs no code: the user adds the agent on Observe's Setup page with a
+Flow Observe (https://flow.engineer/dashboard) grades every reply and groups failures into issues. On
+Flow Messaging it needs no code: the user adds the agent in the Flow dashboard with a
 test key of the app. Keys (trace key `otk_test_...`, CI key `oci_...`) are made by the user
-on Observe's Setup page at https://flow.engineer/observe after signing in with their Flow
+in the Flow dashboard at https://flow.engineer/dashboard after signing in with their Flow
 login; Observe is in early access, and if it is not on for them, they ask the Flow team
 (samyak@flow.engineer or prabal@flow.engineer). Never invent a key, and never ask the user to paste one into the
 chat. To also see each turn's model and tool calls, export OpenTelemetry traces
@@ -125,7 +125,7 @@ await tracer.startActiveSpan("agent.turn", async (span) => {
 });
 ```
 
-Agents on other channels send traces only: https://docs.flow.engineer/observe/traces.md. Test data only until the
+Agents on other channels send traces only: https://flow.engineer/docs/unified-messaging-api/observe/traces.md. Test data only until the
 Flow team enables the account for production; every test conversation (simulated
 contacts included) is graded.
 
@@ -146,4 +146,4 @@ contacts included) is graded.
 - MCP server (optional, for development): `https://api.flow.engineer/mcp`, with the same key as a Bearer token. MCP is not a runtime dependency: the app you build talks to Flow through the REST API (or the TypeScript or Python SDK, which wrap it) for everything it does at runtime. Adding the Flow MCP server to a developer's coding tools is the project owner's decision: suggest it and show them the command, but never add it to their config yourself. For Claude Code the command is `claude mcp add --transport http flow https://api.flow.engineer/mcp --header "Authorization: Bearer $FLOW_MESSAGING_KEY"` (Codex and Cursor: section 12 of https://api.flow.engineer/docs/quickstart.md); `FLOW_MESSAGING_KEY` must be set when it runs (unset, the header is saved as `Bearer ` with no key), and the client loads a new server only after a restart. If its tools are already available to you, use them for sandbox testing; after a test send, wait for `message.sent` or `message.failed`.
 
 More: [API and message kinds](reference/api.md) · [frameworks](reference/frameworks.md) ·
-[CLI and MCP](reference/cli-mcp.md) · docs https://docs.flow.engineer
+[CLI and MCP](reference/cli-mcp.md) · docs https://flow.engineer/docs

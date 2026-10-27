@@ -19,7 +19,7 @@ for await (const event of flow.events.stream({ types: ["message.received"] })) {
 ```sh
 npm install @flow-engineer/messaging
 npx @flow-engineer/messaging init   # gets a test key (no account), writes .env, prints the sandbox link; asks before adding agent files
-node --env-file=.env agent.mjs
+node --env-file=.env agent.mjs     # Node 20.6+ (or: npx tsx --env-file=.env agent.mjs)
 ```
 
 The same send over HTTP, from any language:
@@ -88,7 +88,8 @@ const sandbox = await flow.sandbox.createKey({ name: "Support agent" });
 
 Only messages your agent sends count; inbound is free. iMessage is not part of either.
 Your own account's apps get the free trial instead, from your first sign-in: 25 people
-per channel on Flow's shared Telegram, WhatsApp and iMessage senders, and no `allowance`.
+per channel, across all the account's apps, on Flow's shared Telegram bot and iMessage
+line (and on WhatsApp's shared sender when it opens), and no `allowance`.
 
 **Sign in to keep the app.** `npx @flow-engineer/messaging login` reads
 `FLOW_CLAIM_TOKEN`, prints a link and a short code, opens the browser and waits; once
@@ -113,8 +114,8 @@ sends throw `PermissionError` with `channelCode` `sandbox_allowance_used` (also
 `sandbox_contact_limit`, `sandbox_channel_not_included`, `sign_in_required`); an
 expired sandbox key throws `AuthenticationError` with `sandbox_key_expired`. Sign in,
 or get a new key. Signed-in people manage keys in the Flow dashboard, https://flow.engineer/dashboard
-(the agent's Developers > API keys).
-Full guide: https://docs.flow.engineer/get-a-key.
+(the agent's Developers › API keys).
+Full guide: https://flow.engineer/docs/unified-messaging-api/get-a-key.
 
 ## Receiving events
 
@@ -282,7 +283,7 @@ await flow.messages.send("conv_...", buttons("Which size?", ["S", "M", "L"]));  
 await flow.messages.send("conv_...", list("Which size?", "Sizes", [{ id: "s", title: "Small" }, { id: "m", title: "Medium" }])); // WhatsApp
 await flow.messages.send("conv_...", image("https://example.com/receipt.png", "Receipt"));
 await flow.messages.basic("conv_...", { text: "<b>Shipped</b>", telegram: { parse_mode: "HTML" } }); // styles only in a channel block
-await flow.messages.start({ sender: "snd_...", to: { phone: "+919812345678" }, ...template("tpl_...", "en", { body: ["Asha"] }) });
+await flow.messages.start({ sender: "snd_...", to: { phone: "+15555550123" }, ...template("tpl_...", "en", { body: ["Asha"] }) });
 await flow.conversations.typing("conv_...");                // no state: it clears itself
 await flow.conversations.read("conv_...");                  // WhatsApp, iMessage
 await flow.messages.edit("msg_...", "Fixed text");          // PATCH /v0/messages/{id}
@@ -434,4 +435,4 @@ npm run typecheck && npm run lint && npm test && npm run build
 npm run test:integration  # against the service run locally (see ../AGENTS.md)
 ```
 
-Apache-2.0. The API is in beta; docs at https://docs.flow.engineer.
+Apache-2.0. The API is in beta; docs at https://flow.engineer/docs.

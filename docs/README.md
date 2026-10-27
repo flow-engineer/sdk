@@ -1,7 +1,7 @@
 # Service error explanations
 
 The documentation website is maintained in the private **flow-engineer/docs** repository and
-published at [docs.flow.engineer](https://docs.flow.engineer/unified-messaging-api).
+published at [flow.engineer/docs](https://flow.engineer/docs/unified-messaging-api).
 
 Only `errors/` remains here: one explanation per `ErrorType`. The service copies these files
 during generation, embeds them for `explain_error`, and serves them at each error's `doc_url`.

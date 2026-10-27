@@ -8,7 +8,7 @@ const KEY = process.env.FLOW_MESSAGING_KEY;
 const BASE = (process.env.FLOW_MESSAGING_BASE_URL ?? "https://api.flow.engineer").replace(/\/+$/, "");
 const [command, senderId] = process.argv.slice(2);
 if (!KEY) {
-  console.error("Set FLOW_MESSAGING_KEY to your live key (fk_live_...). Signed in, make one in the Flow dashboard, https://flow.engineer/dashboard: the agent's Developers > API keys, Live, New key.");
+  console.error("Set FLOW_MESSAGING_KEY to your live key (fk_live_...). Signed in, make one in the Flow dashboard, https://flow.engineer/dashboard: the agent's Developers › API keys, Live, New key.");
   process.exit(1);
 }
 

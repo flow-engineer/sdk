@@ -95,9 +95,10 @@ info:
     app they own or claim** (a person may claim up to 10 apps). `GET /v0/app` shows what is left of the allowance
     (`allowance`). When it runs out, sends answer `403 permission` with
     `channel_code` `sandbox_allowance_used`. The apps of your own account get the
-    free trial instead, started at your first sign-in: 25 people per channel on
-    Flow's shared Telegram, WhatsApp and iMessage senders, over all the
-    account's apps (their `allowance` is absent).
+    free trial instead, started at your first sign-in: 25 people per channel,
+    across all the account's apps, on Flow's shared Telegram bot and iMessage
+    line (and on WhatsApp's shared sender when it opens); their `allowance` is
+    absent.
 
     ## Versioning
 
@@ -423,7 +424,7 @@ info:
     tool's error with the same `type`, `param`, `hint` and `doc_url`.
   contact:
     name: Flow Engineer
-    url: https://docs.flow.engineer
+    url: https://flow.engineer/docs
   license:
     name: Apache-2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
@@ -1323,7 +1324,7 @@ paths:
                 summary: A WhatsApp template to a phone number
                 value:
                   sender: snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T
-                  to: {phone: "+919812345678"}
+                  to: {phone: "+15555550123"}
                   kind: template
                   template_id: tpl_01JB8Z9X2D4F6H8K0M2P4R6T8V
                   language: en
@@ -2137,7 +2138,7 @@ paths:
 
         To get a live key (`fk_live_...`), a person signs in to the Flow dashboard at
         `https://flow.engineer/dashboard` (with a Flow account), opens the agent's
-        **Developers > API keys**, picks **Live** and clicks **New key** (live keys
+        **Developers › API keys**, switches to **Live** and clicks **New key** (live keys
         come with a plan). An app made without an
         account (`POST /v0/sandbox/keys`) is claimed first, by signing in through the
         device flow or its `claim_url`. For a Telegram bot or a WhatsApp number, an
@@ -3906,7 +3907,8 @@ components:
             shows the caps and what is used. Replies count: a person your app
             replies to is one of the people counted.
 
-            - `free`: a small number of people per channel in total (25 today).
+            - `free`: the free trial, 25 people per channel across all the account's
+              apps (not per day or month).
             - `shared`: Flow's shared senders, with caps per channel a day and a
               month (200 a day and 300 a month today).
             - `dedicated`: your own iMessage line, with a daily cap on it and no

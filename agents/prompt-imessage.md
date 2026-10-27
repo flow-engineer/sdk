@@ -1,6 +1,6 @@
 Connect this project to Flow's Messaging API and send me an iMessage from its code.
 
-The code reads my Flow Messaging test key from `FLOW_MESSAGING_KEY` in the project's `.env`; you don't need to see the key yourself. Check that the line is there by its name only (for example `grep -q '^FLOW_MESSAGING_KEY=.' .env`), never by printing the file. If it isn't there, make sure `.env` is in `.gitignore`, then ask me for my test key (`npx @flow-engineer/flow setup` writes it to `.env` as `FLOW_MESSAGING_KEY`; it is also in the Flow dashboard, https://flow.engineer/dashboard, under the agent's Developers > API keys, Test) and give me this one line to save it myself, run in the project's folder:
+The code reads my Flow Messaging test key from `FLOW_MESSAGING_KEY` in the project's `.env`; you don't need to see the key yourself. Check that the line is there by its name only (for example `grep -q '^FLOW_MESSAGING_KEY=.' .env`), never by printing the file. If it isn't there, make sure `.env` is in `.gitignore`, then ask me for my test key (`npx @flow-engineer/flow setup` writes it to `.env` as `FLOW_MESSAGING_KEY`; it is also in the Flow dashboard, https://flow.engineer/dashboard, under the agent's Developers › API keys, Test) and give me this one line to save it myself, run in the project's folder:
 
     echo 'FLOW_MESSAGING_KEY=<paste your key>' >> .env
 
