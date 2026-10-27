@@ -1059,18 +1059,21 @@ export interface paths {
          * Request a dedicated sender
          * @description Connects a dedicated sender to your app. Telegram bots and WhatsApp numbers
          *     in your own WhatsApp Business Account are connected here, self-serve, with
-         *     a live key (below). iMessage lines and US SMS numbers are connected by the
-         *     Flow team, not by API: a request with `channel` `imessage` or `sms` answers
+         *     a live key (below). iMessage lines and US SMS numbers are not connected by
+         *     API: a request with `channel` `imessage` or `sms` answers
          *     `501 not_implemented` before any other check, with any key (test or live,
-         *     claimed app or not): ask the Flow team, and the sender appears in
-         *     `GET /v0/senders` once it is connected. Its `hint` says what to build with
+         *     claimed app or not). A dedicated iMessage line comes with the Dedicated
+         *     plan, bought in the Flow dashboard (`https://flow.engineer/dashboard`,
+         *     Settings → Usage and billing → Choose a plan): Flow reviews the line, then sets it up, usually
+         *     within a day. US SMS numbers are registered and connected by Flow. Either
+         *     sender appears in `GET /v0/senders` once it is connected. Its `hint` says what to build with
          *     meanwhile: a Telegram bot, or simulated conversations of that channel
          *     (`POST /v0/test/conversations`, test keys). Never send API keys, tokens or
          *     passwords in a chat or email, to the Flow team or anyone else.
          *
-         *     - iMessage: a dedicated line attached to your app.
+         *     - iMessage: a dedicated line attached to your app (the Dedicated plan).
          *     - US SMS (in pilot): carriers require each number's brand and campaign to be
-         *       registered first, so the Flow team registers and connects the number.
+         *       registered first, so Flow registers and connects the number.
          *
          *     To get a live key (`fk_live_...`), a person signs in to the Flow dashboard at
          *     `https://flow.engineer/dashboard` (with a Flow account), opens the agent's
@@ -1081,8 +1084,9 @@ export interface paths {
          *     unclaimed app's key gets `403 permission` (`channel_code`
          *     `sign_in_required`) and a test key gets `403 permission`, each with a `hint`
          *     naming these steps. Telegram bots and your own WhatsApp numbers are
-         *     self-serve; iMessage lines and SMS numbers are arranged with the Flow team,
-         *     and the Flow team can also help you connect a WhatsApp number.
+         *     self-serve; a dedicated iMessage line comes with the Dedicated plan, Flow
+         *     connects US SMS numbers, and the Flow team can also help you connect a
+         *     WhatsApp number.
          *
          *     A Telegram bot is connected at once, with a live key: give the token
          *     BotFather issued as `telegram_bot_token`. Flow checks it, keeps it encrypted, points the bot's
@@ -1689,9 +1693,8 @@ export interface paths {
          *     limit. A live key answers `403 permission` with `channel_code`
          *     `test_mode_only`.
          *
-         *     A HIPAA account (`Account.hipaa`) can simulate only the channels its
-         *     business associate agreement covers (SMS), as it can connect senders only
-         *     there: `telegram`, `whatsapp` or `imessage` answers `403 permission` with
+         *     A HIPAA account (`Account.hipaa`) can simulate only the channels the
+         *     setting allows (SMS), as it can connect senders only there: `telegram`, `whatsapp` or `imessage` answers `403 permission` with
          *     `channel_code` `hipaa_channel_not_covered` (`param` `channel`).
          */
         post: operations["createTestConversation"];
@@ -1931,7 +1934,7 @@ export interface components {
          *
          *     - `invalid_request` (400, or 413 for a request body over the size limit): the request is malformed or a parameter is invalid. Fix the parameter named in `param`; the `hint` says what it must look like. Every endpoint answers it for a `Flow-Version` header that is not a version this API serves.
          *     - `authentication` (401): the API key is missing, malformed, unknown, revoked or expired. An `Authorization: Bearer` header with nothing after it usually means the environment variable holding the key was empty when the header was built (for an MCP client, when the server was added): the `hint` says so. Send `Authorization: Bearer fk_test_...` or `fk_live_...` with a current key; with no key at all, get a test key with `POST /v0/sandbox/keys`. A sandbox key past its `expires_at` has `channel_code` `sandbox_key_expired`: sign in to claim the app, or get a new key.
-         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the channel has no business associate agreement; use SMS). On Flow's shared iMessage line: `imessage_only` (the contact reaches the line by SMS or RCS, and shared lines are iMessage only; the SMS/RCS fallback is a dedicated line's add-on). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
+         *     - `permission` (403): the key may not do this, for example a test key using a live sender, a sandbox contact who joined another app, a new conversation from an iMessage line that may only reply, or a send past the app's sandbox allowance (`channel_code` `sandbox_allowance_used`, `sandbox_contact_limit` or `sandbox_channel_not_included`). Use the key of the right mode, have the contact send your join message, wait for the contact to message the line first, or sign in through the device flow to lift the allowance. On SMS: `contact_opted_out` (the contact texted STOP; nothing more goes to them until they text START), `consent_required` (a start to someone who never texted your numbers: record their consent with `consent` on the start). In a HIPAA account: `hipaa_channel_not_covered` (the account's HIPAA setting does not allow the channel; use SMS). On Flow's shared iMessage line: `imessage_only` (the contact reaches the line by SMS or RCS, and shared lines are iMessage only; the SMS/RCS fallback is a dedicated line's add-on). Simulated conversations: `simulated_contact` (a real sender was pointed at a simulated contact; reply in the contact's simulated conversation), `not_simulated` (a simulated sender or test endpoint was pointed at a real contact), `test_mode_only`, `simulated_conversation_limit`. In `message.failed`: `sandbox_contact_left` (the contact joined another app on the sandbox sender while the message was queued; have them send your join message again).
          *     - `not_found` (404): no such object for this app and mode. Check the ID's prefix and that it was made with a key of the same mode (test and live data are separate).
          *     - `idempotency_conflict` (409): the idempotency key was used for a different request (`channel_code` `body_mismatch`: use a new key), or that request is still running (`in_progress`: wait `retry_after` seconds and repeat it with the same key), or it already created a secret that is shown only once (`secret_not_kept`: creating a webhook endpoint, rotating its secret, connecting a WhatsApp number; a secret that was lost must be rotated again, and a WhatsApp number connected again to see its verify token).
          *     - `outside_window` (409, or in `message.failed`): the channel will not deliver outside its conversation window. On WhatsApp the 24-hour window is closed: send a template (`POST /v0/conversations/{conversation_id}/template`, or `POST /v0/messages` with `kind` `template` to start), or wait for the contact to write. On iMessage the contact has not messaged the line (or opted in) yet, or not recently, so the failure arrives as a `message.failed` event: wait for the contact to write, then reply in that conversation. Typing and read receipts answer `409 outside_window` directly when the channel's window for them is closed (iMessage typing and read receipts work only in a two-way conversation: within 5 minutes of your line's last message to the contact, so send your reply first; WhatsApp read receipts go at any time); ignore it and send your reply. On SMS, `channel_code` `quiet_hours`: the contact has not texted in the last hour and it is inside the sender's quiet hours in their time zone; retry after `retry_after` seconds, or wait for them to text. In `message.failed`: `window_closed` (WhatsApp's 24-hour window closed while the message was queued; send a template) and `queued_too_long` (the message waited in the queue longer than its sender allows, for example while the sender was paused; send it again if it still applies).
@@ -2007,7 +2010,12 @@ export interface components {
              *     `channel_timeout_unknown_outcome` (`channel_error`: the channel never
              *     confirmed the send, so it may or may not have arrived). iMessage
              *     (`permission`): `imessage_only` (a send on Flow's shared line to a
-             *     contact who reaches it by SMS or RCS: shared lines are iMessage only).
+             *     contact who reaches it by SMS or RCS: shared lines are iMessage only)
+             *     and `imessage_not_granted` (the account has no access to Flow's shared
+             *     line: sign in at flow.engineer to start the free trial). Paid plans
+             *     (`permission`): `plan_people_limit` (a send to a person the account's
+             *     plan holds: the plan had no room for new people on that channel when
+             *     they wrote; see `Account.people`).
              *     iMessage (`unsupported_content`): `group_unsupported` (a reaction, typing or a
              *     read receipt in a group conversation; `param` `kind`) and
              *     `not_on_sms` (an edit or unsend of a message that went by SMS or RCS;
@@ -2034,16 +2042,20 @@ export interface components {
             /** @description The company's name. */
             name: string;
             /**
-             * @description The account's plan, set by the Flow team (there is no self-serve
-             *     checkout). Each plan caps how many people your apps may talk with per
-             *     channel; `people` shows the caps and what is used.
+             * @description The account's plan, bought in the Flow dashboard
+             *     (`https://flow.engineer/dashboard`, Settings → Usage and billing → Choose a plan). Each plan
+             *     caps how many people your apps may talk with per channel; `people`
+             *     shows the caps and what is used. Replies count: a person your app
+             *     replies to is one of the people counted.
              *
              *     - `free`: a small number of people per channel in total (25 today).
              *     - `shared`: Flow's shared senders, with caps per channel a day and a
              *       month (200 a day and 300 a month today).
              *     - `dedicated`: your own iMessage line, with a daily cap on it and no
-             *       monthly cap (1,000 a day today); on Flow's shared senders it has
-             *       `shared`'s caps, counted apart (`people` shows each `pool`).
+             *       monthly cap (1,000 people a day today; a new line starts at 250 a
+             *       day and ramps to 1,000 over its first 14 days); on Flow's shared
+             *       senders it has `shared`'s caps, counted apart (`people` shows each
+             *       `pool`).
              *
              *     The numbers are settings and may change; read the caps that apply
              *     now from `people`, not from this list.
@@ -2056,9 +2068,9 @@ export interface components {
             plan: "free" | "shared" | "dedicated" | "pro" | "business" | "enterprise";
             people?: components["schemas"]["PeopleLimits"];
             /**
-             * @description `true` when the account handles protected health information under a
-             *     business associate agreement with Flow. Its messages then go only
-             *     through channels Flow holds such an agreement for (SMS): sends, typing,
+             * @description `true` when the account is marked as handling protected health
+             *     information. Its messages then go only through the channels this
+             *     setting allows (SMS): sends, typing,
              *     read receipts and sender connections on Telegram, WhatsApp and iMessage
              *     answer `403 permission` with `channel_code` `hipaa_channel_not_covered`,
              *     and messages already queued there fail the same way. The sandbox
@@ -2079,8 +2091,11 @@ export interface components {
         /**
          * @description The account's plan caps on people, and what is used now. A person counts
          *     once in a window, with their first inbound message in it on that channel's
-         *     sender, whether one-to-one or in a group chat; group members who never
-         *     write, calls, and your own sends do not count. A person past a cap is
+         *     sender, whether one-to-one or in a group chat. Replies count: a person
+         *     your app replies to is one of the people counted. Group members who never
+         *     write, and calls, do not count. On a dedicated iMessage line, the line's
+         *     own daily limit of different people counts everyone it messages, replies
+         *     and starts alike (`Account.plan`). A person past a cap is
          *     **held**: their messages are kept but not delivered to your app, and are
          *     delivered once a place frees or the window rolls over. Absent when the
          *     account's plan has no people caps. These numbers are the source of truth
@@ -2480,7 +2495,8 @@ export interface components {
         };
         /**
          * @description iMessage senders only: what the line can do beyond replying in iMessage.
-         *     Set by the Flow team (ask them to change it); absent on other channels.
+         *     Set by the account's plan and add-ons, bought in the Flow dashboard
+         *     (Settings → Usage and billing → Choose a plan); absent on other channels.
          */
         ImessageSender: {
             /**
@@ -2511,8 +2527,9 @@ export interface components {
             can_initiate: boolean;
         };
         /**
-         * @description Dedicated lines only: where phone calls to the line's number are
-         *     forwarded, set up with the Flow team. Forwarded calls send no event.
+         * @description Dedicated lines with the SMS/RCS fallback and call forwarding add-on
+         *     only: where phone calls to the line's number are forwarded. Forwarded
+         *     calls send no event.
          *     FaceTime calls are not forwarded; they arrive as `call.received`. Absent
          *     when calls are not forwarded (always on shared lines).
          */
@@ -4895,8 +4912,7 @@ export interface components {
         };
         /**
          * @description Not available through the API during the beta (`not_implemented`), for
-         *     example a sender of a channel the Flow team connects and disconnects for
-         *     you. The `hint` says what to do instead.
+         *     example a sender of a channel Flow connects and disconnects for you. The `hint` says what to do instead.
          */
         NotImplemented: {
             headers: {
@@ -6145,7 +6161,7 @@ export interface operations {
                     "application/json": components["schemas"]["Sender"];
                 };
             };
-            /** @description The request was accepted. The sender is `pending`, and you receive `sender.status_changed` when it is ready. No request answers this way today: Telegram bots and WhatsApp numbers answer `200`, and senders of other channels are connected by the Flow team. */
+            /** @description The request was accepted. The sender is `pending`, and you receive `sender.status_changed` when it is ready. No request answers this way today: Telegram bots and WhatsApp numbers answer `200`, and senders of other channels are connected by Flow. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -6161,8 +6177,8 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             429: components["responses"]["RateLimited"];
             /**
-             * @description `channel` is `imessage` or `sms`: the Flow team connects these senders
-             *     (`not_implemented`, with any key). The `hint` says how to get one and
+             * @description `channel` is `imessage` or `sms`: these senders are not connected by
+             *     API (`not_implemented`, with any key). The `hint` says how to get one and
              *     what to build with meanwhile.
              */
             501: {
@@ -6884,8 +6900,8 @@ export interface operations {
             /**
              * @description `permission`: a live key (`channel_code` `test_mode_only`), the app's
              *     500 simulated conversations reached (`simulated_conversation_limit`), or
-             *     a HIPAA account asking for a channel its business associate agreement
-             *     does not cover (`hipaa_channel_not_covered`; only `sms` can be simulated).
+             *     a HIPAA account asking for a channel the setting does not allow
+             *     (`hipaa_channel_not_covered`; only `sms` can be simulated).
              */
             403: {
                 headers: {
@@ -6896,7 +6912,7 @@ export interface operations {
                      * @example {
                      *       "error": {
                      *         "type": "permission",
-                     *         "message": "This account handles health information under a business associate agreement, and Telegram is not a channel Flow holds such an agreement for, so it cannot be simulated here either.",
+                     *         "message": "This account is marked as handling health information, and Telegram is not a channel such an account can use, so it cannot be simulated here either.",
                      *         "hint": "Simulate an SMS conversation instead: POST /v0/test/conversations with {\"channel\":\"sms\"}.",
                      *         "doc_url": "https://api.flow.engineer/docs/errors/permission",
                      *         "param": "channel",
@@ -6952,8 +6968,8 @@ export interface operations {
             /**
              * @description `permission`: a live key (`channel_code` `test_mode_only`), a
              *     conversation that is not simulated (`not_simulated`), or, in a HIPAA
-             *     account, a simulated conversation on a channel its business associate
-             *     agreement does not cover (`hipaa_channel_not_covered`).
+             *     account, a simulated conversation on a channel the setting does not
+             *     allow (`hipaa_channel_not_covered`).
              */
             403: {
                 headers: {
@@ -6964,7 +6980,7 @@ export interface operations {
                      * @example {
                      *       "error": {
                      *         "type": "permission",
-                     *         "message": "This account handles health information under a business associate agreement, and Telegram is not a channel Flow holds such an agreement for, so it cannot be simulated here either.",
+                     *         "message": "This account is marked as handling health information, and Telegram is not a channel such an account can use, so it cannot be simulated here either.",
                      *         "hint": "Simulate an SMS conversation instead: POST /v0/test/conversations with {\"channel\":\"sms\"}.",
                      *         "doc_url": "https://api.flow.engineer/docs/errors/permission",
                      *         "param": "conversation_id",

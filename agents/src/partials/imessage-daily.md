@@ -1,0 +1,1 @@
+A dedicated iMessage line may message up to 1,000 different people in any 24 hours, replies included (a new line starts at 250 a day and ramps to 1,000 over its first 14 days); past it, a message to one more person answers `429 rate_limited` with `retry_after`, while people it messaged in the last 24 hours can still be written to.

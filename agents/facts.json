@@ -3,6 +3,10 @@
   "base_url": "https://api.flow.engineer",
   "docs_url": "https://docs.flow.engineer",
   "dashboard_url": "https://flow.engineer/dashboard",
+  "plans": {
+    "$comment": "Where in the dashboard the Messaging plans (Shared, Dedicated) and Dedicated's add-ons (SMS/RCS fallback and call forwarding; Outbound) are bought.",
+    "path": "Settings → Usage and billing → Choose a plan"
+  },
   "observe": {
     "url": "https://flow.engineer/observe",
     "traces_url": "https://flow.engineer/observe/v1/traces",
@@ -40,7 +44,7 @@
   "caption_cap": 1024,
   "sms_max_segments": 10,
   "sign_in": "a Flow account (flow.engineer: Google, GitHub or an email link)",
-  "sdk_version": "0.4.0",
+  "sdk_version": "0.4.1",
   "cli_tagline": "Telegram, iMessage and WhatsApp for AI agents.",
   "allowance": {
     "anonymous": {

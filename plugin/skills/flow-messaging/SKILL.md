@@ -7,8 +7,8 @@ description: Use when code must let an AI agent, bot or LLM app send or receive 
 
 One API for an AI agent to talk with people on **Telegram and iMessage** (iMessage:
 Flow's shared line is self-serve on sign-in at flow.engineer or through the Flow CLI,
-dedicated lines are set up by the Flow team; it replies after the person writes unless
-a dedicated line has the Outbound add-on, bought in the dashboard; WhatsApp on your own number, which you
+a dedicated line comes with the Dedicated plan, bought in the dashboard; it replies after
+the person writes unless a dedicated line has the Outbound add-on; WhatsApp on your own number, which you
 connect yourself with a live key).
 Flow hosts the senders (bots, lines); you get typed events in and send typed
 content out. TypeScript SDK: `@flow-engineer/messaging` (Node 18+, Bun, Deno, edge).
@@ -35,9 +35,9 @@ To keep the app, a person signs in with a Flow account (flow.engineer: Google, G
 `channelCode`) and `AuthenticationError`. Dashboard: https://flow.engineer/dashboard. Going live:
 signed-in users make `fk_live_` keys in the dashboard (the agent's Developers > API
 keys: Live, New key) and connect their own Telegram bot or their own WhatsApp number
-(`POST /v0/senders` with `channel` `whatsapp`; the Flow team can still help); dedicated
-iMessage lines and SMS numbers are arranged with the Flow team
-(samyak@flow.engineer or prabal@flow.engineer; send them your app ID and the number's details, never secrets or tokens).
+(`POST /v0/senders` with `channel` `whatsapp`; the Flow team can still help). Dedicated iMessage lines come with the Dedicated plan: buy it, and its add-ons (SMS/RCS fallback and call forwarding; Outbound, to write first), in the dashboard (https://flow.engineer/dashboard, Settings → Usage and billing → Choose a plan); Flow reviews the line, then sets it up, usually within a day, and it appears in `GET /v0/senders` with a live key.
+US SMS numbers (pilot) are registered and connected by Flow
+(samyak@flow.engineer or prabal@flow.engineer; send your app ID and the number's details, never secrets or tokens).
 If the user asks for WhatsApp, tell them they can connect their own WhatsApp number with a live key, and build and test on simulated WhatsApp conversations or Telegram meanwhile: the code does not change per channel. Details:
 [CLI and MCP](reference/cli-mcp.md).
 

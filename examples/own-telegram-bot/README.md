@@ -19,7 +19,7 @@ without an account (`POST /v0/sandbox/keys`), sign in with
 own variable, apart from your test key. Until you go live, build on the sandbox bot
 with a test key ([telegram-echo](../telegram-echo)); your code does not change.
 (Your own WhatsApp number connects with `POST /v0/senders` and a live key too;
-iMessage lines are arranged with the Flow team.)
+a dedicated iMessage line comes with the Dedicated plan, bought in the dashboard.)
 
 ## Run it
 

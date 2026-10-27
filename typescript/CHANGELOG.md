@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.1
 
 - `events.stream` no longer reconnects in a tight loop when Flow refuses the stream. A
   refused stream opens, sends one `error` frame and closes; the backoff used to start
@@ -11,6 +11,29 @@
   the HTTP check of a socket that never opened) is always waited. `onStatus("reconnecting",
   detail)` now names the close code and the wait. `4400`, `4401` and
   `4403` still end the stream with the typed error.
+
+Types and docs (no change to requests, no new API version; `Flow-Version` stays
+`2026-11-01`):
+
+- Received voice notes: `transcript_source` (`channel` or `flow`) says whose transcript
+  `transcript` is; Flow transcribes by default (the app setting `transcription`).
+- `Template.rejection`: Meta's rejection in parts; creating a template refuses placeholders
+  Meta would reject.
+- iMessage typing and read receipts work for 5 minutes after your line's last message
+  to the person, so send a reply first; removing a reaction you never sent is `422
+  unsupported_content` (`no_reaction_to_remove`).
+- `ImessageSender.fallback`: the SMS/RCS fallback is a dedicated line's add-on; Flow's
+  shared iMessage lines are iMessage only, and a send there to a contact who reaches the
+  line by SMS or RCS is `403 permission` with `channelCode` `imessage_only`.
+- `ErrorBody.channel_code` also lists `imessage_not_granted` and `plan_people_limit`.
+- Plans (`Account.plan`): Shared and Dedicated, and Dedicated's add-ons (SMS/RCS
+  fallback and call forwarding; Outbound, to write first), are bought in the Flow
+  dashboard (Settings → Usage and billing → Choose a plan); Flow reviews a dedicated
+  line, then sets it up, usually within a day. Replies count toward the plan's people
+  caps; a dedicated iMessage line messages up to 1,000 different people a day, replies
+  included, starting at 250 a day and ramping to 1,000 over its first 14 days.
+- `Account.hipaa` describes the setting (which channels it allows: SMS) and no longer
+  mentions an agreement.
 
 ## 0.4.0
 

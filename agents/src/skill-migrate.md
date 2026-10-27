@@ -1,6 +1,6 @@
 ---
 name: flow-messaging-migrate
-description: Use when a project's Flow Messaging code still uses the old /v1 shape and must move to Messaging V0 (/v0, one endpoint per message kind). Signs of old code - POST /v1/conversations/{id}/messages, a "content" object with "type" (text, media, buttons, carousel, ...), "fallback" (auto or a content object), "channel_options", "delivered_as", format markdown, GET /v1/capabilities, typing with "state" on/off, "shown" in test transcripts, any https://api.flow.engineer/v1/ URL, or @flow-engineer/messaging before {{sdk_version}} / {{python_package}} before 0.2.0. Covers plain HTTP, the TypeScript and Python SDKs, webhooks, the stream, the test API and Flow Framework users.
+description: Use when a project's Flow Messaging code still uses the old /v1 shape and must move to Messaging V0 (/v0, one endpoint per message kind). Signs of old code - POST /v1/conversations/{id}/messages, a "content" object with "type" (text, media, buttons, carousel, ...), "fallback" (auto or a content object), "channel_options", "delivered_as", format markdown, GET /v1/capabilities, typing with "state" on/off, "shown" in test transcripts, any https://api.flow.engineer/v1/ URL, or @flow-engineer/messaging before 0.4.0 / {{python_package}} before 0.2.0. Covers plain HTTP, the TypeScript and Python SDKs, webhooks, the stream, the test API and Flow Framework users.
 ---
 
 # Move to Flow Messaging V0 (one endpoint per message kind)
@@ -285,7 +285,7 @@ unchanged. Deliveries are at least once: keep deduplicating on `event.id`.
 
 ## 8. SDK names
 
-TypeScript, `{{package}}` 0.3 → {{sdk_version}}:
+TypeScript, `{{package}}` 0.3 → 0.4.0:
 
 | Before | After |
 |---|---|
