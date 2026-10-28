@@ -111,7 +111,7 @@ export function sandboxKey() {
         id: "snd_1",
         kind: "shared",
         channel: "telegram",
-        join_code: "Hi Sandbox app (ref wild-otter-04508705)",
+        join_code: "Join Sandbox app (ref wild-otter-04508705)",
         address: { username: "FlowSandboxBot", link: "https://t.me/FlowSandboxBot?start=wild-otter-04508705" },
       },
     ],

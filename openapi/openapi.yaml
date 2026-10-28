@@ -226,7 +226,7 @@ info:
       there is stored or delivered. Simulated conversations (`POST
       /v0/test/conversations`) follow the same rule: only SMS can be simulated.
     - **Sandbox senders**: only contacts who joined through your app (by sending its
-      join message, for example `Hi Sandbox app (ref brave-otter-40718263)`, or by
+      join message, for example `Join Sandbox app (ref brave-otter-40718263)`, or by
       opening its Telegram link).
 
     Starting a conversation spends budget per sender (new contacts per day and per
@@ -4050,7 +4050,7 @@ components:
         sandbox_join_code:
           type: string
           description: |
-            The app's sandbox join code on its own: two words and eight digits, for example `brave-otter-40718263`. A contact joins this app by sending a shared sandbox sender the join message, which ends with this code in brackets after `ref` (`Hi Sandbox app (ref brave-otter-40718263)`), or on Telegram by opening the bot's link with the code (`https://t.me/<bot>?start=brave-otter-40718263`, which sends `/start brave-otter-40718263`). Each shared sender's `join_code` gives the whole message: show that to testers, not this code.
+            The app's sandbox join code on its own: two words and eight digits, for example `brave-otter-40718263`. A contact joins this app by sending a shared sandbox sender the join message, which ends with this code in brackets after `ref` (`Join Sandbox app (ref brave-otter-40718263)`), or on Telegram by opening the bot's link with the code (`https://t.me/<bot>?start=brave-otter-40718263`, which sends `/start brave-otter-40718263`). Each shared sender's `join_code` gives the whole message: show that to testers, not this code.
           examples: ["brave-otter-40718263"]
         created_at:
           type: string
@@ -4516,8 +4516,8 @@ components:
         join_code:
           type: string
           description: |
-            Shared senders only. The whole message a contact sends to this sender to join your app: `Hi `, the app's name (`there` when it has none), then the app's `sandbox_join_code` (from `GET /v0/app`) in brackets after `ref`, for example `Hi Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets.
-          examples: ["Hi Sandbox app (ref brave-otter-40718263)"]
+            Shared senders only. The whole message a contact sends to this sender to join your app: `Join `, the app's name (`my agent` when it has none; a name over 60 characters is cut at a word), then the app's `sandbox_join_code` (from `GET /v0/app`) in brackets after `ref`, for example `Join Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets, and messages from older links, such as `Hi Sandbox app (ref brave-otter-40718263)`, still join.
+          examples: ["Join Sandbox app (ref brave-otter-40718263)"]
         created_at:
           type: string
           format: date-time
@@ -6591,7 +6591,7 @@ components:
         itself, not by your app, and counts against no allowance. Then the join
         message reaches your app as the contact's first `message.received`, after
         this event, with the code taken out: the words before `(ref <code>)`,
-        trimmed (`Hi Sandbox app`), or `Hi` when nothing is left; a Telegram link's
+        trimmed (`Join Sandbox app`), or `Hi` when nothing is left; a Telegram link's
         start arrives as `/start`. Answer it like any first message. Joining again
         in a conversation that already exists sends no new `conversation.started`;
         the join message is still delivered as a `message.received`.

@@ -32,7 +32,7 @@ The key is valid but this action is not allowed for it.
 
 ## How to fix it
 
-Use the key of the right mode. On the sandbox, have the contact join your app: on Telegram they open the sandbox sender's link (its `address.link`) and tap **Start**, which joins them; if the link can't be used, they send the bot its `join_code` message as is (for example `Hi Sandbox app (ref wild-otter-04508705)`). The MCP tool `sandbox_join` gives the link (and a QR code with `include_qr: true`). Then send again.
+Use the key of the right mode. On the sandbox, have the contact join your app: on Telegram they open the sandbox sender's link (its `address.link`) and tap **Start**, which joins them; if the link can't be used, they send the bot its `join_code` message as is (for example `Join Sandbox app (ref wild-otter-04508705)`). The MCP tool `sandbox_join` gives the link (and a QR code with `include_qr: true`). Then send again.
 
 If Telegram rejected your bot's token, get a new token from @BotFather (`/mybots`, API Token) and connect the bot again with `POST /v0/senders` and your live key: the same sender becomes `active`, and its queued messages go out (those queued for more than 72 hours fail with `outside_window`, `channel_code` `queued_too_long`, instead of going out late).
 

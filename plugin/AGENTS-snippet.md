@@ -4,7 +4,7 @@ This project talks with people on Telegram and iMessage through Flow
 Messaging (`@flow-engineer/messaging`, API at https://api.flow.engineer, docs at
 https://flow.engineer/docs/unified-messaging-api). The key is `FLOW_MESSAGING_KEY` in `.env` (`fk_test_` keys
 reach only the sandbox: a person opens the sandbox link and taps Start, or sends the
-sender's `join_code` message, such as `Hi Sandbox app (ref wild-otter-04508705)`).
+sender's `join_code` message, such as `Join Sandbox app (ref wild-otter-04508705)`).
 
 Check for `FLOW_MESSAGING_KEY` (environment or `.env`) first; never get a second key when you have one. No key yet? Get a test key with no account, in one call: `curl -X POST https://api.flow.engineer/v0/sandbox/keys`, then save `key` as `FLOW_MESSAGING_KEY` and `claim_token` as `FLOW_CLAIM_TOKEN` (both shown once) in a git-ignored `.env`. Or run `npx @flow-engineer/messaging init`: it does the same and prints the sandbox link and join message, then asks before installing agent files or the MCP server. That answer is the project owner's, so never pass `--yes` for them. Never invent or hard-code keys.
 

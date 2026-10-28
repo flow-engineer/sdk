@@ -13,5 +13,5 @@ to `reply`, and the bubbles it sent become the assistant's turn. See [agent.ts](
    Telegram link and your join message. (Have a key already? `init --key fk_test_...`.)
    Add `OPENAI_API_KEY=...` to `.env`.
 4. On your phone, open the sandbox link and tap Start (or send the bot the join message,
-   such as `Hi Sandbox app (ref wild-otter-04508705)`). The join reaches your agent as the person's first message (`/start`).
+   such as `Join Sandbox app (ref wild-otter-04508705)`). The join reaches your agent as the person's first message (`/start`).
 5. `npm start`, then write to the sandbox sender.
