@@ -253,7 +253,7 @@ def echo(run):
     sk = sandbox_key()
     p = run("telegram-echo", env={"FLOW_MESSAGING_KEY": sk["key"]})
     try:
-        p.expect(r'^Write to https://t\.me/\w+\?start=([\w-]+) \(or send "Hi .+ \(ref \1\)"\)$')
+        p.expect(r'^Write to https://t\.me/\w+\?start=([\w-]+) \(or send "(?:Join|Hi) .+ \(ref \1\)"\)$')
         p.expect(r"^Echo agent ready\.$")
         u = User()
         join(u, sk, "You said: /start")
@@ -273,7 +273,7 @@ def echo_sdk():
     sk = sandbox_key()
     p = py_sdk("echo", env={"FLOW_MESSAGING_KEY": sk["key"]})
     try:
-        p.expect(rf'^telegram: https://t\.me/\w+\?start=[\w-]+ \(or send "Hi .+ \(ref {re.escape(sk['app']['sandbox_join_code'])}\)"\)$')
+        p.expect(rf'^telegram: https://t\.me/\w+\?start=[\w-]+ \(or send "(?:Join|Hi) .+ \(ref {re.escape(sk['app']['sandbox_join_code'])}\)"\)$')
         p.expect(r"^Echo agent ready\. ")
         u = User()
         join(u, sk, "You said: /start")
@@ -496,7 +496,7 @@ def ask_and_wait_telegram(run):
     sk = sandbox_key()
     p = run("ask-and-wait", env={"FLOW_MESSAGING_KEY": sk["key"]})
     try:
-        p.expect(r'^Join: https://t\.me/\w+\?start=([\w-]+) \(or send "Hi .+ \(ref \1\)"\)$')
+        p.expect(r'^Join: https://t\.me/\w+\?start=([\w-]+) \(or send "(?:Join|Hi) .+ \(ref \1\)"\)$')
         p.expect(r"^Waiting for someone to join or write\.\.\.$")
         u = User()
         after = u.seq()

@@ -20,7 +20,7 @@ Channels today: Telegram is live (the shared sandbox bot, or your own bot with a
 
 {{> shared-imessage}}
 2. Build on the REST API: {{mcp.runtime_rule}} TypeScript/JavaScript: `npm install @flow-engineer/messaging`. Other languages: HTTP to `https://api.flow.engineer` with `Authorization: Bearer $FLOW_MESSAGING_KEY`.
-3. The user joins the sandbox from their phone: `GET /v0/senders` (or, when the Flow MCP tools are available, `sandbox_join`) gives each sandbox sender's `address.link`. On Telegram, opening the link and tapping Start joins. Otherwise they send the sender's `join_code` message as is, for example `Hi Sandbox app (ref wild-otter-04508705)`, to it. The join then reaches the app as the person's first `message.received` (`Hi Sandbox app`, or `/start` from the link: the code is taken out), right after `conversation.started`.
+3. The user joins the sandbox from their phone: `GET /v0/senders` (or, when the Flow MCP tools are available, `sandbox_join`) gives each sandbox sender's `address.link`. On Telegram, opening the link and tapping Start joins. Otherwise they send the sender's `join_code` message as is, for example `Join Sandbox app (ref wild-otter-04508705)`, to it. The join then reaches the app as the person's first `message.received` (`Join Sandbox app`, or `/start` from the link: the code is taken out), right after `conversation.started`.
 
 ## Sandbox allowance and sign-in
 

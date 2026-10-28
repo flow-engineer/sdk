@@ -16,7 +16,7 @@ console.log("Waiting for someone to join or write...");
 const conv = await flow.conversations.waitForNew({ since, timeoutMs: 10 * 60_000 });
 console.log(`[${conv.id}] joined on ${conv.channel}`);
 // Their first message comes next: the join itself ("/start" from the sandbox link,
-// "Hi <app>" from the join message) or what they wrote first. Take it, so it is not
+// "Join <app>" from the join message) or what they wrote first. Take it, so it is not
 // read as the answer to the first question.
 await conv.waitForReply({ timeoutMs: 60_000 });
 

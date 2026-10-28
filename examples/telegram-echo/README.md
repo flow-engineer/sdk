@@ -49,7 +49,7 @@ The test key allows 1 contact and 50 messages sent, for 7 days. Keep the
 ## Expected output
 
 ```text
-Write to https://t.me/<sandbox_bot>?start=brave-otter-40718263 (or send "Hi Sandbox app (ref brave-otter-40718263)")
+Write to https://t.me/<sandbox_bot>?start=brave-otter-40718263 (or send "Join Sandbox app (ref brave-otter-40718263)")
 Echo agent ready.
 [conv_01JB8ZC3K5M7P9R1T3V5X7Z9B1] /start
   -> sent msg_01JB8ZC9H2K4N6Q8S0U2W4Y6A8

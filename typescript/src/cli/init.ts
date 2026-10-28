@@ -172,7 +172,7 @@ export async function init(o: InitOptions): Promise<void> {
   if (joinCode && shared.length) {
     print("Try it now, from your phone:");
     for (const s of shared) {
-      // The sender's join_code is the whole join message ("Hi <app> (ref <code>)"): shown as is.
+      // The sender's join_code is the whole join message ("Join <app> (ref <code>)"): shown as is.
       const code = s.join_code;
       if (s.channel === "telegram" && s.address.link) {
         print(`  ${s.channel.padEnd(9)} ${s.address.link}   open it and tap Start${code ? ` (or send: ${code})` : ""}`);

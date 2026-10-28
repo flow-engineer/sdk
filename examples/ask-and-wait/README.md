@@ -31,7 +31,7 @@ runs out.
 Expected output:
 
 ```
-Join: https://t.me/FlowSandboxBot?start=wild-otter-04508705 (or send "Hi Sandbox app (ref wild-otter-04508705)")
+Join: https://t.me/FlowSandboxBot?start=wild-otter-04508705 (or send "Join Sandbox app (ref wild-otter-04508705)")
 Waiting for someone to join or write...
 [conv_...] joined on telegram
 [conv_...] name: Asha

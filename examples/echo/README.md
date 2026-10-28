@@ -13,7 +13,7 @@ message with what it said. No framework, no model. See [agent.mjs](agent.mjs)
    `FLOW_MESSAGING_KEY` and `FLOW_CLAIM_TOKEN` to `.env` and prints the sandbox: a
    Telegram link and your join message. (Have a key already? `init --key fk_test_...`.)
 4. On your phone, open the sandbox link and tap Start (or send the bot the join message,
-   such as `Hi Sandbox app (ref wild-otter-04508705)`). The join reaches your agent as the person's first message (`/start`).
+   such as `Join Sandbox app (ref wild-otter-04508705)`). The join reaches your agent as the person's first message (`/start`).
 5. `npm start`, then write to the sandbox sender.
 
 ## Python

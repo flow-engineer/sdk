@@ -115,7 +115,11 @@ def test_sandbox_key_and_senders() -> None:
     assert ctx.app.id == sandbox.app.id and ctx.livemode is False
     telegram = [s for s in flow.senders.list(channel="telegram") if s.kind == "shared"]
     assert telegram, "no shared Telegram sandbox sender"
-    assert telegram[0].join_code == f"Hi {ctx.app.name} (ref {ctx.app.sandbox_join_code})"
+    # "Join <name> (ref <code>)"; a service from before the "Join" wording says "Hi".
+    assert telegram[0].join_code in (
+        f"Join {ctx.app.name} (ref {ctx.app.sandbox_join_code})",
+        f"Hi {ctx.app.name} (ref {ctx.app.sandbox_join_code})",
+    )
     assert telegram[0].address.link
 
 
@@ -356,7 +360,9 @@ def test_readme_quickstart() -> None:
     try:
         assert proc.stdout is not None
         line = proc.stdout.readline()
-        m = re.search(r"open https://t\.me/\w+\?start=([\w-]+) and tap Start \(or send: Hi .+ \(ref ([\w-]+)\)\)", line)
+        m = re.search(
+            r"open https://t\.me/\w+\?start=([\w-]+) and tap Start \(or send: (?:Join|Hi) .+ \(ref ([\w-]+)\)\)", line
+        )
         assert m, f"unexpected output: {line!r}"
         after = latest()
         say(f"/start {m.group(1)}", 1)  # the person taps the link

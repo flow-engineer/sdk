@@ -40,7 +40,7 @@ key_prefixes:
   fk_test_: test mode; the shared sandbox senders (Telegram bot; Flow's shared iMessage line once a sign-in has started the account's free trial), only contacts who joined your app
   fk_live_: live mode; your dedicated senders: your own Telegram bot or WhatsApp number (self-serve, live key from the dashboard), a dedicated iMessage line (the Dedicated plan, bought in the dashboard)
 sandbox_join: open the sandbox sender's address.link (https://t.me/<bot>?start=<code>) and tap Start,
-              or send its join_code text as is ("Hi Sandbox app (ref wild-otter-04508705)");
+              or send its join_code text as is ("Join Sandbox app (ref wild-otter-04508705)");
               then conversation.started (via sandbox_join), then the join as the first message.received
 simulated_contacts: POST /v0/test/conversations, then POST /v0/test/conversations/{id}/inbound   # test keys; no phone; free: no contact slot, no messages; simulated: true; section 2
 version_header: "Flow-Version: 2026-11-01"   # optional; pins the API version
@@ -121,7 +121,7 @@ No API key is sent. The answer (`201`, abridged):
   "senders": [{"id": "snd_...", "channel": "telegram", "kind": "shared",
                "address": {"username": "FlowSandboxBot",
                            "link": "https://t.me/FlowSandboxBot?start=wild-otter-04508705"},
-               "join_code": "Hi Sandbox app (ref wild-otter-04508705)"}]
+               "join_code": "Join Sandbox app (ref wild-otter-04508705)"}]
 }
 ```
 
@@ -304,7 +304,7 @@ curl -s "https://api.flow.engineer/v0/senders?channel=telegram" -H "Authorizatio
     "status": "active",
     "address": {"username": "FlowSandboxBot",
                 "link": "https://t.me/FlowSandboxBot?start=wild-otter-04508705"},
-    "join_code": "Hi Sandbox app (ref wild-otter-04508705)",
+    "join_code": "Join Sandbox app (ref wild-otter-04508705)",
     "limits": {"new_contacts_per_day": 100000, "new_contacts_per_hour": 10000},
     "created_at": "2026-10-09T08:00:00Z"
   }],
@@ -313,18 +313,19 @@ curl -s "https://api.flow.engineer/v0/senders?channel=telegram" -H "Authorizatio
 ```
 
 The code (`wild-otter-04508705`: two words and eight digits) is your app's; every
-app has its own. `join_code` is the whole join message: `Hi `, your app's name, then
-the code in brackets after `ref`. Show it to the person as is.
+app has its own. `join_code` is the whole join message: `Join `, your app's name (`my agent` when it
+has none), then the code in brackets after `ref`. Show it to the person as is.
 
 1. Open `address.link` on your phone (or make it a QR code) and tap **Start** in
    Telegram. That alone joins: Telegram sends `/start wild-otter-04508705` for you.
-   Sending the `join_code` text (`Hi Sandbox app (ref wild-otter-04508705)`) to the bot works too; any message
-   of at most 160 characters that ends with `(ref <code>)` joins.
+   Sending the `join_code` text (`Join Sandbox app (ref wild-otter-04508705)`) to the bot works too; any message
+   of at most 160 characters that ends with `(ref <code>)` joins, so messages from older
+   links (`Hi Sandbox app (ref wild-otter-04508705)`) still join.
 2. The bot answers "You're connected to <your app name>." (Flow sends that itself;
    your app sends nothing) and your app gets `conversation.started` (`data.via` =
    `sandbox_join`) with the new `conv_...`.
 3. Then the join itself arrives as the person's first `message.received` (section 5),
-   with the code taken out: `/start` from the link, `Hi Sandbox app` from the join
+   with the code taken out: `/start` from the link, `Join Sandbox app` from the join
    message (`Hi` when nothing is left before the brackets). Answer it like any first
    message; everything the person writes next arrives the same way.
 
@@ -1118,7 +1119,7 @@ iMessage lines have stricter limits of their own.
 
 ### iMessage
 
-- Flow's shared iMessage line is self-serve on sign-in at flow.engineer (or through the Flow CLI, `npx @flow-engineer/flow setup`): the first sign-in starts the account's free trial, and every app of the account then sees the line in `GET /v0/senders`. People join an app on it by sending the app's join message (the sender's `join_code` text, for example `Hi Sandbox app (ref wild-otter-04508705)`) to the line. The trial has room for 25 people on the shared iMessage line, across all the account's apps; the next person is held: their messages are kept, not delivered, and sends to them answer `403 permission` with `sandbox_contact_limit`, until you delete a contact you no longer need (`DELETE /v0/contacts/{contact_id}`). The Shared plan, bought in the dashboard (https://flow.engineer/dashboard, Settings → Usage and billing → Choose a plan), replaces the trial: 200 people a day and 300 a month per channel. The shared line replies only (the person writes first), falls back to SMS or RCS for a person not on iMessage (included, as on every iMessage line) and ignores group chats. Writing first (`sender.imessage.can_initiate`) is available on dedicated lines only, with the Dedicated plan's Outbound add-on, bought in the same place.
+- Flow's shared iMessage line is self-serve on sign-in at flow.engineer (or through the Flow CLI, `npx @flow-engineer/flow setup`): the first sign-in starts the account's free trial, and every app of the account then sees the line in `GET /v0/senders`. People join an app on it by sending the app's join message (the sender's `join_code` text, for example `Join Sandbox app (ref wild-otter-04508705)`) to the line. The trial has room for 25 people on the shared iMessage line, across all the account's apps; the next person is held: their messages are kept, not delivered, and sends to them answer `403 permission` with `sandbox_contact_limit`, until you delete a contact you no longer need (`DELETE /v0/contacts/{contact_id}`). The Shared plan, bought in the dashboard (https://flow.engineer/dashboard, Settings → Usage and billing → Choose a plan), replaces the trial: 200 people a day and 300 a month per channel. The shared line replies only (the person writes first), falls back to SMS or RCS for a person not on iMessage (included, as on every iMessage line) and ignores group chats. Writing first (`sender.imessage.can_initiate`) is available on dedicated lines only, with the Dedicated plan's Outbound add-on, bought in the same place.
 - **Dedicated iMessage lines** are not connected through the API: Dedicated iMessage lines come with the Dedicated plan, SMS/RCS fallback and call forwarding included: the workspace owner buys it ($100 a month), and the Outbound add-on to write first (+$40 a month), at https://flow.engineer/dashboard/plans?plan=dedicated; Flow reviews the line before ordering it, then sets it up, usually within a day (refunded if declined), and it appears in `GET /v0/senders` with a live key.
   Without the trial or a grant,
   `GET /v0/senders?channel=imessage` with a test key is an empty list, not an error.
