@@ -8,7 +8,7 @@
 //   node scripts/agent-docs.mjs --check  fail (exit 1) when one is stale, naming it
 //
 // Templates: {{facts.path}} inserts a fact ({{mcp.tools.test|code}} formats a list
-// as `a`, `b`; {{team_contacts|or}} as a or b, or a, b or c; |comma as a, b); {{> name}} inserts agents/src/partials/name.md; {{api_version}} and
+// as `a`, `b`; {{team_contacts|or}} as a or b, or a, b or c; |comma as a, b; |num as 1,000); {{> name}} inserts agents/src/partials/name.md; {{api_version}} and
 // {{endpoint_table}} come from the spec. An unknown name fails the build.
 // Hand-written pages keep shared blocks between markers, refilled from a partial:
 //   <!-- agents:name --> ... <!-- /agents:name -->        (.md outside docs/)
@@ -95,6 +95,10 @@ function lookup(name, where) {
     if (filter === "code") return v.map((x) => `\`${x}\``).join(", ");
     if (filter === "comma") return v.join(", ");
     return orList(v);
+  }
+  if (filter === "num") {
+    if (typeof v !== "number") throw new Error(`${where}: {{${name}}} is not a number`);
+    return v.toLocaleString("en-US");
   }
   if (filter) throw new Error(`${where}: unknown filter in {{${name}}}`);
   if (typeof v === "object") throw new Error(`${where}: {{${name}}} is not a single value`);

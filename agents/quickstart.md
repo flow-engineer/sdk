@@ -33,7 +33,7 @@ sandbox_allowance:                           # outbound messages only (inbound i
   own_account: the free trial instead, from your first sign-in: 25 people per channel, across all the account's apps, on the shared Telegram bot and iMessage line   # no allowance in GET /v0/app
 sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v0/device/authorizations, then poll POST /v0/device/token
 dashboard: https://flow.engineer/dashboard    # sign in with a Flow account; keys: the agent's Developers › API keys
-flow_team: [samyak@flow.engineer, prabal@flow.engineer]   # US SMS numbers, help with WhatsApp, support; never send secrets (section 14)
+flow_team: [support@flow.engineer]   # US SMS numbers, help with WhatsApp, support; never send secrets (section 14)
 auth_header: "Authorization: Bearer $FLOW_MESSAGING_KEY"
 env_vars: {api_key: FLOW_MESSAGING_KEY, claim_token: FLOW_CLAIM_TOKEN, webhook_secret: FLOW_MESSAGING_WEBHOOK_SECRET}
 key_prefixes:
@@ -220,7 +220,9 @@ Signed-in people see their apps and keys in the Flow dashboard,
 https://flow.engineer/dashboard (sign in with a Flow account (flow.engineer: Google, GitHub or an email link)). There they can make
 **live keys** (`fk_live_...`) themselves (the agent's **Developers › API keys**: pick
 **Live**, then **New key**; live keys come with a plan) and go live on Telegram
-with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API; the Flow team can still help. Plans and add-ons are bought there too (Settings → Usage and billing → Choose a plan): Flow's shared iMessage line comes with the free trial a sign-in starts, and a dedicated line with the Dedicated plan (section 11, iMessage). Flow registers and connects US SMS numbers (pilot).
+with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API; the Flow team can still help. Flow's shared iMessage line comes with the free trial a sign-in starts, and a dedicated line with the Dedicated plan (section 11, iMessage).
+
+**Plans.** Paid plans are self-serve: only the workspace owner buys one, in the Flow dashboard at https://flow.engineer/dashboard/plans (Settings → Usage and billing → Choose a plan), and `GET /v0/app` lists them in `plans`, with prices and `upgrade_url`. **Shared**, $25 a month: Flow's shared lines with live keys, 300 people a month and 200 a day per channel, live at once (https://flow.engineer/dashboard/plans?plan=shared). **Dedicated**, $100 a month: your own iMessage line for 1,000 people a day, SMS/RCS fallback and call forwarding included; Flow reviews each line before ordering it, usually within a day, and refunds the plan if it declines (https://flow.engineer/dashboard/plans?plan=dedicated). **Outbound** add-on, +$40 a month on Dedicated: the agent may message people first. The free trial is 25 people per channel, in total, on Flow's shared lines. For a plan, give the owner the link; never send them to the Flow team. Flow registers and connects US SMS numbers (pilot).
 
 ## 1. Authenticate
 
@@ -276,7 +278,9 @@ me = flow("GET", "/v0/app")  # {"account", "app", "api_key", "livemode", "allowa
 `livemode` is `false` for an `fk_test_` key and `true` for an `fk_live_` key.
 `allowance` is the sandbox allowance (section 0). A `401` has `error.type`
 `authentication`: the key is missing, unknown, revoked or expired (`channel_code`
-`sandbox_key_expired`: sign in or get a new key, section 0).
+`sandbox_key_expired`: sign in or get a new key, section 0; `plan_ended`: the
+workspace owner chooses a plan again at https://flow.engineer/dashboard/plans). `plans` lists the paid
+plans, their prices and `upgrade_url`, where the workspace owner buys the next one.
 
 ## 2. Join the Telegram sandbox (test key)
 
@@ -984,7 +988,7 @@ why it happens, how to fix it. For example:
 ```
 
 Quote `request_id` (also the `Flow-Request-Id` header) when you contact the Flow
-team (samyak@flow.engineer or prabal@flow.engineer). A send can fail **at once** (an HTTP error) or **later** (`message.failed`, with
+team (support@flow.engineer). A send can fail **at once** (an HTTP error) or **later** (`message.failed`, with
 the same error shape in `data.message.error`).
 
 | `error.type` | HTTP | What to do |
@@ -1001,7 +1005,7 @@ the same error shape in `data.message.error`).
 | `sender_throttled` | 429 | Abuse signals tripped (section 10); new conversations wait until `retry_after` (24 hours by default). Replies still go. |
 | `rate_limited` | 429 | Too many requests for this key, sends faster than the sender's pace, or another connect or disconnect of the same bot running. Wait `Retry-After`, retry with the same key. |
 | `channel_error` | in `message.failed` (502 from typing/read/file download) | The channel refused or failed it; `channel_code` is its code. A 502 may be retried; a failed message needs a new send. |
-| `not_implemented` | 501 | Not available through the API. `POST /v0/senders` for an iMessage or SMS sender answers it first, with any key: a dedicated iMessage line comes with the Dedicated plan, bought in the dashboard, and Flow connects SMS numbers (write to samyak@flow.engineer or prabal@flow.engineer). Build meanwhile on simulated conversations of that channel (`POST /v0/test/conversations`). |
+| `not_implemented` | 501 | Not available through the API. `POST /v0/senders` for an iMessage or SMS sender answers it first, with any key: a dedicated iMessage line comes with the Dedicated plan, bought in the dashboard, and Flow connects SMS numbers (write to support@flow.engineer). Build meanwhile on simulated conversations of that channel (`POST /v0/test/conversations`). |
 | `api_error` | 500, 503 | Our side. Retry with backoff and the same key. |
 
 Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code`:
@@ -1009,8 +1013,8 @@ Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code
 for another contact), `sandbox_channel_not_included` (that sandbox channel is not
 covered, for example iMessage before a sign-in has started the free trial that brings the shared line), `sign_in_required` (an app made without an account
 cannot do this). An expired sandbox key is `401 authentication` with
-`sandbox_key_expired`. The fix for all of them: have a person sign in (`npx
-@flow-engineer/messaging login`, section 0), or get a new key.
+`sandbox_key_expired`. The fix for all of them on a sandbox app: have a person sign in (`npx
+@flow-engineer/messaging login`, section 0), or get a new key. On a full free trial a send to a held person answers `403 permission`, `sandbox_contact_limit`: delete a contact you no longer need (`DELETE /v0/contacts/{contact_id}` with the key of the app and mode they joined; the oldest held person gets the place), or have the workspace owner buy Shared at https://flow.engineer/dashboard/plans?plan=shared. On a full Shared plan (`plan_people_limit`) wait for the UTC day or month, delete a contact, or move to Dedicated at https://flow.engineer/dashboard/plans?plan=dedicated. `plan_ended` (`401 authentication` for a live key, `403 permission` for a live send): the paid plan ended and live keys are paused; the workspace owner chooses a plan again at https://flow.engineer/dashboard/plans, and test keys keep working.
 
 Sends (`POST /v0/messages`, the kinds' endpoints, webhook replies, stream frames) are
 checked against the channel's kinds and fields at once (`422`), then queued, so the
@@ -1115,7 +1119,7 @@ iMessage lines have stricter limits of their own.
 ### iMessage
 
 - Flow's shared iMessage line is self-serve on sign-in at flow.engineer (or through the Flow CLI, `npx @flow-engineer/flow setup`): the first sign-in starts the account's free trial, and every app of the account then sees the line in `GET /v0/senders`. People join an app on it by sending the app's join message (the sender's `join_code` text, for example `Hi Sandbox app (ref wild-otter-04508705)`) to the line. The trial has room for 25 people on the shared iMessage line, across all the account's apps; the next person is held: their messages are kept, not delivered, and sends to them answer `403 permission` with `sandbox_contact_limit`, until you delete a contact you no longer need (`DELETE /v0/contacts/{contact_id}`). The Shared plan, bought in the dashboard (https://flow.engineer/dashboard, Settings → Usage and billing → Choose a plan), replaces the trial: 200 people a day and 300 a month per channel. The shared line replies only (the person writes first), falls back to SMS or RCS for a person not on iMessage (included, as on every iMessage line) and ignores group chats. Writing first (`sender.imessage.can_initiate`) is available on dedicated lines only, with the Dedicated plan's Outbound add-on, bought in the same place.
-- **Dedicated iMessage lines** are not connected through the API: Dedicated iMessage lines come with the Dedicated plan, SMS/RCS fallback and call forwarding included: buy it, and the Outbound add-on to write first, in the dashboard (https://flow.engineer/dashboard, Settings → Usage and billing → Choose a plan); Flow reviews the line, then sets it up, usually within a day, and it appears in `GET /v0/senders` with a live key.
+- **Dedicated iMessage lines** are not connected through the API: Dedicated iMessage lines come with the Dedicated plan, SMS/RCS fallback and call forwarding included: the workspace owner buys it ($100 a month), and the Outbound add-on to write first (+$40 a month), at https://flow.engineer/dashboard/plans?plan=dedicated; Flow reviews the line before ordering it, then sets it up, usually within a day (refunded if declined), and it appears in `GET /v0/senders` with a live key.
   Without the trial or a grant,
   `GET /v0/senders?channel=imessage` with a test key is an empty list, not an error.
 - **Replies only** unless the line can write first (`sender.imessage.can_initiate`,
@@ -1202,7 +1206,7 @@ iMessage lines have stricter limits of their own.
 
 - **Connect your own WhatsApp number** (in your WhatsApp Business Account, under your
   own Meta app) with your **live** key, through the API below; the Flow team can
-  still help (samyak@flow.engineer or prabal@flow.engineer), and a number the
+  still help (support@flow.engineer), and a number the
   team connected for you is updated by the team (`403 permission`, `channel_code`
   `whatsapp_number_managed`). Add a payment method in WhatsApp Manager: Meta bills its
   fees to the business directly. The shared WhatsApp sandbox is not open yet.
@@ -1495,7 +1499,7 @@ One app holds many senders: connect each customer's bot with your live key (`POS
 3. **Sandbox (test key)**: the person joined *your* app: opened the sandbox bot's `address.link` and tapped Start, or sent the sender's `join_code` message. The join is also the conversation's first `message.received` (`/start`, or the join message without its code), right after `conversation.started`. One person belongs to one app per sandbox bot, so joining another app moves them (sends answer `403 permission`). A key made without an account expires after 7 days and its contact is removed. Allowance refusals are `403 permission` (`sandbox_allowance_used`, `sandbox_contact_limit`).
 4. **Your own bot (live key)**: the person pressed Start on that bot (a Telegram bot cannot write first), and you send with the live key: sandbox conversations belong to the test key and answer `404 not_found` with a live one.
 5. **On the phone**: the chat with the right bot (the sandbox bot and your own bot are different chats) on the Telegram account that joined.
-6. **Still stuck?** Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer with the message ID (`msg_...`), conversation ID (`conv_...`), the call's `request_id`, test or live, and the time. Never your API key.
+6. **Still stuck?** Write to the Flow team at support@flow.engineer with the message ID (`msg_...`), conversation ID (`conv_...`), the call's `request_id`, test or live, and the time. Never your API key.
 
 ### Tests in CI, without a phone
 
@@ -1507,7 +1511,7 @@ Not built yet: an account has one member (whoever signed in), and there are no i
 
 ### What the Flow team arranges, and how to ask
 
-Plans and add-ons are bought in the dashboard at https://flow.engineer/dashboard (Settings → Usage and billing → Choose a plan): Shared, Dedicated (a dedicated iMessage line), and Dedicated's one add-on, Outbound (writing first on iMessage). SMS/RCS fallback is included on every iMessage line (the free trial, Shared and Dedicated), and call forwarding on dedicated lines. Flow's shared iMessage line is self-serve: it comes with the free trial a sign-in at flow.engineer (or `npx @flow-engineer/flow setup`) starts. A few things are set up by the Flow team, not through the API or the dashboard: US SMS numbers (pilot) and support. You connect your own WhatsApp number yourself (`POST /v0/senders` with `"channel": "whatsapp"` and a live key, or the dashboard's Connections › WhatsApp; quickstart section 11), and the Flow team can still help with it. Write to the Flow team at samyak@flow.engineer or prabal@flow.engineer. For each, what to do today, what to build meanwhile, and what to send.
+Plans and add-ons are self-serve: the workspace owner buys them in the dashboard at https://flow.engineer/dashboard/plans (Settings → Usage and billing → Choose a plan): Shared, Dedicated (a dedicated iMessage line), and Dedicated's one add-on, Outbound (writing first on iMessage). SMS/RCS fallback is included on every iMessage line (the free trial, Shared and Dedicated), and call forwarding on dedicated lines. Flow's shared iMessage line is self-serve: it comes with the free trial a sign-in at flow.engineer (or `npx @flow-engineer/flow setup`) starts. A few things are set up by the Flow team, not through the API or the dashboard: US SMS numbers (pilot) and support. You connect your own WhatsApp number yourself (`POST /v0/senders` with `"channel": "whatsapp"` and a live key, or the dashboard's Connections › WhatsApp; quickstart section 11), and the Flow team can still help with it. Write to the Flow team at support@flow.engineer. For each, what to do today, what to build meanwhile, and what to send.
 
 **Never send secrets in chat or email, and never paste them to a coding agent or commit them**: API keys, bot tokens, provider auth tokens, access tokens, app secrets. The Flow team tells you how to hand credentials over, and Flow stores them encrypted. A coding agent that finds credentials in `.env` or a secret manager leaves them where they are and tells the person this.
 
@@ -1517,8 +1521,8 @@ Plans and add-ons are bought in the dashboard at https://flow.engineer/dashboard
 |---|---|---|
 | **US SMS** (in pilot), including on your own SMS provider account | `POST /v0/senders` with `"channel": "sms"` answers `501`; the team connects the number. Build on simulated SMS. | Your app ID (`app_...`, from `GET /v0/app` with your live key) and account ID (`account` there); the number in E.164 (`+1` and ten digits), 10DLC or toll-free, and its registration status; whether it is on your own provider account (which provider) or Flow should provide one; what you send and how people opt in. Not the auth token: the team arranges that. |
 | **Help with WhatsApp on your own WhatsApp Business Account** (credentials in your own secret manager is fine) | Self-serve: `POST /v0/senders` with `"channel": "whatsapp"` and a live key connects the number at once, and its answer's `setup` says what to set in your Meta app. Ask the team if you want help with it. Build on simulated WhatsApp (templates are approved at once there). | Your app and account IDs; the phone number ID and WhatsApp Business Account ID (in WhatsApp Manager); whether the number is on your own Meta app. Not the access token or the app secret: send those only to `POST /v0/senders`, or ask the team how they reach Flow. Meta bills you directly, so the account needs a payment method in WhatsApp Manager. |
-| **iMessage** | Self-serve. Flow's shared line: sign in at flow.engineer (or run `npx @flow-engineer/flow setup`) and every app of the account sees it, with a free trial for 25 people on the shared iMessage line, across all the account's apps; it replies only. Dedicated iMessage lines come with the Dedicated plan, SMS/RCS fallback and call forwarding included: buy it, and the Outbound add-on to write first, in the dashboard (https://flow.engineer/dashboard, Settings → Usage and billing → Choose a plan); Flow reviews the line, then sets it up, usually within a day, and it appears in `GET /v0/senders` with a live key. A dedicated line replies only (the person writes first) unless it has the Outbound add-on. Build on the shared line, simulated iMessage or Telegram meanwhile. | Nothing to arrange. For help: your app and account IDs and what the agent does. |
-| **Pricing and billing** | Plans and add-ons are bought in the dashboard (https://flow.engineer/dashboard, Settings → Usage and billing → Choose a plan), monthly, with no setup fee. Shared, $25 a month: Flow's shared lines, 200 people a day and 300 a month per channel. Dedicated, $100 a month: your own iMessage line, 1,000 people a day (a new line starts at 250 a day and ramps to 1,000 over its first 14 days). Included on every plan, the free trial too: SMS/RCS fallback on iMessage (a person not on iMessage gets the message by SMS or RCS); included on Dedicated: call forwarding. The one add-on: Outbound (writing first, on a dedicated line), $40 a month. Replies count: every person your agent talks with is one of the different people counted, also when it only replies. Flow reviews a dedicated line, then sets it up, usually within a day. With your own provider account (your own SMS provider account, or your own WhatsApp Business Account), the provider bills you directly for its messages. | Expected volume per channel and month, if you want to talk about it. |
+| **iMessage** | Self-serve. Flow's shared line: sign in at flow.engineer (or run `npx @flow-engineer/flow setup`) and every app of the account sees it, with a free trial for 25 people on the shared iMessage line, across all the account's apps; it replies only. Dedicated iMessage lines come with the Dedicated plan, SMS/RCS fallback and call forwarding included: the workspace owner buys it ($100 a month), and the Outbound add-on to write first (+$40 a month), at https://flow.engineer/dashboard/plans?plan=dedicated; Flow reviews the line before ordering it, then sets it up, usually within a day (refunded if declined), and it appears in `GET /v0/senders` with a live key. A dedicated line replies only (the person writes first) unless it has the Outbound add-on. Build on the shared line, simulated iMessage or Telegram meanwhile. | Nothing to arrange. For help: your app and account IDs and what the agent does. |
+| **Pricing and billing** | Self-serve: the workspace owner buys plans and add-ons in the dashboard (https://flow.engineer/dashboard/plans, or Settings → Usage and billing → Choose a plan), monthly, with no setup fee; `GET /v0/app` lists them in `plans`. Shared, $25 a month: Flow's shared lines, 200 people a day and 300 a month per channel. Dedicated, $100 a month: your own iMessage line, 1,000 people a day (a new line starts at 250 a day and ramps to 1,000 over its first 14 days). Included on every plan, the free trial too: SMS/RCS fallback on iMessage (a person not on iMessage gets the message by SMS or RCS); included on Dedicated: call forwarding. The one add-on: Outbound (writing first, on a dedicated line), $40 a month. Replies count: every person your agent talks with is one of the different people counted, also when it only replies. Flow reviews a dedicated line, then sets it up, usually within a day. With your own provider account (your own SMS provider account, or your own WhatsApp Business Account), the provider bills you directly for its messages. | Expected volume per channel and month, if you want to talk about it. |
 | **Support: "sent but not delivered"** | First read the message: `GET /v0/messages/{message_id}` and its events (`GET /v0/events?conversation=conv_...`). Every send ends `message.sent` or `message.failed` (with `error.type`, `channel_code` and `hint`); Telegram never reports `message.delivered`, so `sent` is the last status there. | The message ID (`msg_...`), conversation ID (`conv_...`), the `request_id` of the call (also the `Flow-Request-Id` header), test or live, the time, and what you expected. Not your API key, and no message content unless asked. |
 
 ## 15. Endpoint index

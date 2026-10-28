@@ -102,8 +102,12 @@ Sandbox allowance codes (`err.channelCode`): `PermissionError` with `sandbox_all
 (messages used up), `sandbox_contact_limit` (no room for another contact),
 `sandbox_channel_not_included` (channel not covered, such as iMessage: use the Telegram
 sandbox) or `sign_in_required` (needs a signed-in app); `AuthenticationError` with
-`sandbox_key_expired` (7 days passed). Fix: sign in (`npx @flow-engineer/messaging login`),
-or get a new key.
+`sandbox_key_expired` (7 days passed). Fix on a sandbox app: sign in (`npx @flow-engineer/messaging login`),
+or get a new key. On a full free trial (`sandbox_contact_limit` for a held person): delete a
+contact, or have the workspace owner buy Shared at
+`https://flow.engineer/dashboard/plans?plan=shared`. A full paid plan is `plan_people_limit`
+and an ended one `plan_ended`: their `hint` ends with the dashboard link.
+`(await flow.app.retrieve()).plans` lists the plans, their prices and `upgrade_url`.
 
 ## HTTP without the SDK
 

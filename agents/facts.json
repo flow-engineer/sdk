@@ -4,8 +4,24 @@
   "docs_url": "https://flow.engineer/docs/unified-messaging-api",
   "dashboard_url": "https://flow.engineer/dashboard",
   "plans": {
-    "$comment": "Where in the dashboard the Messaging plans (Shared, Dedicated) and Dedicated's add-on (Outbound) are bought. SMS/RCS fallback and call forwarding are included, not bought.",
-    "path": "Settings → Usage and billing → Choose a plan"
+    "$comment": "The Messaging plans on sale (Shared, Dedicated) and Dedicated's add-on (Outbound): what they cost and give, and where the workspace owner buys them (url opens the dashboard's Plans dialog; ?plan=shared or ?plan=dedicated picks one). SMS/RCS fallback and call forwarding are included, not bought. The service's facts test checks the prices, people caps and url against its code (GET /v0/app's plans).",
+    "path": "Settings → Usage and billing → Choose a plan",
+    "url": "https://flow.engineer/dashboard/plans",
+    "shared": {
+      "name": "Shared",
+      "usd_per_month": 25,
+      "people_per_day": 200,
+      "people_per_month": 300
+    },
+    "dedicated": {
+      "name": "Dedicated",
+      "usd_per_month": 100,
+      "people_per_day": 1000
+    },
+    "outbound": {
+      "name": "Outbound",
+      "usd_per_month": 40
+    }
   },
   "observe": {
     "url": "https://flow.engineer/dashboard",
@@ -13,8 +29,7 @@
     "docs": "https://flow.engineer/docs/unified-messaging-api/observe/traces.md"
   },
   "team_contacts": [
-    "samyak@flow.engineer",
-    "prabal@flow.engineer"
+    "support@flow.engineer"
   ],
   "package": "@flow-engineer/messaging",
   "python_package": "flow-messaging",
