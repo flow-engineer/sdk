@@ -1063,8 +1063,8 @@ export interface paths {
          *     API: a request with `channel` `imessage` or `sms` answers
          *     `501 not_implemented` before any other check, with any key (test or live,
          *     claimed app or not). A dedicated iMessage line comes with the Dedicated
-         *     plan, bought in the Flow dashboard (`https://flow.engineer/dashboard`,
-         *     Settings → Usage and billing → Choose a plan): Flow reviews the line, then sets it up, usually
+         *     plan, bought by the workspace owner in the Flow dashboard
+         *     (`https://flow.engineer/dashboard/plans?plan=dedicated`): Flow reviews the line, then sets it up, usually
          *     within a day. US SMS numbers are registered and connected by Flow. Either
          *     sender appears in `GET /v0/senders` once it is connected. Its `hint` says what to build with
          *     meanwhile: a Telegram bot, or simulated conversations of that channel
@@ -1488,6 +1488,8 @@ export interface paths {
          * Get the calling app
          * @description Returns the app, account and API key that made the request, and the mode it
          *     runs in. Useful to check a key and to read the app's pinned API version.
+         *     `plans` lists the paid plans (Shared, Dedicated), the Outbound add-on, their
+         *     prices and the link where the workspace owner buys one (`upgrade_url`).
          */
         get: operations["getApp"];
         put?: never;
@@ -2013,7 +2015,11 @@ export interface components {
              *     line: sign in at flow.engineer to start the free trial). Paid plans
              *     (`permission`): `plan_people_limit` (a send to a person the account's
              *     plan holds: the plan had no room for new people on that channel when
-             *     they wrote; see `Account.people`).
+             *     they wrote; see `Account.people`, and `GET /v0/app`'s `plans` for the
+             *     bigger plan). `plan_ended` (`authentication` for a live key,
+             *     `permission` for a live send: the account's paid plan ended, so its
+             *     live keys and sends are paused until the workspace owner chooses a
+             *     plan again; test keys keep working).
              *     `imessage_only` (retired 27 Oct 2026; no longer sent: shared lines
              *     fall back to SMS/RCS).
              *     iMessage (`unsupported_content`): `group_unsupported` (a reaction, typing or a
@@ -2042,8 +2048,9 @@ export interface components {
             /** @description The company's name. */
             name: string;
             /**
-             * @description The account's plan, bought in the Flow dashboard
-             *     (`https://flow.engineer/dashboard`, Settings → Usage and billing → Choose a plan). Each plan
+             * @description The account's plan, bought by the workspace owner in the Flow dashboard
+             *     (`https://flow.engineer/dashboard/plans`; `GET /v0/app`'s `plans` lists
+             *     what is on sale, with prices). Each plan
              *     caps how many people your apps may talk with per channel; `people`
              *     shows the caps and what is used. Replies count: a person your app
              *     replies to is one of the people counted.
@@ -2215,6 +2222,105 @@ export interface components {
             /** @description `true` for a live key, `false` for a test key. */
             livemode: boolean;
             allowance?: components["schemas"]["SandboxAllowance"];
+            plans?: components["schemas"]["PlanCatalog"];
+        };
+        /**
+         * @description The Flow Messaging plans on sale, the add-on, the account's plan now, and
+         *     where to buy. Plans are self-serve and live at once (Dedicated after
+         *     Flow's review of the line): only the workspace owner buys or changes one,
+         *     in the Flow dashboard (Settings → Usage and billing, or `upgrade_url`); an
+         *     API key cannot. Prices and caps are today's; the caps that apply to this
+         *     account now are in `Account.people`. When a trial or plan is full, give
+         *     `upgrade_url` to the person who owns the workspace. Present on every
+         *     answer of the current service.
+         */
+        PlanCatalog: {
+            /**
+             * @description The account's plan now, as in `Account.plan` (`free` is the free trial).
+             * @example free
+             */
+            current: string;
+            /**
+             * @description The plan that lifts the account's caps next: `shared` from the free trial, `dedicated` from Shared. Absent when no bigger plan is on sale.
+             * @enum {string}
+             */
+            next?: "shared" | "dedicated";
+            /**
+             * Format: uri
+             * @description The Flow dashboard's Plans dialog, with `next` picked (`?plan=shared`, `?plan=dedicated`), or with nothing picked when there is no `next`. Only the workspace owner can buy there.
+             * @example https://flow.engineer/dashboard/plans?plan=shared
+             */
+            upgrade_url: string;
+            /** @description The plans on sale, smallest first. */
+            offers: components["schemas"]["PlanOffer"][];
+            /** @description The add-ons on sale, each bought on top of a plan. */
+            add_ons: components["schemas"]["PlanAddOn"][];
+        };
+        /** @description One plan on sale. */
+        PlanOffer: {
+            /**
+             * @description The plan's value in `Account.plan`.
+             * @enum {string}
+             */
+            plan: "shared" | "dedicated";
+            /**
+             * @description The plan's name as the dashboard shows it.
+             * @example Shared
+             */
+            name: string;
+            /**
+             * @description The price in US dollars a month, billed monthly.
+             * @example 25
+             */
+            usd_per_month: number;
+            /** @description The plan's caps on different people, per channel: Shared's on Flow's shared senders, Dedicated's on its own iMessage line (on Flow's shared senders Dedicated has Shared's caps). An empty list is no cap. */
+            people: components["schemas"]["PlanPeopleCap"][];
+            /** @description One sentence saying what the plan gives. */
+            includes: string;
+            /**
+             * Format: uri
+             * @description The dashboard's Plans dialog with this plan picked.
+             * @example https://flow.engineer/dashboard/plans?plan=shared
+             */
+            url: string;
+        };
+        /** @description How many different people may write in one window, per channel. */
+        PlanPeopleCap: {
+            /**
+             * @description `day`: the UTC day. `month`: the UTC calendar month.
+             * @enum {string}
+             */
+            window: "day" | "month";
+            /** @description How many different people. */
+            limit: number;
+        };
+        /** @description One add-on on sale. */
+        PlanAddOn: {
+            /**
+             * @description The add-on: `outbound`, writing first on a dedicated iMessage line.
+             * @enum {string}
+             */
+            add_on: "outbound";
+            /**
+             * @description The add-on's name as the dashboard shows it.
+             * @example Outbound
+             */
+            name: string;
+            /**
+             * @description The price in US dollars a month, on top of the plan.
+             * @example 40
+             */
+            usd_per_month: number;
+            /** @description The plans it can be added to. */
+            plans: string[];
+            /** @description One sentence saying what the add-on gives. */
+            includes: string;
+            /**
+             * Format: uri
+             * @description The dashboard's Plans dialog where it is added.
+             * @example https://flow.engineer/dashboard/plans?plan=dedicated
+             */
+            url: string;
         };
         /**
          * @description What the app may still send on the shared sandbox senders for free. Present
@@ -2497,7 +2603,7 @@ export interface components {
         /**
          * @description iMessage senders only: what the line can do beyond replying in iMessage.
          *     Set by the line and the account's plan (the Outbound add-on is bought in
-         *     the Flow dashboard, Settings → Usage and billing → Choose a plan); absent
+         *     the Flow dashboard, `https://flow.engineer/dashboard/plans?plan=dedicated`); absent
          *     on other channels.
          */
         ImessageSender: {

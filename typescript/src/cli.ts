@@ -68,7 +68,9 @@ function key(): string {
 }
 
 /** Flow's channel codes that signing in fixes. */
-const SIGN_IN_FIXES = new Set(["sandbox_allowance_used", "sandbox_contact_limit", "sandbox_key_expired", "sign_in_required"]);
+// sandbox_contact_limit is left out: on a full free trial the fix is deleting a contact or
+// buying Shared, which its hint says (with the link); on a sandbox app the hint says sign in.
+const SIGN_IN_FIXES = new Set(["sandbox_allowance_used", "sandbox_key_expired", "sign_in_required"]);
 
 /**
  * The API base URL (the flag, the environment, or the project's own .env, never a

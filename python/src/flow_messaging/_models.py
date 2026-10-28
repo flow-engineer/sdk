@@ -28,8 +28,9 @@ class Account(BaseModel):
     """
     plan: Literal["free", "shared", "dedicated", "pro", "business", "enterprise"]
     """
-    The account's plan, bought in the Flow dashboard
-    (`https://flow.engineer/dashboard`, Settings → Usage and billing → Choose a plan). Each plan
+    The account's plan, bought by the workspace owner in the Flow dashboard
+    (`https://flow.engineer/dashboard/plans`; `GET /v0/app`'s `plans` lists
+    what is on sale, with prices). Each plan
     caps how many people your apps may talk with per channel; `people`
     shows the caps and what is used. Replies count: a person your app
     replies to is one of the people counted.
@@ -204,6 +205,7 @@ class AppContext(BaseModel):
     `true` for a live key, `false` for a test key.
     """
     allowance: SandboxAllowance | None = None
+    plans: PlanCatalog | None = None
 
 
 class AppSettings(BaseModel):
@@ -1467,7 +1469,11 @@ class ErrorBody(BaseModel):
     line: sign in at flow.engineer to start the free trial). Paid plans
     (`permission`): `plan_people_limit` (a send to a person the account's
     plan holds: the plan had no room for new people on that channel when
-    they wrote; see `Account.people`).
+    they wrote; see `Account.people`, and `GET /v0/app`'s `plans` for the
+    bigger plan). `plan_ended` (`authentication` for a live key,
+    `permission` for a live send: the account's paid plan ended, so its
+    live keys and sends are paused until the workspace owner chooses a
+    plan again; test keys keep working).
     `imessage_only` (retired 27 Oct 2026; no longer sent: shared lines
     fall back to SMS/RCS).
     iMessage (`unsupported_content`): `group_unsupported` (a reaction, typing or a
@@ -1797,7 +1803,7 @@ class ImessageSender(BaseModel):
     """
     iMessage senders only: what the line can do beyond replying in iMessage.
     Set by the line and the account's plan (the Outbound add-on is bought in
-    the Flow dashboard, Settings → Usage and billing → Choose a plan); absent
+    the Flow dashboard, `https://flow.engineer/dashboard/plans?plan=dedicated`); absent
     on other channels.
 
     """
@@ -2617,6 +2623,136 @@ class PeopleWindow(BaseModel):
     resets_at: datetime | None = None
     """
     When the window rolls over and `used` starts again. Absent for `total`.
+    """
+
+
+class PlanAddOn(BaseModel):
+    """
+    One add-on on sale.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    add_on: Literal["outbound"]
+    """
+    The add-on: `outbound`, writing first on a dedicated iMessage line.
+    """
+    name: Annotated[str, Field(examples=["Outbound"])]
+    """
+    The add-on's name as the dashboard shows it.
+    """
+    usd_per_month: Annotated[int, Field(examples=[40])]
+    """
+    The price in US dollars a month, on top of the plan.
+    """
+    plans: list[str]
+    """
+    The plans it can be added to.
+    """
+    includes: str
+    """
+    One sentence saying what the add-on gives.
+    """
+    url: Annotated[
+        str, Field(examples=["https://flow.engineer/dashboard/plans?plan=dedicated"])
+    ]
+    """
+    The dashboard's Plans dialog where it is added.
+    """
+
+
+class PlanCatalog(BaseModel):
+    """
+    The Flow Messaging plans on sale, the add-on, the account's plan now, and
+    where to buy. Plans are self-serve and live at once (Dedicated after
+    Flow's review of the line): only the workspace owner buys or changes one,
+    in the Flow dashboard (Settings → Usage and billing, or `upgrade_url`); an
+    API key cannot. Prices and caps are today's; the caps that apply to this
+    account now are in `Account.people`. When a trial or plan is full, give
+    `upgrade_url` to the person who owns the workspace. Present on every
+    answer of the current service.
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    current: Annotated[str, Field(examples=["free"])]
+    """
+    The account's plan now, as in `Account.plan` (`free` is the free trial).
+    """
+    next: Literal["shared", "dedicated"] | None = None
+    """
+    The plan that lifts the account's caps next: `shared` from the free trial, `dedicated` from Shared. Absent when no bigger plan is on sale.
+    """
+    upgrade_url: Annotated[
+        str, Field(examples=["https://flow.engineer/dashboard/plans?plan=shared"])
+    ]
+    """
+    The Flow dashboard's Plans dialog, with `next` picked (`?plan=shared`, `?plan=dedicated`), or with nothing picked when there is no `next`. Only the workspace owner can buy there.
+    """
+    offers: list[PlanOffer]
+    """
+    The plans on sale, smallest first.
+    """
+    add_ons: list[PlanAddOn]
+    """
+    The add-ons on sale, each bought on top of a plan.
+    """
+
+
+class PlanOffer(BaseModel):
+    """
+    One plan on sale.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    plan: Literal["shared", "dedicated"]
+    """
+    The plan's value in `Account.plan`.
+    """
+    name: Annotated[str, Field(examples=["Shared"])]
+    """
+    The plan's name as the dashboard shows it.
+    """
+    usd_per_month: Annotated[int, Field(examples=[25])]
+    """
+    The price in US dollars a month, billed monthly.
+    """
+    people: list[PlanPeopleCap]
+    """
+    The plan's caps on different people, per channel: Shared's on Flow's shared senders, Dedicated's on its own iMessage line (on Flow's shared senders Dedicated has Shared's caps). An empty list is no cap.
+    """
+    includes: str
+    """
+    One sentence saying what the plan gives.
+    """
+    url: Annotated[
+        str, Field(examples=["https://flow.engineer/dashboard/plans?plan=shared"])
+    ]
+    """
+    The dashboard's Plans dialog with this plan picked.
+    """
+
+
+class PlanPeopleCap(BaseModel):
+    """
+    How many different people may write in one window, per channel.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    window: Literal["day", "month"]
+    """
+    `day`: the UTC day. `month`: the UTC calendar month.
+    """
+    limit: int
+    """
+    How many different people.
     """
 
 

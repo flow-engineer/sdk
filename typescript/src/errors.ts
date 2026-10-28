@@ -94,7 +94,10 @@ export class AuthenticationError extends FlowError {
  * 403 `permission`: the key may not do this (for example a test key using a live sender).
  * Past the sandbox allowance `channelCode` is `sandbox_allowance_used` (also
  * `sandbox_contact_limit`, `sandbox_channel_not_included`, `sign_in_required`): sign in
- * to lift it (`device.signIn`, or `npx @flow-engineer/messaging login`).
+ * to lift it (`device.signIn`, or `npx @flow-engineer/messaging login`). On a full free
+ * trial (`sandbox_contact_limit`) or paid plan (`plan_people_limit`), and for `plan_ended`,
+ * `hint` names the fix and ends with the dashboard link where the workspace owner buys a
+ * plan; `(await flow.app.retrieve()).plans` lists them with prices.
  */
 export class PermissionError extends FlowError {
   override name = "PermissionError";

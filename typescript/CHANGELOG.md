@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- `GET /v0/app` answers `plans` (`PlanCatalog`): the paid plans on sale (Shared,
+  Dedicated) with their price a month, people caps and what they include, the
+  Outbound add-on, the account's plan now, the next plan, and `upgrade_url`, the
+  dashboard link where the workspace owner buys it.
+- `ErrorBody.channel_code` also lists `plan_ended` (a paid plan ended: live keys and
+  live sends are paused). The CLI no longer answers `sandbox_contact_limit` with "have a person sign in": its `hint` says the fix (sign in on a sandbox app; on a full free trial, delete a contact or buy Shared). 
+
 ## 0.4.2
 
 0.4.1 was never published, so this is the release after 0.4.0. Upgrading from 0.4.0

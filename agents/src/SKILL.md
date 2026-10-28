@@ -7,7 +7,7 @@ description: Use when code must let an AI agent, bot or LLM app send or receive 
 
 One API for an AI agent to talk with people on **Telegram and iMessage** (iMessage:
 Flow's shared line is self-serve on sign-in at flow.engineer or through the Flow CLI,
-a dedicated line comes with the Dedicated plan, bought in the dashboard; it replies after
+a dedicated line comes with the Dedicated plan, bought in the dashboard ({{plans.url}}); it replies after
 the person writes unless a dedicated line has the Outbound add-on; WhatsApp on your own number, which you
 connect yourself with a live key).
 Flow hosts the senders (bots, lines); you get typed events in and send typed
@@ -32,7 +32,7 @@ person opens the sandbox link and taps Start first.
 
 {{> allowance}} `(await flow.app.retrieve()).allowance` shows what is left.
 {{> sign-in}} {{> allowance-errors}} In the SDK these are `PermissionError` (with
-`channelCode`) and `AuthenticationError`. Dashboard: {{dashboard_url}}. Going live:
+`channelCode`) and `AuthenticationError`. Dashboard: {{dashboard_url}}. {{> plans}} Going live:
 signed-in users make `fk_live_` keys in the dashboard (the agent's Developers › API
 keys: switch to Live, then New key) and connect their own Telegram bot or their own WhatsApp number
 (`POST /v0/senders` with `channel` `whatsapp`; the Flow team can still help). {{> dedicated-imessage}}

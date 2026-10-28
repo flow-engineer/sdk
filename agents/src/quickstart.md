@@ -220,7 +220,9 @@ Signed-in people see their apps and keys in the Flow dashboard,
 {{dashboard_url}} (sign in with {{sign_in}}). There they can make
 **live keys** (`fk_live_...`) themselves (the agent's **Developers › API keys**: pick
 **Live**, then **New key**; live keys come with a plan) and go live on Telegram
-with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API; the Flow team can still help. Plans and add-ons are bought there too ({{plans.path}}): Flow's shared iMessage line comes with the free trial a sign-in starts, and a dedicated line with the Dedicated plan (section 11, iMessage). Flow registers and connects US SMS numbers (pilot).
+with their own bot (section 7), and connect your own WhatsApp number (section 11, WhatsApp) through the API; the Flow team can still help. Flow's shared iMessage line comes with the free trial a sign-in starts, and a dedicated line with the Dedicated plan (section 11, iMessage).
+
+**Plans.** {{> plans}} Flow registers and connects US SMS numbers (pilot).
 
 ## 1. Authenticate
 
@@ -276,7 +278,9 @@ me = flow("GET", "/v0/app")  # {"account", "app", "api_key", "livemode", "allowa
 `livemode` is `false` for an `fk_test_` key and `true` for an `fk_live_` key.
 `allowance` is the sandbox allowance (section 0). A `401` has `error.type`
 `authentication`: the key is missing, unknown, revoked or expired (`channel_code`
-`sandbox_key_expired`: sign in or get a new key, section 0).
+`sandbox_key_expired`: sign in or get a new key, section 0; `plan_ended`: the
+workspace owner chooses a plan again at {{plans.url}}). `plans` lists the paid
+plans, their prices and `upgrade_url`, where the workspace owner buys the next one.
 
 ## 2. Join the Telegram sandbox (test key)
 
@@ -1009,8 +1013,8 @@ Sandbox allowance refusals (section 0) are `403 permission` with a `channel_code
 for another contact), `sandbox_channel_not_included` (that sandbox channel is not
 covered, for example iMessage before a sign-in has started the free trial that brings the shared line), `sign_in_required` (an app made without an account
 cannot do this). An expired sandbox key is `401 authentication` with
-`sandbox_key_expired`. The fix for all of them: have a person sign in (`npx
-@flow-engineer/messaging login`, section 0), or get a new key.
+`sandbox_key_expired`. The fix for all of them on a sandbox app: have a person sign in (`npx
+@flow-engineer/messaging login`, section 0), or get a new key. {{> trial-full}}
 
 Sends (`POST /v0/messages`, the kinds' endpoints, webhook replies, stream frames) are
 checked against the channel's kinds and fields at once (`422`), then queued, so the

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- `GET /v0/app` answers `plans` (`PlanCatalog`): the paid plans on sale (Shared,
+  Dedicated) with their price a month, people caps and what they include, the
+  Outbound add-on, the account's plan now, the next plan, and `upgrade_url`, the
+  dashboard link where the workspace owner buys it.
+- `ErrorBody.channel_code` also lists `plan_ended` (a paid plan ended: live keys and
+  live sends are paused). 
+
 ## 0.2.2
 
 0.2.1 was never published, so this is the release after 0.2.0. Upgrading from 0.2.0

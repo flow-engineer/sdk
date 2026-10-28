@@ -129,7 +129,10 @@ class PermissionDeniedError(FlowError):
 
     Past the sandbox allowance ``code`` is ``sandbox_allowance_used`` (also
     ``sandbox_contact_limit``, ``sandbox_channel_not_included``, ``sign_in_required``):
-    sign in to lift it (``device.sign_in``).
+    sign in to lift it (``device.sign_in``). On a full free trial
+    (``sandbox_contact_limit``) or paid plan (``plan_people_limit``), and for
+    ``plan_ended``, ``hint`` names the fix and ends with the dashboard link where the
+    workspace owner buys a plan; ``app.retrieve().plans`` lists them with prices.
     """
 
 
