@@ -37,7 +37,7 @@ signed-in users make `fk_live_` keys in the dashboard (the agent's Developers â€
 keys: switch to Live, then New key) and connect their own Telegram bot or their own WhatsApp number
 (`POST /v0/senders` with `channel` `whatsapp`; the Flow team can still help). Dedicated iMessage lines come with the Dedicated plan, SMS/RCS fallback and call forwarding included: the workspace owner buys it ($100 a month), and the Outbound add-on to write first (+$40 a month), at https://flow.engineer/dashboard/plans?plan=dedicated; Flow reviews the line before ordering it, then sets it up, usually within a day (refunded if declined), and it appears in `GET /v0/senders` with a live key.
 US SMS numbers (pilot) are registered and connected by Flow
-(samyak@flow.engineer or prabal@flow.engineer; send your app ID and the number's details, never secrets or tokens).
+(support@flow.engineer; send your app ID and the number's details, never secrets or tokens).
 If the user asks for WhatsApp, tell them they can connect their own WhatsApp number with a live key, and build and test on simulated WhatsApp conversations or Telegram meanwhile: the code does not change per channel. Details:
 [CLI and MCP](reference/cli-mcp.md).
 
@@ -111,7 +111,7 @@ Flow Messaging it needs no code: the user adds the agent in the Flow dashboard w
 test key of the app. Keys (trace key `otk_test_...`, CI key `oci_...`) are made by the user
 in the Flow dashboard at https://flow.engineer/dashboard after signing in with their Flow
 login; Observe is in early access, and if it is not on for them, they ask the Flow team
-(samyak@flow.engineer or prabal@flow.engineer). Never invent a key, and never ask the user to paste one into the
+(support@flow.engineer). Never invent a key, and never ask the user to paste one into the
 chat. To also see each turn's model and tool calls, export OpenTelemetry traces
 (OTLP/HTTP) to `https://flow.engineer/observe/v1/traces` with
 `Authorization: Bearer $FLOW_OBSERVE_TRACE_KEY` and tag each turn's span:

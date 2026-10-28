@@ -29,8 +29,7 @@
     "docs": "https://flow.engineer/docs/unified-messaging-api/observe/traces.md"
   },
   "team_contacts": [
-    "samyak@flow.engineer",
-    "prabal@flow.engineer"
+    "support@flow.engineer"
   ],
   "package": "@flow-engineer/messaging",
   "python_package": "flow-messaging",

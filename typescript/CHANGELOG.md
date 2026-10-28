@@ -8,6 +8,8 @@
   dashboard link where the workspace owner buys it.
 - `ErrorBody.channel_code` also lists `plan_ended` (a paid plan ended: live keys and
   live sends are paused). The CLI no longer answers `sandbox_contact_limit` with "have a person sign in": its `hint` says the fix (sign in on a sandbox app; on a full free trial, delete a contact or buy Shared). 
+- The bundled agent files (the flow-messaging skill and the AGENTS snippet) give the Flow
+  team's one contact, support@flow.engineer.
 
 ## 0.4.2
 

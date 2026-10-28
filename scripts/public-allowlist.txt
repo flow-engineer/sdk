@@ -5,5 +5,6 @@
 # addresses with it (another domain, a machine name) and longer tokens around the
 # address still fail. One address per line; blank lines and lines starting with #
 # are skipped.
-samyak@flow.engineer
-prabal@flow.engineer
+# Empty since 28 Oct 2026: the Flow team's one public contact is support@flow.engineer
+# (agents/facts.json team_contacts), which no denylist phrase matches, so pages never
+# name a person's address.
