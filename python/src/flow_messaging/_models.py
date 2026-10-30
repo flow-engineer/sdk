@@ -3845,6 +3845,10 @@ class StreamFrame(
 class Template(BaseModel):
     """
     A WhatsApp message template, mirrored from Meta with its approval status.
+    Placeholders are numbered (`{{1}}`) or named (`{{listing}}`); a send gives
+    their values by position in `params.body`, in the order the body first
+    names each (a name used twice takes one value).
+
     """
 
     model_config = ConfigDict(
@@ -3889,7 +3893,18 @@ class Template(BaseModel):
     rejection: TemplateRejection | None = None
     created_at: datetime
     """
-    When the template was submitted.
+    When the template was submitted, or when Flow first read it from Meta.
+    """
+    source: Literal["flow", "whatsapp_manager"] | None = None
+    """
+    Where the template was made: `flow` through this API or the dashboard,
+    `whatsapp_manager` in Meta's WhatsApp Manager (Flow synced it). Both are
+    sent the same way; Flow never deletes a `whatsapp_manager` template at Meta.
+
+    """
+    synced_at: datetime | None = None
+    """
+    When Flow last read this template from Meta; null when it never did (a template made through Flow and not synced since).
     """
 
 
@@ -4083,6 +4098,7 @@ class TemplateList(BaseModel):
     """
     Whether more items lie beyond this page in the direction you paged.
     """
+    sync: TemplateSyncState | None = None
 
 
 class TemplateMessage(BaseModel):
@@ -4212,7 +4228,11 @@ class TemplateParams(BaseModel):
     header: TemplateHeaderParam | None = None
     body: list[str] | None = None
     """
-    Values for the body's `{{1}}`, `{{2}}`, ... in order.
+    Values for the body's placeholders in order: `{{1}}`, `{{2}}`, ... for a
+    numbered template; for a named one (`{{listing}}`), in the order the body
+    first names each variable, one value per name. A wrong count answers `400
+    invalid_request` naming the expected order (`body[0] = {{listing}}, body[1] = {{answer}}`).
+
     """
     buttons: list[TemplateButtonParam] | None = None
     """
@@ -4290,6 +4310,100 @@ class TemplateStatusChangedEvent(EventBase):
     Always `template.status_changed`.
     """
     data: TemplateStatusChangedData
+
+
+class TemplateSyncRequest(BaseModel):
+    """
+    Which sender's templates to sync.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    sender: Annotated[str, Field(examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
+    """
+    A sender ID, `snd_` and a ULID.
+    """
+
+
+class TemplateSyncResult(BaseModel):
+    """
+    What a sync changed in Flow's list of the sender's templates.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    sender: Annotated[str, Field(examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
+    """
+    A sender ID, `snd_` and a ULID.
+    """
+    synced_at: datetime
+    """
+    When Flow read the templates from Meta.
+    """
+    added: int
+    """
+    Templates Flow did not have (made in WhatsApp Manager).
+    """
+    updated: int
+    """
+    Templates whose words, category or status changed.
+    """
+    disabled: int
+    """
+    Templates Meta no longer has, now `disabled`.
+    """
+    skipped: list[TemplateSyncSkipped]
+    """
+    Templates Flow left out because it cannot send them yet, with why.
+    """
+
+
+class TemplateSyncSkipped(BaseModel):
+    """
+    A template a sync left out.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    name: str
+    """
+    The template's name at Meta.
+    """
+    language: str
+    """
+    Its language, as Meta names it.
+    """
+    reason: str
+    """
+    Why Flow cannot send it yet, in one sentence.
+    """
+
+
+class TemplateSyncState(BaseModel):
+    """
+    How Flow's copy of a dedicated WhatsApp sender's templates stands against
+    Meta. Present only when the list is filtered by such a sender (`sender`).
+
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    synced_at: datetime | None
+    """
+    The last successful read from Meta; null when Flow has not read them yet.
+    """
+    error: str | None
+    """
+    Why the last read failed, in one line, when it failed after the last success; else null.
+    """
+    error_at: datetime | None
+    """
+    When that read failed; null with no error.
+    """
 
 
 class TestContactAddress(BaseModel):
