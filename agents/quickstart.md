@@ -1566,6 +1566,7 @@ Every operation in the spec (https://api.flow.engineer/openapi.yaml):
 | `DELETE /v0/senders/{sender_id}` | Disconnect a sender |
 | `GET /v0/templates` | List templates |
 | `POST /v0/templates` | Create a template |
+| `POST /v0/templates/sync` | Sync templates from WhatsApp |
 | `GET /v0/templates/{template_id}` | Get a template |
 | `DELETE /v0/templates/{template_id}` | Delete a template |
 | `GET /v0/webhook_endpoints` | List webhook endpoints |

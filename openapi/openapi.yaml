@@ -2450,6 +2450,60 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /v0/templates/sync:
+    parameters:
+      - $ref: "#/components/parameters/FlowVersion"
+    post:
+      operationId: syncTemplates
+      tags: [Templates]
+      summary: Sync templates from WhatsApp
+      description: |
+        Reads every template of a dedicated WhatsApp sender's WhatsApp Business
+        Account from Meta now and brings Flow's list in line: templates made in
+        WhatsApp Manager are added (`source` `whatsapp_manager`), their words,
+        category and status are updated, and a template Meta no longer has becomes
+        `disabled`. Flow never deletes or changes a template at Meta. Flow also
+        syncs on its own: when the sender connects, when Meta reviews a template
+        Flow did not know, and every 6 hours. A template Flow cannot send yet (a
+        part or button kind it does not take) is left out and listed in `skipped`
+        with why. A Telegram, iMessage or SMS sender gets `422 unsupported_content`,
+        a shared sandbox sender `403 permission`, and Meta refusing the read `502
+        channel_error`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateSyncRequest"
+            examples:
+              sync:
+                summary: Sync one sender's templates
+                value:
+                  sender: snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T
+      responses:
+        "200":
+          description: The sync ran; what changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateSyncResult"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/UnsupportedContent"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          $ref: "#/components/responses/ChannelError"
+        default:
+          $ref: "#/components/responses/Error"
+
   /v0/templates/{template_id}:
     parameters:
       - $ref: "#/components/parameters/TemplateId"
@@ -5984,7 +6038,11 @@ components:
           $ref: "#/components/schemas/TemplateHeaderParam"
         body:
           type: array
-          description: Values for the body's `{{1}}`, `{{2}}`, ... in order.
+          description: |
+            Values for the body's placeholders in order: `{{1}}`, `{{2}}`, ... for a
+            numbered template; for a named one (`{{listing}}`), in the order the body
+            first names each variable, one value per name. A wrong count answers `400
+            invalid_request` naming the expected order (`body[0] = {{listing}}, body[1] = {{answer}}`).
           items:
             type: string
         buttons:
@@ -6962,7 +7020,11 @@ components:
       enum: [marketing, utility, authentication]
     Template:
       type: object
-      description: A WhatsApp message template, mirrored from Meta with its approval status.
+      description: |
+        A WhatsApp message template, mirrored from Meta with its approval status.
+        Placeholders are numbered (`{{1}}`) or named (`{{listing}}`); a send gives
+        their values by position in `params.body`, in the order the body first
+        names each (a name used twice takes one value).
       required: [id, sender, name, language, category, status, components, created_at]
       properties:
         id:
@@ -6996,7 +7058,20 @@ components:
         created_at:
           type: string
           format: date-time
-          description: When the template was submitted.
+          description: When the template was submitted, or when Flow first read it from Meta.
+        source:
+          $ref: "#/components/schemas/TemplateSource"
+        synced_at:
+          type: [string, "null"]
+          format: date-time
+          description: When Flow last read this template from Meta; null when it never did (a template made through Flow and not synced since).
+    TemplateSource:
+      type: string
+      description: |
+        Where the template was made: `flow` through this API or the dashboard,
+        `whatsapp_manager` in Meta's WhatsApp Manager (Flow synced it). Both are
+        sent the same way; Flow never deletes a `whatsapp_manager` template at Meta.
+      enum: [flow, whatsapp_manager]
     TemplateRejection:
       type: object
       description: |
@@ -7124,6 +7199,76 @@ components:
         has_more:
           type: boolean
           description: Whether more items lie beyond this page in the direction you paged.
+        sync:
+          $ref: "#/components/schemas/TemplateSyncState"
+    TemplateSyncState:
+      type: object
+      description: |
+        How Flow's copy of a dedicated WhatsApp sender's templates stands against
+        Meta. Present only when the list is filtered by such a sender (`sender`).
+      required: [synced_at, error, error_at]
+      properties:
+        synced_at:
+          type: [string, "null"]
+          format: date-time
+          description: The last successful read from Meta; null when Flow has not read them yet.
+        error:
+          type: [string, "null"]
+          description: Why the last read failed, in one line, when it failed after the last success; else null.
+        error_at:
+          type: [string, "null"]
+          format: date-time
+          description: When that read failed; null with no error.
+    TemplateSyncRequest:
+      type: object
+      description: Which sender's templates to sync.
+      required: [sender]
+      additionalProperties: false
+      properties:
+        sender:
+          $ref: "#/components/schemas/SenderId"
+    TemplateSyncResult:
+      type: object
+      description: What a sync changed in Flow's list of the sender's templates.
+      required: [sender, synced_at, added, updated, disabled, skipped]
+      properties:
+        sender:
+          $ref: "#/components/schemas/SenderId"
+        synced_at:
+          type: string
+          format: date-time
+          description: When Flow read the templates from Meta.
+        added:
+          type: integer
+          minimum: 0
+          description: Templates Flow did not have (made in WhatsApp Manager).
+        updated:
+          type: integer
+          minimum: 0
+          description: Templates whose words, category or status changed.
+        disabled:
+          type: integer
+          minimum: 0
+          description: Templates Meta no longer has, now `disabled`.
+        skipped:
+          type: array
+          description: Templates Flow left out because it cannot send them yet, with why.
+          items:
+            $ref: "#/components/schemas/TemplateSyncSkipped"
+    TemplateSyncSkipped:
+      type: object
+      description: A template a sync left out.
+      required: [name, language, reason]
+      properties:
+        name:
+          type: string
+          description: The template's name at Meta.
+        language:
+          type: string
+          description: Its language, as Meta names it.
+        reason:
+          type: string
+          description: Why Flow cannot send it yet, in one sentence.
 
     # ---------------------------------------------------------------- testing
     TestConversationRequest:

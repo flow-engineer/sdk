@@ -1246,6 +1246,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v0/templates/sync": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync templates from WhatsApp
+         * @description Reads every template of a dedicated WhatsApp sender's WhatsApp Business
+         *     Account from Meta now and brings Flow's list in line: templates made in
+         *     WhatsApp Manager are added (`source` `whatsapp_manager`), their words,
+         *     category and status are updated, and a template Meta no longer has becomes
+         *     `disabled`. Flow never deletes or changes a template at Meta. Flow also
+         *     syncs on its own: when the sender connects, when Meta reviews a template
+         *     Flow did not know, and every 6 hours. A template Flow cannot send yet (a
+         *     part or button kind it does not take) is left out and listed in `skipped`
+         *     with why. A Telegram, iMessage or SMS sender gets `422 unsupported_content`,
+         *     a shared sandbox sender `403 permission`, and Meta refusing the read `502
+         *     channel_error`.
+         */
+        post: operations["syncTemplates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v0/templates/{template_id}": {
         parameters: {
             query?: never;
@@ -3696,7 +3729,12 @@ export interface components {
         /** @description Values for the template's placeholders. */
         TemplateParams: {
             header?: components["schemas"]["TemplateHeaderParam"];
-            /** @description Values for the body's `{{1}}`, `{{2}}`, ... in order. */
+            /**
+             * @description Values for the body's placeholders in order: `{{1}}`, `{{2}}`, ... for a
+             *     numbered template; for a named one (`{{listing}}`), in the order the body
+             *     first names each variable, one value per name. A wrong count answers `400
+             *     invalid_request` naming the expected order (`body[0] = {{listing}}, body[1] = {{answer}}`).
+             */
             body?: string[];
             /** @description Values for buttons that take one (URL suffixes, quick-reply payloads). */
             buttons?: components["schemas"]["TemplateButtonParam"][];
@@ -4506,7 +4544,12 @@ export interface components {
          * @enum {string}
          */
         TemplateCategory: "marketing" | "utility" | "authentication";
-        /** @description A WhatsApp message template, mirrored from Meta with its approval status. */
+        /**
+         * @description A WhatsApp message template, mirrored from Meta with its approval status.
+         *     Placeholders are numbered (`{{1}}`) or named (`{{listing}}`); a send gives
+         *     their values by position in `params.body`, in the order the body first
+         *     names each (a name used twice takes one value).
+         */
         Template: {
             id: components["schemas"]["TemplateId"];
             sender: components["schemas"]["SenderId"];
@@ -4528,10 +4571,23 @@ export interface components {
             rejection?: components["schemas"]["TemplateRejection"];
             /**
              * Format: date-time
-             * @description When the template was submitted.
+             * @description When the template was submitted, or when Flow first read it from Meta.
              */
             created_at: string;
+            source?: components["schemas"]["TemplateSource"];
+            /**
+             * Format: date-time
+             * @description When Flow last read this template from Meta; null when it never did (a template made through Flow and not synced since).
+             */
+            synced_at?: string | null;
         };
+        /**
+         * @description Where the template was made: `flow` through this API or the dashboard,
+         *     `whatsapp_manager` in Meta's WhatsApp Manager (Flow synced it). Both are
+         *     sent the same way; Flow never deletes a `whatsapp_manager` template at Meta.
+         * @enum {string}
+         */
+        TemplateSource: "flow" | "whatsapp_manager";
         /**
          * @description Why Meta rejected the template, as Meta's template status update said it.
          *     Present only while the template is `rejected`; each field only when Meta sent
@@ -4632,6 +4688,55 @@ export interface components {
             data: components["schemas"]["Template"][];
             /** @description Whether more items lie beyond this page in the direction you paged. */
             has_more: boolean;
+            sync?: components["schemas"]["TemplateSyncState"];
+        };
+        /**
+         * @description How Flow's copy of a dedicated WhatsApp sender's templates stands against
+         *     Meta. Present only when the list is filtered by such a sender (`sender`).
+         */
+        TemplateSyncState: {
+            /**
+             * Format: date-time
+             * @description The last successful read from Meta; null when Flow has not read them yet.
+             */
+            synced_at: string | null;
+            /** @description Why the last read failed, in one line, when it failed after the last success; else null. */
+            error: string | null;
+            /**
+             * Format: date-time
+             * @description When that read failed; null with no error.
+             */
+            error_at: string | null;
+        };
+        /** @description Which sender's templates to sync. */
+        TemplateSyncRequest: {
+            sender: components["schemas"]["SenderId"];
+        };
+        /** @description What a sync changed in Flow's list of the sender's templates. */
+        TemplateSyncResult: {
+            sender: components["schemas"]["SenderId"];
+            /**
+             * Format: date-time
+             * @description When Flow read the templates from Meta.
+             */
+            synced_at: string;
+            /** @description Templates Flow did not have (made in WhatsApp Manager). */
+            added: number;
+            /** @description Templates whose words, category or status changed. */
+            updated: number;
+            /** @description Templates Meta no longer has, now `disabled`. */
+            disabled: number;
+            /** @description Templates Flow left out because it cannot send them yet, with why. */
+            skipped: components["schemas"]["TemplateSyncSkipped"][];
+        };
+        /** @description A template a sync left out. */
+        TemplateSyncSkipped: {
+            /** @description The template's name at Meta. */
+            name: string;
+            /** @description Its language, as Meta names it. */
+            language: string;
+            /** @description Why Flow cannot send it yet, in one sentence. */
+            reason: string;
         };
         /** @description A simulated conversation to create (test keys only). */
         TestConversationRequest: {
@@ -6451,6 +6556,41 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["IdempotencyConflict"];
             413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            502: components["responses"]["ChannelError"];
+            default: components["responses"]["Error"];
+        };
+    };
+    syncTemplates: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateSyncRequest"];
+            };
+        };
+        responses: {
+            /** @description The sync ran; what changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateSyncResult"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["UnsupportedContent"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["ChannelError"];
