@@ -1161,6 +1161,8 @@ iMessage lines have stricter limits of their own.
   strikethrough, big, small, and the animations shake, nod, explode, ripple, bloom,
   jitter; `start` and `length` in UTF-16 code units); `"imessage": {"subject": "..."}`
   adds a bold subject line, and `link_preview: false` turns off link previews.
+  On a dedicated line, `"imessage": {"line_contact_card": true}` with a text attaches
+  your line's own contact card, which the contact taps to save.
   No buttons, lists, carousels, locations or contact cards (`422`): send basic
   messages instead. Screen and bubble effects: `POST .../effect`. Media up to 100 MB,
   by `url` (HTTPS, at most 256 characters) or, better, a `file_id` from `POST /v0/files`.
