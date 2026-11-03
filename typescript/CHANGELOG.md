@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.3
 
 - iMessage: `imessage.media_group` on a basic message sends 2 to 10 images and videos
   in one message, which Messages shows as a stack the contact swipes through. Each item

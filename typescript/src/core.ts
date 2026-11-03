@@ -9,7 +9,7 @@ import type { ErrorBody } from "./types.js";
 
 /** The API version this SDK's types were generated from; sent as `Flow-Version`. */
 export const API_VERSION = "2026-11-01";
-export const SDK_VERSION = "0.4.2";
+export const SDK_VERSION = "0.4.3";
 export const DEFAULT_BASE_URL = "https://api.flow.engineer";
 
 export interface ClientOptions {
