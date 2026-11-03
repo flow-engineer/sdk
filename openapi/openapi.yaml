@@ -5700,6 +5700,18 @@ components:
             upload the file and send its `file_id`. On another channel the field
             answers `422 unsupported_content` with `param` `imessage.media_group`:
             send one basic message per file there.
+
+            A media group is always one message, on every network: Flow hands
+            all its files and the caption to your line in one send, and the
+            network is chosen after that, never by Flow. When the message goes
+            by SMS or RCS instead, its `network` says so (`Message.network`, and
+            `data.message.network` in `message.delivered` and
+            `message.failed`), and `content` still shows the whole group. RCS
+            carries attachments. How a phone without iMessage or RCS shows
+            several files sent by SMS depends on that contact's carrier, so
+            Flow does not promise it. To be sure such a contact gets every
+            file, send one basic message per file once a message to them shows
+            `network` `sms`.
           items:
             $ref: "#/components/schemas/Media"
         styles:
