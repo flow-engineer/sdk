@@ -2058,7 +2058,9 @@ export interface components {
              *     iMessage (`unsupported_content`): `group_unsupported` (a reaction, typing or a
              *     read receipt in a group conversation; `param` `kind`) and
              *     `not_on_sms` (an edit or unsend of a message that went by SMS or RCS;
-             *     `param` `kind`). SMS (`unsupported_content`): `no_mms` (media to a
+             *     `param` `kind`) and `line_contact_card_dedicated_only`
+             *     (`imessage.line_contact_card` on a shared line; `param`
+             *     `imessage.line_contact_card`). SMS (`unsupported_content`): `no_mms` (media to a
              *     number without MMS; `param` `media`).
              *     Edits and unsends (`unsupported_content`): `edit_window_closed` and
              *     `unsend_window_closed` (the message is older than the channel allows
@@ -3419,12 +3421,27 @@ export interface components {
             has_spoiler?: boolean;
         };
         /**
-         * @description iMessage only: styles and a subject line. On another channel the block
-         *     answers `422 unsupported_content` with `param` `imessage`; an unknown key
-         *     `400 invalid_request`. A message that goes by SMS or RCS (see
-         *     `Message.network`) shows neither.
+         * @description iMessage only: styles, a subject line and your line's contact card. On
+         *     another channel the block answers `422 unsupported_content` with `param`
+         *     `imessage`; an unknown key `400 invalid_request`. A message that goes by
+         *     SMS or RCS (see `Message.network`) shows no styles or subject.
          */
         BasicImessageOptions: {
+            /**
+             * @description `true` attaches your iMessage line's own contact card to the message:
+             *     a contact card bubble with the line's name, photo and number that the
+             *     contact taps to save the line to their contacts (for example with the
+             *     text "Save my contact card so you can find me"). The name and photo
+             *     are the ones set for your line. Dedicated lines only: on a shared line
+             *     it answers `422 unsupported_content` with `param`
+             *     `imessage.line_contact_card` and `channel_code`
+             *     `line_contact_card_dedicated_only`. It needs `text` and cannot go with
+             *     `media` (`400 invalid_request` with `param`
+             *     `imessage.line_contact_card`). Send it when a contact asks for your
+             *     card or once early in a conversation, not on every message.
+             * @example true
+             */
+            line_contact_card?: boolean;
             /** @description Styled ranges of `text` (see `ImessageStyle`). Each range must lie within `text`; one that does not answers `400 invalid_request` naming it (`imessage.styles[0]`). */
             styles?: components["schemas"]["ImessageStyle"][];
             /** @description iMessage's subject line, shown in bold above the text. */

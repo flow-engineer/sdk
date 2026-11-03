@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- iMessage: `imessage.line_contact_card` on a basic message attaches your dedicated
+  line's own contact card (its name, photo and number) as a contact card bubble the
+  contact taps to save. It needs `text` and cannot go with `media`; on a shared line it
+  answers `422 unsupported_content` with `channel_code` `line_contact_card_dedicated_only`.
 - `GET /v0/app` answers `plans` (`PlanCatalog`): the paid plans on sale (Shared,
   Dedicated) with their price a month, people caps and what they include, the
   Outbound add-on, the account's plan now, the next plan, and `upgrade_url`, the
