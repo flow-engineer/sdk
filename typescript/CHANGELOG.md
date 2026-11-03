@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- iMessage: `imessage.media_group` on a basic message sends 2 to 10 images and videos
+  in one message, which Messages shows as a stack the contact swipes through. Each item
+  is a `Media` (`type` `image` or `video`, `url` of at most 256 characters or
+  `file_id`); `text` is the caption. It replaces `media` and cannot go with
+  `line_contact_card`. On another channel it answers `422 unsupported_content` with
+  `param` `imessage.media_group`: send one basic message per file there.
+  A media group is one message on every network: when it goes by SMS or RCS instead,
+  `Message.network` says so and `content` still shows the whole group; how a phone on
+  plain SMS shows several files depends on its carrier.
 - iMessage: `imessage.line_contact_card` on a basic message attaches your dedicated
   line's own contact card (its name, photo and number) as a contact card bubble the
   contact taps to save. It needs `text` and cannot go with `media`; on a shared line it
