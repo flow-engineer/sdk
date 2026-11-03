@@ -237,10 +237,12 @@ class AppSettings(BaseModel):
 
 class BasicImessageOptions(BaseModel):
     """
-    iMessage only: styles, a subject line and your line's contact card. On
-    another channel the block answers `422 unsupported_content` with `param`
-    `imessage`; an unknown key `400 invalid_request`. A message that goes by
-    SMS or RCS (see `Message.network`) shows no styles or subject.
+    iMessage only: styles, a subject line, your line's contact card and
+    several photos and videos in one message. On another channel the block
+    answers `422 unsupported_content` with `param` `imessage` (`media_group`
+    with `param` `imessage.media_group`); an unknown key `400
+    invalid_request`. A message that goes by SMS or RCS (see
+    `Message.network`) shows no styles or subject.
 
     """
 
@@ -265,6 +267,23 @@ class BasicImessageOptions(BaseModel):
     not on every message.
 
     """
+    media_group: list[Media] | None = None
+    """
+    2 to 10 images and videos sent together as one message, which
+    Messages shows as a stack the contact swipes through. Each item is a
+    `Media` with `type` `image` or `video` and exactly one of `url` (HTTPS,
+    at most 256 characters) or `file_id` (from `POST /v0/files`, or a file
+    a contact sent), each file up to 100 MB. `text`, when given, is the
+    caption sent with them (at most 1024 characters). Use it instead of
+    `media`, not with it, and not with `line_contact_card`; another item
+    type, a `filename`, fewer than 2 or more than 10 items answer `400
+    invalid_request` naming the item (`imessage.media_group[3].type`). A
+    URL over 256 characters answers `422 unsupported_content` naming it:
+    upload the file and send its `file_id`. On another channel the field
+    answers `422 unsupported_content` with `param` `imessage.media_group`:
+    send one basic message per file there.
+
+    """
     styles: list[ImessageStyle] | None = None
     """
     Styled ranges of `text` (see `ImessageStyle`). Each range must lie within `text`; one that does not answers `400 invalid_request` naming it (`imessage.styles[0]`).
@@ -279,12 +298,16 @@ class BasicMessage(BaseModel):
     """
     Text, or one media file with an optional caption, in either direction: the
     kind every channel takes (`POST /v0/conversations/{conversation_id}/basic`).
-    Give `text`, `media`, or both (then `text` is the caption). A field not
+    Give `text`, `media`, or both (then `text` is the caption); on iMessage,
+    `imessage.media_group` sends 2 to 10 images and videos in one message
+    instead of `media`. A field not
     listed here is refused with `400 invalid_request` naming it in `param`;
     a field or channel block the conversation's channel does not take answers
     `422 unsupported_content` naming it.
 
-    Received from a contact: their text and/or one file. Inbound media always
+    Received from a contact: their text and/or one file. A contact's message
+    with several files arrives as one basic message per file, in order, the
+    text with the first. Inbound media always
     has `url` (a Flow file URL, `GET /v0/files/{file_id}`) and `file_id`, on
     every channel (an SMS contact's MMS files included), and `mime_type` and
     `size_bytes` once Flow kept the file; send a received file again by its
@@ -307,7 +330,7 @@ class BasicMessage(BaseModel):
     4096 UTF-16 code units on Telegram (an emoji such as 😀 counts as 2),
     4096 characters on WhatsApp, 9999 on iMessage, and 10 segments on SMS
     (see `SmsSegments`). With `media` it is the caption, at most 1024 (UTF-16
-    code units on Telegram). Optional when `media` is given. Longer text is
+    code units on Telegram); with `imessage.media_group` too. Optional when `media` or `imessage.media_group` is given. Longer text is
     refused with `400 invalid_request`.
 
     """
