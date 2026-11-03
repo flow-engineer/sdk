@@ -6,6 +6,8 @@
   line's own contact card (its name, photo and number) as a contact card bubble the
   contact taps to save. It needs `text` and cannot go with `media`; on a shared line it
   answers `422 unsupported_content` with `channel_code` `line_contact_card_dedicated_only`.
+  A message that goes by SMS or RCS instead (`Message.network`) arrives as its text
+  alone: the card is left out, and nothing but that `network` reports it.
 - `GET /v0/app` answers `plans` (`PlanCatalog`): the paid plans on sale (Shared,
   Dedicated) with their price a month, people caps and what they include, the
   Outbound add-on, the account's plan now, the next plan, and `upgrade_url`, the

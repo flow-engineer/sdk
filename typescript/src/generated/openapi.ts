@@ -3437,8 +3437,11 @@ export interface components {
              *     `imessage.line_contact_card` and `channel_code`
              *     `line_contact_card_dedicated_only`. It needs `text` and cannot go with
              *     `media` (`400 invalid_request` with `param`
-             *     `imessage.line_contact_card`). Send it when a contact asks for your
-             *     card or once early in a conversation, not on every message.
+             *     `imessage.line_contact_card`). A message that goes by SMS or RCS
+             *     instead (`Message.network` `sms` or `rcs`) arrives as its text alone:
+             *     the card is left out, and nothing but that `network` reports it. Send
+             *     it when a contact asks for your card or once early in a conversation,
+             *     not on every message.
              * @example true
              */
             line_contact_card?: boolean;
