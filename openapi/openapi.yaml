@@ -5622,6 +5622,10 @@ components:
           type: integer
           readOnly: true
           description: Inbound only. The file's size.
+        duration_seconds:
+          type: number
+          readOnly: true
+          description: Inbound only, for `audio` and `video`. The file's length in seconds, as the channel gave it or read from the file. Absent when it is not known.
     TelegramParseMode:
       type: string
       description: |

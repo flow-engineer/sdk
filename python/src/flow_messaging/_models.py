@@ -2125,6 +2125,10 @@ class Media(BaseModel):
     """
     Inbound only. The file's size.
     """
+    duration_seconds: float | None = None
+    """
+    Inbound only, for `audio` and `video`. The file's length in seconds, as the channel gave it or read from the file. Absent when it is not known.
+    """
 
 
 class Message(BaseModel):
