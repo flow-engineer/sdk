@@ -3400,6 +3400,8 @@ export interface components {
             readonly mime_type?: string;
             /** @description Inbound only. The file's size. */
             readonly size_bytes?: number;
+            /** @description Inbound only, for `audio` and `video`. The file's length in seconds, as the channel gave it or read from the file. Absent when it is not known. */
+            readonly duration_seconds?: number;
         };
         /**
          * @description How Telegram reads the text: `HTML` or `MarkdownV2`, Telegram's own
