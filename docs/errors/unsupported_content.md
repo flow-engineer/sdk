@@ -52,13 +52,15 @@ Send what the channel takes instead. The `hint` names it for your case; the usua
 | Refused | Send instead |
 |---|---|
 | `carousel` on Telegram | a basic message with the text, then one `buttons` message with an image `header` per card |
-| `carousel` on iMessage or SMS | a basic message with the text, then one basic message per card with its image as `media` and its text as the caption |
+| `carousel` on iMessage | a basic message with `imessage.media_group` (2 to 10 images and videos the contact swipes through, one caption); for cards with their own text, a basic message with the text, then one basic message per card with its image as `media` and its text as the caption |
+| `carousel` on SMS | a basic message with the text, then one basic message per card with its image as `media` and its text as the caption |
 | `buttons` or `list` on iMessage or SMS | a basic message whose text lists the choices; the contact answers in words |
 | `list` on Telegram | a `buttons` message with one reply button per row (up to 10) |
 | more than 3 `buttons` on WhatsApp | a `list` (up to 10 rows) |
 | `template` on Telegram, iMessage or SMS | a basic message (these channels have no templates and no 24-hour window) |
 | `location` on iMessage or SMS | a basic message with a maps link |
-| `contact_card` on iMessage or SMS | a basic message with the name, numbers and email addresses |
+| `contact_card` on iMessage | a basic message with the person's vCard (a `.vcf` file) as `media` of `type` `document`, shown as a contact card; your own dedicated line's card with `imessage.line_contact_card` |
+| `contact_card` on SMS | a basic message with the name, numbers and email addresses |
 | `effect` on Telegram, WhatsApp or SMS | a basic message with the text |
 | `voice` on SMS | a basic message with `media` of `type` `audio` (from a number with MMS) |
 | a Telegram reaction emoji outside its list | one of Telegram's reaction emoji (listed on the reaction endpoint) |
