@@ -830,9 +830,12 @@ paths:
         | SMS (US, pilot) | No | |
 
         On Telegram, send instead: a basic message with the text, then one
-        `buttons` message with an image `header` per card. On iMessage and SMS:
-        a basic message with the text, then one basic message per card with its
-        image as `media` and its text as the caption.
+        `buttons` message with an image `header` per card. On iMessage, a basic
+        message with `imessage.media_group` sends 2 to 10 images and videos as one
+        message the contact swipes through, with one caption; for cards with their
+        own text, send a basic message with the text, then one basic message per
+        card with its image as `media` and its text as the caption. On SMS: the
+        same basic messages, one per card.
 
         Sends a row of cards the contact scrolls sideways, under one text. Each
         card has an image or video, optional text, and its own buttons. A tap on a
@@ -988,8 +991,12 @@ paths:
         | iMessage | No | |
         | SMS (US, pilot) | No | |
 
-        On iMessage and SMS, send instead: a basic message with the name, phone
-        numbers and email addresses in its text.
+        On iMessage, send instead: a basic message with the person's vCard (a
+        `.vcf` file) as `media` of `type` `document`, which Messages shows as a
+        contact card the contact taps to save; on a dedicated line,
+        `imessage.line_contact_card` attaches your line's own card. On SMS: a
+        basic message with the name, phone numbers and email addresses in its
+        text.
 
         Sends a person's or business's contact card, which the contact can save.
         On Telegram a card without a phone number answers `422
