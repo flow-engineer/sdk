@@ -15,7 +15,7 @@ curl -X POST https://api.flow.engineer/v0/sandbox/keys
 It allows 1 contact and 50 messages on the Telegram sandbox for 7 days. Sign in with
 a Flow account (`npx @flow-engineer/messaging login`) to keep the app and send 100
 messages to each of 3 contacts. Your own account's apps get the free trial instead,
-from your first sign-in: 25 people per channel, across all the account's apps, on
+from your first sign-in: 1,000 people per channel, across all the account's apps, on
 Flow's shared Telegram bot and iMessage line (and on WhatsApp's shared sender when it
 opens). Details: [Keys & sign-in](https://flow.engineer/docs/unified-messaging-api/get-a-key).
 

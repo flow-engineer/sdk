@@ -95,7 +95,7 @@ info:
     app they own or claim** (a person may claim up to 10 apps). `GET /v0/app` shows what is left of the allowance
     (`allowance`). When it runs out, sends answer `403 permission` with
     `channel_code` `sandbox_allowance_used`. The apps of your own account get the
-    free trial instead, started at your first sign-in: 25 people per channel,
+    free trial instead, started at your first sign-in: 1,000 people per channel,
     across all the account's apps, on Flow's shared Telegram bot and iMessage
     line (and on WhatsApp's shared sender when it opens); their `allowance` is
     absent.
@@ -3989,7 +3989,7 @@ components:
             shows the caps and what is used. Replies count: a person your app
             replies to is one of the people counted.
 
-            - `free`: the free trial, 25 people per channel across all the account's
+            - `free`: the free trial, 1,000 people per channel across all the account's
               apps (not per day or month).
             - `shared`: Flow's shared senders, with caps per channel a day and a
               month (200 a day and 300 a month today).

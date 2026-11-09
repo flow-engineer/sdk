@@ -30,7 +30,7 @@ cli: "npx @flow-engineer/messaging init"     # the same; writes .env, prints the
 sandbox_allowance:                           # outbound messages only (inbound is free); GET /v0/app returns allowance
   anonymous: {{allowance.anonymous.contacts}} contact, {{allowance.anonymous.messages_per_contact}} messages in total, Telegram sandbox; the key expires after {{allowance.anonymous.key_ttl_days}} days
   signed_in: {{allowance.signed_in.contacts}} contacts x {{allowance.signed_in.messages_per_contact}} messages each, no expiry, one allowance per person over the apps they claimed   # iMessage is in neither
-  own_account: the free trial instead, from your first sign-in: {{trial.people_per_channel}} people per channel, across all the account's apps, on the shared Telegram bot and iMessage line   # no allowance in GET /v0/app
+  own_account: the free trial instead, from your first sign-in: {{trial.people_per_channel|num}} people per channel, across all the account's apps, on the shared Telegram bot and iMessage line   # no allowance in GET /v0/app
 sign_in: "npx @flow-engineer/messaging login"   # a Flow account (flow.engineer); or POST /v0/device/authorizations, then poll POST /v0/device/token
 dashboard: {{dashboard_url}}    # sign in with a Flow account; keys: the agent's Developers › API keys
 flow_team: [{{team_contacts|comma}}]   # US SMS numbers, help with WhatsApp, support; never send secrets (section 14)
@@ -155,7 +155,7 @@ one, writes both to `.env`, and prints the sandbox link and join message).
 | Messages | {{allowance.anonymous.messages_per_contact}} in total | {{allowance.signed_in.messages_per_contact}} per contact |
 | Key expires | after {{allowance.anonymous.key_ttl_days}} days | never |
 
-Apps of your own Flow account (made in the dashboard or by `{{trial.cli_setup}}`) get the free trial instead, started at your first sign-in: {{trial.people_per_channel}} people per channel, across all the account's apps, on Flow's shared Telegram bot and iMessage line (and on WhatsApp's shared sender when it opens), and `GET /v0/app` shows no `allowance`.
+Apps of your own Flow account (made in the dashboard or by `{{trial.cli_setup}}`) get the free trial instead, started at your first sign-in: {{trial.people_per_channel|num}} people per channel, across all the account's apps, on Flow's shared Telegram bot and iMessage line (and on WhatsApp's shared sender when it opens), and `GET /v0/app` shows no `allowance`.
 
 The allowance covers the Telegram sandbox (and WhatsApp's when it opens; it is not
 live yet), not iMessage. Only messages your agent sends count; inbound messages are

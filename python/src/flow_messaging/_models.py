@@ -35,7 +35,7 @@ class Account(BaseModel):
     shows the caps and what is used. Replies count: a person your app
     replies to is one of the people counted.
 
-    - `free`: the free trial, 25 people per channel across all the account's
+    - `free`: the free trial, 1,000 people per channel across all the account's
       apps (not per day or month).
     - `shared`: Flow's shared senders, with caps per channel a day and a
       month (200 a day and 300 a month today).
