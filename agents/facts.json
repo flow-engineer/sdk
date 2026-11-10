@@ -85,7 +85,7 @@
   },
   "webhook_timeout_seconds": 10,
   "sending": {
-    "$comment": "The send gate's defaults for dedicated senders; a sender's own limits (its `limits`) win. messages_per_second and burst: Telegram bots' pacing. new_contacts_*: conversations a sender may start, per channel (Telegram's are effectively unlimited). abuse: the signals that throttle a dedicated sender (iMessage lines have stricter ones of their own).",
+    "$comment": "The send gate's defaults for dedicated senders; a sender's own limits (its `limits`) win. messages_per_second and burst: Telegram bots' pacing. new_contacts_*: conversations a sender may start, per channel (Telegram's are effectively unlimited). abuse: the signals that throttle a dedicated sender; all off (0) since 10 Nov 2026.",
     "messages_per_second": 20,
     "burst": 40,
     "new_contacts_per_day": {
@@ -98,13 +98,13 @@
       "imessage": 4
     },
     "abuse": {
-      "same_text_contacts": 20,
+      "same_text_contacts": 0,
       "same_text_window_minutes": 60,
-      "unanswered_min_starts": 20,
+      "unanswered_min_starts": 0,
       "unanswered_percent": 80,
       "unanswered_window_hours": 72,
       "unanswered_grace_hours": 24,
-      "blocks": 10,
+      "blocks": 0,
       "blocks_window_hours": 24,
       "throttle_hours": 24
     }

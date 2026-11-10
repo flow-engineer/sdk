@@ -1084,12 +1084,12 @@ Any of these signals throttles a dedicated sender for 24 hours (`sender.status_c
 into existing conversations still go, and it recovers by itself. The start that trips a
 signal still goes.
 
-- The same first message (text or caption, ignoring case and spacing) to 20 new
+- The same first message (text or caption, ignoring case and spacing) to 0 new
   contacts within 60 minutes. Templates and media without a caption do not
   count: personalise first messages.
 - Of the starts from the last 72 hours that are more than 24 hours old, at
-  least 20, with 80% or more never answered.
-- 10 contacts blocking the sender within 24 hours.
+  least 0, with 80% or more never answered.
+- 0 contacts blocking the sender within 24 hours.
 
 iMessage lines have stricter limits of their own.
 
@@ -1462,7 +1462,7 @@ Connect its token with a live key (`POST /v0/senders`). Flow sets the bot's webh
 - There is no bulk endpoint: one `POST /v0/messages` per person, each with its own `Idempotency-Key` (for example `campaign-7-ct_...`), from a queue of your own.
 - Telegram: a bot can message only people who started it, so a broadcast goes to people who wrote to your bot. Each bot sends about 20 messages a second (burst 40); faster answers `429 rate_limited` with `Retry-After`. The per-key request limit is 600 a minute on the free plan (`RateLimit-*` headers), so 5,000 messages take about 9 minutes.
 - New conversations per sender are budgeted: the sender's `limits` (`new_contacts_per_day`, `new_contacts_per_hour`) show today's numbers; past them a start answers `429 new_contact_limit` with `retry_after`: queue it, do not loop. iMessage lines start no cold conversations; WhatsApp needs a template and Meta's tier caps new contacts a day; SMS needs consent.
-- The same first message to 20 new contacts within an hour throttles a dedicated sender for 24 hours (`429 sender_throttled` on starts; replies still go). Personalise first messages; templates and media without a caption do not count. Limits and signals: quickstart section 10.
+- The same first message to 0 new contacts within an hour throttles a dedicated sender for 24 hours (`429 sender_throttled` on starts; replies still go). Personalise first messages; templates and media without a caption do not count. Limits and signals: quickstart section 10.
 - Every send still ends `message.sent` or `message.failed`: count those, not the `202`s.
 
 ### Delete a person's data (GDPR)
