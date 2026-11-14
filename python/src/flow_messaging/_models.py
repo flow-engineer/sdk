@@ -1651,8 +1651,8 @@ class ConversationStartedEvent(EventBase):
     sandbox bot's confirmation ("You're connected to <your app>") is sent by Flow
     itself, not by your app, and counts against no allowance. Then the join
     message reaches your app as the contact's first `message.received`, after
-    this event, with the code taken out: the words before `(ref <code>)`,
-    trimmed (`Join Sandbox app`), or `Hi` when nothing is left; a Telegram link's
+    this event, with the code taken out: the text before and after `(ref <code>)`
+    joined by a space and trimmed (`Join Sandbox app`), or `Hi` when nothing else is in the message; a Telegram link's
     start arrives as `/start`. Answer it like any first message. Joining again
     in a conversation that already exists sends no new `conversation.started`;
     the join message is still delivered as a `message.received`.
@@ -3273,7 +3273,7 @@ class Sender(BaseModel):
         str | None, Field(examples=["Join Sandbox app (ref brave-otter-40718263)"])
     ] = None
     """
-    Shared senders only. The whole message a contact sends to this sender to join your app: `Join `, the app's name (`my agent` when it has none; a name over 60 characters is cut at a word), then the app's `sandbox_join_code` (from `GET /v0/app`) in brackets after `ref`, for example `Join Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that ends with `(ref <code>)` joins, so a tester may change the words before the brackets, and messages from older links, such as `Hi Sandbox app (ref brave-otter-40718263)`, still join.
+    Shared senders only. The whole message a contact sends to this sender to join your app: `Join `, the app's name (`my agent` when it has none; a name over 60 characters is cut at a word), then the app's `sandbox_join_code` (from `GET /v0/app`) in brackets after `ref`, for example `Join Sandbox app (ref brave-otter-40718263)`. Show it to testers as is; a link that fills it in (wa.me, sms:) carries it URL-encoded. Any message of at most 160 characters that holds `(ref <code>)` joins, so a tester may add words before or after the brackets, and messages from older links, such as `Hi Sandbox app (ref brave-otter-40718263)`, still join.
 
     """
     created_at: datetime
