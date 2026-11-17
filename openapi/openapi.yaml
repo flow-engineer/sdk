@@ -332,6 +332,14 @@ info:
     inbound order is best-effort (arrival order); messages sent within about a second
     of each other may arrive out of order.
 
+    An app that orders messages itself can ask Flow to skip its hold for late
+    WhatsApp webhooks: set `settings.inbound_ordering` to `consumer` (`PATCH /v0/app`).
+    Each inbound message is then delivered as soon as Flow has it, in the order Flow
+    received it, and carries `sent_at`, the time the person sent it, to order by. Two
+    messages with the same `sent_at` cannot be told apart by anyone (WhatsApp reports
+    whole seconds): keep them in the order they arrived. The default, `flow`, is the
+    ordering above.
+
     ## Retention and deleting contacts
 
     Message content and files are kept for your plan's retention period (30 days by
@@ -2934,6 +2942,37 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+    patch:
+      operationId: updateApp
+      tags: [App]
+      summary: Change the calling app's settings
+      description: |
+        Changes the one setting an app may change with its own key:
+        `settings.inbound_ordering`, who puts inbound WhatsApp messages in order. Send
+        only what changes; the answer is the app as `GET /v0/app` returns it. The
+        change applies to messages that arrive after it, in both modes of the app.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApp"
+      responses:
+        "200":
+          description: The calling app, with its new settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppContext"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
   /v0/sandbox/keys:
     post:
       operationId: createSandboxKey
@@ -4149,6 +4188,32 @@ components:
         auto_read:
           type: boolean
           description: When on, Flow marks inbound messages as read as soon as your endpoint accepts them.
+        inbound_ordering:
+          type: string
+          enum: [flow, consumer]
+          default: flow
+          description: |
+            Who puts inbound WhatsApp messages in order. `flow` (the default): Flow holds
+            each message for a short while (2 seconds) so a late webhook can still take
+            its place, then delivers in the order the person sent them. `consumer`: Flow
+            delivers each message at once, in the order it received them, and your
+            endpoint, stream or poll orders them by `sent_at` (Flow's own agent framework
+            does). Messages Flow received out of order then reach you out of order,
+            by up to about a second in practice. Set it with `PATCH /v0/app`; other
+            channels are unchanged.
+    UpdateApp:
+      type: object
+      description: The settings an app may change with its own key.
+      required: [settings]
+      properties:
+        settings:
+          type: object
+          description: Only the settings sent change.
+          properties:
+            inbound_ordering:
+              type: string
+              enum: [flow, consumer]
+              description: See `AppSettings.inbound_ordering`.
     ApiKey:
       type: object
       description: An API key's record. The key itself is shown once, at creation, and stored only as a hash.
@@ -5192,6 +5257,17 @@ components:
           type: string
           format: date-time
           description: When Flow received (inbound) or accepted (outbound) the message.
+        sent_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: |
+            Inbound messages only. When the person sent the message, by the channel's
+            clock; `created_at` is when Flow received it, which can be later. WhatsApp
+            gives whole seconds, so two messages sent in the same second have the same
+            `sent_at` and cannot be put in order by it. Absent when the channel gives
+            no time (Telegram and iMessage deliver in the order Flow orders them) and on
+            messages stored before this field existed.
         updated_at:
           type: string
           format: date-time
