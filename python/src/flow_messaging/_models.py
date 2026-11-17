@@ -233,6 +233,18 @@ class AppSettings(BaseModel):
     """
     When on, Flow marks inbound messages as read as soon as your endpoint accepts them.
     """
+    inbound_ordering: Literal["flow", "consumer"] | None = "flow"
+    """
+    Who puts inbound WhatsApp messages in order. `flow` (the default): Flow holds
+    each message for a short while (2 seconds) so a late webhook can still take
+    its place, then delivers in the order the person sent them. `consumer`: Flow
+    delivers each message at once, in the order it received them, and your
+    endpoint, stream or poll orders them by `sent_at` (Flow's own agent framework
+    does). Messages Flow received out of order then reach you out of order,
+    by up to about a second in practice. Set it with `PATCH /v0/app`; other
+    channels are unchanged.
+
+    """
 
 
 class BasicImessageOptions(BaseModel):
@@ -2223,6 +2235,16 @@ class Message(BaseModel):
     """
     When Flow received (inbound) or accepted (outbound) the message.
     """
+    sent_at: datetime | None = None
+    """
+    Inbound messages only. When the person sent the message, by the channel's
+    clock; `created_at` is when Flow received it, which can be later. WhatsApp
+    gives whole seconds, so two messages sent in the same second have the same
+    `sent_at` and cannot be put in order by it. Absent when the channel gives
+    no time (Telegram and iMessage deliver in the order Flow orders them) and on
+    messages stored before this field existed.
+
+    """
     updated_at: datetime | None = None
     """
     When the status last changed.
@@ -3509,6 +3531,20 @@ class SenderStatusChangedEvent(EventBase):
     data: SenderStatusChangedData
 
 
+class Settings(BaseModel):
+    """
+    Only the settings sent change.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    inbound_ordering: Literal["flow", "consumer"] | None = None
+    """
+    See `AppSettings.inbound_ordering`.
+    """
+
+
 class SignedInUser(BaseModel):
     """
     The person who approved a device sign-in.
@@ -4785,6 +4821,20 @@ class MessageContent14(UnsendMessage):
     `location`, `contact_card` and `file_blocked`. Sent: every kind but
     `button_reply` and `file_blocked`.
 
+    """
+
+
+class UpdateApp(BaseModel):
+    """
+    The settings an app may change with its own key.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    settings: Settings
+    """
+    Only the settings sent change.
     """
 
 

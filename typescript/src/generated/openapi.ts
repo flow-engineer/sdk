@@ -1538,7 +1538,14 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change the calling app's settings
+         * @description Changes the one setting an app may change with its own key:
+         *     `settings.inbound_ordering`, who puts inbound WhatsApp messages in order. Send
+         *     only what changes; the answer is the app as `GET /v0/app` returns it. The
+         *     change applies to messages that arrive after it, in both modes of the app.
+         */
+        patch: operations["updateApp"];
         trace?: never;
     };
     "/v0/sandbox/keys": {
@@ -2235,6 +2242,30 @@ export interface components {
             transcription: boolean;
             /** @description When on, Flow marks inbound messages as read as soon as your endpoint accepts them. */
             auto_read: boolean;
+            /**
+             * @description Who puts inbound WhatsApp messages in order. `flow` (the default): Flow holds
+             *     each message for a short while (2 seconds) so a late webhook can still take
+             *     its place, then delivers in the order the person sent them. `consumer`: Flow
+             *     delivers each message at once, in the order it received them, and your
+             *     endpoint, stream or poll orders them by `sent_at` (Flow's own agent framework
+             *     does). Messages Flow received out of order then reach you out of order,
+             *     by up to about a second in practice. Set it with `PATCH /v0/app`; other
+             *     channels are unchanged.
+             * @default flow
+             * @enum {string}
+             */
+            inbound_ordering?: "flow" | "consumer";
+        };
+        /** @description The settings an app may change with its own key. */
+        UpdateApp: {
+            /** @description Only the settings sent change. */
+            settings: {
+                /**
+                 * @description See `AppSettings.inbound_ordering`.
+                 * @enum {string}
+                 */
+                inbound_ordering?: "flow" | "consumer";
+            };
         };
         /** @description An API key's record. The key itself is shown once, at creation, and stored only as a hash. */
         ApiKey: {
@@ -3045,6 +3076,16 @@ export interface components {
              * @description When Flow received (inbound) or accepted (outbound) the message.
              */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description Inbound messages only. When the person sent the message, by the channel's
+             *     clock; `created_at` is when Flow received it, which can be later. WhatsApp
+             *     gives whole seconds, so two messages sent in the same second have the same
+             *     `sent_at` and cannot be put in order by it. Absent when the channel gives
+             *     no time (Telegram and iMessage deliver in the order Flow orders them) and on
+             *     messages stored before this field existed.
+             */
+            readonly sent_at?: string;
             /**
              * Format: date-time
              * @description When the status last changed.
@@ -7067,6 +7108,37 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description The calling app. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppContext"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateApp: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateApp"];
+            };
+        };
+        responses: {
+            /** @description The calling app, with its new settings. */
             200: {
                 headers: {
                     [name: string]: unknown;
