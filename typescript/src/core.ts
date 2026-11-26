@@ -177,6 +177,8 @@ export class HttpClient {
     const url = this.url(args.path, args.query);
 
     for (let attempt = 0; ; attempt++) {
+      // A signal that is already aborted never fires "abort" again: stop before sending.
+      if (opts.signal?.aborted) throw opts.signal.reason;
       let res: Response;
       const timeout = opts.timeout ?? this.timeout;
       const ctrl = new AbortController();

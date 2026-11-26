@@ -138,6 +138,14 @@ describe("client", () => {
     expect(keys.size).toBe(1);
   });
 
+  it("sends nothing when the caller's signal is already aborted", async () => {
+    const { fetch, calls } = mockFetch(() => json(202, message(1, "ok")));
+    const flow = new FlowMessaging({ apiKey: key, fetch });
+    const reason = new Error("cancelled");
+    await expect(flow.messages.send(ids.conv, "ok", { signal: AbortSignal.abort(reason) })).rejects.toBe(reason);
+    expect(calls).toHaveLength(0);
+  });
+
   it("uses the caller's idempotency key", async () => {
     const { fetch, calls } = mockFetch(() => json(202, message(1, "ok")));
     await new FlowMessaging({ apiKey: key, fetch }).messages.send(ids.conv, "ok", { idempotencyKey: "evt_1:0" });
