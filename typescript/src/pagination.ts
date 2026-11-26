@@ -66,9 +66,10 @@ export class PagePromise<T extends { id: string }> implements PromiseLike<Page<T
   /** Collects every item (up to `limit`) into an array. */
   async toArray(limit = Infinity): Promise<T[]> {
     const out: T[] = [];
+    if (limit <= 0) return out;
     for await (const item of this) {
-      if (out.length >= limit) break;
       out.push(item);
+      if (out.length >= limit) break;
     }
     return out;
   }
