@@ -66,11 +66,25 @@ def test_missing_header(header: str | None) -> None:
         verify_signature(BODY, header, SECRET, now=NOW)
 
 
-@pytest.mark.parametrize("header", ["junk", f"t={NOW}", "v1=abc", "t=soon,v1=abc", f"t={NOW},v1=", f"t={NOW},v0=abc"])
+@pytest.mark.parametrize(
+    "header",
+    [
+        "junk",
+        f"t={NOW}",
+        "v1=abc",
+        "t=soon,v1=abc",
+        f"t={NOW},v1=",
+        f"t={NOW},v0=abc",
+        # str.isdigit() is true for these, and int() rejects some of them.
+        "t=\u00b2,v1=abc",
+        "t=\u0661\u0662\u0663,v1=abc",
+    ],
+)
 def test_malformed_header(header: str) -> None:
     assert parse_signature_header(header) is None
     with pytest.raises(WebhookSignatureError, match="malformed"):
         verify_signature(BODY, header, SECRET, now=NOW)
+    assert Webhooks().verify(BODY, header, SECRET) is False
 
 
 def test_timestamp_tolerance() -> None:

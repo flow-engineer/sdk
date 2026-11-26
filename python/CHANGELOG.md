@@ -23,6 +23,10 @@
   dashboard link where the workspace owner buys it.
 - `ErrorBody.channel_code` also lists `plan_ended` (a paid plan ended: live keys and
   live sends are paused). 
+- Fixed: a `Flow-Signature` header whose `t` holds a non-ASCII digit (for example `t=²`)
+  raised `ValueError` from `verify_signature`, `construct_event` and `Webhooks.verify`, so an
+  endpoint answered 500. It is now a malformed signature: `WebhookSignatureError`, and
+  `verify` returns `False`.
 
 ## 0.2.2
 
