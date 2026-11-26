@@ -221,6 +221,20 @@ describe("client", () => {
     expect(calls.at(-1)!.url.searchParams.get("limit")).toBe("2");
   });
 
+  it("toArray stops at its limit without fetching the next page", async () => {
+    const { fetch, calls } = mockFetch((req) => {
+      const after = req.url.searchParams.get("after");
+      if (!after) return json(200, { data: [{ id: "conv_a" }, { id: "conv_b" }], has_more: true });
+      return json(200, { data: [{ id: "conv_c" }], has_more: false });
+    });
+    const flow = new FlowMessaging({ apiKey: key, fetch });
+    const items = await flow.conversations.list({ limit: 2 }).toArray(2);
+    expect(items.map((c) => c.id)).toEqual(["conv_a", "conv_b"]);
+    expect(calls).toHaveLength(1);
+    expect(await flow.conversations.list().toArray(0)).toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
   it("sends repeated query parameters for event types", async () => {
     const { fetch, calls } = mockFetch(() => json(200, { data: [], has_more: false }));
     await new FlowMessaging({ apiKey: key, fetch }).events.list({ type: ["message.received", "reaction.added"] });
