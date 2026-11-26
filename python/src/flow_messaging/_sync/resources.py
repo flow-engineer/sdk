@@ -31,6 +31,9 @@ from ..types import (
     Event,
     EventType,
     File,
+    LinePool,
+    LinePoolList,
+    LinePoolPlacement,
     ListMessage,
     LocationMessage,
     Message,
@@ -42,6 +45,7 @@ from ..types import (
     SimulatedInbound,
     Template,
     TemplateMessage,
+    TemplateSyncResult,
     TranscriptEntry,
     TypingImessageOptions,
     TypingMessage,
@@ -488,6 +492,98 @@ class Templates:
 
     def delete(self, template_id: str) -> Deleted:
         return parse(Deleted, self._http.request("DELETE", _path("/v0/templates", template_id)))
+
+    def sync(self, *, sender: str, idempotency_key: str | None = None) -> TemplateSyncResult:
+        """Reads every template of a dedicated WhatsApp sender's account from Meta now and
+        brings Flow's list in line. The answer says what was added, updated, disabled or skipped."""
+        res = self._http.request(
+            "POST", "/v0/templates/sync", json=body(sender=sender), idempotency=idempotency_key
+        )
+        return parse(TemplateSyncResult, res)
+
+
+class LinePools:
+    """Several dedicated lines of one channel, sent from as one: a message can name the
+    pool as its sender."""
+
+    def __init__(self, http: HTTPClient) -> None:
+        self._http = http
+
+    def list(self) -> LinePoolList:
+        """The app's line pools. Not paged: ``has_more`` is always false."""
+        return parse(LinePoolList, self._http.request("GET", "/v0/line_pools"))
+
+    def create(
+        self,
+        *,
+        channel: Channel,
+        lines: Sequence[Mapping[str, Any] | Any],
+        assign: str | None = None,
+        follow_inbound: bool | None = None,
+        on_line_down: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> LinePool:
+        """Makes a pool of dedicated lines of one channel; each line is ``{"sender": snd_..., "weight": 1}``."""
+        res = self._http.request(
+            "POST",
+            "/v0/line_pools",
+            json=body(
+                channel=channel,
+                lines=list(lines),
+                assign=assign,
+                follow_inbound=follow_inbound,
+                on_line_down=on_line_down,
+            ),
+            idempotency=idempotency_key,
+        )
+        return parse(LinePool, res)
+
+    def retrieve(self, line_pool_id: str) -> LinePool:
+        return parse(LinePool, self._http.request("GET", _path("/v0/line_pools", line_pool_id)))
+
+    def update(
+        self,
+        line_pool_id: str,
+        *,
+        assign: str | None = None,
+        follow_inbound: bool | None = None,
+        on_line_down: str | None = None,
+    ) -> LinePool:
+        """Changes how the pool assigns contacts, follows inbound messages or handles a line that is down."""
+        res = self._http.request(
+            "PATCH",
+            _path("/v0/line_pools", line_pool_id),
+            json=body(assign=assign, follow_inbound=follow_inbound, on_line_down=on_line_down),
+        )
+        return parse(LinePool, res)
+
+    def delete(self, line_pool_id: str) -> Deleted:
+        return parse(Deleted, self._http.request("DELETE", _path("/v0/line_pools", line_pool_id)))
+
+    def put_line(
+        self, line_pool_id: str, sender_id: str, *, state: str | None = None, weight: int | None = None
+    ) -> LinePool:
+        """Adds a line to the pool, or changes its ``state`` or ``weight``."""
+        res = self._http.request(
+            "PUT",
+            _path("/v0/line_pools", line_pool_id, "lines", sender_id),
+            json=body(state=state, weight=weight),
+        )
+        return parse(LinePool, res)
+
+    def remove_line(self, line_pool_id: str, sender_id: str) -> LinePool:
+        """Takes a line out of the pool."""
+        res = self._http.request("DELETE", _path("/v0/line_pools", line_pool_id, "lines", sender_id))
+        return parse(LinePool, res)
+
+    def place(self, line_pool_id: str, *, to: Any, sender: str | None = None) -> LinePoolPlacement:
+        """Places a contact (a contact ID, an E.164 phone number or a recipient mapping) on a line of the pool."""
+        res = self._http.request(
+            "POST",
+            _path("/v0/line_pools", line_pool_id, "placements"),
+            json=body(to=_base.recipient(to), sender=sender),
+        )
+        return parse(LinePoolPlacement, res)
 
 
 class WebhookEndpoints:

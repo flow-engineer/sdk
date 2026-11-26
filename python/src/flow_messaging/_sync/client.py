@@ -21,6 +21,7 @@ from .resources import (
     Device,
     EventLog,
     Files,
+    LinePools,
     Messages,
     Sandbox,
     Senders,
@@ -100,6 +101,7 @@ class Flow:
         self.files = Files(http)
         self.senders = Senders(http)
         self.templates = Templates(http)
+        self.line_pools = LinePools(http)
         self.webhook_endpoints = WebhookEndpoints(http)
         self.contacts = Contacts(http)
         self.app = AppResource(http)

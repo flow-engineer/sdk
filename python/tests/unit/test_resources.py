@@ -472,6 +472,68 @@ def test_templates(flow: Flow, mock: respx.MockRouter) -> None:
     assert isinstance(d, Deleted) and d.deleted and delete.called
 
 
+def test_templates_sync(flow: Flow, mock: respx.MockRouter) -> None:
+    result = {
+        "sender": SENDER,
+        "synced_at": "2026-11-26T00:00:00Z",
+        "added": 1,
+        "updated": 0,
+        "disabled": 0,
+        "skipped": [{"name": "promo", "language": "en", "reason": "A carousel template."}],
+    }
+    post = mock.post(url("/v0/templates/sync")).respond(json=result)
+    out = flow.templates.sync(sender=SENDER)
+    assert out.added == 1 and out.skipped[0].name == "promo"
+    assert sent(post) == {"sender": SENDER}
+
+
+def test_line_pools(flow: Flow, mock: respx.MockRouter) -> None:
+    pool_id = "lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T"
+    pool = {
+        "id": pool_id,
+        "channel": "whatsapp",
+        "livemode": False,
+        "assign": "balanced",
+        "follow_inbound": True,
+        "on_line_down": "move",
+        "lines": [],
+        "created_at": "2026-11-26T00:00:00Z",
+    }
+    placement = {
+        "line_pool": pool_id,
+        "contact": "ct_01JB8Z4Q3V6W0R2N7C5H1M9K4T",
+        "sender": SENDER,
+        "reason": "pinned",
+        "placed_at": "2026-11-26T00:00:00Z",
+    }
+    base = f"/v0/line_pools/{pool_id}"
+    lst = mock.get(url("/v0/line_pools")).respond(json={"data": [pool], "has_more": False})
+    post = mock.post(url("/v0/line_pools")).respond(201, json=pool)
+    get = mock.get(url(base)).respond(json=pool)
+    patch = mock.patch(url(base)).respond(json=pool)
+    put = mock.put(url(f"{base}/lines/{SENDER}")).respond(json=pool)
+    remove = mock.delete(url(f"{base}/lines/{SENDER}")).respond(json=pool)
+    place = mock.post(url(f"{base}/placements")).respond(json=placement)
+    delete = mock.delete(url(base)).respond(json=deleted(pool_id))
+
+    assert flow.line_pools.list().data[0].id == pool_id and lst.called
+    created = flow.line_pools.create(channel="whatsapp", lines=[{"sender": SENDER, "weight": 2}], assign="weighted")
+    assert created.id == pool_id
+    assert sent(post) == {"channel": "whatsapp", "lines": [{"sender": SENDER, "weight": 2}], "assign": "weighted"}
+    assert "idempotency-key" in post.calls.last.request.headers
+    assert flow.line_pools.retrieve(pool_id).id == pool_id and get.called
+    flow.line_pools.update(pool_id, follow_inbound=False)
+    assert sent(patch) == {"follow_inbound": False}
+    flow.line_pools.put_line(pool_id, SENDER, state="draining")
+    assert sent(put) == {"state": "draining"}
+    assert flow.line_pools.remove_line(pool_id, SENDER).id == pool_id and remove.called
+    placed = flow.line_pools.place(pool_id, to="+919876543210", sender=SENDER)
+    assert placed.reason == "pinned"
+    assert sent(place) == {"to": {"phone": "+919876543210"}, "sender": SENDER}
+    d = flow.line_pools.delete(pool_id)
+    assert isinstance(d, Deleted) and d.deleted and delete.called
+
+
 def test_webhook_endpoints(flow: Flow, mock: respx.MockRouter) -> None:
     post = mock.post(url("/v0/webhook_endpoints")).respond(201, json=webhook_endpoint(secret="whsec_x"))
     lst = mock.get(url("/v0/webhook_endpoints")).respond(json=page([webhook_endpoint()]))
