@@ -2193,12 +2193,16 @@ export interface components {
             /** @description Always `false`. */
             has_more: boolean;
         };
+        /** @description What to change on one line of a pool. Send only the fields you want to change. */
         LinePoolLineRequest: {
             state?: components["schemas"]["LinePoolLineState"];
+            /** @description Its share of new contacts under `weighted`. */
             weight?: number;
         };
+        /** @description The channel and the lines of a new pool. */
         LinePoolCreateRequest: {
             channel: components["schemas"]["Channel"];
+            /** @description The dedicated lines of the pool, one entry per sender. All are lines of `channel`. */
             lines: {
                 sender: components["schemas"]["SenderId"];
                 /** @description Default 1. */
@@ -2209,13 +2213,16 @@ export interface components {
             follow_inbound?: boolean;
             on_line_down?: components["schemas"]["LinePoolOnLineDown"];
         };
+        /** @description The settings of a pool to change. Send at least one; fields you leave out keep their value. */
         LinePoolUpdateRequest: {
             assign?: components["schemas"]["LinePoolAssign"];
             follow_inbound?: boolean;
             on_line_down?: components["schemas"]["LinePoolOnLineDown"];
         };
+        /** @description Places a contact on a line of the pool. */
         LinePoolPlaceRequest: {
             to: components["schemas"]["Recipient"];
+            /** @description The line of the pool to place the contact on. */
             sender?: components["schemas"]["SenderId"];
         };
         /** @description The line a contact belongs to in a pool. */

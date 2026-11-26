@@ -4263,6 +4263,7 @@ components:
           description: Always `false`.
     LinePoolLineRequest:
       type: object
+      description: What to change on one line of a pool. Send only the fields you want to change.
       additionalProperties: false
       properties:
         state:
@@ -4271,8 +4272,10 @@ components:
           type: integer
           minimum: 1
           maximum: 100
+          description: Its share of new contacts under `weighted`.
     LinePoolCreateRequest:
       type: object
+      description: The channel and the lines of a new pool.
       additionalProperties: false
       required: [channel, lines]
       properties:
@@ -4280,6 +4283,7 @@ components:
           $ref: "#/components/schemas/Channel"
         lines:
           type: array
+          description: The dedicated lines of the pool, one entry per sender. All are lines of `channel`.
           minItems: 1
           maxItems: 50
           items:
@@ -4303,6 +4307,7 @@ components:
           $ref: "#/components/schemas/LinePoolOnLineDown"
     LinePoolUpdateRequest:
       type: object
+      description: The settings of a pool to change. Send at least one; fields you leave out keep their value.
       additionalProperties: false
       minProperties: 1
       properties:
@@ -4314,6 +4319,7 @@ components:
           $ref: "#/components/schemas/LinePoolOnLineDown"
     LinePoolPlaceRequest:
       type: object
+      description: Places a contact on a line of the pool.
       additionalProperties: false
       required: [to]
       properties:
@@ -4321,6 +4327,7 @@ components:
           $ref: "#/components/schemas/Recipient"
         sender:
           $ref: "#/components/schemas/SenderId"
+          description: The line of the pool to place the contact on.
     LinePoolPlacement:
       type: object
       description: The line a contact belongs to in a pool.

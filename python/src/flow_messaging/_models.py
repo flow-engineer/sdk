@@ -2005,6 +2005,10 @@ class LinePool(BaseModel):
 
 
 class LinePoolCreateRequest(BaseModel):
+    """
+    The channel and the lines of a new pool.
+    """
+
     model_config = ConfigDict(
         extra="allow",
     )
@@ -2013,6 +2017,9 @@ class LinePoolCreateRequest(BaseModel):
     A messaging channel. `sms` is US SMS and MMS (in pilot), from dedicated numbers only.
     """
     lines: list[Line]
+    """
+    The dedicated lines of the pool, one entry per sender. All are lines of `channel`.
+    """
     assign: Literal["balanced", "round_robin", "weighted", "manual"] | None = None
     """
     How a pool places a contact who belongs to no line yet. `balanced`: the line
@@ -2071,6 +2078,10 @@ class LinePoolLine(BaseModel):
 
 
 class LinePoolLineRequest(BaseModel):
+    """
+    What to change on one line of a pool. Send only the fields you want to change.
+    """
+
     model_config = ConfigDict(
         extra="allow",
     )
@@ -2081,6 +2092,9 @@ class LinePoolLineRequest(BaseModel):
 
     """
     weight: int | None = None
+    """
+    Its share of new contacts under `weighted`.
+    """
 
 
 class LinePoolList(BaseModel):
@@ -2099,6 +2113,10 @@ class LinePoolList(BaseModel):
 
 
 class LinePoolPlaceRequest(BaseModel):
+    """
+    Places a contact on a line of the pool.
+    """
+
     model_config = ConfigDict(
         extra="allow",
     )
@@ -2107,7 +2125,7 @@ class LinePoolPlaceRequest(BaseModel):
         None
     )
     """
-    A sender ID, `snd_` and a ULID.
+    The line of the pool to place the contact on.
     """
 
 
@@ -2143,6 +2161,10 @@ class LinePoolPlacement(BaseModel):
 
 
 class LinePoolUpdateRequest(BaseModel):
+    """
+    The settings of a pool to change. Send at least one; fields you leave out keep their value.
+    """
+
     model_config = ConfigDict(
         extra="allow",
     )
