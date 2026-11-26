@@ -1019,6 +1019,12 @@ class Conversation(BaseModel):
     """
     A sender ID, `snd_` and a ULID.
     """
+    line_pool: Annotated[str | None, Field(examples=["lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])] = (
+        None
+    )
+    """
+    The line pool the conversation's sender is in; absent when it is in none.
+    """
     contact: Annotated[str | None, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])] = (
         None
     )
@@ -1115,6 +1121,12 @@ class ConversationRef(BaseModel):
     sender: Annotated[str, Field(examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
     """
     A sender ID, `snd_` and a ULID.
+    """
+    line_pool: Annotated[str | None, Field(examples=["lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])] = (
+        None
+    )
+    """
+    The line pool the conversation's sender is in; absent when it is in none.
     """
     contact: Annotated[str | None, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])] = (
         None
@@ -1925,6 +1937,237 @@ class ImessageStyle(BaseModel):
     style: Literal["bold", "italic", "underline", "strikethrough", "big", "small", "shake", "nod", "explode", "ripple", "bloom", "jitter"]
     """
     The style. `big` and `small` set the text's size; `shake`, `nod`, `explode`, `ripple`, `bloom` and `jitter` animate it.
+    """
+
+
+class Line(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    sender: Annotated[str, Field(examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
+    """
+    A sender ID, `snd_` and a ULID.
+    """
+    weight: int | None = None
+    """
+    Default 1.
+    """
+
+
+class LinePool(BaseModel):
+    """
+    Several dedicated lines of one channel, sent from as one.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    id: Annotated[str, Field(examples=["lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
+    """
+    A line pool's ID, `lpl_` and a ULID.
+    """
+    channel: Literal["telegram", "whatsapp", "imessage", "sms"]
+    """
+    A messaging channel. `sms` is US SMS and MMS (in pilot), from dedicated numbers only.
+    """
+    livemode: bool
+    assign: Literal["balanced", "round_robin", "weighted", "manual"]
+    """
+    How a pool places a contact who belongs to no line yet. `balanced`: the line
+    with the most room today (its daily new-contact limit, warm-up included, less
+    the people it messaged in the last 24 hours and the contacts placed on it and not
+    yet written to). `round_robin`: the lines in turn. `weighted`: the line with the
+    fewest contacts placed in the last 24 hours for its `weight`. `manual`: only by
+    `POST /v0/line_pools/{line_pool_id}/placements` with `sender`; a send to a contact
+    with no line answers `400 invalid_request` with `param` `sender`. Lines `draining`
+    or `paused`, lines that are not active or throttled, and lines that cannot write
+    first, are never picked; with none left, placing a new contact answers `403
+    permission`.
+
+    """
+    follow_inbound: bool
+    """
+    When a contact writes to a line of the pool other than theirs, that line
+    becomes theirs (a reply there is not a first message). `false`: they keep
+    their line, and that conversation is still answered on the line they wrote to.
+
+    """
+    on_line_down: Literal["move", "hold"]
+    """
+    What happens to a contact whose line is paused, suspended or banned when a
+    message goes to them through the pool. `move`: they are placed on another line
+    by the pool's rule and the message goes from there. `hold`: they keep their
+    line, and the send waits or fails as that line's would.
+
+    """
+    lines: list[LinePoolLine]
+    created_at: datetime
+
+
+class LinePoolCreateRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    channel: Literal["telegram", "whatsapp", "imessage", "sms"]
+    """
+    A messaging channel. `sms` is US SMS and MMS (in pilot), from dedicated numbers only.
+    """
+    lines: list[Line]
+    assign: Literal["balanced", "round_robin", "weighted", "manual"] | None = None
+    """
+    How a pool places a contact who belongs to no line yet. `balanced`: the line
+    with the most room today (its daily new-contact limit, warm-up included, less
+    the people it messaged in the last 24 hours and the contacts placed on it and not
+    yet written to). `round_robin`: the lines in turn. `weighted`: the line with the
+    fewest contacts placed in the last 24 hours for its `weight`. `manual`: only by
+    `POST /v0/line_pools/{line_pool_id}/placements` with `sender`; a send to a contact
+    with no line answers `400 invalid_request` with `param` `sender`. Lines `draining`
+    or `paused`, lines that are not active or throttled, and lines that cannot write
+    first, are never picked; with none left, placing a new contact answers `403
+    permission`.
+
+    """
+    follow_inbound: bool | None = None
+    """
+    Default `true`.
+    """
+    on_line_down: Literal["move", "hold"] | None = None
+    """
+    What happens to a contact whose line is paused, suspended or banned when a
+    message goes to them through the pool. `move`: they are placed on another line
+    by the pool's rule and the message goes from there. `hold`: they keep their
+    line, and the send waits or fails as that line's would.
+
+    """
+
+
+class LinePoolLine(BaseModel):
+    """
+    One line of a pool.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    sender: Annotated[str, Field(examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
+    """
+    A sender ID, `snd_` and a ULID.
+    """
+    state: Literal["active", "draining", "paused"]
+    """
+    `active`: takes new contacts. `draining`: keeps its contacts, takes no new ones
+    (to retire a line slowly). `paused`: nothing goes from it through the pool.
+
+    """
+    weight: int
+    """
+    Its share of new contacts under `weighted`.
+    """
+    contacts: int
+    """
+    Contacts placed on the line.
+    """
+    added_at: datetime
+
+
+class LinePoolLineRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    state: Literal["active", "draining", "paused"] | None = None
+    """
+    `active`: takes new contacts. `draining`: keeps its contacts, takes no new ones
+    (to retire a line slowly). `paused`: nothing goes from it through the pool.
+
+    """
+    weight: int | None = None
+
+
+class LinePoolList(BaseModel):
+    """
+    The app's line pools.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    data: list[LinePool]
+    has_more: bool
+    """
+    Always `false`.
+    """
+
+
+class LinePoolPlaceRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    to: Recipient
+    sender: Annotated[str | None, Field(examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])] = (
+        None
+    )
+    """
+    A sender ID, `snd_` and a ULID.
+    """
+
+
+class LinePoolPlacement(BaseModel):
+    """
+    The line a contact belongs to in a pool.
+    """
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    line_pool: Annotated[str, Field(examples=["lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
+    """
+    A line pool's ID, `lpl_` and a ULID.
+    """
+    contact: Annotated[str, Field(examples=["ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0"])]
+    """
+    A contact ID, `ct_` and a ULID.
+    """
+    sender: Annotated[str, Field(examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
+    """
+    A sender ID, `snd_` and a ULID.
+    """
+    reason: Literal["conversation", "rule", "pinned", "wrote", "moved"]
+    """
+    Why the contact is on this line: `conversation` (they had one there when the
+    pool or line was set up), `rule` (the pool's `assign`), `pinned` (placed with
+    `sender`), `wrote` (they wrote to it, `follow_inbound`), `moved` (their
+    line was taken out or went down).
+
+    """
+    placed_at: datetime
+
+
+class LinePoolUpdateRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    assign: Literal["balanced", "round_robin", "weighted", "manual"] | None = None
+    """
+    How a pool places a contact who belongs to no line yet. `balanced`: the line
+    with the most room today (its daily new-contact limit, warm-up included, less
+    the people it messaged in the last 24 hours and the contacts placed on it and not
+    yet written to). `round_robin`: the lines in turn. `weighted`: the line with the
+    fewest contacts placed in the last 24 hours for its `weight`. `manual`: only by
+    `POST /v0/line_pools/{line_pool_id}/placements` with `sender`; a send to a contact
+    with no line answers `400 invalid_request` with `param` `sender`. Lines `draining`
+    or `paused`, lines that are not active or throttled, and lines that cannot write
+    first, are never picked; with none left, placing a new contact answers `403
+    permission`.
+
+    """
+    follow_inbound: bool | None = None
+    on_line_down: Literal["move", "hold"] | None = None
+    """
+    What happens to a contact whose line is paused, suspended or banned when a
+    message goes to them through the pool. `move`: they are placed on another line
+    by the pool's rule and the message goes from there. `hold`: they keep their
+    line, and the send waits or fails as that line's would.
+
     """
 
 
@@ -3729,9 +3972,16 @@ class StartConversationTarget(BaseModel):
     model_config = ConfigDict(
         extra="allow",
     )
-    sender: Annotated[str, Field(examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"])]
+    sender: Annotated[
+        str,
+        Field(
+            examples=["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T", "lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T"]
+        ),
+    ]
     """
-    A sender ID, `snd_` and a ULID.
+    A sender ID (`snd_`), or a line pool's ID (`lpl_`): the message then goes from
+    the line of the pool the contact belongs to.
+
     """
     to: Recipient
     consent: Consent | None = None

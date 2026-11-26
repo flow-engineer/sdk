@@ -1569,6 +1569,14 @@ Every operation in the spec (https://api.flow.engineer/openapi.yaml):
 | `POST /v0/senders` | Request a dedicated sender |
 | `GET /v0/senders/{sender_id}` | Get a sender |
 | `DELETE /v0/senders/{sender_id}` | Disconnect a sender |
+| `GET /v0/line_pools` | List line pools |
+| `POST /v0/line_pools` | Create a line pool |
+| `GET /v0/line_pools/{line_pool_id}` | Get a line pool |
+| `PATCH /v0/line_pools/{line_pool_id}` | Update a line pool |
+| `DELETE /v0/line_pools/{line_pool_id}` | Delete a line pool |
+| `PUT /v0/line_pools/{line_pool_id}/lines/{sender_id}` | Add a line to a pool, or change it |
+| `DELETE /v0/line_pools/{line_pool_id}/lines/{sender_id}` | Take a line out of a pool |
+| `POST /v0/line_pools/{line_pool_id}/placements` | Place a contact on a line |
 | `GET /v0/templates` | List templates |
 | `POST /v0/templates` | Create a template |
 | `POST /v0/templates/sync` | Sync templates from WhatsApp |

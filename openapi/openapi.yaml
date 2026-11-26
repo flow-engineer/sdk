@@ -455,6 +455,11 @@ tags:
     description: Media in and out. Flow fetches channel media for you and serves it through short-lived URLs.
   - name: Senders
     description: The Telegram bots, WhatsApp numbers, iMessage lines and SMS numbers your app sends from.
+  - name: Line pools
+    description: |
+      Several of your dedicated lines on one channel, sent from as one. Each contact
+      belongs to one line of the pool, and everything to them goes from that line;
+      new contacts are spread over the lines by the pool's rule.
   - name: Templates
     description: WhatsApp message templates, mirrored from Meta with their approval status.
   - name: Webhook endpoints
@@ -2591,6 +2596,290 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /v0/line_pools:
+    parameters:
+      - $ref: "#/components/parameters/FlowVersion"
+    get:
+      operationId: listLinePools
+      tags: [Line pools]
+      summary: List line pools
+      description: The app's line pools in this mode, oldest first, each with its lines.
+      responses:
+        "200":
+          description: The app's line pools.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinePoolList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createLinePool
+      tags: [Line pools]
+      summary: Create a line pool
+      description: |
+        Makes a pool of the app's dedicated lines on one channel (iMessage for now; another
+        channel answers `422 unsupported_content`, `param` `channel`). Every line must be
+        one of the app's live dedicated senders on that channel and in no other pool
+        (otherwise `400 invalid_request` naming it in `param`, such as `lines[1].sender`).
+        Test keys see no dedicated lines, so a pool is live mode only (`403 permission`).
+
+        Contacts that already have a conversation with one of the lines belong to that
+        line from the start (with several, the one they wrote to last); everyone else
+        is placed on their first send through the pool.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinePoolCreateRequest"
+            examples:
+              two_lines:
+                summary: Two iMessage lines, new contacts where there is most room
+                value:
+                  channel: imessage
+                  lines:
+                    - sender: snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T
+                    - sender: snd_01JB8Z4Q3V6W0R2N7C5H1M9K4V
+      responses:
+        "201":
+          description: The new pool.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinePool"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          $ref: "#/components/responses/UnsupportedContent"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /v0/line_pools/{line_pool_id}:
+    parameters:
+      - $ref: "#/components/parameters/LinePoolId"
+      - $ref: "#/components/parameters/FlowVersion"
+    get:
+      operationId: getLinePool
+      tags: [Line pools]
+      summary: Get a line pool
+      description: One pool with its settings and lines, and how many contacts each line holds.
+      responses:
+        "200":
+          description: The pool.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinePool"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateLinePool
+      tags: [Line pools]
+      summary: Update a line pool
+      description: Changes the pool's settings. Fields you leave out are kept. Contacts already placed stay on their lines.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinePoolUpdateRequest"
+      responses:
+        "200":
+          description: The updated pool.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinePool"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteLinePool
+      tags: [Line pools]
+      summary: Delete a line pool
+      description: |
+        Deletes the pool and its placements. The lines stay as standalone senders, and
+        every conversation stays on the line it is on; sending with the pool's ID then
+        answers `404 not_found`.
+      responses:
+        "200":
+          description: The pool was deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deleted"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /v0/line_pools/{line_pool_id}/lines/{sender_id}:
+    parameters:
+      - $ref: "#/components/parameters/LinePoolId"
+      - $ref: "#/components/parameters/SenderId"
+      - $ref: "#/components/parameters/FlowVersion"
+    put:
+      operationId: putLinePoolLine
+      tags: [Line pools]
+      summary: Add a line to a pool, or change it
+      description: |
+        Adds one of the app's dedicated lines to the pool, or changes the `state` or
+        `weight` of a line already in it. A line in another pool answers `400
+        invalid_request` with `param` `sender_id`. An added line takes new contacts at
+        once (contacts with a conversation on it already belong to it); `draining` keeps
+        its contacts but takes no new ones; `paused` sends nothing from it, and its
+        contacts move or wait as the pool's `on_line_down` says.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinePoolLineRequest"
+      responses:
+        "200":
+          description: The pool with the line.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinePool"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteLinePoolLine
+      tags: [Line pools]
+      summary: Take a line out of a pool
+      description: |
+        The line becomes a standalone sender again; its conversations stay on it. Its
+        contacts are placed on another line of the pool at their next send through the
+        pool (a first message from that line, so it counts as a new conversation there).
+        The pool's last line cannot be taken out (`400 invalid_request`): delete the pool.
+      responses:
+        "200":
+          description: The pool without the line.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinePool"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /v0/line_pools/{line_pool_id}/placements:
+    parameters:
+      - $ref: "#/components/parameters/LinePoolId"
+      - $ref: "#/components/parameters/FlowVersion"
+    post:
+      operationId: placeLinePoolContact
+      tags: [Line pools]
+      summary: Place a contact on a line
+      description: |
+        Returns the line a contact belongs to, placing them by the pool's rule first if
+        they have none: so you can learn a new contact's line before writing to them
+        (to plan sends against that line's limits), and a later send through the pool
+        goes from the same line. With `sender`, the contact is moved to that line of the
+        pool (a later message to them starts a new conversation there; the old one
+        stays). Calling it again with the same body returns the same placement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinePoolPlaceRequest"
+      responses:
+        "200":
+          description: The contact's placement.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinePoolPlacement"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/PermissionDenied"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/Error"
+
   /v0/webhook_endpoints:
     parameters:
       - $ref: "#/components/parameters/FlowVersion"
@@ -3593,6 +3882,13 @@ components:
       description: The sender's ID.
       schema:
         $ref: "#/components/schemas/SenderId"
+    LinePoolId:
+      name: line_pool_id
+      in: path
+      required: true
+      description: The line pool's ID.
+      schema:
+        $ref: "#/components/schemas/LinePoolId"
     TemplateId:
       name: template_id
       in: path
@@ -3799,6 +4095,18 @@ components:
       description: A sender ID, `snd_` and a ULID.
       pattern: "^snd_[0-9A-HJKMNP-TV-Z]{26}$"
       examples: ["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T"]
+    LinePoolId:
+      type: string
+      description: A line pool's ID, `lpl_` and a ULID.
+      pattern: "^lpl_[0-9A-HJKMNP-TV-Z]{26}$"
+      examples: ["lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T"]
+    SenderOrLinePoolId:
+      type: string
+      description: |
+        A sender ID (`snd_`), or a line pool's ID (`lpl_`): the message then goes from
+        the line of the pool the contact belongs to.
+      pattern: "^(snd|lpl)_[0-9A-HJKMNP-TV-Z]{26}$"
+      examples: ["snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T", "lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T"]
     ContactId:
       type: string
       description: A contact ID, `ct_` and a ULID.
@@ -3862,6 +4170,179 @@ components:
         deleted:
           type: boolean
           description: Always `true`.
+
+    # ---------------------------------------------------------------- line pools
+    LinePoolAssign:
+      type: string
+      enum: [balanced, round_robin, weighted, manual]
+      description: |
+        How a pool places a contact who belongs to no line yet. `balanced`: the line
+        with the most room today (its daily new-contact limit, warm-up included, less
+        the people it messaged in the last 24 hours and the contacts placed on it and not
+        yet written to). `round_robin`: the lines in turn. `weighted`: the line with the
+        fewest contacts placed in the last 24 hours for its `weight`. `manual`: only by
+        `POST /v0/line_pools/{line_pool_id}/placements` with `sender`; a send to a contact
+        with no line answers `400 invalid_request` with `param` `sender`. Lines `draining`
+        or `paused`, lines that are not active or throttled, and lines that cannot write
+        first, are never picked; with none left, placing a new contact answers `403
+        permission`.
+    LinePoolOnLineDown:
+      type: string
+      enum: [move, hold]
+      description: |
+        What happens to a contact whose line is paused, suspended or banned when a
+        message goes to them through the pool. `move`: they are placed on another line
+        by the pool's rule and the message goes from there. `hold`: they keep their
+        line, and the send waits or fails as that line's would.
+    LinePoolLineState:
+      type: string
+      enum: [active, draining, paused]
+      description: |
+        `active`: takes new contacts. `draining`: keeps its contacts, takes no new ones
+        (to retire a line slowly). `paused`: nothing goes from it through the pool.
+    LinePoolLine:
+      type: object
+      description: One line of a pool.
+      required: [sender, state, weight, contacts, added_at]
+      properties:
+        sender:
+          $ref: "#/components/schemas/SenderId"
+        state:
+          $ref: "#/components/schemas/LinePoolLineState"
+        weight:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Its share of new contacts under `weighted`.
+        contacts:
+          type: integer
+          minimum: 0
+          description: Contacts placed on the line.
+        added_at:
+          type: string
+          format: date-time
+    LinePool:
+      type: object
+      description: Several dedicated lines of one channel, sent from as one.
+      required: [id, channel, livemode, assign, follow_inbound, on_line_down, lines, created_at]
+      properties:
+        id:
+          $ref: "#/components/schemas/LinePoolId"
+        channel:
+          $ref: "#/components/schemas/Channel"
+        livemode:
+          type: boolean
+        assign:
+          $ref: "#/components/schemas/LinePoolAssign"
+        follow_inbound:
+          type: boolean
+          description: |
+            When a contact writes to a line of the pool other than theirs, that line
+            becomes theirs (a reply there is not a first message). `false`: they keep
+            their line, and that conversation is still answered on the line they wrote to.
+        on_line_down:
+          $ref: "#/components/schemas/LinePoolOnLineDown"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinePoolLine"
+        created_at:
+          type: string
+          format: date-time
+    LinePoolList:
+      type: object
+      description: The app's line pools.
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinePool"
+        has_more:
+          type: boolean
+          description: Always `false`.
+    LinePoolLineRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        state:
+          $ref: "#/components/schemas/LinePoolLineState"
+        weight:
+          type: integer
+          minimum: 1
+          maximum: 100
+    LinePoolCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [channel, lines]
+      properties:
+        channel:
+          $ref: "#/components/schemas/Channel"
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [sender]
+            properties:
+              sender:
+                $ref: "#/components/schemas/SenderId"
+              weight:
+                type: integer
+                minimum: 1
+                maximum: 100
+                description: Default 1.
+        assign:
+          $ref: "#/components/schemas/LinePoolAssign"
+        follow_inbound:
+          type: boolean
+          description: Default `true`.
+        on_line_down:
+          $ref: "#/components/schemas/LinePoolOnLineDown"
+    LinePoolUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        assign:
+          $ref: "#/components/schemas/LinePoolAssign"
+        follow_inbound:
+          type: boolean
+        on_line_down:
+          $ref: "#/components/schemas/LinePoolOnLineDown"
+    LinePoolPlaceRequest:
+      type: object
+      additionalProperties: false
+      required: [to]
+      properties:
+        to:
+          $ref: "#/components/schemas/Recipient"
+        sender:
+          $ref: "#/components/schemas/SenderId"
+    LinePoolPlacement:
+      type: object
+      description: The line a contact belongs to in a pool.
+      required: [line_pool, contact, sender, reason, placed_at]
+      properties:
+        line_pool:
+          $ref: "#/components/schemas/LinePoolId"
+        contact:
+          $ref: "#/components/schemas/ContactId"
+        sender:
+          $ref: "#/components/schemas/SenderId"
+        reason:
+          type: string
+          enum: [conversation, rule, pinned, wrote, moved]
+          description: |
+            Why the contact is on this line: `conversation` (they had one there when the
+            pool or line was set up), `rule` (the pool's `assign`), `pinned` (placed with
+            `sender`), `wrote` (they wrote to it, `follow_inbound`), `moved` (their
+            line was taken out or went down).
+        placed_at:
+          type: string
+          format: date-time
 
     # ---------------------------------------------------------------- errors
     ErrorType:
@@ -5096,6 +5577,9 @@ components:
           $ref: "#/components/schemas/Channel"
         sender:
           $ref: "#/components/schemas/SenderId"
+        line_pool:
+          $ref: "#/components/schemas/LinePoolId"
+          description: The line pool the conversation's sender is in; absent when it is in none.
         contact:
           $ref: "#/components/schemas/ContactId"
           description: The contact the conversation is with. Always set when `type` is `direct`; absent on group conversations (each message's `from` says who wrote).
@@ -5138,6 +5622,9 @@ components:
           $ref: "#/components/schemas/Channel"
         sender:
           $ref: "#/components/schemas/SenderId"
+        line_pool:
+          $ref: "#/components/schemas/LinePoolId"
+          description: The line pool the conversation's sender is in; absent when it is in none.
         contact:
           $ref: "#/components/schemas/ContactId"
           description: The contact the conversation is with. Always set when `type` is `direct`; absent on group conversations (the message's `from` says who wrote).
@@ -5366,7 +5853,7 @@ components:
       required: [sender, to]
       properties:
         sender:
-          $ref: "#/components/schemas/SenderId"
+          $ref: "#/components/schemas/SenderOrLinePoolId"
         to:
           $ref: "#/components/schemas/Recipient"
         consent:

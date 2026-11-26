@@ -1319,6 +1319,148 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v0/line_pools": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List line pools
+         * @description The app's line pools in this mode, oldest first, each with its lines.
+         */
+        get: operations["listLinePools"];
+        put?: never;
+        /**
+         * Create a line pool
+         * @description Makes a pool of the app's dedicated lines on one channel (iMessage for now; another
+         *     channel answers `422 unsupported_content`, `param` `channel`). Every line must be
+         *     one of the app's live dedicated senders on that channel and in no other pool
+         *     (otherwise `400 invalid_request` naming it in `param`, such as `lines[1].sender`).
+         *     Test keys see no dedicated lines, so a pool is live mode only (`403 permission`).
+         *
+         *     Contacts that already have a conversation with one of the lines belong to that
+         *     line from the start (with several, the one they wrote to last); everyone else
+         *     is placed on their first send through the pool.
+         */
+        post: operations["createLinePool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v0/line_pools/{line_pool_id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The line pool's ID. */
+                line_pool_id: components["parameters"]["LinePoolId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a line pool
+         * @description One pool with its settings and lines, and how many contacts each line holds.
+         */
+        get: operations["getLinePool"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a line pool
+         * @description Deletes the pool and its placements. The lines stay as standalone senders, and
+         *     every conversation stays on the line it is on; sending with the pool's ID then
+         *     answers `404 not_found`.
+         */
+        delete: operations["deleteLinePool"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a line pool
+         * @description Changes the pool's settings. Fields you leave out are kept. Contacts already placed stay on their lines.
+         */
+        patch: operations["updateLinePool"];
+        trace?: never;
+    };
+    "/v0/line_pools/{line_pool_id}/lines/{sender_id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The line pool's ID. */
+                line_pool_id: components["parameters"]["LinePoolId"];
+                /** @description The sender's ID. */
+                sender_id: components["parameters"]["SenderId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add a line to a pool, or change it
+         * @description Adds one of the app's dedicated lines to the pool, or changes the `state` or
+         *     `weight` of a line already in it. A line in another pool answers `400
+         *     invalid_request` with `param` `sender_id`. An added line takes new contacts at
+         *     once (contacts with a conversation on it already belong to it); `draining` keeps
+         *     its contacts but takes no new ones; `paused` sends nothing from it, and its
+         *     contacts move or wait as the pool's `on_line_down` says.
+         */
+        put: operations["putLinePoolLine"];
+        post?: never;
+        /**
+         * Take a line out of a pool
+         * @description The line becomes a standalone sender again; its conversations stay on it. Its
+         *     contacts are placed on another line of the pool at their next send through the
+         *     pool (a first message from that line, so it counts as a new conversation there).
+         *     The pool's last line cannot be taken out (`400 invalid_request`): delete the pool.
+         */
+        delete: operations["deleteLinePoolLine"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v0/line_pools/{line_pool_id}/placements": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The line pool's ID. */
+                line_pool_id: components["parameters"]["LinePoolId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Place a contact on a line
+         * @description Returns the line a contact belongs to, placing them by the pool's rule first if
+         *     they have none: so you can learn a new contact's line before writing to them
+         *     (to plan sends against that line's limits), and a later send through the pool
+         *     goes from the same line. With `sender`, the contact is moved to that line of the
+         *     pool (a later message to them starts a new conversation there; the old one
+         *     stays). Calling it again with the same body returns the same placement.
+         */
+        post: operations["placeLinePoolContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v0/webhook_endpoints": {
         parameters: {
             query?: never;
@@ -1922,6 +2064,18 @@ export interface components {
          */
         SenderId: string;
         /**
+         * @description A line pool's ID, `lpl_` and a ULID.
+         * @example lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T
+         */
+        LinePoolId: string;
+        /**
+         * @description A sender ID (`snd_`), or a line pool's ID (`lpl_`): the message then goes from
+         *     the line of the pool the contact belongs to.
+         * @example snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T
+         * @example lpl_01JB8Z4Q3V6W0R2N7C5H1M9K4T
+         */
+        SenderOrLinePoolId: string;
+        /**
          * @description A contact ID, `ct_` and a ULID.
          * @example ct_01JB8ZB2J4K6N8Q0S2V4W6Y8A0
          */
@@ -1976,6 +2130,109 @@ export interface components {
             id: string;
             /** @description Always `true`. */
             deleted: boolean;
+        };
+        /**
+         * @description How a pool places a contact who belongs to no line yet. `balanced`: the line
+         *     with the most room today (its daily new-contact limit, warm-up included, less
+         *     the people it messaged in the last 24 hours and the contacts placed on it and not
+         *     yet written to). `round_robin`: the lines in turn. `weighted`: the line with the
+         *     fewest contacts placed in the last 24 hours for its `weight`. `manual`: only by
+         *     `POST /v0/line_pools/{line_pool_id}/placements` with `sender`; a send to a contact
+         *     with no line answers `400 invalid_request` with `param` `sender`. Lines `draining`
+         *     or `paused`, lines that are not active or throttled, and lines that cannot write
+         *     first, are never picked; with none left, placing a new contact answers `403
+         *     permission`.
+         * @enum {string}
+         */
+        LinePoolAssign: "balanced" | "round_robin" | "weighted" | "manual";
+        /**
+         * @description What happens to a contact whose line is paused, suspended or banned when a
+         *     message goes to them through the pool. `move`: they are placed on another line
+         *     by the pool's rule and the message goes from there. `hold`: they keep their
+         *     line, and the send waits or fails as that line's would.
+         * @enum {string}
+         */
+        LinePoolOnLineDown: "move" | "hold";
+        /**
+         * @description `active`: takes new contacts. `draining`: keeps its contacts, takes no new ones
+         *     (to retire a line slowly). `paused`: nothing goes from it through the pool.
+         * @enum {string}
+         */
+        LinePoolLineState: "active" | "draining" | "paused";
+        /** @description One line of a pool. */
+        LinePoolLine: {
+            sender: components["schemas"]["SenderId"];
+            state: components["schemas"]["LinePoolLineState"];
+            /** @description Its share of new contacts under `weighted`. */
+            weight: number;
+            /** @description Contacts placed on the line. */
+            contacts: number;
+            /** Format: date-time */
+            added_at: string;
+        };
+        /** @description Several dedicated lines of one channel, sent from as one. */
+        LinePool: {
+            id: components["schemas"]["LinePoolId"];
+            channel: components["schemas"]["Channel"];
+            livemode: boolean;
+            assign: components["schemas"]["LinePoolAssign"];
+            /**
+             * @description When a contact writes to a line of the pool other than theirs, that line
+             *     becomes theirs (a reply there is not a first message). `false`: they keep
+             *     their line, and that conversation is still answered on the line they wrote to.
+             */
+            follow_inbound: boolean;
+            on_line_down: components["schemas"]["LinePoolOnLineDown"];
+            lines: components["schemas"]["LinePoolLine"][];
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description The app's line pools. */
+        LinePoolList: {
+            data: components["schemas"]["LinePool"][];
+            /** @description Always `false`. */
+            has_more: boolean;
+        };
+        LinePoolLineRequest: {
+            state?: components["schemas"]["LinePoolLineState"];
+            weight?: number;
+        };
+        LinePoolCreateRequest: {
+            channel: components["schemas"]["Channel"];
+            lines: {
+                sender: components["schemas"]["SenderId"];
+                /** @description Default 1. */
+                weight?: number;
+            }[];
+            assign?: components["schemas"]["LinePoolAssign"];
+            /** @description Default `true`. */
+            follow_inbound?: boolean;
+            on_line_down?: components["schemas"]["LinePoolOnLineDown"];
+        };
+        LinePoolUpdateRequest: {
+            assign?: components["schemas"]["LinePoolAssign"];
+            follow_inbound?: boolean;
+            on_line_down?: components["schemas"]["LinePoolOnLineDown"];
+        };
+        LinePoolPlaceRequest: {
+            to: components["schemas"]["Recipient"];
+            sender?: components["schemas"]["SenderId"];
+        };
+        /** @description The line a contact belongs to in a pool. */
+        LinePoolPlacement: {
+            line_pool: components["schemas"]["LinePoolId"];
+            contact: components["schemas"]["ContactId"];
+            sender: components["schemas"]["SenderId"];
+            /**
+             * @description Why the contact is on this line: `conversation` (they had one there when the
+             *     pool or line was set up), `rule` (the pool's `assign`), `pinned` (placed with
+             *     `sender`), `wrote` (they wrote to it, `follow_inbound`), `moved` (their
+             *     line was taken out or went down).
+             * @enum {string}
+             */
+            reason: "conversation" | "rule" | "pinned" | "wrote" | "moved";
+            /** Format: date-time */
+            placed_at: string;
         };
         /**
          * @description What went wrong. A closed list: new types arrive only with a new API version.
@@ -2964,6 +3221,8 @@ export interface components {
             type?: components["schemas"]["ConversationType"];
             channel: components["schemas"]["Channel"];
             sender: components["schemas"]["SenderId"];
+            /** @description The line pool the conversation's sender is in; absent when it is in none. */
+            line_pool?: components["schemas"]["LinePoolId"];
             /** @description The contact the conversation is with. Always set when `type` is `direct`; absent on group conversations (each message's `from` says who wrote). */
             contact?: components["schemas"]["ContactId"];
             group?: components["schemas"]["Group"];
@@ -2996,6 +3255,8 @@ export interface components {
             type?: components["schemas"]["ConversationType"];
             channel: components["schemas"]["Channel"];
             sender: components["schemas"]["SenderId"];
+            /** @description The line pool the conversation's sender is in; absent when it is in none. */
+            line_pool?: components["schemas"]["LinePoolId"];
             /** @description The contact the conversation is with. Always set when `type` is `direct`; absent on group conversations (the message's `from` says who wrote). */
             contact?: components["schemas"]["ContactId"];
             /** @description Group conversations only. The group chat's name, when it has one. */
@@ -3165,7 +3426,7 @@ export interface components {
         StartConversationRequest: components["schemas"]["StartBasicMessage"] | components["schemas"]["StartTemplateMessage"];
         /** @description Where a start goes. Part of every `StartConversationRequest`. */
         StartConversationTarget: {
-            sender: components["schemas"]["SenderId"];
+            sender: components["schemas"]["SenderOrLinePoolId"];
             to: components["schemas"]["Recipient"];
             /** @description SMS only. The contact's consent, required when they have never texted any of your SMS numbers; recorded on the contact. On another channel it answers `422 unsupported_content` with `param` `consent`. */
             consent?: components["schemas"]["Consent"];
@@ -5347,6 +5608,8 @@ export interface components {
         FileId: components["schemas"]["FileId"];
         /** @description The sender's ID. */
         SenderId: components["schemas"]["SenderId"];
+        /** @description The line pool's ID. */
+        LinePoolId: components["schemas"]["LinePoolId"];
         /** @description The template's ID. */
         TemplateId: components["schemas"]["TemplateId"];
         /** @description The webhook endpoint's ID. */
@@ -6782,6 +7045,287 @@ export interface operations {
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             502: components["responses"]["ChannelError"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listLinePools: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The app's line pools. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinePoolList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createLinePool: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+                /**
+                 * @description A unique string (up to 255 characters) that makes this request safe to retry.
+                 *     A repeat with the same key within 24 hours returns the first answer instead of
+                 *     acting again. See "Idempotency" in the introduction.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinePoolCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description The new pool. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinePool"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["UnsupportedContent"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getLinePool: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The line pool's ID. */
+                line_pool_id: components["parameters"]["LinePoolId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pool. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinePool"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteLinePool: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The line pool's ID. */
+                line_pool_id: components["parameters"]["LinePoolId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pool was deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deleted"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateLinePool: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The line pool's ID. */
+                line_pool_id: components["parameters"]["LinePoolId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinePoolUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated pool. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinePool"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    putLinePoolLine: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The line pool's ID. */
+                line_pool_id: components["parameters"]["LinePoolId"];
+                /** @description The sender's ID. */
+                sender_id: components["parameters"]["SenderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["LinePoolLineRequest"];
+            };
+        };
+        responses: {
+            /** @description The pool with the line. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinePool"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteLinePoolLine: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The line pool's ID. */
+                line_pool_id: components["parameters"]["LinePoolId"];
+                /** @description The sender's ID. */
+                sender_id: components["parameters"]["SenderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pool without the line. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinePool"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["Error"];
+        };
+    };
+    placeLinePoolContact: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to use, as a date. Without it, the version pinned to your app when it was created is used. */
+                "Flow-Version"?: components["parameters"]["FlowVersion"];
+            };
+            path: {
+                /** @description The line pool's ID. */
+                line_pool_id: components["parameters"]["LinePoolId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinePoolPlaceRequest"];
+            };
+        };
+        responses: {
+            /** @description The contact's placement. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinePoolPlacement"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["PermissionDenied"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            429: components["responses"]["RateLimited"];
             default: components["responses"]["Error"];
         };
     };
