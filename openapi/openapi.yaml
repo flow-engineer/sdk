@@ -2253,6 +2253,16 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/SenderRequest"
+            examples:
+              whatsapp:
+                summary: A WhatsApp number you already have
+                value:
+                  channel: whatsapp
+                  display_name: Acme Support
+                  country: IN
+                  whatsapp_phone_number_id: "106540352242922"
+                  whatsapp_business_account_id: "102290129340398"
+                  whatsapp_access_token: "<system user access token>"
       responses:
         "200":
           description: The sender is connected and `active`, or an already connected bot's token, or number's token and app secret, were updated in place. A WhatsApp number's answer carries `setup`.
@@ -2716,6 +2726,16 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/LinePoolUpdateRequest"
+            examples:
+              weighted:
+                summary: Share new contacts by weight, and keep each contact on their line
+                value:
+                  assign: weighted
+                  follow_inbound: false
+              hold:
+                summary: Wait on a paused line instead of moving the contact
+                value:
+                  on_line_down: hold
       responses:
         "200":
           description: The updated pool.
@@ -2787,6 +2807,15 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/LinePoolLineRequest"
+            examples:
+              drain:
+                summary: Retire a line slowly
+                value:
+                  state: draining
+              weight:
+                summary: Give a line a larger share of new contacts
+                value:
+                  weight: 3
       responses:
         "200":
           description: The pool with the line.
@@ -2858,6 +2887,12 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/LinePoolPlaceRequest"
+            examples:
+              by_phone:
+                summary: Place a phone number on a line
+                value:
+                  to: {phone: "+919876543210"}
+                  sender: snd_01JB8Z4Q3V6W0R2N7C5H1M9K4T
       responses:
         "200":
           description: The contact's placement.
@@ -2930,6 +2965,13 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/WebhookEndpointCreateRequest"
+            examples:
+              replies:
+                summary: Replies and delivery failures
+                value:
+                  url: "https://example.com/flow/webhooks"
+                  events: [message.received, message.failed]
+                  description: Production inbox
       responses:
         "201":
           description: The endpoint was created. `secret` is included this once.
@@ -2987,6 +3029,15 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/WebhookEndpointUpdateRequest"
+            examples:
+              disable:
+                summary: Stop deliveries without deleting the endpoint
+                value:
+                  enabled: false
+              events:
+                summary: Change the events delivered
+                value:
+                  events: [message.received, message.delivered, message.read]
       responses:
         "200":
           description: The updated webhook endpoint.
@@ -3246,6 +3297,11 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateApp"
+            examples:
+              inbound_ordering:
+                summary: Order inbound messages in your own code
+                value:
+                  settings: {inbound_ordering: consumer}
       responses:
         "200":
           description: The calling app, with its new settings.
@@ -3299,6 +3355,11 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/SandboxKeyRequest"
+            examples:
+              named:
+                summary: Name the sandbox app
+                value:
+                  name: Acme support bot
       responses:
         "201":
           description: The new app and its key. The key and the claim token are not shown again.
@@ -3353,6 +3414,16 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/DeviceAuthorizationRequest"
+            examples:
+              cli:
+                summary: Sign in from a CLI
+                value:
+                  client_name: flow CLI
+              claim:
+                summary: Claim a sandbox app when the person approves
+                value:
+                  client_name: flow CLI
+                  claim_token: "<claim_token from POST /v0/sandbox/keys>"
       responses:
         "201":
           description: The sign-in was started. Show the person the link and code, then poll for the key.
@@ -3395,6 +3466,11 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/DeviceTokenRequest"
+            examples:
+              poll:
+                summary: Poll a device sign-in
+                value:
+                  device_code: "<device_code from POST /v0/device/authorizations>"
       responses:
         "200":
           description: The sign-in's state, with the key once it is approved.
