@@ -30,6 +30,13 @@ import type {
   ListSendersParams,
   ListTemplatesParams,
   ListMessage,
+  LinePool,
+  LinePoolCreateRequest,
+  LinePoolLineRequest,
+  LinePoolList,
+  LinePoolPlaceRequest,
+  LinePoolPlacement,
+  LinePoolUpdateRequest,
   ListWebhookEndpointsParams,
   LocationMessage,
   Message,
@@ -46,6 +53,8 @@ import type {
   Template,
   TemplateCreateRequest,
   TemplateMessage,
+  TemplateSyncRequest,
+  TemplateSyncResult,
   TestConversationRequest,
   TestTranscriptParams,
   TranscriptEntry,
@@ -393,6 +402,53 @@ export class Templates {
 
   delete(templateId: string, options?: RequestOptions): Promise<Deleted> {
     return this.http.request({ method: "DELETE", path: `/v0/templates/${enc(templateId)}`, options });
+  }
+
+  /** Reads every template of a dedicated WhatsApp sender's account from Meta now and brings Flow's list in line. The answer says what was added, updated, disabled or skipped. */
+  sync(params: TemplateSyncRequest, options?: RequestOptions): Promise<TemplateSyncResult> {
+    return this.http.request({ method: "POST", path: "/v0/templates/sync", body: params, options });
+  }
+}
+
+/** Several dedicated lines of one channel, sent from as one: a message can name the pool as its sender. */
+export class LinePools {
+  constructor(private readonly http: HttpClient) {}
+
+  /** The app's line pools. Not paged: `has_more` is always false. */
+  list(options?: RequestOptions): Promise<LinePoolList> {
+    return this.http.request({ method: "GET", path: "/v0/line_pools", options });
+  }
+
+  create(params: LinePoolCreateRequest, options?: RequestOptions): Promise<LinePool> {
+    return this.http.request({ method: "POST", path: "/v0/line_pools", body: params, options });
+  }
+
+  retrieve(linePoolId: string, options?: RequestOptions): Promise<LinePool> {
+    return this.http.request({ method: "GET", path: `/v0/line_pools/${enc(linePoolId)}`, options });
+  }
+
+  /** Changes how the pool assigns contacts, follows inbound messages or handles a line that is down. */
+  update(linePoolId: string, params: LinePoolUpdateRequest, options?: RequestOptions): Promise<LinePool> {
+    return this.http.request({ method: "PATCH", path: `/v0/line_pools/${enc(linePoolId)}`, body: params, options });
+  }
+
+  delete(linePoolId: string, options?: RequestOptions): Promise<Deleted> {
+    return this.http.request({ method: "DELETE", path: `/v0/line_pools/${enc(linePoolId)}`, options });
+  }
+
+  /** Adds a line to the pool, or changes its `state` or `weight`. */
+  putLine(linePoolId: string, senderId: string, params: LinePoolLineRequest = {}, options?: RequestOptions): Promise<LinePool> {
+    return this.http.request({ method: "PUT", path: `/v0/line_pools/${enc(linePoolId)}/lines/${enc(senderId)}`, body: params, options });
+  }
+
+  /** Takes a line out of the pool. */
+  removeLine(linePoolId: string, senderId: string, options?: RequestOptions): Promise<LinePool> {
+    return this.http.request({ method: "DELETE", path: `/v0/line_pools/${enc(linePoolId)}/lines/${enc(senderId)}`, options });
+  }
+
+  /** Places a contact on a line of the pool. */
+  place(linePoolId: string, params: LinePoolPlaceRequest, options?: RequestOptions): Promise<LinePoolPlacement> {
+    return this.http.request({ method: "POST", path: `/v0/line_pools/${enc(linePoolId)}/placements`, body: params, options });
   }
 }
 

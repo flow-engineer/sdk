@@ -20,6 +20,7 @@ from .resources import (
     AsyncDevice,
     AsyncEventLog,
     AsyncFiles,
+    AsyncLinePools,
     AsyncMessages,
     AsyncSandbox,
     AsyncSenders,
@@ -99,6 +100,7 @@ class AsyncFlow:
         self.files = AsyncFiles(http)
         self.senders = AsyncSenders(http)
         self.templates = AsyncTemplates(http)
+        self.line_pools = AsyncLinePools(http)
         self.webhook_endpoints = AsyncWebhookEndpoints(http)
         self.contacts = AsyncContacts(http)
         self.app = AsyncAppResource(http)

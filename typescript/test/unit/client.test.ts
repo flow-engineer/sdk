@@ -221,6 +221,51 @@ describe("client", () => {
     expect(calls.at(-1)!.url.searchParams.get("limit")).toBe("2");
   });
 
+  it("syncs templates from WhatsApp", async () => {
+    const result = { sender: "snd_a", synced_at: "2026-11-26T00:00:00Z", added: 1, updated: 0, disabled: 0, skipped: [] };
+    const { fetch, calls } = mockFetch(() => json(200, result));
+    const out = await new FlowMessaging({ apiKey: key, fetch }).templates.sync({ sender: "snd_a" });
+    expect(out).toEqual(result);
+    expect(calls[0]!.method).toBe("POST");
+    expect(calls[0]!.url.pathname).toBe("/v0/templates/sync");
+    expect(calls[0]!.body).toEqual({ sender: "snd_a" });
+  });
+
+  it("reaches every line pool endpoint with the right method, path and body", async () => {
+    const pool = { id: "lpl_a" };
+    const { fetch, calls } = mockFetch((req) => {
+      if (req.method === "DELETE" && req.url.pathname === "/v0/line_pools/lpl_a") return json(200, { id: "lpl_a", object: "line_pool", deleted: true });
+      if (req.url.pathname.endsWith("/placements")) return json(200, { line_pool: "lpl_a" });
+      if (req.url.pathname === "/v0/line_pools" && req.method === "GET") return json(200, { data: [pool], has_more: false });
+      return json(200, pool);
+    });
+    const flow = new FlowMessaging({ apiKey: key, fetch });
+    expect((await flow.linePools.list()).data).toEqual([pool]);
+    await flow.linePools.create({ channel: "whatsapp", lines: [{ sender: "snd_a" }] });
+    await flow.linePools.retrieve("lpl_a");
+    await flow.linePools.update("lpl_a", { assign: "weighted" });
+    await flow.linePools.putLine("lpl_a", "snd_a", { state: "draining" });
+    await flow.linePools.putLine("lpl_a", "snd_b");
+    await flow.linePools.removeLine("lpl_a", "snd_a");
+    await flow.linePools.place("lpl_a", { to: { phone: "+919876543210" }, sender: "snd_a" });
+    await flow.linePools.delete("lpl_a");
+    expect(calls.map((c) => `${c.method} ${c.url.pathname}`)).toEqual([
+      "GET /v0/line_pools",
+      "POST /v0/line_pools",
+      "GET /v0/line_pools/lpl_a",
+      "PATCH /v0/line_pools/lpl_a",
+      "PUT /v0/line_pools/lpl_a/lines/snd_a",
+      "PUT /v0/line_pools/lpl_a/lines/snd_b",
+      "DELETE /v0/line_pools/lpl_a/lines/snd_a",
+      "POST /v0/line_pools/lpl_a/placements",
+      "DELETE /v0/line_pools/lpl_a",
+    ]);
+    expect(calls[1]!.body).toEqual({ channel: "whatsapp", lines: [{ sender: "snd_a" }] });
+    expect(calls[3]!.body).toEqual({ assign: "weighted" });
+    expect(calls[4]!.body).toEqual({ state: "draining" });
+    expect(calls[7]!.body).toEqual({ to: { phone: "+919876543210" }, sender: "snd_a" });
+  });
+
   it("sends repeated query parameters for event types", async () => {
     const { fetch, calls } = mockFetch(() => json(200, { data: [], has_more: false }));
     await new FlowMessaging({ apiKey: key, fetch }).events.list({ type: ["message.received", "reaction.added"] });

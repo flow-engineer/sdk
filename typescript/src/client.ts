@@ -7,6 +7,7 @@ import {
   Device,
   EventLog,
   Files,
+  LinePools,
   Messages,
   Sandbox,
   Senders,
@@ -95,6 +96,7 @@ export class FlowMessaging {
   readonly files: Files;
   readonly senders: Senders;
   readonly templates: Templates;
+  readonly linePools: LinePools;
   readonly webhookEndpoints: WebhookEndpoints;
   readonly contacts: Contacts;
   readonly app: AppResource;
@@ -115,6 +117,7 @@ export class FlowMessaging {
     this.files = new Files(this.http);
     this.senders = new Senders(this.http);
     this.templates = new Templates(this.http);
+    this.linePools = new LinePools(this.http);
     this.webhookEndpoints = new WebhookEndpoints(this.http);
     this.contacts = new Contacts(this.http);
     this.app = new AppResource(this.http);
