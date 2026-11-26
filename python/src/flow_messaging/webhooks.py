@@ -61,7 +61,7 @@ def parse_signature_header(header: str) -> tuple[int, list[str]] | None:
     signatures: list[str] = []
     for part in header.split(","):
         k, _, v = part.strip().partition("=")
-        if k == "t" and v.isdigit():
+        if k == "t" and v.isascii() and v.isdigit():
             timestamp = int(v)
         elif k == "v1" and v:
             signatures.append(v.lower())
