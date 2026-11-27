@@ -319,14 +319,20 @@ has none), then the code in brackets after `ref`. Show it to the person as is.
 1. Open `address.link` on your phone (or make it a QR code) and tap **Start** in
    Telegram. That alone joins: Telegram sends `/start wild-otter-04508705` for you.
    Sending the `join_code` text (`Join Sandbox app (ref wild-otter-04508705)`) to the bot works too; any message
-   of at most 160 characters that ends with `(ref <code>)` joins, so messages from older
-   links (`Hi Sandbox app (ref wild-otter-04508705)`) still join.
+   of at most 160 characters (counted in characters, not bytes) that holds `(ref <code>)` joins, so messages
+   from older links (`Hi Sandbox app (ref wild-otter-04508705)`) still join. A link may carry your own text
+   (WhatsApp and iMessage prefill one message only): put it before the ref, after it, or both, as in
+   `Continue editing my site (ref wild-otter-04508705) with the new logo`. Your app gets that text as the
+   person's first message, with the `(ref <code>)` token taken out (the text before it, a space, the text
+   after it; just "Hi" when nothing else is there), and the 160 characters include the token and the code.
+   A longer message is not a join. With two `(ref ...)` tokens, the one that ends the message counts, else the
+   first; the other stays in the text.
 2. The bot answers "You're connected to <your app name>." (Flow sends that itself;
    your app sends nothing) and your app gets `conversation.started` (`data.via` =
    `sandbox_join`) with the new `conv_...`.
 3. Then the join itself arrives as the person's first `message.received` (section 5),
    with the code taken out: `/start` from the link, `Join Sandbox app` from the join
-   message (`Hi` when nothing is left before the brackets). Answer it like any first
+   message (`Hi` only when nothing else is in the message besides the token). Answer it like any first
    message; everything the person writes next arrives the same way.
 
 Good to know:
